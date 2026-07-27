@@ -61,6 +61,36 @@ struct AssignedIssuesView: View {
 
     private var issueList: some View {
         List {
+            if model.didFailRefresh, let error = model.loadError {
+                Button {
+                    Task {
+                        await refresh()
+                    }
+                } label: {
+                    Label {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Couldn’t refresh issues")
+                                .font(.callout.weight(.semibold))
+                            Text(error.description)
+                                .font(.caption)
+                        }
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: .leading
+                        )
+                    } icon: {
+                        Image(
+                            systemName:
+                                "arrow.clockwise.circle.fill"
+                        )
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.red)
+                .listRowBackground(Color.red.opacity(0.1))
+                .accessibilityIdentifier("issues.refreshError")
+            }
+
             if
                 model.displayedIssues.isEmpty,
                 !model.searchText.trimmingCharacters(
@@ -184,11 +214,7 @@ private struct GitLabIssueRow: View {
             }
 
             HStack(spacing: 12) {
-                Label(
-                    issue.state.capitalized,
-                    systemImage: "smallcircle.filled.circle"
-                )
-                .foregroundStyle(.green)
+                GitLabIssueStateLabel(issue: issue)
 
                 if !issue.assignees.isEmpty {
                     Label(
@@ -219,7 +245,7 @@ private struct GitLabIssueRow: View {
         var parts = [
             issue.references.full,
             issue.title,
-            issue.state,
+            issue.stateTitle,
             "\(issue.userNotesCount) comments",
         ]
         if issue.confidential {
@@ -237,6 +263,40 @@ private struct GitLabIssueRow: View {
             )
         }
         return parts.joined(separator: ", ")
+    }
+}
+
+private struct GitLabIssueStateLabel: View {
+    let issue: GitLabIssue
+
+    var body: some View {
+        Label(
+            issue.stateTitle,
+            systemImage: systemImage
+        )
+        .foregroundStyle(color)
+    }
+
+    private var systemImage: String {
+        switch issue.stateKind {
+        case .opened:
+            "smallcircle.filled.circle"
+        case .closed:
+            "checkmark.circle.fill"
+        case .unknown:
+            "questionmark.circle"
+        }
+    }
+
+    private var color: Color {
+        switch issue.stateKind {
+        case .opened:
+            .green
+        case .closed:
+            .purple
+        case .unknown:
+            .secondary
+        }
     }
 }
 
@@ -384,11 +444,7 @@ private struct GitLabIssueDetailContent: View {
                 .textSelection(.enabled)
 
             HStack(spacing: 12) {
-                Label(
-                    issue.state.capitalized,
-                    systemImage: "smallcircle.filled.circle"
-                )
-                .foregroundStyle(.green)
+                GitLabIssueStateLabel(issue: issue)
 
                 Label(
                     "\(issue.userNotesCount) comments",
@@ -516,12 +572,7 @@ private struct GitLabIssueDetailContent: View {
     ) -> some View {
         HStack(spacing: 12) {
             GitLabUserAvatar(
-                user: GitLabUserSummary(
-                    id: user.id,
-                    username: user.username,
-                    name: user.name,
-                    avatarURL: user.avatarURL
-                ),
+                user: user.summary,
                 size: 34
             )
 

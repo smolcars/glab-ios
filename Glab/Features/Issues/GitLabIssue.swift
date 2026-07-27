@@ -8,6 +8,15 @@ nonisolated struct GitLabIssueRoute:
     let issueIID: Int
 }
 
+nonisolated enum GitLabIssueStateKind:
+    Equatable,
+    Sendable
+{
+    case opened
+    case closed
+    case unknown
+}
+
 nonisolated struct GitLabIssueUser:
     Decodable,
     Equatable,
@@ -20,11 +29,17 @@ nonisolated struct GitLabIssueUser:
     let avatarURL: URL?
     let webURL: URL?
 
-    var displayName: String {
-        let normalizedName = name.trimmingCharacters(
-            in: .whitespacesAndNewlines
+    var summary: GitLabUserSummary {
+        GitLabUserSummary(
+            id: id,
+            username: username,
+            name: name,
+            avatarURL: avatarURL
         )
-        return normalizedName.isEmpty ? username : normalizedName
+    }
+
+    var displayName: String {
+        summary.displayName
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -98,6 +113,23 @@ nonisolated struct GitLabIssue:
         )
     }
 
+    var stateKind: GitLabIssueStateKind {
+        switch normalizedState {
+        case "opened":
+            .opened
+        case "closed":
+            .closed
+        default:
+            .unknown
+        }
+    }
+
+    var stateTitle: String {
+        normalizedState.isEmpty
+            ? "Unknown"
+            : normalizedState.capitalized
+    }
+
     var safeWebURL: URL? {
         guard
             let webURL,
@@ -114,6 +146,13 @@ nonisolated struct GitLabIssue:
         }
 
         return webURL
+    }
+
+    private var normalizedState: String {
+        state.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        .lowercased()
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -145,4 +184,3 @@ nonisolated struct GitLabIssuePage:
     let issues: [GitLabIssue]
     let nextPageURL: URL?
 }
-

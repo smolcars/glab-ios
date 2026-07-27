@@ -10,6 +10,7 @@ final class AssignedIssuesModel {
     private(set) var isLoadingInitial = false
     private(set) var isRefreshing = false
     private(set) var isLoadingNextPage = false
+    private(set) var didFailRefresh = false
     private(set) var didFailNextPage = false
     private(set) var hasLoaded = false
     var searchText = ""
@@ -81,6 +82,7 @@ final class AssignedIssuesModel {
             isRefreshing = true
         }
         loadError = nil
+        didFailRefresh = false
         didFailNextPage = false
 
         defer {
@@ -108,6 +110,7 @@ final class AssignedIssuesModel {
             }
 
             loadError = error
+            didFailRefresh = !isInitial
             hasLoaded = true
         }
     }
@@ -124,6 +127,7 @@ final class AssignedIssuesModel {
 
         isLoadingNextPage = true
         loadError = nil
+        didFailRefresh = false
         didFailNextPage = false
 
         defer {

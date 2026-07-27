@@ -77,6 +77,43 @@ struct GitLabIssueTests {
         #expect(first.route != anotherIID.route)
     }
 
+    @Test("Reuses normalized GitLab user presentation")
+    func normalizesIssueUsers() {
+        let namedUser = makeTestIssueUser(
+            username: "octocat",
+            name: "  The Octocat  "
+        )
+        let usernameOnlyUser = makeTestIssueUser(
+            username: "  monalisa  ",
+            name: " \n "
+        )
+
+        #expect(namedUser.displayName == "The Octocat")
+        #expect(namedUser.summary.avatarInitial == "T")
+        #expect(usernameOnlyUser.displayName == "monalisa")
+        #expect(usernameOnlyUser.summary.avatarInitial == "M")
+    }
+
+    @Test(
+        "Maps issue states to stable presentation kinds",
+        arguments: [
+            ("opened", GitLabIssueStateKind.opened, "Opened"),
+            (" CLOSED ", GitLabIssueStateKind.closed, "Closed"),
+            ("blocked", GitLabIssueStateKind.unknown, "Blocked"),
+            (" ", GitLabIssueStateKind.unknown, "Unknown"),
+        ]
+    )
+    func mapsIssueStates(
+        state: String,
+        expectedKind: GitLabIssueStateKind,
+        expectedTitle: String
+    ) {
+        let issue = makeTestIssue(state: state)
+
+        #expect(issue.stateKind == expectedKind)
+        #expect(issue.stateTitle == expectedTitle)
+    }
+
     @Test("Rejects non-HTTPS issue web URLs")
     func validatesWebURL() {
         let insecure = makeTestIssue(
@@ -95,4 +132,3 @@ struct GitLabIssueTests {
         #expect(credentialBearing.safeWebURL == nil)
     }
 }
-
