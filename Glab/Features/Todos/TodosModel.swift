@@ -118,6 +118,7 @@ final class TodosModel {
     @ObservationIgnored
     private var doneQueriesNeedingRefresh:
         Set<GitLabTodoQuery> = []
+    private var markAllSnapshotTodoIDs: Set<Int> = []
     private var hidesAllPendingTodos = false
 
     init(
@@ -253,39 +254,57 @@ final class TodosModel {
     }
 
     func loadIfNeeded() async {
+        let requestedQuery = query
+        let requestedModel = activeModel
         if
-            doneQueriesNeedingRefresh.contains(query),
-            activeModel.hasLoaded
+            doneQueriesNeedingRefresh.contains(requestedQuery),
+            requestedModel.hasLoaded
         {
-            await refresh()
+            await refresh(
+                query: requestedQuery,
+                model: requestedModel
+            )
         } else {
-            await activeModel.loadIfNeeded()
-            clearRefreshRequirementIfSuccessful()
+            let previousRevision =
+                requestedModel.contentRevision
+            await requestedModel.loadIfNeeded()
+            guard
+                requestedModel.contentRevision
+                    != previousRevision
+            else {
+                return
+            }
+            reconcileSuccessfulReplace(
+                query: requestedQuery,
+                model: requestedModel
+            )
         }
     }
 
     func refresh() async {
-        let previousRevision = activeModel
-            .contentRevision
-        await activeModel.refresh()
+        await refresh(
+            query: query,
+            model: activeModel
+        )
+    }
+
+    private func refresh(
+        query refreshedQuery: GitLabTodoQuery,
+        model refreshedModel: GitLabTodosPageModel
+    ) async {
+        let previousRevision =
+            refreshedModel.contentRevision
+        await refreshedModel.refresh()
         guard
-            activeModel.contentRevision
+            refreshedModel.contentRevision
                 != previousRevision
         else {
             return
         }
-        clearRefreshRequirementIfSuccessful()
-        if
-            query
-                == GitLabTodoQuery(
-                    state: .pending,
-                    targetFilter: .all
-                ),
-            !hidesAllPendingTodos
-        {
-            pendingBadgeAdjustmentIDs =
-                completingTodoIDs
-        }
+        reconcileSuccessfulReplace(
+            query: refreshedQuery,
+            model: refreshedModel
+        )
     }
 
     func loadNextPageIfNeeded(
@@ -373,6 +392,15 @@ final class TodosModel {
 
         mutationFailure = nil
         isMarkingAllDone = true
+        markAllSnapshotTodoIDs =
+            currentlyCachedPendingTodoIDs
+                .subtracting(hiddenPendingTodoIDs)
+        hiddenPendingTodoIDs.formUnion(
+            markAllSnapshotTodoIDs
+        )
+        pendingBadgeAdjustmentIDs.formUnion(
+            markAllSnapshotTodoIDs
+        )
         hidesAllPendingTodos = true
 
         do {
@@ -383,6 +411,7 @@ final class TodosModel {
             }
 
             markLoadedDoneQueriesForRefresh()
+            markAllSnapshotTodoIDs.removeAll()
             isMarkingAllDone = false
         } catch {
             rollBackMarkAllCompletion()
@@ -458,14 +487,37 @@ final class TodosModel {
         }
     }
 
-    private func clearRefreshRequirementIfSuccessful() {
+    private func reconcileSuccessfulReplace(
+        query replacedQuery: GitLabTodoQuery,
+        model replacedModel: GitLabTodosPageModel
+    ) {
         guard
-            activeModel.hasLoaded,
-            activeModel.loadError == nil
+            replacedModel.hasLoaded,
+            replacedModel.loadError == nil
         else {
             return
         }
-        doneQueriesNeedingRefresh.remove(query)
+        doneQueriesNeedingRefresh.remove(replacedQuery)
+
+        guard replacedQuery.state == .pending else {
+            return
+        }
+        if hidesAllPendingTodos && !isMarkingAllDone {
+            hidesAllPendingTodos = false
+        }
+        guard
+            replacedQuery.targetFilter == .all,
+            !hidesAllPendingTodos
+        else {
+            return
+        }
+
+        let hiddenLoadedIDs = Set(
+            replacedModel.items.map(\.id)
+        )
+        .intersection(hiddenPendingTodoIDs)
+        pendingBadgeAdjustmentIDs =
+            hiddenLoadedIDs.union(completingTodoIDs)
     }
 
     private func rollBackSingleCompletion(
@@ -479,6 +531,25 @@ final class TodosModel {
     private func rollBackMarkAllCompletion() {
         isMarkingAllDone = false
         hidesAllPendingTodos = false
+        hiddenPendingTodoIDs.subtract(
+            markAllSnapshotTodoIDs
+        )
+        pendingBadgeAdjustmentIDs.subtract(
+            markAllSnapshotTodoIDs
+        )
+        markAllSnapshotTodoIDs.removeAll()
+    }
+
+    private var currentlyCachedPendingTodoIDs:
+        Set<Int>
+    {
+        var todoIDs: Set<Int> = []
+        for (query, model) in cachedModels
+        where query.state == .pending
+        {
+            todoIDs.formUnion(model.items.map(\.id))
+        }
+        return todoIDs
     }
 
     private func pendingTodo(

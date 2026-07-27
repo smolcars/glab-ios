@@ -90,6 +90,36 @@ struct TodosMutationModelTests {
         #expect(model.pendingBadgeCount == 26)
     }
 
+    @Test("A stale refresh keeps a completed Todo out of the badge")
+    func preservesBadgeOverlayAcrossStaleRefresh() async {
+        let pending = makeTestTodo(id: 1)
+        let loader = MutationTodoLoader(
+            pageResults: [
+                .success(page([pending], totalCount: 1)),
+                .success(page([pending], totalCount: 1)),
+            ]
+        )
+        let mutator = SequencedTodoMutator(
+            singleResults: [
+                .success(
+                    makeTestTodo(id: 1, state: .done)
+                ),
+            ]
+        )
+        let model = TodosModel(
+            loader: loader,
+            mutator: mutator,
+            apiAccess: .readWrite
+        )
+        await model.loadIfNeeded()
+        await model.markDone(pending)
+
+        await model.refresh()
+
+        #expect(model.todos.isEmpty)
+        #expect(model.pendingBadgeCount == 0)
+    }
+
     @Test("Single failure rolls back and retains retry context")
     func rollsBackSingleFailureAndRetries() async {
         let pending = makeTestTodo(id: 1)
@@ -270,6 +300,112 @@ struct TodosMutationModelTests {
         )
     }
 
+    @Test("Mark-all failure preserves an earlier completion")
+    func markAllRollbackPreservesPriorCompletion() async {
+        let first = makeTestTodo(id: 1)
+        let second = makeTestTodo(id: 2)
+        let failure = GitLabSessionClientError.api(
+            .server(statusCode: 503)
+        )
+        let loader = MutationTodoLoader(
+            pageResults: [
+                .success(
+                    page(
+                        [first, second],
+                        totalCount: 2
+                    )
+                ),
+            ]
+        )
+        let mutator = SequencedTodoMutator(
+            singleResults: [
+                .success(
+                    makeTestTodo(id: 1, state: .done)
+                ),
+            ],
+            allResults: [.failure(failure)]
+        )
+        let model = TodosModel(
+            loader: loader,
+            mutator: mutator,
+            apiAccess: .readWrite
+        )
+        await model.loadIfNeeded()
+        await model.markDone(first)
+
+        await model.markAllDone()
+
+        #expect(model.todos == [second])
+        #expect(model.pendingBadgeCount == 1)
+        #expect(
+            model.mutationFailure
+                == .markAllDone(error: failure)
+        )
+    }
+
+    @Test("A refresh after mark-all reveals newly pending Todos")
+    func reconcilesMarkAllWithPendingRefresh() async {
+        let previous = makeTestTodo(id: 1)
+        let newlyPending = makeTestTodo(id: 2)
+        let loader = MutationTodoLoader(
+            pageResults: [
+                .success(page([previous], totalCount: 1)),
+                .success(page([newlyPending], totalCount: 1)),
+            ]
+        )
+        let mutator = SequencedTodoMutator(
+            allResults: [.success(())]
+        )
+        let model = TodosModel(
+            loader: loader,
+            mutator: mutator,
+            apiAccess: .readWrite
+        )
+        await model.loadIfNeeded()
+        await model.markAllDone()
+
+        await model.refresh()
+
+        #expect(model.todos == [newlyPending])
+        #expect(model.pendingBadgeCount == 1)
+    }
+
+    @Test("A refresh reconciles the query that started it")
+    func refreshUsesCapturedQuery() async {
+        let completed = makeTestTodo(id: 1)
+        let newlyPending = makeTestTodo(id: 2)
+        let loader = ControlledRefreshTodoLoader(
+            initialPage: page([completed], totalCount: 1),
+            refreshPage: page([newlyPending], totalCount: 1)
+        )
+        let mutator = SequencedTodoMutator(
+            singleResults: [
+                .success(
+                    makeTestTodo(id: 1, state: .done)
+                ),
+            ]
+        )
+        let model = TodosModel(
+            loader: loader,
+            mutator: mutator,
+            apiAccess: .readWrite
+        )
+        await model.loadIfNeeded()
+        await model.markDone(completed)
+
+        let refresh = Task {
+            await model.refresh()
+        }
+        await loader.waitForRefreshStart()
+        model.selectedTargetFilter = .issues
+        await loader.releaseRefresh()
+        await refresh.value
+
+        #expect(model.pendingBadgeCount == 1)
+        model.selectedTargetFilter = .all
+        #expect(model.todos == [newlyPending])
+    }
+
     @Test("Mutation overlay survives filters and a stale refresh")
     func preservesOverlayAcrossFilterAndRefresh() async {
         let pending = makeTestTodo(
@@ -410,6 +546,62 @@ struct TodosMutationModelTests {
             nextPageURL: nextPageURL,
             totalCount: totalCount
         )
+    }
+}
+
+private actor ControlledRefreshTodoLoader:
+    GitLabTodoLoading
+{
+    private let initialPage: GitLabTodoPage
+    private let refreshPage: GitLabTodoPage
+    private var callCount = 0
+    private var refreshRelease:
+        CheckedContinuation<Void, Never>?
+    private var refreshStartWaiters: [
+        CheckedContinuation<Void, Never>
+    ] = []
+
+    init(
+        initialPage: GitLabTodoPage,
+        refreshPage: GitLabTodoPage
+    ) {
+        self.initialPage = initialPage
+        self.refreshPage = refreshPage
+    }
+
+    func loadTodosPage(
+        state: GitLabTodoState,
+        targetFilter: GitLabTodoTargetFilter,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabTodoPage
+    {
+        callCount += 1
+        guard callCount > 1 else {
+            return initialPage
+        }
+
+        let waiters = refreshStartWaiters
+        refreshStartWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        await withCheckedContinuation {
+            refreshRelease = $0
+        }
+        return refreshPage
+    }
+
+    func waitForRefreshStart() async {
+        guard callCount < 2 else {
+            return
+        }
+        await withCheckedContinuation {
+            refreshStartWaiters.append($0)
+        }
+    }
+
+    func releaseRefresh() {
+        refreshRelease?.resume()
+        refreshRelease = nil
     }
 }
 
