@@ -3,8 +3,12 @@ import SwiftUI
 struct GitLabOAuthSignInScene: View {
     @State private var model: GitLabOAuthSignInModel
     private let appSession: AppSession
+    private let authenticationMessage: String?
 
-    init(appSession: AppSession) {
+    init(
+        appSession: AppSession,
+        authenticationMessage: String? = nil
+    ) {
         let transport = URLSessionGitLabHTTPTransport()
         let tokenClient = GitLabOAuthTokenClient(transport: transport)
         let authenticator = GitLabOAuthAuthenticator(
@@ -18,6 +22,7 @@ struct GitLabOAuthSignInScene: View {
         )
 
         self.appSession = appSession
+        self.authenticationMessage = authenticationMessage
         _model = State(
             initialValue: GitLabOAuthSignInModel(
                 authenticator: authenticator,
@@ -34,7 +39,8 @@ struct GitLabOAuthSignInScene: View {
     var body: some View {
         GitLabOAuthSignInView(
             model: model,
-            appSession: appSession
+            appSession: appSession,
+            authenticationMessage: authenticationMessage
         )
     }
 }
@@ -47,6 +53,7 @@ struct GitLabOAuthSignInView: View {
 
     @Bindable var model: GitLabOAuthSignInModel
     let appSession: AppSession
+    let authenticationMessage: String?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var focusedField: Field?
@@ -57,6 +64,11 @@ struct GitLabOAuthSignInView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     introduction
+
+                    if let authenticationMessage {
+                        authenticationNotice(authenticationMessage)
+                    }
+
                     instanceSection
 
                     if !model.usesCustomInstance,
@@ -88,6 +100,25 @@ struct GitLabOAuthSignInView: View {
                 .presentationDragIndicator(.visible)
             }
         }
+    }
+
+    private func authenticationNotice(
+        _ message: String
+    ) -> some View {
+        Label {
+            Text(message)
+                .font(.callout)
+        } icon: {
+            Image(systemName: "person.crop.circle.badge.exclamationmark")
+        }
+        .foregroundStyle(.orange)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            Color.orange.opacity(0.1),
+            in: .rect(cornerRadius: 16)
+        )
+        .accessibilityIdentifier("oauth.sessionNotice")
     }
 
     private var introduction: some View {

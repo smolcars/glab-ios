@@ -137,6 +137,34 @@ struct AppSessionTests {
         #expect(appSession.authenticationNotice == nil)
     }
 
+    @Test("Classifies only expired or rejected credentials for reauthentication")
+    func classifiesAuthenticationFailures() {
+        #expect(
+            GitLabSessionClientError.api(.unauthenticated)
+                .requiresReauthentication
+        )
+        #expect(
+            GitLabSessionClientError.refresh(.unavailable)
+                .requiresReauthentication
+        )
+        #expect(
+            GitLabSessionClientError.refresh(.token(.invalidGrant))
+                .requiresReauthentication
+        )
+        #expect(
+            !GitLabSessionClientError.api(
+                .connectivity(.notConnectedToInternet)
+            )
+            .requiresReauthentication
+        )
+        #expect(
+            !GitLabSessionClientError.refresh(
+                .token(.connectivity(.timedOut))
+            )
+            .requiresReauthentication
+        )
+    }
+
     @Test("Surfaces restore failures")
     func handlesRestoreFailure() async {
         let error = GitLabCredentialStoreError.corruptData
