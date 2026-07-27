@@ -117,9 +117,9 @@ Scope:
 
 - All production Swift, tests, project configuration, and MVP documentation
   were reviewed again after merge-request lists and details were added.
-- The complete signed suite reached 157 passing test invocations and Xcode
-  static analysis was clean before the final refresh/pagination repair; focused
-  regression suites pass after that repair.
+- The complete signed suite passes all 157 tests (196 parameterized
+  executions) on iPhone 17 Pro, iOS 26.5, after the final shared-state
+  refactor. Xcode static analysis is clean.
 - The configured read-only self-managed instance returned 4 assigned merge
   requests, 1 review request, and a valid detail response matching the decoded
   contract. No response content or credential was recorded.
@@ -134,10 +134,10 @@ Scope:
   “Open in GitLab” control instead of creating merge-request copies.
 - [x] Keep a failed refresh warning authoritative by preventing stale
   pagination from clearing it in both issues and merge requests.
-- [ ] Consolidate the duplicated issue/merge-request pagination and detail
+- [x] Consolidate the duplicated issue/merge-request pagination and detail
   state machines behind small generic engines. Preserve the existing
   domain-named initializers and properties so views and tests remain explicit.
-- [ ] Run the complete signed suite and static analyzer after the shared-state
+- [x] Run the complete signed suite and static analyzer after the shared-state
   refactor.
 - [ ] Tap both Home shortcuts, populated list rows, details, scrolling, search,
   refresh, and back navigation on iPhone 17 Pro; inspect assigned and review
