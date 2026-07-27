@@ -52,6 +52,30 @@ struct GitLabMergeRequestEndpointTests {
                 + "/merge_requests/7"
         )
     }
+
+    @Test("Maps Home shortcuts to the correct list mode")
+    func mapsHomeShortcuts() {
+        #expect(
+            HomeDashboardSection.assignedMergeRequests
+                .mergeRequestListMode == .assigned
+        )
+        #expect(
+            HomeDashboardSection.reviewRequests
+                .mergeRequestListMode == .reviewRequested
+        )
+        #expect(
+            HomeDashboardSection.assignedIssues
+                .mergeRequestListMode == nil
+        )
+        #expect(
+            HomeDashboardSection.recentProjects
+                .mergeRequestListMode == nil
+        )
+        #expect(
+            HomeDashboardSection.starredProjects
+                .mergeRequestListMode == nil
+        )
+    }
 }
 
 private extension GitLabMergeRequestEndpointTests {

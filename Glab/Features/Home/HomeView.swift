@@ -6,6 +6,8 @@ struct HomeView: View {
     let model: HomeDashboardModel
     let assignedIssuesModel: AssignedIssuesModel
     let issueLoader: any GitLabIssueLoading
+    let mergeRequestLoader:
+        any GitLabMergeRequestLoading
 
     @State private var path = NavigationPath()
     @State private var showsAccount = false
@@ -133,6 +135,14 @@ struct HomeView: View {
             AssignedIssuesView(
                 model: assignedIssuesModel,
                 loader: issueLoader,
+                appSession: appSession
+            )
+        } else if
+            let mode = section.mergeRequestListMode
+        {
+            MergeRequestsView(
+                mode: mode,
+                loader: mergeRequestLoader,
                 appSession: appSession
             )
         } else {

@@ -43,6 +43,15 @@ nonisolated enum GitLabMergeRequestListMode:
             "Open merge requests awaiting your review will appear here."
         }
     }
+
+    var emptyTitle: String {
+        switch self {
+        case .assigned:
+            "No assigned merge requests"
+        case .reviewRequested:
+            "No review requests"
+        }
+    }
 }
 
 nonisolated enum GitLabMergeRequestStateKind:

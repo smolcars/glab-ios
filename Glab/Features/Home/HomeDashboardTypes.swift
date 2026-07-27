@@ -57,6 +57,21 @@ nonisolated enum HomeDashboardSection:
             "No starred projects"
         }
     }
+
+    var mergeRequestListMode:
+        GitLabMergeRequestListMode?
+    {
+        switch self {
+        case .assignedMergeRequests:
+            .assigned
+        case .reviewRequests:
+            .reviewRequested
+        case .assignedIssues,
+             .recentProjects,
+             .starredProjects:
+            nil
+        }
+    }
 }
 
 nonisolated struct GitLabHomeWorkItem:
