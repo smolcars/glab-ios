@@ -158,6 +158,40 @@ struct GitLabOAuthTokenClientTests {
         }
     }
 
+    @Test("Rejects OAuth timestamps that are negative or overflow")
+    func rejectsInvalidTimestamps() async throws {
+        let negativeTimestamp = RecordingTransport(
+            outcomes: [
+                .response(
+                    tokenResponse(createdAt: -1, expiresIn: 7200),
+                    try makeHTTPResponse(statusCode: 200)
+                ),
+            ]
+        )
+        let overflowingTimestamp = RecordingTransport(
+            outcomes: [
+                .response(
+                    tokenResponse(createdAt: Int.max, expiresIn: 7200),
+                    try makeHTTPResponse(statusCode: 200)
+                ),
+            ]
+        )
+
+        for transport in [negativeTimestamp, overflowingTimestamp] {
+            await #expect(
+                throws: GitLabOAuthTokenError.unsupportedResponse
+            ) {
+                try await GitLabOAuthTokenClient(
+                    transport: transport
+                )
+                .refresh(
+                    configuration: makeConfiguration(),
+                    refreshToken: "refresh"
+                )
+            }
+        }
+    }
+
     @Test("Maps transport, cancellation, and server failures without response bodies")
     func mapsTransportFailures() async throws {
         let secret = "never-expose-oauth-response"
@@ -258,6 +292,23 @@ private extension GitLabOAuthTokenClientTests {
               "expires_in": 7200,
               "refresh_token": "\(refreshToken)",
               "created_at": 1700000000
+            }
+            """.utf8
+        )
+    }
+
+    nonisolated func tokenResponse(
+        createdAt: Int,
+        expiresIn: Int
+    ) -> Data {
+        Data(
+            """
+            {
+              "access_token": "access",
+              "token_type": "Bearer",
+              "expires_in": \(expiresIn),
+              "refresh_token": "refresh",
+              "created_at": \(createdAt)
             }
             """.utf8
         )

@@ -36,7 +36,7 @@ Baseline:
   attempt.
 - [ ] Fail cleanly when no foreground presentation window is available instead
   of crashing in the presentation-context callback.
-- [ ] Reject malformed OAuth token timestamps that overflow when `created_at`
+- [x] Reject malformed OAuth token timestamps that overflow when `created_at`
   and `expires_in` are combined.
 
 ### Focused duplication

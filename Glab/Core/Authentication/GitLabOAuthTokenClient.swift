@@ -170,13 +170,19 @@ where Transport: GitLabHTTPTransport {
             throw .unsupportedResponse
         }
 
+        let (expirationTimestamp, didOverflow) = responseBody.createdAt
+            .addingReportingOverflow(responseBody.expiresIn)
+        guard responseBody.createdAt >= 0, !didOverflow else {
+            throw .unsupportedResponse
+        }
+
         do {
             return try GitLabCredential.oauth(
                 accessToken: responseBody.accessToken,
                 refreshToken: responseBody.refreshToken,
                 expiresAt: Date(
                     timeIntervalSince1970:
-                        TimeInterval(responseBody.createdAt + responseBody.expiresIn)
+                        TimeInterval(expirationTimestamp)
                 )
             )
         } catch {
