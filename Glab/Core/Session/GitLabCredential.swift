@@ -62,13 +62,17 @@ nonisolated struct GitLabCredential:
         }
     }
 
-    var canRefreshOAuth: Bool {
+    var oauthRefreshToken: String? {
         switch storage {
         case let .oauth(_, refreshToken, _):
-            refreshToken != nil
+            refreshToken
         case .personalAccessToken:
-            false
+            nil
         }
+    }
+
+    var canRefreshOAuth: Bool {
+        oauthRefreshToken != nil
     }
 
     var authorization: GitLabAuthorization {

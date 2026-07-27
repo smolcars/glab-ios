@@ -126,6 +126,18 @@ nonisolated struct GitLabStoredSession:
         self.credential = credential
     }
 
+    func replacingOAuthCredential(
+        _ credential: GitLabCredential
+    ) throws(GitLabStoredSessionError) -> Self {
+        try Self(
+            host: host,
+            user: user,
+            oauthApplicationID: oauthApplicationID,
+            personalAccessTokenMetadata: personalAccessTokenMetadata,
+            credential: credential
+        )
+    }
+
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let host = try container.decode(GitLabHost.self, forKey: .host)
