@@ -110,3 +110,59 @@ Checks:
 - [x] The standard MIT grant and unofficial-app disclaimer are present.
 
 No material code finding was introduced by this documentation-only phase.
+
+## Post-MVP-10 audit
+
+Scope:
+
+- All production Swift, tests, project configuration, and MVP documentation
+  were reviewed again after merge-request lists and details were added.
+- The complete signed suite reached 157 passing test invocations and Xcode
+  static analysis was clean before the final refresh/pagination repair; focused
+  regression suites pass after that repair.
+- The configured read-only self-managed instance returned 4 assigned merge
+  requests, 1 review request, and a valid detail response matching the decoded
+  contract. No response content or credential was recorded.
+- Final interactive simulator verification remains open because the Mac UI is
+  locked; the installed build and screenshot-only Home check are not counted as
+  a tap-through.
+
+### Repair checklist
+
+- [x] Share API user normalization, validated external URLs, Markdown
+  formatting, labels, user rows, retry rows, detail sections, and the
+  “Open in GitLab” control instead of creating merge-request copies.
+- [x] Keep a failed refresh warning authoritative by preventing stale
+  pagination from clearing it in both issues and merge requests.
+- [ ] Consolidate the duplicated issue/merge-request pagination and detail
+  state machines behind small generic engines. Preserve the existing
+  domain-named initializers and properties so views and tests remain explicit.
+- [ ] Run the complete signed suite and static analyzer after the shared-state
+  refactor.
+- [ ] Tap both Home shortcuts, populated list rows, details, scrolling, search,
+  refresh, and back navigation on iPhone 17 Pro; inspect assigned and review
+  modes plus a detail in light and dark appearance.
+
+### Refactor plan
+
+1. Use the existing issue and merge-request model suites as characterization
+   tests.
+2. Move common pagination/loading/error/search behavior into one generic
+   observable model parameterized by item identity, page loader, and searchable
+   values.
+3. Move common detail load/retry/cancellation behavior into one generic
+   observable model parameterized by resource, route, and loader.
+4. Keep thin issue and merge-request extensions that adapt domain loaders and
+   retain `issues`, `displayedIssues`, `mergeRequests`, and
+   `displayedMergeRequests`.
+5. Verify focused suites before running the complete gates.
+
+### Deliberately unchanged
+
+- Issue and merge-request response types remain separate because GitLab evolves
+  those resources independently.
+- Resource-specific rows and details remain separate; their visible metadata
+  and future behavior differ even though they reuse small design-system views.
+- No mergeability field is decoded or presented. GitLab documents list
+  merge-status data as potentially stale unless an expensive recheck is
+  requested.
