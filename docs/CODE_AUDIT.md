@@ -11,7 +11,7 @@ or near-term feature work.
 
 Baseline:
 
-- 103 unit tests pass on iPhone 17 Pro, iOS 26.5.
+- 112 tests (130 parameterized invocations) pass on iPhone 17 Pro, iOS 26.5.
 - Swift 6 complete concurrency checking passes.
 - Xcode static analysis passes without code findings.
 - The existing SwiftUI Model-View architecture remains appropriate; no
@@ -48,9 +48,9 @@ Baseline:
 
 ### Verification
 
-- [ ] Add deterministic unit coverage for every core-logic repair.
-- [ ] Run the complete test suite and static analyzer.
-- [ ] Launch the app and retest the changed authentication and signed-in UI on
+- [x] Add deterministic unit coverage for every core-logic repair.
+- [x] Run the complete test suite and static analyzer.
+- [x] Launch the app and retest the changed authentication and signed-in UI on
   iPhone 17 Pro in light and dark appearance.
 
 ## Deliberately unchanged
