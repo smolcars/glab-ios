@@ -254,4 +254,3 @@ nonisolated struct GitLabOAuthConfiguration: Equatable, Sendable {
         }
     }
 }
-

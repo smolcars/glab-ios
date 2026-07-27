@@ -174,20 +174,6 @@ where Transport: GitLabHTTPTransport {
     }
 }
 
-private nonisolated struct GitLabAuthenticatedUser: Decodable, Sendable {
-    let id: Int
-    let username: String
-    let name: String
-    let avatarURL: URL?
-
-    private enum CodingKeys: String, CodingKey {
-        case id
-        case username
-        case name
-        case avatarURL = "avatar_url"
-    }
-}
-
 private nonisolated struct GitLabPersonalAccessTokenDetails: Decodable, Sendable {
     let revoked: Bool
     let scopes: [String]
