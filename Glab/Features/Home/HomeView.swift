@@ -54,6 +54,7 @@ struct HomeView: View {
                         .textCase(nil)
                         .padding(.bottom, 4)
                 }
+                .headerProminence(.increased)
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Home")
@@ -62,7 +63,8 @@ struct HomeView: View {
                 section in
                 HomeDashboardListView(
                     section: section,
-                    model: model
+                    model: model,
+                    refresh: refreshDashboard
                 )
             }
             .refreshable {

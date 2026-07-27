@@ -4,34 +4,66 @@ struct HomeWorkShortcutRow: View {
     let section: HomeDashboardSection
     let presentation: HomeDashboardRowPresentation
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: section.systemImage)
-                .font(.headline)
-                .foregroundStyle(.orange)
-                .frame(width: 38, height: 38)
-                .background(
-                    Color.orange.opacity(0.12),
-                    in: .rect(cornerRadius: 10)
-                )
-                .accessibilityHidden(true)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        icon
+                        Spacer()
+                        statusAccessory
+                    }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(section.title)
-                    .font(.body.weight(.medium))
-
-                Text(presentation.subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(
-                        presentation.status == .failed
-                            ? AnyShapeStyle(.red)
-                            : AnyShapeStyle(.secondary)
-                    )
-                    .lineLimit(2)
+                    textContent
+                }
+            } else {
+                HStack(spacing: 14) {
+                    icon
+                    textContent
+                    Spacer(minLength: 8)
+                    statusAccessory
+                }
             }
+        }
+        .padding(.vertical, 5)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(section.title)
+        .accessibilityValue(presentation.accessibilityValue)
+    }
 
-            Spacer(minLength: 8)
+    private var icon: some View {
+        Image(systemName: section.systemImage)
+            .font(.headline)
+            .foregroundStyle(.orange)
+            .frame(width: 38, height: 38)
+            .background(
+                Color.orange.opacity(0.12),
+                in: .rect(cornerRadius: 10)
+            )
+            .accessibilityHidden(true)
+    }
 
+    private var textContent: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(section.title)
+                .font(.body.weight(.medium))
+
+            Text(presentation.subtitle)
+                .font(.subheadline)
+                .foregroundStyle(
+                    presentation.status == .failed
+                        ? AnyShapeStyle(.red)
+                        : AnyShapeStyle(.secondary)
+                )
+                .lineLimit(2)
+        }
+    }
+
+    @ViewBuilder
+    private var statusAccessory: some View {
+        Group {
             if presentation.status == .loading {
                 ProgressView()
                     .controlSize(.small)
@@ -42,16 +74,13 @@ struct HomeWorkShortcutRow: View {
                     .accessibilityHidden(true)
             }
         }
-        .padding(.vertical, 5)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(section.title)
-        .accessibilityValue(presentation.accessibilityValue)
     }
 }
 
 struct HomeDashboardListView: View {
     let section: HomeDashboardSection
     let model: HomeDashboardModel
+    let refresh: () async -> Void
 
     var body: some View {
         Group {
@@ -83,7 +112,7 @@ struct HomeDashboardListView: View {
                     message: error.description
                 ) {
                     Task {
-                        await model.refresh()
+                        await refresh()
                     }
                 }
             }
@@ -92,7 +121,7 @@ struct HomeDashboardListView: View {
         .navigationTitle(section.title)
         .navigationBarTitleDisplayMode(.large)
         .refreshable {
-            await model.refresh()
+            await refresh()
         }
         .accessibilityIdentifier(
             "home.list.\(section.rawValue)"
