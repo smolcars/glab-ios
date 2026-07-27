@@ -41,6 +41,7 @@ struct SignedInShellView: View {
     private let issueLoader: any GitLabIssueLoading
     private let mergeRequestLoader:
         any GitLabMergeRequestLoading
+    private let projectLoader: any GitLabProjectLoading
 
     init(
         session: GitLabStoredSession,
@@ -70,8 +71,12 @@ struct SignedInShellView: View {
             LiveGitLabMergeRequestLoader(
                 client: client
             )
+        let projectLoader = LiveGitLabProjectLoader(
+            client: client
+        )
         self.issueLoader = issueLoader
         self.mergeRequestLoader = mergeRequestLoader
+        self.projectLoader = projectLoader
         _homeDashboardModel = State(
             initialValue: HomeDashboardModel(
                 loader: LiveHomeDashboardLoader(
@@ -99,7 +104,8 @@ struct SignedInShellView: View {
                     model: homeDashboardModel,
                     assignedIssuesModel: assignedIssuesModel,
                     issueLoader: issueLoader,
-                    mergeRequestLoader: mergeRequestLoader
+                    mergeRequestLoader: mergeRequestLoader,
+                    projectLoader: projectLoader
                 )
             }
 

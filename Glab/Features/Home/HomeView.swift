@@ -8,6 +8,7 @@ struct HomeView: View {
     let issueLoader: any GitLabIssueLoading
     let mergeRequestLoader:
         any GitLabMergeRequestLoading
+    let projectLoader: any GitLabProjectLoading
 
     @State private var path = NavigationPath()
     @State private var showsAccount = false
@@ -143,6 +144,14 @@ struct HomeView: View {
             MergeRequestsView(
                 mode: mode,
                 loader: mergeRequestLoader,
+                appSession: appSession
+            )
+        } else if
+            let mode = section.projectListMode
+        {
+            ProjectsView(
+                mode: mode,
+                loader: projectLoader,
                 appSession: appSession
             )
         } else {

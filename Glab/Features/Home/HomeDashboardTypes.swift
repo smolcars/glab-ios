@@ -72,6 +72,19 @@ nonisolated enum HomeDashboardSection:
             nil
         }
     }
+
+    var projectListMode: GitLabProjectListMode? {
+        switch self {
+        case .recentProjects:
+            .recent
+        case .starredProjects:
+            .starred
+        case .assignedIssues,
+             .assignedMergeRequests,
+             .reviewRequests:
+            nil
+        }
+    }
 }
 
 nonisolated struct GitLabHomeWorkItem:
