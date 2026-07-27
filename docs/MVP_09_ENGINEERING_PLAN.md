@@ -49,13 +49,13 @@ This plan is based on the current official GitLab documentation:
 
 ### 2. Issue API contract
 
-- [ ] Add assigned-issue and project-issue endpoints.
-- [ ] Decode identity, project/reference, title/description, state,
+- [x] Add assigned-issue and project-issue endpoints.
+- [x] Decode identity, project/reference, title/description, state,
   confidentiality, labels, author, assignees, milestone, due date, note count,
   timestamps, and `web_url`.
-- [ ] Add a live loader that returns issue pages plus the next link and fetches
+- [x] Add a live loader that returns issue pages plus the next link and fetches
   one issue by project ID and IID.
-- [ ] Test endpoint queries, optional/null fields, confidential issues, route
+- [x] Test endpoint queries, optional/null fields, confidential issues, route
   identity, and safe web routing.
 
 ### 3. Deterministic feature state
