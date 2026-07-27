@@ -88,11 +88,13 @@ struct HomeDashboardListView: View {
             case .idle, .loading:
                 loadingView
             case let .loaded(items) where items.isEmpty:
-                GitLabEmptyStateView(
-                    title: section.emptyMessage,
-                    message: "Pull to refresh your GitLab work.",
-                    systemImage: section.systemImage
-                )
+                GitLabContentStateScrollView {
+                    GitLabEmptyStateView(
+                        title: section.emptyMessage,
+                        message: "Pull to refresh your GitLab work.",
+                        systemImage: section.systemImage
+                    )
+                }
             case let .loaded(items):
                 List(items) { item in
                     VStack(alignment: .leading, spacing: 4) {
@@ -108,11 +110,13 @@ struct HomeDashboardListView: View {
                 }
                 .listStyle(.insetGrouped)
             case let .failed(error):
-                GitLabRetryStateView(
-                    message: error.description
-                ) {
-                    Task {
-                        await refresh()
+                GitLabContentStateScrollView {
+                    GitLabRetryStateView(
+                        message: error.description
+                    ) {
+                        Task {
+                            await refresh()
+                        }
                     }
                 }
             }

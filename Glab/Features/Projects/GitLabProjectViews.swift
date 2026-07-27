@@ -61,22 +61,26 @@ struct ProjectsView: View {
             model.projects.isEmpty,
             let error = model.loadError
         {
-            GitLabRetryStateView(
-                message: error.description
-            ) {
-                Task {
-                    await refresh()
+            GitLabContentStateScrollView {
+                GitLabRetryStateView(
+                    message: error.description
+                ) {
+                    Task {
+                        await refresh()
+                    }
                 }
             }
         } else if
             model.projects.isEmpty,
             model.hasLoaded
         {
-            GitLabEmptyStateView(
-                title: mode.emptyTitle,
-                message: mode.emptyMessage,
-                systemImage: mode.systemImage
-            )
+            GitLabContentStateScrollView {
+                GitLabEmptyStateView(
+                    title: mode.emptyTitle,
+                    message: mode.emptyMessage,
+                    systemImage: mode.systemImage
+                )
+            }
         } else {
             projectList
         }

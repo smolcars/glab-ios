@@ -356,6 +356,25 @@ struct AssignedIssuesModelTests {
                 == "Use care.\n\nsafe-call"
         )
     }
+
+    @Test("Removes template comments and heading markers from descriptions")
+    func removesDescriptionTemplateSyntax() {
+        let formatted =
+            GitLabDescriptionFormatter.attributedString(
+                """
+                <!-- This guidance is not issue content.
+                Keep it hidden from readers. -->
+                ### General Checklist
+
+                Use **care**.
+                """
+            )
+
+        #expect(
+            String(formatted.characters)
+                == "General Checklist\n\nUse care."
+        )
+    }
 }
 
 @Suite("GitLab issue detail model")

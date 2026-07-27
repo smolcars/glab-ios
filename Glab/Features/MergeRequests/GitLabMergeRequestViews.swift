@@ -31,7 +31,7 @@ struct MergeRequestsView: View {
                 Color(uiColor: .systemGroupedBackground)
             )
             .navigationTitle(mode.title)
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .searchable(
                 text: $model.searchText,
                 placement:
@@ -71,24 +71,28 @@ struct MergeRequestsView: View {
             model.mergeRequests.isEmpty,
             let error = model.loadError
         {
-            GitLabRetryStateView(
-                message: error.description
-            ) {
-                Task {
-                    await refresh()
+            GitLabContentStateScrollView {
+                GitLabRetryStateView(
+                    message: error.description
+                ) {
+                    Task {
+                        await refresh()
+                    }
                 }
             }
         } else if
             model.mergeRequests.isEmpty,
             model.hasLoaded
         {
-            GitLabEmptyStateView(
-                title: mode.emptyTitle,
-                message: mode.emptyMessage,
-                systemImage: mode == .assigned
-                    ? "arrow.triangle.branch"
-                    : "person.crop.circle.badge.checkmark"
-            )
+            GitLabContentStateScrollView {
+                GitLabEmptyStateView(
+                    title: mode.emptyTitle,
+                    message: mode.emptyMessage,
+                    systemImage: mode == .assigned
+                        ? "arrow.triangle.branch"
+                        : "person.crop.circle.badge.checkmark"
+                )
+            }
         } else {
             mergeRequestList
         }

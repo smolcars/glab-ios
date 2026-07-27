@@ -55,17 +55,29 @@ nonisolated enum GitLabIssueDateFormatter {
 
 nonisolated enum GitLabDescriptionFormatter {
     static func attributedString(_ value: String) -> AttributedString {
-        let valueWithoutCodeFences = value
+        let displayValue = valueWithoutTemplateComments(value)
             .split(
                 separator: "\n",
                 omittingEmptySubsequences: false
             )
-            .filter {
-                !$0.trimmingCharacters(
+        var isInsideCodeFence = false
+        let valueWithoutCodeFences = displayValue
+            .compactMap { line -> String? in
+                if line.trimmingCharacters(
                     in: .whitespaces
-                ).hasPrefix("```")
+                ).hasPrefix("```") {
+                    isInsideCodeFence.toggle()
+                    return nil
+                }
+
+                return isInsideCodeFence
+                    ? String(line)
+                    : valueWithoutHeadingMarker(String(line))
             }
             .joined(separator: "\n")
+            .trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
 
         return (
             try? AttributedString(
@@ -76,6 +88,52 @@ nonisolated enum GitLabDescriptionFormatter {
                 )
             )
         )
-            ?? AttributedString(value)
+            ?? AttributedString(valueWithoutCodeFences)
+    }
+
+    private static func valueWithoutTemplateComments(
+        _ value: String
+    ) -> String {
+        guard
+            let expression = try? NSRegularExpression(
+                pattern: "<!--[\\s\\S]*?-->"
+            )
+        else {
+            return value
+        }
+
+        return expression.stringByReplacingMatches(
+            in: value,
+            range: NSRange(
+                value.startIndex..<value.endIndex,
+                in: value
+            ),
+            withTemplate: ""
+        )
+    }
+
+    private static func valueWithoutHeadingMarker(
+        _ value: String
+    ) -> String {
+        let content = value.drop {
+            $0.isWhitespace
+        }
+        let markerCount = content.prefix {
+            $0 == "#"
+        }.count
+
+        guard
+            (1...6).contains(markerCount),
+            content.dropFirst(markerCount).first?
+                .isWhitespace == true
+        else {
+            return value
+        }
+
+        return String(
+            content
+                .dropFirst(markerCount)
+                .drop { $0.isWhitespace }
+        )
     }
 }

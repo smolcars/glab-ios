@@ -43,17 +43,22 @@ struct AssignedIssuesView: View {
                 .padding(20)
             }
         } else if model.issues.isEmpty, let error = model.loadError {
-            GitLabRetryStateView(message: error.description) {
-                Task {
-                    await refresh()
+            GitLabContentStateScrollView {
+                GitLabRetryStateView(message: error.description) {
+                    Task {
+                        await refresh()
+                    }
                 }
             }
         } else if model.issues.isEmpty, model.hasLoaded {
-            GitLabEmptyStateView(
-                title: "No assigned issues",
-                message: "Open issues assigned to you will appear here.",
-                systemImage: "smallcircle.filled.circle"
-            )
+            GitLabContentStateScrollView {
+                GitLabEmptyStateView(
+                    title: "No assigned issues",
+                    message:
+                        "Open issues assigned to you will appear here.",
+                    systemImage: "smallcircle.filled.circle"
+                )
+            }
         } else {
             issueList
         }

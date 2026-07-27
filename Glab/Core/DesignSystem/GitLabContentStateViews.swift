@@ -72,6 +72,25 @@ struct GitLabRetryStateView: View {
     }
 }
 
+struct GitLabContentStateScrollView<Content: View>: View {
+    private let content: Content
+
+    init(
+        @ViewBuilder content: () -> Content
+    ) {
+        self.content = content()
+    }
+
+    var body: some View {
+        ScrollView {
+            content
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 430)
+                .padding(.horizontal, 20)
+        }
+    }
+}
+
 #Preview("Loading") {
     GitLabLoadingStateView(message: "Loading GitLab")
         .padding()
