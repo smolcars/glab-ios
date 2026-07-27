@@ -5,6 +5,7 @@ import Observation
 @Observable
 final class HomeDashboardModel {
     private(set) var user: GitLabAuthenticatedUser?
+    private(set) var authenticationFailure: GitLabSessionClientError?
     private(set) var isLoading = false
     private(set) var hasLoaded = false
 
@@ -87,6 +88,7 @@ final class HomeDashboardModel {
         }
 
         let previousUser = user
+        let previousAuthenticationFailure = authenticationFailure
         let previousSections = sections
         isLoading = true
 
@@ -106,9 +108,12 @@ final class HomeDashboardModel {
             let result = try await loader.load()
             guard !Task.isCancelled else {
                 user = previousUser
+                authenticationFailure = previousAuthenticationFailure
                 sections = previousSections
                 return
             }
+
+            authenticationFailure = authenticationFailure(in: result)
 
             if case let .success(user) = result.user {
                 self.user = user
@@ -133,7 +138,30 @@ final class HomeDashboardModel {
             hasLoaded = true
         } catch {
             user = previousUser
+            authenticationFailure = previousAuthenticationFailure
             sections = previousSections
         }
+    }
+
+    private func authenticationFailure(
+        in result: HomeDashboardLoadResult
+    ) -> GitLabSessionClientError? {
+        if
+            case let .failure(error) = result.user,
+            error.requiresReauthentication
+        {
+            return error
+        }
+
+        for section in HomeDashboardSection.allCases {
+            if
+                case let .failure(error) = result.sections[section],
+                error.requiresReauthentication
+            {
+                return error
+            }
+        }
+
+        return nil
     }
 }

@@ -3,44 +3,81 @@ import SwiftUI
 struct HomeView: View {
     let session: GitLabStoredSession
     let appSession: AppSession
+    let model: HomeDashboardModel
 
     @State private var path = NavigationPath()
     @State private var showsAccount = false
 
     var body: some View {
         NavigationStack(path: $path) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    if session.apiAccess == .readOnly {
+            List {
+                if session.apiAccess == .readOnly {
+                    Section {
                         readOnlyCallout
                     }
+                }
 
+                Section {
+                    if model.hasTotalWorkFailure {
+                        GitLabRetryStateView(
+                            message:
+                                "Your GitLab work could not be loaded. "
+                                + "Check your connection and try again."
+                        ) {
+                            Task {
+                                await refreshDashboard()
+                            }
+                        }
+                        .frame(minHeight: 280)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(.init())
+                    } else {
+                        ForEach(HomeDashboardSection.allCases, id: \.self) {
+                            section in
+                            NavigationLink(value: section) {
+                                HomeWorkShortcutRow(
+                                    section: section,
+                                    presentation: model.presentation(
+                                        for: section
+                                    )
+                                )
+                            }
+                            .accessibilityIdentifier(
+                                "home.shortcut.\(section.rawValue)"
+                            )
+                        }
+                    }
+                } header: {
                     Text("My Work")
                         .font(.title2.bold())
-
-                    GitLabEmptyStateView(
-                        title: "Your work will appear here",
-                        message:
-                            "Assigned issues, merge requests, and projects "
-                            + "will be collected in this space.",
-                        systemImage: "square.stack.3d.up"
-                    )
-                    .frame(minHeight: 300)
+                        .foregroundStyle(.primary)
+                        .textCase(nil)
+                        .padding(.bottom, 4)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 100)
             }
-            .background(Color(uiColor: .systemGroupedBackground))
+            .listStyle(.insetGrouped)
             .navigationTitle("Home")
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(for: HomeDashboardSection.self) {
+                section in
+                HomeDashboardListView(
+                    section: section,
+                    model: model
+                )
+            }
+            .refreshable {
+                await refreshDashboard()
+            }
+            .task {
+                await loadDashboard()
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         showsAccount = true
                     } label: {
                         GitLabUserAvatar(
-                            user: session.user,
+                            user: displayedUser,
                             size: 30
                         )
                     }
@@ -68,22 +105,48 @@ struct HomeView: View {
         }
         .font(.callout)
         .foregroundStyle(.orange)
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            Color.orange.opacity(0.1),
-            in: .rect(cornerRadius: 16)
-        )
         .accessibilityLabel(
             "This token is read-only. Actions such as completing "
                 + "Todos will be disabled."
         )
+        .listRowBackground(Color.orange.opacity(0.1))
     }
 
     private var displayName: String {
-        let name = session.user.name.trimmingCharacters(
+        let name = displayedUser.name.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
-        return name.isEmpty ? session.user.username : name
+        return name.isEmpty ? displayedUser.username : name
+    }
+
+    private var displayedUser: GitLabUserSummary {
+        guard let user = model.user else {
+            return session.user
+        }
+
+        return GitLabUserSummary(
+            id: user.id,
+            username: user.username,
+            name: user.name,
+            avatarURL: user.avatarURL
+        )
+    }
+
+    private func loadDashboard() async {
+        await model.loadIfNeeded()
+        await handleAuthenticationFailure()
+    }
+
+    private func refreshDashboard() async {
+        await model.refresh()
+        await handleAuthenticationFailure()
+    }
+
+    private func handleAuthenticationFailure() async {
+        guard let error = model.authenticationFailure else {
+            return
+        }
+
+        await appSession.handleAuthenticationFailure(error)
     }
 }

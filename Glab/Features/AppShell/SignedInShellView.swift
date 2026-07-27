@@ -36,6 +36,33 @@ struct SignedInShellView: View {
     let appSession: AppSession
 
     @State private var selectedTab = GitLabAppTab.defaultTab
+    @State private var homeDashboardModel: HomeDashboardModel
+
+    init(
+        session: GitLabStoredSession,
+        appSession: AppSession
+    ) {
+        self.session = session
+        self.appSession = appSession
+
+        let transport = URLSessionGitLabHTTPTransport()
+        let credentialStore = KeychainGitLabCredentialStore()
+        let client = GitLabSessionClient(
+            session: session,
+            transport: transport,
+            tokenExchanger: GitLabOAuthTokenClient(
+                transport: transport
+            ),
+            credentialStore: credentialStore
+        )
+        _homeDashboardModel = State(
+            initialValue: HomeDashboardModel(
+                loader: LiveHomeDashboardLoader(
+                    client: client
+                )
+            )
+        )
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -46,7 +73,8 @@ struct SignedInShellView: View {
             ) {
                 HomeView(
                     session: session,
-                    appSession: appSession
+                    appSession: appSession,
+                    model: homeDashboardModel
                 )
             }
 

@@ -171,6 +171,27 @@ struct HomeDashboardModelTests {
         #expect(presentation.status == .content)
         #expect(presentation.subtitle == "First review")
     }
+
+    @Test("Surfaces a session failure that requires authentication")
+    func surfacesAuthenticationFailure() async {
+        let failure = GitLabSessionClientError.api(.unauthenticated)
+        let model = HomeDashboardModel(
+            loader: QueueDashboardLoader(
+                outcomes: [
+                    .success(
+                        loadResult(
+                            successes: [:],
+                            failure: failure
+                        )
+                    ),
+                ]
+            )
+        )
+
+        await model.loadIfNeeded()
+
+        #expect(model.authenticationFailure == failure)
+    }
 }
 
 private extension HomeDashboardModelTests {
