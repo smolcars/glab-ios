@@ -84,7 +84,7 @@ struct HomeView: View {
                         )
                     }
                     .accessibilityLabel(
-                        "Account for \(displayName)"
+                        "Account for \(displayedUser.displayName)"
                     )
                     .accessibilityIdentifier("home.accountButton")
                 }
@@ -112,13 +112,6 @@ struct HomeView: View {
                 + "Todos will be disabled."
         )
         .listRowBackground(Color.orange.opacity(0.1))
-    }
-
-    private var displayName: String {
-        let name = displayedUser.name.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
-        return name.isEmpty ? displayedUser.username : name
     }
 
     private var displayedUser: GitLabUserSummary {

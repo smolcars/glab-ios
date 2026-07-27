@@ -65,7 +65,7 @@ struct AccountView: View {
                 )
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(displayName)
+                    Text(session.user.displayName)
                         .font(.title3.bold())
 
                     Text("@\(session.user.username)")
@@ -137,13 +137,6 @@ struct AccountView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
         .accessibilityIdentifier("account.signOutButton")
-    }
-
-    private var displayName: String {
-        let name = session.user.name.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
-        return name.isEmpty ? session.user.username : name
     }
 
     private var instanceName: String {
@@ -220,17 +213,9 @@ struct GitLabUserAvatar: View {
     }
 
     private var fallback: some View {
-        Text(initial)
+        Text(user.avatarInitial)
             .font(.system(size: size * 0.4, weight: .semibold))
             .foregroundStyle(.orange)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var initial: String {
-        let name = user.name.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
-        let value = name.isEmpty ? user.username : name
-        return String(value.prefix(1)).uppercased()
     }
 }

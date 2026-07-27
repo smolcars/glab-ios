@@ -4,6 +4,35 @@ import Testing
 
 @Suite("Stored GitLab session")
 struct GitLabStoredSessionTests {
+    @Test("Normalizes user display names and avatar initials")
+    func normalizesUserPresentation() {
+        let namedUser = GitLabUserSummary(
+            id: 1,
+            username: "octocat",
+            name: "  The Octocat  ",
+            avatarURL: nil
+        )
+        let usernameOnlyUser = GitLabUserSummary(
+            id: 2,
+            username: "  monalisa  ",
+            name: " \n ",
+            avatarURL: nil
+        )
+        let anonymousUser = GitLabUserSummary(
+            id: 3,
+            username: " ",
+            name: "",
+            avatarURL: nil
+        )
+
+        #expect(namedUser.displayName == "The Octocat")
+        #expect(namedUser.avatarInitial == "T")
+        #expect(usernameOnlyUser.displayName == "monalisa")
+        #expect(usernameOnlyUser.avatarInitial == "M")
+        #expect(anonymousUser.displayName == "GitLab user")
+        #expect(anonymousUser.avatarInitial == "G")
+    }
+
     @Test("Models OAuth metadata without exposing tokens")
     func modelsOAuthSession() throws {
         let expiresAt = Date(timeIntervalSince1970: 1_800_000_000)

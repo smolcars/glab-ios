@@ -41,7 +41,7 @@ Baseline:
 
 ### Focused duplication
 
-- [ ] Centralize GitLab user display-name and avatar-initial normalization used
+- [x] Centralize GitLab user display-name and avatar-initial normalization used
   by Home and Account.
 - [ ] Collapse the five repeated Home work-item request/mapping blocks behind
   one typed helper while keeping each endpoint explicit.

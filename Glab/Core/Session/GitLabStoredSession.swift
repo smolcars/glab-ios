@@ -5,6 +5,24 @@ nonisolated struct GitLabUserSummary: Codable, Equatable, Sendable {
     let username: String
     let name: String
     let avatarURL: URL?
+
+    var displayName: String {
+        let normalizedName = name.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        if !normalizedName.isEmpty {
+            return normalizedName
+        }
+
+        let normalizedUsername = username.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        return normalizedUsername.isEmpty ? "GitLab user" : normalizedUsername
+    }
+
+    var avatarInitial: String {
+        displayName.first.map { String($0).uppercased() } ?? "?"
+    }
 }
 
 nonisolated enum GitLabStoredSessionError:
