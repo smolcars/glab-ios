@@ -77,17 +77,17 @@ nonisolated struct GitLabHost: Codable, Equatable, Sendable {
     }
 
     private static func normalizedSitePath(_ path: String) -> String {
-        var path = path
+        var components = path.split(separator: "/", omittingEmptySubsequences: true)
 
-        while path.hasSuffix("/") {
-            path.removeLast()
+        if
+            components.count >= 2,
+            components[components.count - 2] == "api",
+            components[components.count - 1] == "v4"
+        {
+            components.removeLast(2)
         }
 
-        if path.hasSuffix("/api/v4") {
-            path.removeLast("/api/v4".count)
-        }
-
-        return path
+        return components.isEmpty ? "" : "/" + components.joined(separator: "/")
     }
 
     init(from decoder: any Decoder) throws {

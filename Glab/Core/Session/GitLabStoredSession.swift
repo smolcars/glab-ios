@@ -15,6 +15,9 @@ nonisolated enum GitLabStoredSessionError:
 {
     case missingOAuthApplicationID
     case unexpectedOAuthApplicationID
+    case missingPersonalAccessTokenMetadata
+    case unexpectedPersonalAccessTokenMetadata
+    case insufficientPersonalAccessTokenScope
 
     var description: String {
         switch self {
@@ -22,6 +25,12 @@ nonisolated enum GitLabStoredSessionError:
             "An OAuth session requires the GitLab host's application ID."
         case .unexpectedOAuthApplicationID:
             "A personal access token session cannot include an OAuth application ID."
+        case .missingPersonalAccessTokenMetadata:
+            "A personal access token session requires its scope and expiry metadata."
+        case .unexpectedPersonalAccessTokenMetadata:
+            "An OAuth session cannot include personal access token metadata."
+        case .insufficientPersonalAccessTokenScope:
+            "A personal access token session requires the api or read_api scope."
         }
     }
 }
@@ -37,12 +46,14 @@ nonisolated struct GitLabStoredSession:
         case host
         case user
         case oauthApplicationID
+        case personalAccessTokenMetadata
         case credential
     }
 
     let host: GitLabHost
     let user: GitLabUserSummary
     let oauthApplicationID: String?
+    let personalAccessTokenMetadata: GitLabPersonalAccessTokenMetadata?
     let credential: GitLabCredential
 
     var credentialKind: GitLabCredentialKind {
@@ -57,10 +68,19 @@ nonisolated struct GitLabStoredSession:
         credential.canRefreshOAuth
     }
 
+    var apiAccess: GitLabAPIAccess {
+        personalAccessTokenMetadata?.apiAccess ?? .readWrite
+    }
+
+    var personalAccessTokenExpiresOn: String? {
+        personalAccessTokenMetadata?.expiresOn
+    }
+
     var description: String {
         "GitLabStoredSession(host: \(host.siteURL.absoluteString), "
             + "username: \(user.username), "
             + "oauthApplicationID: \(oauthApplicationID ?? "none"), "
+            + "apiAccess: \(apiAccess.rawValue), "
             + "credential: \(credential))"
     }
 
@@ -72,6 +92,7 @@ nonisolated struct GitLabStoredSession:
         host: GitLabHost,
         user: GitLabUserSummary,
         oauthApplicationID: String?,
+        personalAccessTokenMetadata: GitLabPersonalAccessTokenMetadata?,
         credential: GitLabCredential
     ) throws(GitLabStoredSessionError) {
         let normalizedApplicationID = oauthApplicationID?
@@ -82,16 +103,26 @@ nonisolated struct GitLabStoredSession:
             guard let normalizedApplicationID, !normalizedApplicationID.isEmpty else {
                 throw .missingOAuthApplicationID
             }
+            guard personalAccessTokenMetadata == nil else {
+                throw .unexpectedPersonalAccessTokenMetadata
+            }
             self.oauthApplicationID = normalizedApplicationID
         case .personalAccessToken:
             guard normalizedApplicationID == nil else {
                 throw .unexpectedOAuthApplicationID
+            }
+            guard let personalAccessTokenMetadata else {
+                throw .missingPersonalAccessTokenMetadata
+            }
+            guard personalAccessTokenMetadata.supportsGlabAPI else {
+                throw .insufficientPersonalAccessTokenScope
             }
             self.oauthApplicationID = nil
         }
 
         self.host = host
         self.user = user
+        self.personalAccessTokenMetadata = personalAccessTokenMetadata
         self.credential = credential
     }
 
@@ -103,6 +134,10 @@ nonisolated struct GitLabStoredSession:
             String.self,
             forKey: .oauthApplicationID
         )
+        let personalAccessTokenMetadata = try container.decodeIfPresent(
+            GitLabPersonalAccessTokenMetadata.self,
+            forKey: .personalAccessTokenMetadata
+        )
         let credential = try container.decode(
             GitLabCredential.self,
             forKey: .credential
@@ -113,6 +148,7 @@ nonisolated struct GitLabStoredSession:
                 host: host,
                 user: user,
                 oauthApplicationID: oauthApplicationID,
+                personalAccessTokenMetadata: personalAccessTokenMetadata,
                 credential: credential
             )
         } catch {
@@ -131,6 +167,10 @@ nonisolated struct GitLabStoredSession:
         try container.encodeIfPresent(
             oauthApplicationID,
             forKey: .oauthApplicationID
+        )
+        try container.encodeIfPresent(
+            personalAccessTokenMetadata,
+            forKey: .personalAccessTokenMetadata
         )
         try container.encode(credential, forKey: .credential)
     }

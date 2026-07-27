@@ -19,6 +19,11 @@ struct GitLabRequestConstructionTests {
                 "https://gitlab.example.com/company/gitlab",
                 "https://gitlab.example.com/company/gitlab/api/v4"
             ),
+            (
+                "https://gitlab.example.com//company///gitlab/api/v4///",
+                "https://gitlab.example.com/company/gitlab",
+                "https://gitlab.example.com/company/gitlab/api/v4"
+            ),
         ]
     )
     func normalizesGitLabHosts(input: String, siteURL: String, apiBaseURL: String) throws {

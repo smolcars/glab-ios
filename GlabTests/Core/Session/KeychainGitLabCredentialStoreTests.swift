@@ -109,6 +109,10 @@ private extension KeychainGitLabCredentialStoreTests {
                 avatarURL: nil
             ),
             oauthApplicationID: nil,
+            personalAccessTokenMetadata: GitLabPersonalAccessTokenMetadata(
+                scopes: ["api"],
+                expiresOn: nil
+            ),
             credential: GitLabCredential.personalAccessToken(token)
         )
     }

@@ -14,6 +14,7 @@ struct GitLabStoredSessionTests {
         )
         let session = try makeSession(
             oauthApplicationID: "self-managed-application-id",
+            personalAccessTokenMetadata: nil,
             credential: credential
         )
 
@@ -28,6 +29,10 @@ struct GitLabStoredSessionTests {
         let credential = try GitLabCredential.personalAccessToken("pat-secret")
         let session = try makeSession(
             oauthApplicationID: nil,
+            personalAccessTokenMetadata: GitLabPersonalAccessTokenMetadata(
+                scopes: ["read_api"],
+                expiresOn: "2027-07-27"
+            ),
             credential: credential
         )
 
@@ -35,12 +40,15 @@ struct GitLabStoredSessionTests {
         #expect(session.oauthApplicationID == nil)
         #expect(session.oauthExpiresAt == nil)
         #expect(!session.canRefreshOAuth)
+        #expect(session.apiAccess == .readOnly)
+        #expect(session.personalAccessTokenExpiresOn == "2027-07-27")
     }
 
     @Test("Round trips a stored session")
     func roundTripsStoredSession() throws {
         let original = try makeSession(
             oauthApplicationID: "application-id",
+            personalAccessTokenMetadata: nil,
             credential: GitLabCredential.oauth(
                 accessToken: "oauth-access-secret",
                 refreshToken: "oauth-refresh-secret",
@@ -69,6 +77,7 @@ struct GitLabStoredSessionTests {
         )
         let session = try makeSession(
             oauthApplicationID: "application-id",
+            personalAccessTokenMetadata: nil,
             credential: credential
         )
 
@@ -93,11 +102,46 @@ struct GitLabStoredSessionTests {
         let personalAccessToken = try GitLabCredential.personalAccessToken("pat-secret")
 
         #expect(throws: GitLabStoredSessionError.missingOAuthApplicationID) {
-            try makeSession(oauthApplicationID: nil, credential: oauth)
+            try makeSession(
+                oauthApplicationID: nil,
+                personalAccessTokenMetadata: nil,
+                credential: oauth
+            )
         }
         #expect(throws: GitLabStoredSessionError.unexpectedOAuthApplicationID) {
             try makeSession(
                 oauthApplicationID: "not-used-for-a-pat",
+                personalAccessTokenMetadata: GitLabPersonalAccessTokenMetadata(
+                    scopes: ["api"],
+                    expiresOn: nil
+                ),
+                credential: personalAccessToken
+            )
+        }
+        #expect(throws: GitLabStoredSessionError.missingPersonalAccessTokenMetadata) {
+            try makeSession(
+                oauthApplicationID: nil,
+                personalAccessTokenMetadata: nil,
+                credential: personalAccessToken
+            )
+        }
+        #expect(throws: GitLabStoredSessionError.unexpectedPersonalAccessTokenMetadata) {
+            try makeSession(
+                oauthApplicationID: "application-id",
+                personalAccessTokenMetadata: GitLabPersonalAccessTokenMetadata(
+                    scopes: ["api"],
+                    expiresOn: nil
+                ),
+                credential: oauth
+            )
+        }
+        #expect(throws: GitLabStoredSessionError.insufficientPersonalAccessTokenScope) {
+            try makeSession(
+                oauthApplicationID: nil,
+                personalAccessTokenMetadata: GitLabPersonalAccessTokenMetadata(
+                    scopes: ["read_user"],
+                    expiresOn: nil
+                ),
                 credential: personalAccessToken
             )
         }
@@ -167,6 +211,7 @@ struct GitLabStoredSessionTests {
 private extension GitLabStoredSessionTests {
     nonisolated func makeSession(
         oauthApplicationID: String?,
+        personalAccessTokenMetadata: GitLabPersonalAccessTokenMetadata?,
         credential: GitLabCredential
     ) throws -> GitLabStoredSession {
         try GitLabStoredSession(
@@ -178,6 +223,7 @@ private extension GitLabStoredSessionTests {
                 avatarURL: URL(string: "https://gitlab.example.com/uploads/avatar.png")
             ),
             oauthApplicationID: oauthApplicationID,
+            personalAccessTokenMetadata: personalAccessTokenMetadata,
             credential: credential
         )
     }
