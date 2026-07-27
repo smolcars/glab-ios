@@ -32,6 +32,48 @@ struct AppSessionTests {
         #expect(appSession.storedSession == storedSession)
     }
 
+    @Test("Restores an expired OAuth session that can refresh")
+    func restoresRefreshableOAuthSession() async throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let storedSession = try makeOAuthSession(
+            refreshToken: "refresh-secret",
+            expiresAt: now.addingTimeInterval(-60)
+        )
+        let appSession = AppSession(
+            credentialStore: InMemoryGitLabCredentialStore(
+                session: storedSession
+            ),
+            currentDate: { now }
+        )
+
+        await appSession.restore()
+
+        #expect(appSession.state == .signedIn(storedSession))
+        #expect(appSession.authenticationNotice == nil)
+    }
+
+    @Test("Removes an expired OAuth session that cannot refresh")
+    func removesInvalidOAuthSession() async throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let storedSession = try makeOAuthSession(
+            refreshToken: nil,
+            expiresAt: now.addingTimeInterval(-60)
+        )
+        let store = InMemoryGitLabCredentialStore(session: storedSession)
+        let appSession = AppSession(
+            credentialStore: store,
+            currentDate: { now }
+        )
+
+        await appSession.restore()
+        let persisted = try await store.load()
+
+        #expect(persisted == nil)
+        #expect(appSession.state == .signedOut)
+        #expect(appSession.storedSession == nil)
+        #expect(appSession.authenticationNotice == .expiredOrRevoked)
+    }
+
     @Test("Persists a newly established session before signing in")
     func establishesSession() async throws {
         let store = InMemoryGitLabCredentialStore()
@@ -57,6 +99,24 @@ struct AppSessionTests {
 
         #expect(persisted == nil)
         #expect(appSession.state == .signedOut)
+        #expect(appSession.storedSession == nil)
+        #expect(appSession.authenticationNotice == nil)
+    }
+
+    @Test("Invalidating authentication clears stored and in-memory user data")
+    func invalidatesAuthentication() async throws {
+        let storedSession = try makeSession(token: "revoked-secret")
+        let store = InMemoryGitLabCredentialStore(session: storedSession)
+        let appSession = AppSession(credentialStore: store)
+        await appSession.restore()
+
+        await appSession.invalidateAuthentication(.expiredOrRevoked)
+        let persisted = try await store.load()
+
+        #expect(persisted == nil)
+        #expect(appSession.state == .signedOut)
+        #expect(appSession.storedSession == nil)
+        #expect(appSession.authenticationNotice == .expiredOrRevoked)
     }
 
     @Test("Surfaces restore failures")
@@ -153,6 +213,28 @@ private extension AppSessionTests {
                 expiresOn: nil
             ),
             credential: GitLabCredential.personalAccessToken(token)
+        )
+    }
+
+    nonisolated func makeOAuthSession(
+        refreshToken: String?,
+        expiresAt: Date
+    ) throws -> GitLabStoredSession {
+        try GitLabStoredSession(
+            host: GitLabHost("gitlab.example.com"),
+            user: GitLabUserSummary(
+                id: 42,
+                username: "octocat",
+                name: "The Octocat",
+                avatarURL: nil
+            ),
+            oauthApplicationID: "application-id",
+            personalAccessTokenMetadata: nil,
+            credential: GitLabCredential.oauth(
+                accessToken: "oauth-secret",
+                refreshToken: refreshToken,
+                expiresAt: expiresAt
+            )
         )
     }
 }
