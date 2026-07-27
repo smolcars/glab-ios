@@ -46,14 +46,18 @@ struct SignedInShellView: View {
         self.appSession = appSession
 
         let transport = URLSessionGitLabHTTPTransport()
-        let credentialStore = KeychainGitLabCredentialStore()
         let client = GitLabSessionClient(
             session: session,
             transport: transport,
             tokenExchanger: GitLabOAuthTokenClient(
                 transport: transport
             ),
-            credentialStore: credentialStore
+            credentialStore: appSession.credentialStore,
+            sessionDidRefresh: { refreshedSession in
+                await appSession.synchronizeRefreshedSession(
+                    refreshedSession
+                )
+            }
         )
         _homeDashboardModel = State(
             initialValue: HomeDashboardModel(

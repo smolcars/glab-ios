@@ -35,7 +35,25 @@ nonisolated enum GitLabCredentialStoreError:
 nonisolated protocol GitLabCredentialStore: Sendable {
     func load() async throws(GitLabCredentialStoreError) -> GitLabStoredSession?
     func save(_ session: GitLabStoredSession) async throws(GitLabCredentialStoreError)
+    func replace(
+        _ session: GitLabStoredSession,
+        ifCurrentSessionIs expectedSession: GitLabStoredSession
+    ) async throws(GitLabCredentialStoreError) -> Bool
     func delete() async throws(GitLabCredentialStoreError)
+}
+
+extension GitLabCredentialStore {
+    func replace(
+        _ session: GitLabStoredSession,
+        ifCurrentSessionIs expectedSession: GitLabStoredSession
+    ) async throws(GitLabCredentialStoreError) -> Bool {
+        guard try await load() == expectedSession else {
+            return false
+        }
+
+        try await save(session)
+        return true
+    }
 }
 
 actor InMemoryGitLabCredentialStore:
@@ -65,6 +83,18 @@ actor InMemoryGitLabCredentialStore:
         _ session: GitLabStoredSession
     ) async throws(GitLabCredentialStoreError) {
         self.session = session
+    }
+
+    func replace(
+        _ session: GitLabStoredSession,
+        ifCurrentSessionIs expectedSession: GitLabStoredSession
+    ) async throws(GitLabCredentialStoreError) -> Bool {
+        guard self.session == expectedSession else {
+            return false
+        }
+
+        self.session = session
+        return true
     }
 
     func delete() async throws(GitLabCredentialStoreError) {

@@ -51,7 +51,7 @@ final class AppSession {
 
     private(set) var state: State = .restoring
     private(set) var authenticationNotice: AuthenticationNotice?
-    private let credentialStore: any GitLabCredentialStore
+    let credentialStore: any GitLabCredentialStore
     private let currentDate: () -> Date
 
     var storedSession: GitLabStoredSession? {
@@ -126,6 +126,24 @@ final class AppSession {
         }
 
         await invalidateAuthentication(.expiredOrRevoked)
+    }
+
+    func synchronizeRefreshedSession(
+        _ refreshedSession: GitLabStoredSession
+    ) {
+        guard
+            case let .signedIn(currentSession) = state,
+            currentSession.host == refreshedSession.host,
+            currentSession.user.id == refreshedSession.user.id,
+            currentSession.oauthApplicationID
+                == refreshedSession.oauthApplicationID,
+            currentSession.credentialKind == .oauth,
+            refreshedSession.credentialKind == .oauth
+        else {
+            return
+        }
+
+        state = .signedIn(refreshedSession)
     }
 
     private func canRestore(_ session: GitLabStoredSession) -> Bool {

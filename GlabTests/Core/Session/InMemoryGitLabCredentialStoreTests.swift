@@ -39,6 +39,36 @@ struct InMemoryGitLabCredentialStoreTests {
         #expect(restored == replacement)
     }
 
+    @Test("Conditionally replaces only the expected session")
+    func conditionallyReplacesSession() async throws {
+        let original = try makeSession(
+            username: "original",
+            token: "original-secret"
+        )
+        let stale = try makeSession(
+            username: "stale",
+            token: "stale-secret"
+        )
+        let replacement = try makeSession(
+            username: "replacement",
+            token: "replacement-secret"
+        )
+        let store = InMemoryGitLabCredentialStore(session: original)
+
+        let rejected = try await store.replace(
+            replacement,
+            ifCurrentSessionIs: stale
+        )
+        let accepted = try await store.replace(
+            replacement,
+            ifCurrentSessionIs: original
+        )
+
+        #expect(!rejected)
+        #expect(accepted)
+        #expect(try await store.load() == replacement)
+    }
+
     @Test("Deletes the stored session")
     func deletesSession() async throws {
         let store = InMemoryGitLabCredentialStore(

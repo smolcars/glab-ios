@@ -1,13 +1,13 @@
 import Foundation
 import Security
 
-nonisolated struct KeychainGitLabCredentialStore:
+actor KeychainGitLabCredentialStore:
     GitLabCredentialStore,
     CustomStringConvertible,
     CustomDebugStringConvertible
 {
-    let service: String
-    let account: String
+    nonisolated let service: String
+    nonisolated let account: String
 
     init(
         service: String = "com.glab.ios.session",
@@ -17,16 +17,41 @@ nonisolated struct KeychainGitLabCredentialStore:
         self.account = account
     }
 
-    var description: String {
+    nonisolated var description: String {
         "KeychainGitLabCredentialStore(session: <redacted>)"
     }
 
-    var debugDescription: String {
+    nonisolated var debugDescription: String {
         description
     }
 
-    @concurrent
     func load() async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
+        try loadSession()
+    }
+
+    func save(
+        _ session: GitLabStoredSession
+    ) async throws(GitLabCredentialStoreError) {
+        try saveSession(session)
+    }
+
+    func replace(
+        _ session: GitLabStoredSession,
+        ifCurrentSessionIs expectedSession: GitLabStoredSession
+    ) async throws(GitLabCredentialStoreError) -> Bool {
+        guard try loadSession() == expectedSession else {
+            return false
+        }
+
+        try saveSession(session)
+        return true
+    }
+
+    func delete() async throws(GitLabCredentialStoreError) {
+        try deleteSession()
+    }
+
+    private func loadSession() throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
         var query = baseQuery
         query[kSecReturnData as String] = kCFBooleanTrue
         query[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -55,10 +80,9 @@ nonisolated struct KeychainGitLabCredentialStore:
         }
     }
 
-    @concurrent
-    func save(
+    private func saveSession(
         _ session: GitLabStoredSession
-    ) async throws(GitLabCredentialStoreError) {
+    ) throws(GitLabCredentialStoreError) {
         let data: Data
 
         do {
@@ -97,8 +121,7 @@ nonisolated struct KeychainGitLabCredentialStore:
         }
     }
 
-    @concurrent
-    func delete() async throws(GitLabCredentialStoreError) {
+    private func deleteSession() throws(GitLabCredentialStoreError) {
         let status = SecItemDelete(baseQuery as CFDictionary)
 
         guard status == errSecSuccess || status == errSecItemNotFound else {

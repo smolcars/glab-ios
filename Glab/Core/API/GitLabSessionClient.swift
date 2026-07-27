@@ -46,25 +46,29 @@ nonisolated protocol GitLabSessionRequestSending: Sendable {
     ) async throws(GitLabSessionClientError) -> Response
 }
 
-actor GitLabSessionClient<Transport, TokenExchanger, CredentialStore>
+actor GitLabSessionClient<Transport, TokenExchanger>
 where
     Transport: GitLabHTTPTransport,
-    TokenExchanger: GitLabOAuthTokenExchanging,
-    CredentialStore: GitLabCredentialStore
+    TokenExchanger: GitLabOAuthTokenExchanging
 {
     private let transport: Transport
     private let refreshCoordinator:
-        GitLabOAuthRefreshCoordinator<TokenExchanger, CredentialStore>
+        GitLabOAuthRefreshCoordinator<TokenExchanger>
+    private let sessionDidRefresh:
+        @Sendable (GitLabStoredSession) async -> Void
     private var session: GitLabStoredSession
 
     init(
         session: GitLabStoredSession,
         transport: Transport,
         tokenExchanger: TokenExchanger,
-        credentialStore: CredentialStore
+        credentialStore: any GitLabCredentialStore,
+        sessionDidRefresh:
+            @escaping @Sendable (GitLabStoredSession) async -> Void = { _ in }
     ) {
         self.session = session
         self.transport = transport
+        self.sessionDidRefresh = sessionDidRefresh
         refreshCoordinator = GitLabOAuthRefreshCoordinator(
             tokenExchanger: tokenExchanger,
             credentialStore: credentialStore
@@ -127,6 +131,7 @@ where
         do {
             let refreshedSession = try await refreshCoordinator.refresh(session)
             self.session = refreshedSession
+            await sessionDidRefresh(refreshedSession)
             return refreshedSession
         } catch {
             throw .refresh(error)

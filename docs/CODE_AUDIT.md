@@ -21,12 +21,12 @@ Baseline:
 
 ### Correctness and session ownership
 
-- [ ] Make refresh-token persistence conditional on the original stored
+- [x] Make refresh-token persistence conditional on the original stored
   session still being current, so an in-flight refresh cannot restore
   credentials after sign-out.
-- [ ] Reuse the exact credential-store instance owned by `AppSession` in the
+- [x] Reuse the exact credential-store instance owned by `AppSession` in the
   signed-in client instead of constructing a second live store.
-- [ ] Synchronize a successfully refreshed session back into `AppSession` so
+- [x] Synchronize a successfully refreshed session back into `AppSession` so
   later features never create a client from an expired, rotated credential.
 
 ### OAuth robustness

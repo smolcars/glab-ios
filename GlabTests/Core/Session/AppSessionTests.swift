@@ -137,6 +137,49 @@ struct AppSessionTests {
         #expect(appSession.authenticationNotice == nil)
     }
 
+    @Test("Synchronizes a rotated OAuth credential for the current account")
+    func synchronizesRefreshedOAuthSession() async throws {
+        let original = try makeOAuthSession(
+            refreshToken: "original-refresh",
+            expiresAt: .distantPast
+        )
+        let refreshed = try makeOAuthSession(
+            refreshToken: "rotated-refresh",
+            expiresAt: .distantFuture
+        )
+        let appSession = AppSession(
+            credentialStore: InMemoryGitLabCredentialStore(
+                session: original
+            )
+        )
+        await appSession.restore()
+
+        appSession.synchronizeRefreshedSession(refreshed)
+
+        #expect(appSession.state == .signedIn(refreshed))
+    }
+
+    @Test("Ignores a late refresh after sign-out")
+    func ignoresLateRefreshAfterSignOut() async throws {
+        let original = try makeOAuthSession(
+            refreshToken: "original-refresh",
+            expiresAt: .distantPast
+        )
+        let refreshed = try makeOAuthSession(
+            refreshToken: "rotated-refresh",
+            expiresAt: .distantFuture
+        )
+        let store = InMemoryGitLabCredentialStore(session: original)
+        let appSession = AppSession(credentialStore: store)
+        await appSession.restore()
+        try await appSession.signOut()
+
+        appSession.synchronizeRefreshedSession(refreshed)
+
+        #expect(appSession.state == .signedOut)
+        #expect(try await store.load() == nil)
+    }
+
     @Test("Classifies only expired or rejected credentials for reauthentication")
     func classifiesAuthenticationFailures() {
         #expect(

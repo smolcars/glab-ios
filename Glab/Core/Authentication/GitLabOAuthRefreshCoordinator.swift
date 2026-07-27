@@ -38,10 +38,8 @@ nonisolated enum GitLabOAuthRefreshError:
     }
 }
 
-actor GitLabOAuthRefreshCoordinator<TokenExchanger, CredentialStore>
-where
-    TokenExchanger: GitLabOAuthTokenExchanging,
-    CredentialStore: GitLabCredentialStore
+actor GitLabOAuthRefreshCoordinator<TokenExchanger>
+where TokenExchanger: GitLabOAuthTokenExchanging
 {
     private struct InFlightRefresh {
         let id: UUID
@@ -49,12 +47,12 @@ where
     }
 
     private let tokenExchanger: TokenExchanger
-    private let credentialStore: CredentialStore
+    private let credentialStore: any GitLabCredentialStore
     private var inFlightRefresh: InFlightRefresh?
 
     init(
         tokenExchanger: TokenExchanger,
-        credentialStore: CredentialStore
+        credentialStore: any GitLabCredentialStore
     ) {
         self.tokenExchanger = tokenExchanger
         self.credentialStore = credentialStore
@@ -110,9 +108,17 @@ where
             }
 
             do {
-                try await credentialStore.save(updatedSession)
+                let replaced = try await credentialStore.replace(
+                    updatedSession,
+                    ifCurrentSessionIs: session
+                )
+                guard replaced else {
+                    throw GitLabOAuthRefreshError.invalidSession
+                }
             } catch let error as GitLabCredentialStoreError {
                 throw GitLabOAuthRefreshError.storage(error)
+            } catch let error as GitLabOAuthRefreshError {
+                throw error
             } catch {
                 throw GitLabOAuthRefreshError.invalidSession
             }

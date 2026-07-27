@@ -65,6 +65,38 @@ struct KeychainGitLabCredentialStoreTests {
         }
     }
 
+    @Test("Conditionally replaces only the expected Keychain session")
+    func conditionallyReplacesSession() async throws {
+        try await withStore { store in
+            let original = try makeSession(
+                username: "original",
+                token: "original-secret"
+            )
+            let stale = try makeSession(
+                username: "stale",
+                token: "stale-secret"
+            )
+            let replacement = try makeSession(
+                username: "replacement",
+                token: "replacement-secret"
+            )
+            try await store.save(original)
+
+            let rejected = try await store.replace(
+                replacement,
+                ifCurrentSessionIs: stale
+            )
+            let accepted = try await store.replace(
+                replacement,
+                ifCurrentSessionIs: original
+            )
+
+            #expect(!rejected)
+            #expect(accepted)
+            #expect(try await store.load() == replacement)
+        }
+    }
+
     @Test("Redacts its description")
     func redactsDescription() {
         let store = KeychainGitLabCredentialStore(

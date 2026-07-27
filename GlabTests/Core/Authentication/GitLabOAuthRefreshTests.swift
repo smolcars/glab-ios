@@ -18,11 +18,15 @@ struct GitLabOAuthRefreshTests {
         let store = InMemoryGitLabCredentialStore(session: original)
         let exchanger = StubTokenExchanger(outcome: .success(rotatedCredential))
         let transport = RecordingAPITransport(outcomes: [.success])
+        let recorder = RefreshedSessionRecorder()
         let client = GitLabSessionClient(
             session: original,
             transport: transport,
             tokenExchanger: exchanger,
-            credentialStore: store
+            credentialStore: store,
+            sessionDidRefresh: { session in
+                await recorder.record(session)
+            }
         )
 
         let user: GitLabAuthenticatedUser = try await client.send(userRequest)
@@ -32,6 +36,7 @@ struct GitLabOAuthRefreshTests {
         #expect(await exchanger.refreshTokens == ["original-refresh"])
         #expect(storedSession?.credential == rotatedCredential)
         #expect(await client.currentSession().credential == rotatedCredential)
+        #expect(await recorder.sessions.map(\.credential) == [rotatedCredential])
         #expect(
             await transport.authorizationHeaders
                 == ["Bearer rotated-access"]
@@ -146,9 +151,51 @@ struct GitLabOAuthRefreshTests {
         #expect(await exchanger.refreshCount == 1)
         #expect(await transport.requestCount == 2)
     }
+
+    @Test("Does not restore credentials when sign-out wins a refresh race")
+    func doesNotRestoreCredentialsAfterSignOut() async throws {
+        let session = try makeOAuthSession(expiresAt: .distantPast)
+        let exchanger = GatedTokenExchanger(
+            credential: try makeOAuthCredential()
+        )
+        let store = InMemoryGitLabCredentialStore(session: session)
+        let transport = RecordingAPITransport(outcomes: [.success])
+        let client = GitLabSessionClient(
+            session: session,
+            transport: transport,
+            tokenExchanger: exchanger,
+            credentialStore: store
+        )
+
+        let request = Task {
+            let user: GitLabAuthenticatedUser = try await client.send(
+                userRequest
+            )
+            return user
+        }
+        await exchanger.waitUntilRefreshStarts()
+        try await store.delete()
+        await exchanger.releaseRefresh()
+
+        await #expect(
+            throws: GitLabSessionClientError.refresh(.invalidSession)
+        ) {
+            try await request.value
+        }
+        #expect(try await store.load() == nil)
+        #expect(await transport.requestCount == 0)
+    }
 }
 
 private extension GitLabOAuthRefreshTests {
+    actor RefreshedSessionRecorder {
+        private(set) var sessions: [GitLabStoredSession] = []
+
+        func record(_ session: GitLabStoredSession) {
+            sessions.append(session)
+        }
+    }
+
     nonisolated enum APIOutcome: Sendable {
         case success
         case unauthenticated
