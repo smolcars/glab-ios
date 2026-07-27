@@ -344,7 +344,7 @@ Test:
 - Recent/starred queries, project decoding, visibility presentation,
   pagination, filtering, avatar fallback, and URL routing.
 
-### [ ] MVP-12 — Build the Todos inbox
+### [x] MVP-12 — Build the Todos inbox
 
 Deliver:
 

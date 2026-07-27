@@ -4,12 +4,13 @@ Last updated: 2026-07-27
 
 ## Scope
 
-This audit covers all production Swift, unit tests, app configuration, and MVP
-documentation present through MVP-08. It intentionally excludes naming or
-formatting preferences that do not affect correctness, security, testability,
-or near-term feature work.
+This is a living audit of production Swift, unit tests, app configuration, and
+MVP documentation. The initial baseline below was recorded after MVP-08; each
+later phase has its own full-tree audit section. Naming and formatting
+preferences that do not affect correctness, security, testability, or
+near-term feature work are intentionally excluded.
 
-Baseline:
+Initial baseline:
 
 - 112 tests (130 parameterized invocations) pass on iPhone 17 Pro, iOS 26.5.
 - Swift 6 complete concurrency checking passes.
@@ -206,3 +207,47 @@ Scope:
 - Full GitLab Flavored Markdown rendering remains post-MVP. This repair only
   removes non-content template syntax that visibly disrupts otherwise readable
   descriptions.
+
+## Post-MVP-12 audit
+
+Scope:
+
+- All production Swift, tests, app/project configuration, and MVP
+  documentation were reviewed again after the pending/done Todos inbox was
+  added.
+- The complete signed suite passes all 192 logical tests (264 parameterized
+  executions) on iPhone 17 Pro, iOS 26.5. Swift 6 complete concurrency
+  checking, Xcode static analysis, property-list validation, and the
+  production secret/logging scan are clean.
+- All six pending/done and target-filter combinations, scrolling, pull to
+  refresh, pagination behavior, empty/populated states, and the optional badge
+  were exercised in the simulator. The changed authentication sheets were
+  separately tapped and visually inspected on iPhone 17 Pro in light and dark
+  appearance.
+
+### Repair checklist
+
+- [x] Preserve the last meaningful refresh or pagination error when a retry is
+  cancelled, so stale data never regains a reliable badge or loses its retry
+  warning without a successful response.
+- [x] Prevent a non-cooperative authentication response from establishing a
+  session after its sign-in task is cancelled, with deterministic OAuth and
+  personal-token regression tests.
+- [x] Make dismissible sign-in sheets own and cancel their in-flight task, and
+  keep the token sheet's title and Cancel control visible at iPhone width.
+- [x] Replace nullable Home shortcut mappings with exhaustive routing and
+  remove the now-unreachable generic fallback list.
+- [x] Re-run focused regression suites, the complete signed suite, static
+  analysis, and light/dark simulator interaction flows after the repairs.
+
+### Deliberately unchanged
+
+- The existing feature-level Model-View structure and injected loader seams
+  remain small and testable; adding an architecture framework would not solve
+  a current problem.
+- Todo, issue, merge-request, and project response and row types remain
+  feature-specific because their GitLab contracts and presentation needs
+  evolve independently.
+- Todo rows remain noninteractive in MVP-12. MVP-13 must first make every API
+  request declare read versus write access and enforce that declaration before
+  transport, then add native/browser routing and completion controls.
