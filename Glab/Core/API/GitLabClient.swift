@@ -24,10 +24,17 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
     func sendResponse<Response>(
         _ endpoint: GitLabAPIRequest<Response>
     ) async throws(GitLabAPIError) -> GitLabAPIResponse<Response> {
+        try await sendPage(.initial(endpoint))
+    }
+
+    @concurrent
+    func sendPage<Response>(
+        _ page: GitLabAPIPageRequest<Response>
+    ) async throws(GitLabAPIError) -> GitLabAPIResponse<Response> {
         let request: URLRequest
 
         do {
-            request = try requestBuilder.build(endpoint)
+            request = try requestBuilder.build(page)
         } catch {
             throw .invalidRequest(error)
         }

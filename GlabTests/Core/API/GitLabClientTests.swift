@@ -134,6 +134,31 @@ struct GitLabClientTests {
         #expect(malformed.metadata == GitLabResponseMetadata())
     }
 
+    @Test("Decodes a server-provided next page")
+    func decodesNextPage() async throws {
+        let data = Data(
+            #"[{"id":2,"created_at":"2026-01-02T00:00:00Z"}]"#.utf8
+        )
+        let client = try makeClient(
+            outcome: .response(
+                data,
+                makeHTTPResponse(statusCode: 200)
+            )
+        )
+        let pageURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.com/api/v4/projects?page=2"
+            )
+        )
+
+        let response = try await client.sendPage(
+            GitLabAPIPageRequest<[TestProject]>.next(pageURL)
+        )
+
+        #expect(response.value.map(\.id) == [2])
+    }
+
     @Test(
         "Parses Retry-After seconds",
         arguments: [

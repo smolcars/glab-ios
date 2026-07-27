@@ -38,13 +38,13 @@ This plan is based on the current official GitLab documentation:
 
 ### 1. Secure page-following support
 
-- [ ] Represent an initial typed request or a server-provided next-page URL as
+- [x] Represent an initial typed request or a server-provided next-page URL as
   one typed page request.
-- [ ] Validate next-page URLs in the request builder before applying the
+- [x] Validate next-page URLs in the request builder before applying the
   session's authorization header.
-- [ ] Route page requests through the existing decoding, OAuth refresh, and
+- [x] Route page requests through the existing decoding, OAuth refresh, and
   one-retry behavior without duplicating the client state machine.
-- [ ] Test accepted same-host links and rejected cross-host, non-API, insecure,
+- [x] Test accepted same-host links and rejected cross-host, non-API, insecure,
   credential-bearing, fragmented, and traversal links.
 
 ### 2. Issue API contract

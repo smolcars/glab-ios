@@ -98,6 +98,44 @@ struct GitLabOAuthRefreshTests {
         )
     }
 
+    @Test("Retries the exact pagination link after OAuth refresh")
+    func retriesPaginationLinkAfterUnauthorizedResponse() async throws {
+        let session = try makeOAuthSession(expiresAt: .distantFuture)
+        let exchanger = StubTokenExchanger(
+            outcome: .success(
+                try makeOAuthCredential(
+                    accessToken: "rotated-access",
+                    refreshToken: "rotated-refresh"
+                )
+            )
+        )
+        let transport = RecordingAPITransport(
+            outcomes: [.unauthenticated, .success]
+        )
+        let client = GitLabSessionClient(
+            session: session,
+            transport: transport,
+            tokenExchanger: exchanger,
+            credentialStore: InMemoryGitLabCredentialStore(session: session)
+        )
+        let pageURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.example.com/company/api/v4/issues?page=2"
+            )
+        )
+
+        let response: GitLabAPIResponse<GitLabAuthenticatedUser> =
+            try await client.sendPage(.next(pageURL))
+
+        #expect(response.value.id == 42)
+        #expect(await transport.requestURLs == [pageURL, pageURL])
+        #expect(
+            await transport.authorizationHeaders
+                == ["Bearer original-access", "Bearer rotated-access"]
+        )
+    }
+
     @Test("Does not loop when the retried request is unauthorized")
     func limitsRetryToOne() async throws {
         let session = try makeOAuthSession(expiresAt: .distantFuture)
@@ -204,6 +242,7 @@ private extension GitLabOAuthRefreshTests {
     actor RecordingAPITransport: GitLabHTTPTransport {
         private var outcomes: [APIOutcome]
         private(set) var authorizationHeaders: [String] = []
+        private(set) var requestURLs: [URL] = []
 
         var requestCount: Int {
             authorizationHeaders.count
@@ -216,6 +255,7 @@ private extension GitLabOAuthRefreshTests {
         func data(
             for request: URLRequest
         ) async throws -> (Data, URLResponse) {
+            requestURLs.append(request.url!)
             authorizationHeaders.append(
                 request.value(forHTTPHeaderField: "Authorization") ?? ""
             )

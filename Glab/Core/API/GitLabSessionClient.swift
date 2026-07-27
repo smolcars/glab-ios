@@ -46,6 +46,14 @@ nonisolated protocol GitLabSessionRequestSending: Sendable {
     ) async throws(GitLabSessionClientError) -> Response
 }
 
+nonisolated protocol GitLabPaginatedSessionRequestSending:
+    GitLabSessionRequestSending
+{
+    func sendPage<Response>(
+        _ page: GitLabAPIPageRequest<Response>
+    ) async throws(GitLabSessionClientError) -> GitLabAPIResponse<Response>
+}
+
 actor GitLabSessionClient<Transport, TokenExchanger>
 where
     Transport: GitLabHTTPTransport,
@@ -84,12 +92,18 @@ where
     func sendResponse<Response>(
         _ endpoint: GitLabAPIRequest<Response>
     ) async throws(GitLabSessionClientError) -> GitLabAPIResponse<Response> {
+        try await sendPage(.initial(endpoint))
+    }
+
+    func sendPage<Response>(
+        _ page: GitLabAPIPageRequest<Response>
+    ) async throws(GitLabSessionClientError) -> GitLabAPIResponse<Response> {
         try await refreshExpiredOAuthSession()
 
         let attemptedSession = session
 
         do {
-            return try await client(for: attemptedSession).sendResponse(endpoint)
+            return try await client(for: attemptedSession).sendPage(page)
         } catch .unauthenticated where attemptedSession.credentialKind == .oauth {
             let retrySession: GitLabStoredSession
 
@@ -100,7 +114,7 @@ where
             }
 
             do {
-                return try await client(for: retrySession).sendResponse(endpoint)
+                return try await client(for: retrySession).sendPage(page)
             } catch {
                 throw .api(error)
             }
@@ -152,3 +166,4 @@ where
 }
 
 extension GitLabSessionClient: GitLabSessionRequestSending {}
+extension GitLabSessionClient: GitLabPaginatedSessionRequestSending {}

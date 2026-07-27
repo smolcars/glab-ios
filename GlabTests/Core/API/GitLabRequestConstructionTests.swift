@@ -110,6 +110,60 @@ struct GitLabRequestConstructionTests {
         #expect(request.value(forHTTPHeaderField: "Content-Type") == nil)
     }
 
+    @Test("Follows an exact trusted GitLab pagination link")
+    func buildsPaginationRequest() throws {
+        let nextPageURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.example.com:8443/company/api/v4/issues"
+                    + "?scope=assigned_to_me&page=2"
+            )
+        )
+        let request = try GitLabRequestBuilder(
+            host: GitLabHost(
+                "https://gitlab.example.com:8443/company"
+            ),
+            authorization: .personalAccessToken("pat-secret")
+        ).build(
+            GitLabAPIPageRequest<[TestResponse]>.next(nextPageURL)
+        )
+
+        #expect(request.url == nextPageURL)
+        #expect(request.httpMethod == "GET")
+        #expect(
+            request.value(forHTTPHeaderField: "PRIVATE-TOKEN")
+                == "pat-secret"
+        )
+    }
+
+    @Test(
+        "Rejects untrusted GitLab pagination links",
+        arguments: [
+            "http://gitlab.example.com/company/api/v4/issues?page=2",
+            "https://attacker.example.com/company/api/v4/issues?page=2",
+            "https://gitlab.example.com/other/api/v4/issues?page=2",
+            "https://user@gitlab.example.com/company/api/v4/issues?page=2",
+            "https://gitlab.example.com/company/api/v4/issues?page=2#fragment",
+            "https://gitlab.example.com/company/api/v4/%2E%2E/user",
+        ]
+    )
+    func rejectsUntrustedPaginationLinks(value: String) throws {
+        let builder = try GitLabRequestBuilder(
+            host: GitLabHost("https://gitlab.example.com/company"),
+            authorization: .oauth(accessToken: "oauth-secret")
+        )
+        let url = try #require(URL(string: value))
+
+        #expect(
+            throws:
+                GitLabRequestConstructionError.untrustedPaginationURL
+        ) {
+            try builder.build(
+                GitLabAPIPageRequest<[TestResponse]>.next(url)
+            )
+        }
+    }
+
     @Test("Applies OAuth and personal access token headers")
     func appliesAuthenticationHeaders() throws {
         let host = try GitLabHost("gitlab.com")

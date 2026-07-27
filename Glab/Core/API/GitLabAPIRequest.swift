@@ -53,10 +53,17 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
     }
 }
 
+nonisolated enum GitLabAPIPageRequest<Response>: Sendable
+where Response: Decodable & Sendable {
+    case initial(GitLabAPIRequest<Response>)
+    case next(URL)
+}
+
 nonisolated enum GitLabRequestConstructionError: Error, Equatable, Sendable, CustomStringConvertible {
     case emptyPathComponent
     case invalidPathComponent(String)
     case invalidURL
+    case untrustedPaginationURL
 
     var description: String {
         switch self {
@@ -66,6 +73,8 @@ nonisolated enum GitLabRequestConstructionError: Error, Equatable, Sendable, Cus
             "The GitLab API path component could not be encoded: \(component)"
         case .invalidURL:
             "The GitLab API request URL could not be constructed."
+        case .untrustedPaginationURL:
+            "GitLab returned an untrusted pagination URL."
         }
     }
 }
@@ -127,6 +136,69 @@ nonisolated struct GitLabRequestBuilder: Sendable, CustomStringConvertible, Cust
 
         authorization.apply(to: &request)
         return request
+    }
+
+    func build<Response>(
+        _ page: GitLabAPIPageRequest<Response>
+    ) throws(GitLabRequestConstructionError) -> URLRequest {
+        switch page {
+        case let .initial(endpoint):
+            try build(endpoint)
+        case let .next(url):
+            try buildPaginationRequest(url)
+        }
+    }
+
+    private func buildPaginationRequest(
+        _ url: URL
+    ) throws(GitLabRequestConstructionError) -> URLRequest {
+        guard isTrustedPaginationURL(url) else {
+            throw .untrustedPaginationURL
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = GitLabHTTPMethod.get.rawValue
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        authorization.apply(to: &request)
+        return request
+    }
+
+    private func isTrustedPaginationURL(_ url: URL) -> Bool {
+        guard
+            let components = URLComponents(
+                url: url,
+                resolvingAgainstBaseURL: false
+            ),
+            let baseComponents = URLComponents(
+                url: host.apiBaseURL,
+                resolvingAgainstBaseURL: false
+            ),
+            components.scheme?.lowercased() == "https",
+            components.host?.lowercased()
+                == baseComponents.host?.lowercased(),
+            effectivePort(in: components)
+                == effectivePort(in: baseComponents),
+            components.user == nil,
+            components.password == nil,
+            components.fragment == nil,
+            let path = components.percentEncodedPath.removingPercentEncoding,
+            let basePath =
+                baseComponents.percentEncodedPath.removingPercentEncoding,
+            path == basePath || path.hasPrefix("\(basePath)/"),
+            !path.split(separator: "/", omittingEmptySubsequences: false)
+                .contains(where: { $0 == "." || $0 == ".." })
+        else {
+            return false
+        }
+
+        return true
+    }
+
+    private func effectivePort(
+        in components: URLComponents
+    ) -> Int? {
+        components.port
+            ?? (components.scheme?.lowercased() == "https" ? 443 : nil)
     }
 
     private static let pathComponentAllowedCharacters = CharacterSet.urlPathAllowed
