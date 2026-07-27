@@ -346,3 +346,48 @@ Scope:
 - Pure SwiftUI layout branches and accessibility modifiers do not add core
   logic, so they rely on the existing model tests plus simulator hierarchy and
   interaction verification rather than duplicative unit tests.
+
+## MVP-14 privacy and release-preflight audit
+
+Scope:
+
+- Authorization, OAuth exchange/refresh/PKCE, personal-token sign-in, stored
+  sessions, Keychain, API responses, errors, and request descriptions were
+  reviewed as secret-bearing boundaries.
+- Tracked files were scanned for production logging, analytics, force casts,
+  force tries, embedded credential shapes, local configuration, and
+  real-account screenshots.
+- The final signed suite passes 241 logical tests and 352 parameterized
+  executions on iPhone 17 Pro, iOS 26.5. Xcode static analysis and app/privacy
+  property-list validation pass.
+
+### Repair checklist
+
+- [x] Redact OAuth state, verifier, and challenge from both normal and
+  reflected PKCE descriptions.
+- [x] Prove submitted OAuth refresh tokens and rejected personal access tokens
+  do not enter user-facing or reflected failures.
+- [x] Restrict Keychain sessions to
+  `WhenUnlockedThisDeviceOnly` on both insert and replacement, with tests that
+  inspect the stored accessibility class.
+- [x] Bundle and test a privacy manifest that declares app-owned
+  `UserDefaults` access under `CA92.1`, no tracking, no tracking domains, and
+  no collected data.
+- [x] Confirm `.env` is ignored and untracked, and that the sole tracked raster
+  image is the intentional GitHub design reference.
+- [x] Install the hardened build and confirm the existing signed-in session
+  restores to Home without exposing or recording credentials.
+
+### Deliberately unchanged
+
+- The OAuth presentation anchor retains one `preconditionFailure` for the
+  framework invariant that the callback follows a successfully resolved
+  presentation window. The public start path handles a missing window as a
+  tested error; there are no force tries or force casts in production.
+- The self-managed OAuth Application ID remains in `UserDefaults`. It is a
+  public application identifier rather than a user secret, and the privacy
+  manifest declares this app-owned preference use.
+- Xcode 26.6 invokes its App Intents metadata processor even though Glab and
+  its tests do not link App Intents, then reports that extraction was skipped.
+  This is an unused-toolchain diagnostic; the Swift compiler and static
+  analyzer report no findings.

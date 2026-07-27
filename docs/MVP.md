@@ -390,7 +390,7 @@ Test:
 - Read requests remain available while unsupported writes never reach the
   transport.
 
-### [ ] MVP-14 — Finish resilience, accessibility, and privacy
+### [x] MVP-14 — Finish resilience, accessibility, and privacy
 
 Deliver:
 

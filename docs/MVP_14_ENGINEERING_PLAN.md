@@ -2,6 +2,10 @@
 
 Last updated: 2026-07-27
 
+Status: complete. Bounded read retry, unified recovery, API-access
+explanations, accessibility repairs, privacy hardening, simulator inspection,
+the complete signed suite, and static analysis all pass.
+
 ## Outcome
 
 Finish the product-quality work needed before release verification:
@@ -33,6 +37,10 @@ retries.
 - OAuth credentials stay in Keychain, OAuth application IDs stay in
   `UserDefaults`, and personal access tokens stay in Keychain. No credential
   belongs in view state longer than sign-in requires.
+- Keychain items use the foreground-only,
+  device-bound `WhenUnlockedThisDeviceOnly` accessibility class.
+- The app privacy manifest declares only its app-owned `UserDefaults` access
+  with required reason `CA92.1`; Glab declares no tracking or collected data.
 - A GET or server-issued next-page URL is idempotent and may be retried.
   Todo completion POST requests are not replayed automatically because the
   client cannot prove whether GitLab applied a request whose connection was
@@ -64,6 +72,9 @@ Sources:
 - [Apple accessible appearance APIs](https://developer.apple.com/documentation/swiftui/accessible-appearance)
 - [Apple button guidance](https://developer.apple.com/design/human-interface-guidelines/buttons)
 - [Apple sensitive-content guidance](https://developer.apple.com/documentation/swiftui/protecting-sensitive-content-when-screen-sharing)
+- [Apple Keychain accessibility while unlocked](https://developer.apple.com/documentation/security/ksecattraccessiblewhenunlockedthisdeviceonly)
+- [Apple privacy manifest files](https://developer.apple.com/documentation/bundleresources/privacy-manifest-files)
+- [Apple `UserDefaults` required-reason API](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype)
 
 ## Architecture
 
@@ -203,5 +214,33 @@ hierarchy. Fix only verified gaps.
    Motion checks reveal no lost meaning or blocked action.
 7. No credential, authorization header, OAuth code/verifier, response body, or
    real GitLab screenshot is committed or printed.
-8. The complete signed suite and static analyzer pass with no warnings.
+8. The complete signed suite and static analyzer pass with no app-code
+   warnings or findings.
 9. Each passing slice is committed and pushed to `master`.
+
+## Completion record
+
+- Idempotent reads retry at most twice with cancellable exponential backoff.
+  Writes, rate limits, authentication, permission, decoding, and offline
+  failures are never replayed automatically.
+- Shared recovery presentation now covers offline, timeout, server,
+  permission, expired-session, rate-limit, data, and generic failures while
+  preserving already-loaded content.
+- Sign-in and Account explain the broad `api` scope, the read-only
+  `read_api` limitation, credential storage, and the absence of analytics.
+- The signed-out and signed-in flows were inspected on iPhone 17 Pro at
+  default and maximum accessibility text sizes, in light/dark appearance and
+  standard/Increased Contrast. Critical controls and routes expose stable
+  accessibility identifiers.
+- PKCE values, credentials, submitted tokens, authorization headers, response
+  bodies, errors, stores, and stored sessions have redaction coverage.
+  Keychain uses `WhenUnlockedThisDeviceOnly`, and the bundled privacy manifest
+  is validated by a test.
+- `.env` is ignored and untracked. Production contains no logging, analytics,
+  force casts, force tries, embedded credential shapes, or committed real-data
+  screenshots.
+- The final signed run passes 241 logical tests and 352 parameterized
+  executions on iPhone 17 Pro, iOS 26.5. Xcode static analysis and both
+  property lists pass. Xcode only reports its toolchain diagnostic that unused
+  App Intents metadata extraction was skipped; there are no compiler or
+  analyzer findings.

@@ -30,10 +30,16 @@ Glab is under active MVP development. The current app includes:
   targets, and optimistic single/all completion with rollback.
 - Read/write request declarations that prevent a `read_api` session from
   sending unsupported mutations.
+- Bounded retry for transient reads, consistent recovery UI, and preservation
+  of already-loaded content when refreshes fail.
+- Dynamic Type and VoiceOver support across the critical sign-in, Home, Todos,
+  detail, account, and sign-out paths.
+- In-app privacy/API-scope explanations, redacted secret-bearing types, and an
+  App Store privacy manifest declaring no tracking or collected data.
 
-Resilience, accessibility, and privacy hardening are the next MVP phase. The
-ordered scope and acceptance criteria live in
-[the MVP checklist](docs/MVP.md).
+Feature implementation through MVP-14 is complete. Clean-install account
+matrix testing and release verification in MVP-15 are next; the ordered scope
+and acceptance criteria live in [the MVP checklist](docs/MVP.md).
 
 GitLab.com OAuth logic is implemented, but its clean-install live callback
 remains an explicit release-verification item until a real public Application
@@ -94,9 +100,12 @@ and self-managed registration choices.
 
 ## Security
 
-- Access tokens and OAuth refresh tokens are stored only in Keychain.
+- Access tokens and OAuth refresh tokens are stored only in the device-bound
+  Keychain and are accessible only while the device is unlocked.
 - Glab does not request, receive, or store a GitLab password or 2FA code.
 - Client secrets are not used by this native OAuth client.
+- Glab declares no analytics, tracking, tracking domains, or collected data in
+  its bundled privacy manifest.
 - Local `.env` files, Xcode user data, build products, and Derived Data are
   ignored by Git.
 - Secrets must not be committed, logged, placed in fixtures, or included in
