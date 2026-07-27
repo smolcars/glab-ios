@@ -156,7 +156,7 @@ Test:
 - Save, restore, replace, and delete behavior.
 - Redacted debug descriptions and failures when stored data is corrupt.
 
-### [ ] MVP-04 — Implement personal access token/API-key sign-in
+### [x] MVP-04 — Implement personal access token/API-key sign-in
 
 Deliver:
 
