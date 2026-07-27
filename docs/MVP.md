@@ -220,7 +220,7 @@ Test:
 - Self-managed configuration persistence and representative OAuth setup
   failures.
 
-### [ ] MVP-06 — Add launch routing and account controls
+### [x] MVP-06 — Add launch routing and account controls
 
 Deliver:
 
