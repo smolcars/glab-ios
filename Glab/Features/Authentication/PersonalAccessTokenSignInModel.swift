@@ -113,7 +113,14 @@ final class PersonalAccessTokenSignInModel {
                 token: token
             )
         } catch {
+            guard !Task.isCancelled else {
+                return
+            }
             failure = .authentication(error)
+            return
+        }
+
+        guard !Task.isCancelled else {
             return
         }
 

@@ -211,6 +211,38 @@ struct PersonalAccessTokenSignInModelTests {
 
         #expect(!model.isSubmitting)
     }
+
+    @Test("Cancelled submission never persists a late success")
+    func cancelledSubmissionDoesNotEstablishSession() async throws {
+        let session = try makeSession(
+            host: "gitlab.com",
+            token: "validated-secret"
+        )
+        let authenticator = ControlledAuthenticator(session: session)
+        let store = InMemoryGitLabCredentialStore()
+        let appSession = AppSession(credentialStore: store)
+        await appSession.restore()
+        let model = PersonalAccessTokenSignInModel(
+            authenticator: authenticator,
+            appSession: appSession
+        )
+        model.token = "validated-secret"
+
+        let submission = Task {
+            await model.signIn()
+        }
+        await authenticator.waitUntilStarted()
+
+        submission.cancel()
+        await authenticator.finish()
+        await submission.value
+
+        #expect(appSession.state == .signedOut)
+        #expect(try await store.load() == nil)
+        #expect(model.token == "validated-secret")
+        #expect(model.failure == nil)
+        #expect(!model.isSubmitting)
+    }
 }
 
 private extension PersonalAccessTokenSignInModelTests {

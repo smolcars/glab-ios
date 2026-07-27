@@ -140,6 +140,41 @@ struct GitLabOAuthSignInModelTests {
         #expect(applicationIDStore.applicationIDs.isEmpty)
     }
 
+    @Test("Cancelled submission never persists a late success")
+    func cancelledSubmissionDoesNotEstablishSession() async throws {
+        let authenticator = ControlledAuthenticator(
+            session: try makeOAuthSession(host: "gitlab.example.com")
+        )
+        let store = InMemoryGitLabCredentialStore()
+        let appSession = AppSession(credentialStore: store)
+        await appSession.restore()
+        let applicationIDStore = StubApplicationIDStore()
+        let model = GitLabOAuthSignInModel(
+            authenticator: authenticator,
+            appSession: appSession,
+            applicationIDStore: applicationIDStore,
+            gitLabDotComApplicationID: nil
+        )
+        model.usesCustomInstance = true
+        model.customInstanceURL = "gitlab.example.com"
+        model.customApplicationID = "application-id"
+
+        let submission = Task {
+            await model.signIn()
+        }
+        await authenticator.waitUntilStarted()
+
+        submission.cancel()
+        authenticator.finish()
+        await submission.value
+
+        #expect(appSession.state == .signedOut)
+        #expect(try await store.load() == nil)
+        #expect(applicationIDStore.applicationIDs.isEmpty)
+        #expect(model.failure == nil)
+        #expect(!model.isSubmitting)
+    }
+
     @Test("Builds the OAuth application setup link for the selected host")
     func buildsApplicationSetupURL() {
         let model = makeModel(
@@ -245,6 +280,49 @@ private extension GitLabOAuthSignInModelTests {
             case let .failure(error):
                 throw error
             }
+        }
+    }
+
+    @MainActor
+    final class ControlledAuthenticator: GitLabOAuthAuthenticating {
+        private let session: GitLabStoredSession
+        private var startedContinuation:
+            CheckedContinuation<Void, Never>?
+        private var finishContinuation:
+            CheckedContinuation<Void, Never>?
+        private var hasStarted = false
+
+        init(session: GitLabStoredSession) {
+            self.session = session
+        }
+
+        func authenticate(
+            configuration: GitLabOAuthConfiguration
+        ) async throws(GitLabOAuthSignInError) -> GitLabStoredSession {
+            hasStarted = true
+            startedContinuation?.resume()
+            startedContinuation = nil
+
+            await withCheckedContinuation { continuation in
+                finishContinuation = continuation
+            }
+
+            return session
+        }
+
+        func waitUntilStarted() async {
+            guard !hasStarted else {
+                return
+            }
+
+            await withCheckedContinuation { continuation in
+                startedContinuation = continuation
+            }
+        }
+
+        func finish() {
+            finishContinuation?.resume()
+            finishContinuation = nil
         }
     }
 

@@ -234,6 +234,37 @@ struct TodosModelTests {
         )
     }
 
+    @Test("Cancelled refresh retry preserves the previous failure")
+    func preservesRefreshFailureAfterCancellation() async {
+        let todo = makeTestTodo()
+        let serverError = GitLabSessionClientError.api(
+            .server(statusCode: 503)
+        )
+        let loader = StubTodoLoader(
+            pageResults: [
+                .success(
+                    GitLabTodoPage(
+                        todos: [todo],
+                        nextPageURL: nil,
+                        totalCount: 1
+                    )
+                ),
+                .failure(serverError),
+                .failure(.api(.cancelled)),
+            ]
+        )
+        let model = TodosModel(loader: loader)
+
+        await model.loadIfNeeded()
+        await model.refresh()
+        await model.refresh()
+
+        #expect(model.todos == [todo])
+        #expect(model.didFailRefresh)
+        #expect(model.pendingBadgeCount == nil)
+        #expect(model.loadError == serverError)
+    }
+
     @Test("Retries a failed next page")
     func retriesNextPage() async throws {
         let first = makeTestTodo(id: 1)
@@ -276,6 +307,44 @@ struct TodosModelTests {
         #expect(model.todos == [first, second])
         #expect(!model.didFailNextPage)
         #expect(model.loadError == nil)
+    }
+
+    @Test("Cancelled page retry preserves the previous failure")
+    func preservesPageFailureAfterCancellation() async throws {
+        let first = makeTestTodo(id: 1)
+        let nextPageURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.example.com/api/v4/"
+                    + "todos?page=2"
+            )
+        )
+        let serverError = GitLabSessionClientError.api(
+            .server(statusCode: 503)
+        )
+        let loader = StubTodoLoader(
+            pageResults: [
+                .success(
+                    GitLabTodoPage(
+                        todos: [first],
+                        nextPageURL: nextPageURL,
+                        totalCount: 2
+                    )
+                ),
+                .failure(serverError),
+                .failure(.api(.cancelled)),
+            ]
+        )
+        let model = TodosModel(loader: loader)
+
+        await model.loadIfNeeded()
+        await model.loadNextPageIfNeeded(after: first)
+        await model.retryNextPage()
+
+        #expect(model.todos == [first])
+        #expect(model.nextPageURL == nextPageURL)
+        #expect(model.didFailNextPage)
+        #expect(model.loadError == serverError)
     }
 
     @Test("Treats cancellation as a non-result")

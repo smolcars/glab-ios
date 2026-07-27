@@ -25,6 +25,12 @@ where
     Item: Sendable,
     Identity: Hashable & Sendable
 {
+    private struct FailureState {
+        let loadError: GitLabSessionClientError?
+        let didFailRefresh: Bool
+        let didFailNextPage: Bool
+    }
+
     private(set) var items: [Item] = []
     private(set) var nextPageURL: URL?
     private(set) var totalItemCount: Int?
@@ -119,6 +125,7 @@ where
             return
         }
 
+        let previousFailureState = failureState
         if isInitial {
             isLoadingInitial = true
         } else {
@@ -136,6 +143,7 @@ where
         do {
             let page = try await loadPage(nil)
             guard !Task.isCancelled else {
+                restoreFailureState(previousFailureState)
                 return
             }
 
@@ -148,6 +156,7 @@ where
                 !Task.isCancelled,
                 error != .api(.cancelled)
             else {
+                restoreFailureState(previousFailureState)
                 return
             }
 
@@ -168,6 +177,7 @@ where
             return
         }
 
+        let previousFailureState = failureState
         isLoadingNextPage = true
         loadError = nil
         didFailRefresh = false
@@ -180,6 +190,7 @@ where
         do {
             let page = try await loadPage(nextPageURL)
             guard !Task.isCancelled else {
+                restoreFailureState(previousFailureState)
                 return
             }
 
@@ -192,12 +203,27 @@ where
                 !Task.isCancelled,
                 error != .api(.cancelled)
             else {
+                restoreFailureState(previousFailureState)
                 return
             }
 
             loadError = error
             didFailNextPage = true
         }
+    }
+
+    private var failureState: FailureState {
+        FailureState(
+            loadError: loadError,
+            didFailRefresh: didFailRefresh,
+            didFailNextPage: didFailNextPage
+        )
+    }
+
+    private func restoreFailureState(_ state: FailureState) {
+        loadError = state.loadError
+        didFailRefresh = state.didFailRefresh
+        didFailNextPage = state.didFailNextPage
     }
 
     private func appending(
