@@ -40,6 +40,12 @@ nonisolated enum GitLabSessionClientError:
     }
 }
 
+nonisolated protocol GitLabSessionRequestSending: Sendable {
+    func send<Response>(
+        _ endpoint: GitLabAPIRequest<Response>
+    ) async throws(GitLabSessionClientError) -> Response
+}
+
 actor GitLabSessionClient<Transport, TokenExchanger, CredentialStore>
 where
     Transport: GitLabHTTPTransport,
@@ -139,3 +145,5 @@ where
         )
     }
 }
+
+extension GitLabSessionClient: GitLabSessionRequestSending {}
