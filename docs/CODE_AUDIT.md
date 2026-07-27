@@ -166,3 +166,43 @@ Scope:
 - No mergeability field is decoded or presented. GitLab documents list
   merge-status data as potentially stale unless an expensive recheck is
   requested.
+
+## Post-MVP-11 audit
+
+Scope:
+
+- All production Swift, tests, app/project configuration, and MVP
+  documentation were reviewed again after recent and starred project browsing
+  was added.
+- The complete signed suite passes all 170 tests (218 parameterized
+  executions) on iPhone 17 Pro, iOS 26.5. Xcode static analysis and property
+  list validation are clean.
+- Both project modes and both merge-request modes were exercised against the
+  configured read-only self-managed instance. Search, refresh, pagination
+  triggers, rows, details, scrolling, safe external routing, and back
+  navigation were checked without recording credentials or API response
+  payloads.
+
+### Repair checklist
+
+- [ ] Keep empty and initial-error resource states inside a scroll container
+  so pull to refresh remains available when GitLab returns no rows.
+- [ ] Remove GitLab template comments and ATX heading markers from the
+  intentionally limited native description rendering, with unit coverage.
+- [ ] Prevent the long “Assigned Merge Requests” navigation title from
+  truncating on iPhone 17 Pro while keeping both list modes consistent.
+- [ ] Update the README and ordered MVP checklist to match the verified
+  merge-request and project implementation.
+- [ ] Re-run the complete signed suite and analyzer after the repairs, then
+  inspect the affected screens in light and dark appearance.
+
+### Deliberately unchanged
+
+- Project rows open validated GitLab web URLs because native repository/project
+  details are outside MVP-11.
+- Issue, merge-request, and project row layouts remain feature-specific. Their
+  loading state is shared, but a generic resource-row or resource-list view
+  would erase useful domain differences for little reduction in code.
+- Full GitLab Flavored Markdown rendering remains post-MVP. This repair only
+  removes non-content template syntax that visibly disrupts otherwise readable
+  descriptions.
