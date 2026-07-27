@@ -70,6 +70,96 @@ struct GitLabClientTests {
         }
     }
 
+    @Test("Returns request and next-page response metadata")
+    func returnsResponseMetadata() async throws {
+        let link = [
+            "<https://gitlab.com/api/v4/projects?page=1&per_page=20>; rel=\"prev\"",
+            "<https://gitlab.com/api/v4/projects?pagination=keyset&id_after=42>; rel=\"next\"",
+            "<https://gitlab.com/api/v4/projects?page=1&per_page=20>; rel=\"first\"",
+        ].joined(separator: ", ")
+        let client = try makeClient(
+            outcome: .response(
+                Data("[]".utf8),
+                makeHTTPResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Link": link,
+                        "X-Request-ID": "request-123",
+                    ]
+                )
+            )
+        )
+
+        let response = try await client.sendResponse(
+            GitLabAPIRequest<[TestProject]>.get(path: ["projects"])
+        )
+
+        #expect(response.value.isEmpty)
+        #expect(response.metadata.requestID == "request-123")
+        #expect(
+            response.metadata.nextPageURL?.absoluteString
+                == "https://gitlab.com/api/v4/projects?pagination=keyset&id_after=42"
+        )
+    }
+
+    @Test("Allows missing and malformed optional response metadata")
+    func handlesOptionalResponseMetadata() async throws {
+        let missingClient = try makeClient(
+            outcome: .response(
+                Data("[]".utf8),
+                makeHTTPResponse(statusCode: 200)
+            )
+        )
+        let malformedClient = try makeClient(
+            outcome: .response(
+                Data("[]".utf8),
+                makeHTTPResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Link": "not-a-link; rel=\"next\"",
+                        "X-Request-ID": "",
+                    ]
+                )
+            )
+        )
+
+        let missing = try await missingClient.sendResponse(
+            GitLabAPIRequest<[TestProject]>.get(path: ["projects"])
+        )
+        let malformed = try await malformedClient.sendResponse(
+            GitLabAPIRequest<[TestProject]>.get(path: ["projects"])
+        )
+
+        #expect(missing.metadata == GitLabResponseMetadata())
+        #expect(malformed.metadata == GitLabResponseMetadata())
+    }
+
+    @Test(
+        "Parses Retry-After seconds",
+        arguments: [
+            ("30", GitLabAPIError.rateLimited(retryAfterSeconds: 30)),
+            ("invalid", GitLabAPIError.rateLimited(retryAfterSeconds: nil)),
+            ("-5", GitLabAPIError.rateLimited(retryAfterSeconds: nil)),
+        ]
+    )
+    func parsesRetryAfter(header: String, expectedError: GitLabAPIError) async throws {
+        let client = try makeClient(
+            outcome: .response(
+                Data("Retry later".utf8),
+                makeHTTPResponse(
+                    statusCode: 429,
+                    headers: ["Retry-After": header]
+                )
+            )
+        )
+
+        await #expect(throws: expectedError) {
+            try await client.send(
+                GitLabAPIRequest<TestProject>.get(path: ["projects"])
+            )
+        }
+    }
+
     @Test(
         "Maps HTTP status codes",
         arguments: [

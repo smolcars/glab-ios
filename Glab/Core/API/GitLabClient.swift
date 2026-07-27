@@ -17,6 +17,13 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
     func send<Response>(
         _ endpoint: GitLabAPIRequest<Response>
     ) async throws(GitLabAPIError) -> Response {
+        try await sendResponse(endpoint).value
+    }
+
+    @concurrent
+    func sendResponse<Response>(
+        _ endpoint: GitLabAPIRequest<Response>
+    ) async throws(GitLabAPIError) -> GitLabAPIResponse<Response> {
         let request: URLRequest
 
         do {
@@ -48,26 +55,34 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
             throw .invalidResponse
         }
         guard (200..<300).contains(httpResponse.statusCode) else {
-            throw Self.error(for: httpResponse.statusCode)
+            throw Self.error(for: httpResponse)
         }
+
+        let value: Response
 
         if data.isEmpty, let emptyResponse = GitLabEmptyResponse() as? Response {
-            return emptyResponse
-        }
-
-        do {
+            value = emptyResponse
+        } else {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            return try decoder.decode(Response.self, from: data)
-        } catch {
-            throw .decoding
+
+            do {
+                value = try decoder.decode(Response.self, from: data)
+            } catch {
+                throw .decoding
+            }
         }
+
+        return GitLabAPIResponse(
+            value: value,
+            metadata: GitLabResponseMetadata(response: httpResponse)
+        )
     }
 
-    private static func error(for statusCode: Int) -> GitLabAPIError {
-        switch statusCode {
+    private static func error(for response: HTTPURLResponse) -> GitLabAPIError {
+        switch response.statusCode {
         case 400, 422:
-            .validation(statusCode: statusCode)
+            .validation(statusCode: response.statusCode)
         case 401:
             .unauthenticated
         case 403:
@@ -75,11 +90,25 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
         case 404:
             .notFound
         case 429:
-            .rateLimited(retryAfterSeconds: nil)
+            .rateLimited(retryAfterSeconds: retryAfterSeconds(from: response))
         case 500...599:
-            .server(statusCode: statusCode)
+            .server(statusCode: response.statusCode)
         default:
-            .http(statusCode: statusCode)
+            .http(statusCode: response.statusCode)
         }
+    }
+
+    private static func retryAfterSeconds(from response: HTTPURLResponse) -> Int? {
+        guard
+            let value = response
+                .value(forHTTPHeaderField: "Retry-After")?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            let seconds = Int(value),
+            seconds >= 0
+        else {
+            return nil
+        }
+
+        return seconds
     }
 }

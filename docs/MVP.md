@@ -117,7 +117,7 @@ Verify:
 - All tests pass from the command line.
 - The app launches in an iPhone Simulator.
 
-### [ ] MVP-02 — Build the GitLab REST client foundation
+### [x] MVP-02 — Build the GitLab REST client foundation
 
 Deliver:
 
