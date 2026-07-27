@@ -6,6 +6,7 @@
 - It'll be iOS only so build thinking only that in mind.
 - Use liquid glass as much as possible for things.
 - Use the ios simulator to test your changes for yourself after you build them.
+- Run the simulator and look at the UI and see if the UI looks good and not broken and tap around to test.
 - Always use the gitlab API documentation as the source of truth.
 - Always plan first before coding.
 
