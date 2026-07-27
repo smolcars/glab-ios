@@ -5,6 +5,17 @@ nonisolated struct GitLabResourcePage<Item>: Sendable
 where Item: Sendable {
     let items: [Item]
     let nextPageURL: URL?
+    let totalCount: Int?
+
+    init(
+        items: [Item],
+        nextPageURL: URL?,
+        totalCount: Int? = nil
+    ) {
+        self.items = items
+        self.nextPageURL = nextPageURL
+        self.totalCount = totalCount
+    }
 }
 
 @MainActor
@@ -16,6 +27,7 @@ where
 {
     private(set) var items: [Item] = []
     private(set) var nextPageURL: URL?
+    private(set) var totalItemCount: Int?
     private(set) var loadError: GitLabSessionClientError?
     private(set) var isLoadingInitial = false
     private(set) var isRefreshing = false
@@ -61,6 +73,19 @@ where
             return nil
         }
         return loadError
+    }
+
+    var reliableItemCount: Int? {
+        guard
+            hasLoaded,
+            !didFailRefresh
+        else {
+            return nil
+        }
+        if let totalItemCount {
+            return totalItemCount
+        }
+        return nextPageURL == nil ? items.count : nil
     }
 
     func loadIfNeeded() async {
@@ -116,6 +141,7 @@ where
 
             items = appending(page.items, to: [])
             nextPageURL = page.nextPageURL
+            totalItemCount = page.totalCount
             hasLoaded = true
         } catch {
             guard
@@ -159,6 +185,8 @@ where
 
             items = appending(page.items, to: items)
             self.nextPageURL = page.nextPageURL
+            totalItemCount =
+                page.totalCount ?? totalItemCount
         } catch {
             guard
                 !Task.isCancelled,
