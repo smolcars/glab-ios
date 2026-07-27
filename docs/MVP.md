@@ -236,7 +236,7 @@ Test:
 - Launch routing for missing, valid, refreshable, and invalid sessions.
 - Sign out clears secrets and in-memory user data.
 
-### [ ] MVP-07 — Build the Home/Todos app shell
+### [x] MVP-07 — Build the Home/Todos app shell
 
 Deliver:
 
