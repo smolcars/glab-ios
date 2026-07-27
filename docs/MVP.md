@@ -278,7 +278,7 @@ Test:
 - Partial success, total failure, empty responses, refresh, and cancellation.
 - Section view-state derivation without relying on exact total-count headers.
 
-### [ ] MVP-09 — Add assigned issues and issue details
+### [x] MVP-09 — Add assigned issues and issue details
 
 Deliver:
 

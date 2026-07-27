@@ -69,24 +69,30 @@ This plan is based on the current official GitLab documentation:
 
 ### 4. SwiftUI integration
 
-- [ ] Replace the Assigned Issues preview destination with the full list while
+- [x] Replace the Assigned Issues preview destination with the full list while
   leaving the other four MVP destinations unchanged.
-- [ ] Build dense native rows with reference, title, state/confidentiality,
+- [x] Build dense native rows with reference, title, state/confidentiality,
   labels, assignees, note count, and relative update time.
-- [ ] Build a read-only detail with description, author, status, labels,
+- [x] Build a read-only detail with description, author, status, labels,
   assignees, milestone/due date, timestamps, and “Open in GitLab.”
-- [ ] Preserve pull-to-refresh, incremental loading, search, retry,
+- [x] Preserve pull-to-refresh, incremental loading, search, retry,
   authentication-failure routing, Dynamic Type, and VoiceOver labels.
 
 ### 5. Verification and handoff
 
-- [ ] Run focused tests after each core slice and push a small commit to
+- [x] Run focused tests after each core slice and push a small commit to
   `master`.
-- [ ] Run the complete signed test suite and Xcode static analyzer.
-- [ ] Exercise list loading, search, pagination, detail, refresh, back
-  navigation, Home/Todos tabs, and light/dark appearance on iPhone 17 Pro.
-- [ ] Mark MVP-09 complete in `docs/MVP.md` only after every criterion above
+- [x] Run the complete signed test suite and Xcode static analyzer.
+- [x] Exercise list loading, search, detail, refresh, back navigation,
+  Home/Todos tabs, and light/dark appearance on iPhone 17 Pro. The live account
+  returned one page of eight issues, so page append, de-duplication, and retry
+  were exercised by deterministic unit tests.
+- [x] Mark MVP-09 complete in `docs/MVP.md` only after every criterion above
   passes.
+
+Final verification: 135 test invocations passed with no failures or skips, the
+Xcode static analyzer completed without findings, and the signed-in UI flow was
+inspected and operated on iPhone 17 Pro running iOS 26.5.
 
 ## Success criteria
 
