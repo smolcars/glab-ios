@@ -147,7 +147,10 @@ where
 
         do {
             user = try await client.send(
-                GitLabAPIRequest<GitLabAuthenticatedUser>.get(path: ["user"])
+                GitLabAPIRequest<GitLabAuthenticatedUser>.get(
+                    requires: .read,
+                    path: ["user"]
+                )
             )
         } catch {
             throw Self.mapAPIError(error)

@@ -21,6 +21,7 @@ nonisolated enum GitLabTodoEndpoints {
         )
 
         return .get(
+            requires: .read,
             path: ["todos"],
             query: query
         )

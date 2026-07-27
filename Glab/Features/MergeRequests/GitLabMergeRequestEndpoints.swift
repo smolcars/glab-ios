@@ -5,6 +5,7 @@ nonisolated enum GitLabMergeRequestEndpoints {
         for mode: GitLabMergeRequestListMode
     ) -> GitLabAPIRequest<[GitLabMergeRequest]> {
         .get(
+            requires: .read,
             path: ["merge_requests"],
             query: [
                 .init(name: "scope", value: mode.scope),
@@ -20,6 +21,7 @@ nonisolated enum GitLabMergeRequestEndpoints {
         at route: GitLabMergeRequestRoute
     ) -> GitLabAPIRequest<GitLabMergeRequest> {
         .get(
+            requires: .read,
             path: [
                 "projects",
                 String(route.projectID),

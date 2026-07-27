@@ -5,6 +5,7 @@ nonisolated enum GitLabProjectEndpoints {
         for mode: GitLabProjectListMode
     ) -> GitLabAPIRequest<[GitLabProject]> {
         .get(
+            requires: .read,
             path: ["projects"],
             query: [
                 .init(
@@ -22,4 +23,3 @@ nonisolated enum GitLabProjectEndpoints {
         )
     }
 }
-

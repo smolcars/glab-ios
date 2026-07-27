@@ -3,35 +3,41 @@ import Foundation
 nonisolated enum HomeDashboardEndpoints {
     static let currentUser:
         GitLabAPIRequest<GitLabAuthenticatedUser> = .get(
+            requires: .read,
             path: ["user"]
         )
 
     static let assignedIssues:
         GitLabAPIRequest<[GitLabHomeIssue]> = .get(
+            requires: .read,
             path: ["issues"],
             query: workQuery(scope: "assigned_to_me")
         )
 
     static let assignedMergeRequests:
         GitLabAPIRequest<[GitLabHomeMergeRequest]> = .get(
+            requires: .read,
             path: ["merge_requests"],
             query: workQuery(scope: "assigned_to_me")
         )
 
     static let reviewRequests:
         GitLabAPIRequest<[GitLabHomeMergeRequest]> = .get(
+            requires: .read,
             path: ["merge_requests"],
             query: workQuery(scope: "reviews_for_me")
         )
 
     static let recentProjects:
         GitLabAPIRequest<[GitLabHomeProject]> = .get(
+            requires: .read,
             path: ["projects"],
             query: projectQuery(filter: .init(name: "membership", value: "true"))
         )
 
     static let starredProjects:
         GitLabAPIRequest<[GitLabHomeProject]> = .get(
+            requires: .read,
             path: ["projects"],
             query: projectQuery(filter: .init(name: "starred", value: "true"))
         )

@@ -3,6 +3,7 @@ import Foundation
 nonisolated enum GitLabIssueEndpoints {
     static let assignedIssues:
         GitLabAPIRequest<[GitLabIssue]> = .get(
+            requires: .read,
             path: ["issues"],
             query: [
                 .init(name: "scope", value: "assigned_to_me"),
@@ -17,6 +18,7 @@ nonisolated enum GitLabIssueEndpoints {
         at route: GitLabIssueRoute
     ) -> GitLabAPIRequest<GitLabIssue> {
         .get(
+            requires: .read,
             path: [
                 "projects",
                 String(route.projectID),
@@ -26,4 +28,3 @@ nonisolated enum GitLabIssueEndpoints {
         )
     }
 }
-

@@ -10,6 +10,9 @@ nonisolated enum GitLabSessionClientError:
 {
     case api(GitLabAPIError)
     case refresh(GitLabOAuthRefreshError)
+    case insufficientAccess(
+        required: GitLabAPIRequestAccess
+    )
 
     var description: String {
         switch self {
@@ -17,6 +20,10 @@ nonisolated enum GitLabSessionClientError:
             error.description
         case let .refresh(error):
             error.description
+        case .insufficientAccess:
+            "This action requires GitLab API write access. "
+                + "Sign in with OAuth or a personal access token "
+                + "that includes the api scope."
         }
     }
 
@@ -98,6 +105,15 @@ where
     func sendPage<Response>(
         _ page: GitLabAPIPageRequest<Response>
     ) async throws(GitLabSessionClientError) -> GitLabAPIResponse<Response> {
+        guard
+            page.requiredAccess == .read
+                || session.apiAccess.canWrite
+        else {
+            throw .insufficientAccess(
+                required: page.requiredAccess
+            )
+        }
+
         try await refreshExpiredOAuthSession()
 
         let attemptedSession = session

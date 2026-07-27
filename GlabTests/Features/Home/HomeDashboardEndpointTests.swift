@@ -100,6 +100,7 @@ private extension HomeDashboardEndpointTests {
     func requestURL<Response>(
         _ endpoint: GitLabAPIRequest<Response>
     ) throws -> URL {
+        #expect(endpoint.requiredAccess == .read)
         let request = try GitLabRequestBuilder(
             host: GitLabHost("https://gitlab.example.com/company"),
             authorization: .personalAccessToken("secret")

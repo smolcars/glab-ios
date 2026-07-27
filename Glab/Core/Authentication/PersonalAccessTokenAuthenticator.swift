@@ -102,7 +102,10 @@ where Transport: GitLabHTTPTransport {
 
         do {
             authenticatedUser = try await client.send(
-                GitLabAPIRequest<GitLabAuthenticatedUser>.get(path: ["user"])
+                GitLabAPIRequest<GitLabAuthenticatedUser>.get(
+                    requires: .read,
+                    path: ["user"]
+                )
             )
         } catch {
             throw Self.mapAPIError(error)
@@ -113,6 +116,7 @@ where Transport: GitLabHTTPTransport {
         do {
             tokenDetails = try await client.send(
                 GitLabAPIRequest<GitLabPersonalAccessTokenDetails>.get(
+                    requires: .read,
                     path: ["personal_access_tokens", "self"]
                 )
             )

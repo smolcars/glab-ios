@@ -53,6 +53,7 @@ struct GitLabRequestConstructionTests {
     func encodesPathAndQuery() throws {
         let host = try GitLabHost("https://gitlab.example.com/company")
         let endpoint = GitLabAPIRequest<TestResponse>.get(
+            requires: .read,
             path: ["projects", "group/project", "merge requests"],
             query: [
                 URLQueryItem(name: "search", value: "review & test"),
@@ -78,6 +79,7 @@ struct GitLabRequestConstructionTests {
     @Test("Builds JSON POST requests with ISO-8601 dates")
     func buildsJSONPostRequest() throws {
         let endpoint = try GitLabAPIRequest<TestResponse>.post(
+            requires: .write,
             path: ["projects"],
             body: TestBody(title: "Glab", createdAt: Date(timeIntervalSince1970: 0))
         )
@@ -99,7 +101,10 @@ struct GitLabRequestConstructionTests {
 
     @Test("Builds POST requests without a body")
     func buildsEmptyPostRequest() throws {
-        let endpoint = GitLabAPIRequest<TestResponse>.post(path: ["todos", "42", "mark_as_done"])
+        let endpoint = GitLabAPIRequest<TestResponse>.post(
+            requires: .write,
+            path: ["todos", "42", "mark_as_done"]
+        )
         let request = try GitLabRequestBuilder(
             host: GitLabHost("gitlab.com"),
             authorization: .personalAccessToken("pat-secret")
@@ -108,6 +113,21 @@ struct GitLabRequestConstructionTests {
         #expect(request.httpMethod == "POST")
         #expect(request.httpBody == nil)
         #expect(request.value(forHTTPHeaderField: "Content-Type") == nil)
+    }
+
+    @Test("Carries an explicit access requirement")
+    func carriesAccessRequirement() {
+        let read = GitLabAPIRequest<TestResponse>.get(
+            requires: .read,
+            path: ["todos"]
+        )
+        let write = GitLabAPIRequest<TestResponse>.post(
+            requires: .write,
+            path: ["todos", "42", "mark_as_done"]
+        )
+
+        #expect(read.requiredAccess == .read)
+        #expect(write.requiredAccess == .write)
     }
 
     @Test("Follows an exact trusted GitLab pagination link")
@@ -167,7 +187,10 @@ struct GitLabRequestConstructionTests {
     @Test("Applies OAuth and personal access token headers")
     func appliesAuthenticationHeaders() throws {
         let host = try GitLabHost("gitlab.com")
-        let endpoint = GitLabAPIRequest<TestResponse>.get(path: ["user"])
+        let endpoint = GitLabAPIRequest<TestResponse>.get(
+            requires: .read,
+            path: ["user"]
+        )
         let oauthRequest = try GitLabRequestBuilder(
             host: host,
             authorization: .oauth(accessToken: "oauth-secret")

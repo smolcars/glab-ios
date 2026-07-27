@@ -390,7 +390,10 @@ private extension GitLabOAuthRefreshTests {
     }
 
     nonisolated var userRequest: GitLabAPIRequest<GitLabAuthenticatedUser> {
-        .get(path: ["user"])
+        .get(
+            requires: .read,
+            path: ["user"]
+        )
     }
 
     nonisolated func makeOAuthCredential(

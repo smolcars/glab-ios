@@ -5,18 +5,29 @@ nonisolated enum GitLabHTTPMethod: String, Sendable {
     case post = "POST"
 }
 
+nonisolated enum GitLabAPIRequestAccess:
+    Equatable,
+    Sendable
+{
+    case read
+    case write
+}
+
 nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodable & Sendable {
     let method: GitLabHTTPMethod
+    let requiredAccess: GitLabAPIRequestAccess
     let pathComponents: [String]
     let queryItems: [URLQueryItem]
     let body: Data?
 
     static func get(
+        requires access: GitLabAPIRequestAccess,
         path: [String],
         query: [URLQueryItem] = []
     ) -> Self {
         Self(
             method: .get,
+            requiredAccess: access,
             pathComponents: path,
             queryItems: query,
             body: nil
@@ -24,11 +35,13 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
     }
 
     static func post(
+        requires access: GitLabAPIRequestAccess,
         path: [String],
         query: [URLQueryItem] = []
     ) -> Self {
         Self(
             method: .post,
+            requiredAccess: access,
             pathComponents: path,
             queryItems: query,
             body: nil
@@ -36,6 +49,7 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
     }
 
     static func post<Body: Encodable & Sendable>(
+        requires access: GitLabAPIRequestAccess,
         path: [String],
         query: [URLQueryItem] = [],
         body: Body
@@ -46,6 +60,7 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
 
         return Self(
             method: .post,
+            requiredAccess: access,
             pathComponents: path,
             queryItems: query,
             body: try encoder.encode(body)
@@ -57,6 +72,15 @@ nonisolated enum GitLabAPIPageRequest<Response>: Sendable
 where Response: Decodable & Sendable {
     case initial(GitLabAPIRequest<Response>)
     case next(URL)
+
+    var requiredAccess: GitLabAPIRequestAccess {
+        switch self {
+        case let .initial(request):
+            request.requiredAccess
+        case .next:
+            .read
+        }
+    }
 }
 
 nonisolated enum GitLabRequestConstructionError: Error, Equatable, Sendable, CustomStringConvertible {

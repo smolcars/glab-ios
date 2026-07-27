@@ -14,7 +14,10 @@ struct GitLabClientTests {
         )
 
         let project = try await client.send(
-            GitLabAPIRequest<TestProject>.get(path: ["projects", "7"])
+            GitLabAPIRequest<TestProject>.get(
+                requires: .read,
+                path: ["projects", "7"]
+            )
         )
 
         #expect(project.id == 7)
@@ -33,7 +36,10 @@ struct GitLabClientTests {
         )
 
         let projects = try await client.send(
-            GitLabAPIRequest<[TestProject]>.get(path: ["projects"])
+            GitLabAPIRequest<[TestProject]>.get(
+                requires: .read,
+                path: ["projects"]
+            )
         )
 
         #expect(projects.map(\.id) == [1, 2])
@@ -47,6 +53,7 @@ struct GitLabClientTests {
 
         let response = try await client.send(
             GitLabAPIRequest<GitLabEmptyResponse>.post(
+                requires: .write,
                 path: ["todos", "42", "mark_as_done"]
             )
         )
@@ -65,7 +72,10 @@ struct GitLabClientTests {
 
         await #expect(throws: GitLabAPIError.decoding) {
             try await client.send(
-                GitLabAPIRequest<TestProject>.get(path: ["projects", "7"])
+                GitLabAPIRequest<TestProject>.get(
+                    requires: .read,
+                    path: ["projects", "7"]
+                )
             )
         }
     }
@@ -91,7 +101,10 @@ struct GitLabClientTests {
         )
 
         let response = try await client.sendResponse(
-            GitLabAPIRequest<[TestProject]>.get(path: ["projects"])
+            GitLabAPIRequest<[TestProject]>.get(
+                requires: .read,
+                path: ["projects"]
+            )
         )
 
         #expect(response.value.isEmpty)
@@ -124,10 +137,16 @@ struct GitLabClientTests {
         )
 
         let missing = try await missingClient.sendResponse(
-            GitLabAPIRequest<[TestProject]>.get(path: ["projects"])
+            GitLabAPIRequest<[TestProject]>.get(
+                requires: .read,
+                path: ["projects"]
+            )
         )
         let malformed = try await malformedClient.sendResponse(
-            GitLabAPIRequest<[TestProject]>.get(path: ["projects"])
+            GitLabAPIRequest<[TestProject]>.get(
+                requires: .read,
+                path: ["projects"]
+            )
         )
 
         #expect(missing.metadata == GitLabResponseMetadata())
@@ -180,7 +199,10 @@ struct GitLabClientTests {
 
         await #expect(throws: expectedError) {
             try await client.send(
-                GitLabAPIRequest<TestProject>.get(path: ["projects"])
+                GitLabAPIRequest<TestProject>.get(
+                    requires: .read,
+                    path: ["projects"]
+                )
             )
         }
     }
@@ -209,7 +231,10 @@ struct GitLabClientTests {
 
         await #expect(throws: expectedError) {
             try await client.send(
-                GitLabAPIRequest<TestProject>.get(path: ["projects", "7"])
+                GitLabAPIRequest<TestProject>.get(
+                    requires: .read,
+                    path: ["projects", "7"]
+                )
             )
         }
     }
@@ -226,7 +251,10 @@ struct GitLabClientTests {
 
         do {
             _ = try await client.send(
-                GitLabAPIRequest<TestProject>.get(path: ["projects", "7"])
+                GitLabAPIRequest<TestProject>.get(
+                    requires: .read,
+                    path: ["projects", "7"]
+                )
             )
             Issue.record("Expected the request to fail")
         } catch {
@@ -245,7 +273,10 @@ struct GitLabClientTests {
             throws: GitLabAPIError.connectivity(.notConnectedToInternet)
         ) {
             try await client.send(
-                GitLabAPIRequest<TestProject>.get(path: ["projects"])
+                GitLabAPIRequest<TestProject>.get(
+                    requires: .read,
+                    path: ["projects"]
+                )
             )
         }
     }
@@ -259,12 +290,18 @@ struct GitLabClientTests {
 
         await #expect(throws: GitLabAPIError.cancelled) {
             try await cancelledClient.send(
-                GitLabAPIRequest<TestProject>.get(path: ["projects"])
+                GitLabAPIRequest<TestProject>.get(
+                    requires: .read,
+                    path: ["projects"]
+                )
             )
         }
         await #expect(throws: GitLabAPIError.cancelled) {
             try await urlCancelledClient.send(
-                GitLabAPIRequest<TestProject>.get(path: ["projects"])
+                GitLabAPIRequest<TestProject>.get(
+                    requires: .read,
+                    path: ["projects"]
+                )
             )
         }
     }
@@ -286,12 +323,18 @@ struct GitLabClientTests {
 
         await #expect(throws: GitLabAPIError.invalidResponse) {
             try await invalidResponseClient.send(
-                GitLabAPIRequest<TestProject>.get(path: ["projects"])
+                GitLabAPIRequest<TestProject>.get(
+                    requires: .read,
+                    path: ["projects"]
+                )
             )
         }
         await #expect(throws: GitLabAPIError.transport) {
             try await unknownFailureClient.send(
-                GitLabAPIRequest<TestProject>.get(path: ["projects"])
+                GitLabAPIRequest<TestProject>.get(
+                    requires: .read,
+                    path: ["projects"]
+                )
             )
         }
     }
