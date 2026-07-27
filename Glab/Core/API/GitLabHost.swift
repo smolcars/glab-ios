@@ -26,7 +26,7 @@ nonisolated enum GitLabHostError: Error, Equatable, Sendable, CustomStringConver
     }
 }
 
-nonisolated struct GitLabHost: Equatable, Sendable {
+nonisolated struct GitLabHost: Codable, Equatable, Sendable {
     let siteURL: URL
     let apiBaseURL: URL
 
@@ -88,5 +88,24 @@ nonisolated struct GitLabHost: Equatable, Sendable {
         }
 
         return path
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(String.self)
+
+        do {
+            try self.init(value)
+        } catch {
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: error.description
+            )
+        }
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(siteURL.absoluteString)
     }
 }
