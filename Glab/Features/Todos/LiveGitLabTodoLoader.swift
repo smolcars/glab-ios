@@ -18,8 +18,18 @@ nonisolated protocol GitLabTodoLoading: Sendable {
         -> GitLabTodoPage
 }
 
+nonisolated protocol GitLabTodoMutating: Sendable {
+    func markDone(
+        id: Int
+    ) async throws(GitLabSessionClientError) -> GitLabTodo
+
+    func markAllDone()
+        async throws(GitLabSessionClientError)
+}
+
 nonisolated struct LiveGitLabTodoLoader:
     GitLabTodoLoading,
+    GitLabTodoMutating,
     Sendable
 {
     private let client:
@@ -56,6 +66,24 @@ nonisolated struct LiveGitLabTodoLoader:
             todos: response.value,
             nextPageURL: response.metadata.nextPageURL,
             totalCount: response.metadata.totalCount
+        )
+    }
+
+    @concurrent
+    func markDone(
+        id: Int
+    ) async throws(GitLabSessionClientError) -> GitLabTodo {
+        try await client.send(
+            GitLabTodoEndpoints.markDone(id: id)
+        )
+    }
+
+    @concurrent
+    func markAllDone()
+        async throws(GitLabSessionClientError)
+    {
+        let _: GitLabEmptyResponse = try await client.send(
+            GitLabTodoEndpoints.markAllDone()
         )
     }
 }

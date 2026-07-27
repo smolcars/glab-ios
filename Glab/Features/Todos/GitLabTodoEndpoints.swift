@@ -26,4 +26,26 @@ nonisolated enum GitLabTodoEndpoints {
             query: query
         )
     }
+
+    static func markDone(
+        id: Int
+    ) -> GitLabAPIRequest<GitLabTodo> {
+        .post(
+            requires: .write,
+            path: [
+                "todos",
+                String(id),
+                "mark_as_done",
+            ]
+        )
+    }
+
+    static func markAllDone()
+        -> GitLabAPIRequest<GitLabEmptyResponse>
+    {
+        .post(
+            requires: .write,
+            path: ["todos", "mark_as_done"]
+        )
+    }
 }

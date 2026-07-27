@@ -33,7 +33,8 @@ struct GitLabTodoEndpointTests {
             GitLabTodoEndpoints.todos(
                 state: state,
                 targetFilter: targetFilter
-            )
+            ),
+            access: .read
         )
 
         #expect(
@@ -41,13 +42,49 @@ struct GitLabTodoEndpointTests {
                 == "https://gitlab.example.com/api/v4/todos?\(query)"
         )
     }
+
+    @Test("Builds the single Todo completion request")
+    func buildsMarkDoneRequest() throws {
+        let endpoint: GitLabAPIRequest<GitLabTodo> =
+            GitLabTodoEndpoints.markDone(id: 42)
+        let url = try requestURL(
+            endpoint,
+            access: .write
+        )
+
+        #expect(endpoint.method == .post)
+        #expect(
+            url.absoluteString
+                == "https://gitlab.example.com/api/v4/"
+                + "todos/42/mark_as_done"
+        )
+    }
+
+    @Test("Builds the mark-all completion request")
+    func buildsMarkAllDoneRequest() throws {
+        let endpoint:
+            GitLabAPIRequest<GitLabEmptyResponse> =
+                GitLabTodoEndpoints.markAllDone()
+        let url = try requestURL(
+            endpoint,
+            access: .write
+        )
+
+        #expect(endpoint.method == .post)
+        #expect(
+            url.absoluteString
+                == "https://gitlab.example.com/api/v4/"
+                + "todos/mark_as_done"
+        )
+    }
 }
 
 private extension GitLabTodoEndpointTests {
     nonisolated func requestURL<Response>(
-        _ endpoint: GitLabAPIRequest<Response>
+        _ endpoint: GitLabAPIRequest<Response>,
+        access: GitLabAPIRequestAccess
     ) throws -> URL {
-        #expect(endpoint.requiredAccess == .read)
+        #expect(endpoint.requiredAccess == access)
         let request = try GitLabRequestBuilder(
             host: GitLabHost("gitlab.example.com"),
             authorization: .personalAccessToken("pat-secret")

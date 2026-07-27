@@ -51,6 +51,40 @@ struct LiveGitLabTodoLoaderTests {
                 ]
         )
     }
+
+    @Test("Marks one Todo and all pending Todos done")
+    func completesTodos() async throws {
+        let completed = makeTestTodo(
+            id: 42,
+            state: .done
+        )
+        let client = RecordingTodoClient(
+            todo: completed,
+            returnedNextPageURL: nil,
+            totalCount: nil
+        )
+        let service = LiveGitLabTodoLoader(
+            client: client
+        )
+
+        let response = try await service.markDone(
+            id: 42
+        )
+        try await service.markAllDone()
+
+        #expect(response == completed)
+        #expect(
+            await client.mutationPaths
+                == [
+                    ["todos", "42", "mark_as_done"],
+                    ["todos", "mark_as_done"],
+                ]
+        )
+        #expect(
+            await client.mutationAccess
+                == [.write, .write]
+        )
+    }
 }
 
 private extension LiveGitLabTodoLoaderTests {
@@ -61,6 +95,10 @@ private extension LiveGitLabTodoLoaderTests {
         let returnedNextPageURL: URL?
         let totalCount: Int?
         private(set) var pageSources: [String] = []
+        private(set) var mutationPaths: [[String]] = []
+        private(set) var mutationAccess: [
+            GitLabAPIRequestAccess
+        ] = []
 
         init(
             todo: GitLabTodo,
@@ -75,6 +113,19 @@ private extension LiveGitLabTodoLoaderTests {
         func send<Response>(
             _ endpoint: GitLabAPIRequest<Response>
         ) async throws(GitLabSessionClientError) -> Response {
+            mutationPaths.append(
+                endpoint.pathComponents
+            )
+            mutationAccess.append(
+                endpoint.requiredAccess
+            )
+
+            if Response.self == GitLabTodo.self {
+                return todo as! Response
+            }
+            if Response.self == GitLabEmptyResponse.self {
+                return GitLabEmptyResponse() as! Response
+            }
             throw .api(.invalidResponse)
         }
 
