@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct MergeRequestsView: View {
+    let mode: GitLabMergeRequestListMode
     let loader: any GitLabMergeRequestLoading
     let appSession: AppSession
 
@@ -11,6 +12,7 @@ struct MergeRequestsView: View {
         loader: any GitLabMergeRequestLoading,
         appSession: AppSession
     ) {
+        self.mode = mode
         self.loader = loader
         self.appSession = appSession
         _model = State(
@@ -28,7 +30,7 @@ struct MergeRequestsView: View {
             .background(
                 Color(uiColor: .systemGroupedBackground)
             )
-            .navigationTitle(model.mode.title)
+            .navigationTitle(mode.title)
             .navigationBarTitleDisplayMode(.large)
             .searchable(
                 text: $model.searchText,
@@ -61,7 +63,7 @@ struct MergeRequestsView: View {
         if model.isLoadingInitial {
             ScrollView {
                 GitLabLoadingStateView(
-                    message: "Loading \(model.mode.title.lowercased())"
+                    message: "Loading \(mode.title.lowercased())"
                 )
                 .padding(20)
             }
@@ -81,9 +83,9 @@ struct MergeRequestsView: View {
             model.hasLoaded
         {
             GitLabEmptyStateView(
-                title: model.mode.emptyTitle,
-                message: model.mode.emptyMessage,
-                systemImage: model.mode == .assigned
+                title: mode.emptyTitle,
+                message: mode.emptyMessage,
+                systemImage: mode == .assigned
                     ? "arrow.triangle.branch"
                     : "person.crop.circle.badge.checkmark"
             )
@@ -172,7 +174,7 @@ struct MergeRequestsView: View {
         }
         .listStyle(.insetGrouped)
         .accessibilityIdentifier(
-            "mergeRequests.\(model.mode.rawValue).list"
+            "mergeRequests.\(mode.rawValue).list"
         )
     }
 
