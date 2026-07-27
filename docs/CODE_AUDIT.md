@@ -65,24 +65,24 @@ Baseline:
 
 ## Post-MVP-09 audit
 
-Baseline after assigned issues and issue details:
+Baseline after assigned issues, issue details, and the audit repairs:
 
-- 135 parameterized test invocations pass on iPhone 17 Pro, iOS 26.5.
+- 138 test invocations pass on iPhone 17 Pro, iOS 26.5.
 - Swift 6 complete concurrency checking and Xcode static analysis pass.
 - The new feature follows the existing Model-View and injected-loader
   boundaries; an architecture migration is still not justified.
 
 ### Repair checklist
 
-- [ ] Preserve loaded issues while making a failed pull-to-refresh visible and
+- [x] Preserve loaded issues while making a failed pull-to-refresh visible and
   retryable instead of silently retaining stale content.
-- [ ] Reuse the established GitLab user display-name and avatar presentation
+- [x] Reuse the established GitLab user display-name and avatar presentation
   path for issue users so future merge-request users do not create a third
   normalization implementation.
-- [ ] Present opened, closed, and unknown issue states with accurate text,
+- [x] Present opened, closed, and unknown issue states with accurate text,
   symbols, and semantic colors in both list rows and details.
-- [ ] Add focused unit tests for each repaired state or formatting rule.
-- [ ] Run the complete test suite, static analyzer, and the changed issue UI in
+- [x] Add focused unit tests for each repaired state or formatting rule.
+- [x] Run the complete test suite, static analyzer, and the changed issue UI in
   light and dark appearance before closing this audit.
 
 ### Forward design gate
