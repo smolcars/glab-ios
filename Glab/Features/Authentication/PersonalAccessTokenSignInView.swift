@@ -1,0 +1,270 @@
+import SwiftUI
+
+struct PersonalAccessTokenSignInScene: View {
+    @State private var model: PersonalAccessTokenSignInModel
+
+    init(appSession: AppSession) {
+        let authenticator = GitLabPersonalAccessTokenAuthenticator(
+            transport: URLSessionGitLabHTTPTransport()
+        )
+        _model = State(
+            initialValue: PersonalAccessTokenSignInModel(
+                authenticator: authenticator,
+                appSession: appSession
+            )
+        )
+    }
+
+    var body: some View {
+        PersonalAccessTokenSignInView(model: model)
+    }
+}
+
+struct PersonalAccessTokenSignInView: View {
+    private enum Field: Hashable {
+        case instanceURL
+        case token
+    }
+
+    @Bindable var model: PersonalAccessTokenSignInModel
+    @FocusState private var focusedField: Field?
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    introduction
+                    instanceCard
+                    tokenCard
+
+                    if let failure = model.failure {
+                        failureCallout(failure)
+                    }
+
+                    signInButton
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 32)
+            }
+            .background(Color(uiColor: .systemGroupedBackground))
+            .scrollDismissesKeyboard(.interactively)
+            .navigationTitle("Sign in")
+            .navigationBarTitleDisplayMode(.large)
+        }
+    }
+
+    private var introduction: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: "chevron.left.forwardslash.chevron.right")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(.orange)
+                .accessibilityHidden(true)
+
+            Text("Connect your GitLab account")
+                .font(.title2.bold())
+
+            Text(
+                "Use a personal access token now. Web sign-in with your "
+                    + "username, 2FA, or SSO is coming in the next authentication step."
+            )
+            .font(.body)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private var instanceCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("GitLab instance", systemImage: "server.rack")
+                .font(.headline)
+
+            Picker("GitLab instance", selection: $model.usesCustomInstance) {
+                Text("GitLab.com").tag(false)
+                Text("Self-managed").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("signIn.instancePicker")
+
+            if model.usesCustomInstance {
+                Divider()
+
+                TextField(
+                    "gitlab.example.com",
+                    text: $model.customInstanceURL
+                )
+                .focused($focusedField, equals: .instanceURL)
+                .keyboardType(.URL)
+                .textContentType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.next)
+                .onSubmit {
+                    focusedField = .token
+                }
+                .accessibilityLabel("Self-managed GitLab URL")
+                .accessibilityIdentifier("signIn.instanceURL")
+
+                Text("HTTPS with a system-trusted certificate is required.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("gitlab.com")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .signInCard()
+    }
+
+    private var tokenCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Label("Access token / API key", systemImage: "key.fill")
+                .font(.headline)
+
+            SecureField("Personal access token", text: $model.token)
+                .focused($focusedField, equals: .token)
+                .textContentType(.password)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.go)
+                .privacySensitive()
+                .onSubmit {
+                    submitIfPossible()
+                }
+                .accessibilityIdentifier("signIn.token")
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                scopeRow(
+                    scope: "api",
+                    detail: "Full access, including completing Todos",
+                    symbol: "checkmark.shield.fill",
+                    color: .green
+                )
+                scopeRow(
+                    scope: "read_api",
+                    detail: "Browse-only; changes are disabled",
+                    symbol: "eye.fill",
+                    color: .secondary
+                )
+            }
+
+            if let setupURL = model.personalAccessTokenSetupURL {
+                Link(destination: setupURL) {
+                    Label(
+                        "Create a personal access token",
+                        systemImage: "arrow.up.right"
+                    )
+                    .font(.callout.weight(.semibold))
+                }
+                .accessibilityIdentifier("signIn.createToken")
+            } else if model.usesCustomInstance {
+                Text("Enter a valid HTTPS instance to create a token there.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .signInCard()
+    }
+
+    private func scopeRow(
+        scope: String,
+        detail: String,
+        symbol: String,
+        color: Color
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: symbol)
+                .foregroundStyle(color)
+                .frame(width: 20)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(scope)
+                    .font(.callout.monospaced().weight(.semibold))
+                Text(detail)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func failureCallout(
+        _ failure: PersonalAccessTokenSignInFailure
+    ) -> some View {
+        Label {
+            Text(failure.description)
+                .font(.callout)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill")
+        }
+        .foregroundStyle(.red)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            Color.red.opacity(0.1),
+            in: .rect(cornerRadius: 16)
+        )
+        .accessibilityIdentifier("signIn.error")
+    }
+
+    private var signInButton: some View {
+        Button {
+            focusedField = nil
+            Task {
+                await model.signIn()
+            }
+        } label: {
+            ZStack {
+                Text("Connect GitLab")
+                    .opacity(model.isSubmitting ? 0 : 1)
+
+                if model.isSubmitting {
+                    ProgressView()
+                }
+            }
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 30)
+        }
+        .buttonStyle(.glassProminent)
+        .controlSize(.large)
+        .tint(.orange)
+        .disabled(!model.canSubmit)
+        .accessibilityLabel(
+            model.isSubmitting ? "Connecting to GitLab" : "Connect GitLab"
+        )
+        .accessibilityIdentifier("signIn.submit")
+    }
+
+    private func submitIfPossible() {
+        guard model.canSubmit else {
+            return
+        }
+
+        focusedField = nil
+        Task {
+            await model.signIn()
+        }
+    }
+}
+
+private extension View {
+    func signInCard() -> some View {
+        padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                Color(uiColor: .secondarySystemGroupedBackground),
+                in: .rect(cornerRadius: 20)
+            )
+    }
+}
+
+#Preview {
+    PersonalAccessTokenSignInScene(
+        appSession: AppSession(
+            credentialStore: InMemoryGitLabCredentialStore()
+        )
+    )
+}

@@ -63,6 +63,26 @@ final class PersonalAccessTokenSignInModel {
         usesCustomInstance ? customInstanceURL : Self.gitLabDotComURL
     }
 
+    var personalAccessTokenSetupURL: URL? {
+        guard
+            let host = try? GitLabHost(instanceURL),
+            var components = URLComponents(
+                url: host.siteURL,
+                resolvingAgainstBaseURL: false
+            )
+        else {
+            return nil
+        }
+
+        components.percentEncodedPath += "/-/user_settings/personal_access_tokens"
+        components.queryItems = [
+            URLQueryItem(name: "name", value: "Glab"),
+            URLQueryItem(name: "description", value: "Glab for iOS"),
+            URLQueryItem(name: "scopes", value: "api"),
+        ]
+        return components.url
+    }
+
     private let authenticator: any PersonalAccessTokenAuthenticating
     private let appSession: AppSession
 

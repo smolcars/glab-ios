@@ -132,6 +132,35 @@ struct PersonalAccessTokenSignInModelTests {
         #expect(model.canSubmit)
     }
 
+    @Test("Builds token setup links for the selected instance")
+    func buildsTokenSetupLinks() {
+        let model = PersonalAccessTokenSignInModel(
+            authenticator: StubAuthenticator(outcome: .failure(.invalidToken)),
+            appSession: AppSession(
+                credentialStore: InMemoryGitLabCredentialStore()
+            )
+        )
+
+        #expect(
+            model.personalAccessTokenSetupURL?.absoluteString
+                == "https://gitlab.com/-/user_settings/personal_access_tokens"
+                + "?name=Glab&description=Glab%20for%20iOS&scopes=api"
+        )
+
+        model.usesCustomInstance = true
+        model.customInstanceURL = "gitlab.example.com/company/api/v4/"
+
+        #expect(
+            model.personalAccessTokenSetupURL?.absoluteString
+                == "https://gitlab.example.com/company/-/user_settings/personal_access_tokens"
+                + "?name=Glab&description=Glab%20for%20iOS&scopes=api"
+        )
+
+        model.customInstanceURL = "http://insecure.example.com"
+
+        #expect(model.personalAccessTokenSetupURL == nil)
+    }
+
     @Test("Editing input clears the previous failure")
     func clearsFailureWhenEditing() async {
         let model = PersonalAccessTokenSignInModel(
