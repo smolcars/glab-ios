@@ -118,6 +118,16 @@ final class AppSession {
         }
     }
 
+    func handleAuthenticationFailure(
+        _ error: GitLabSessionClientError
+    ) async {
+        guard error.requiresReauthentication else {
+            return
+        }
+
+        await invalidateAuthentication(.expiredOrRevoked)
+    }
+
     private func canRestore(_ session: GitLabStoredSession) -> Bool {
         guard
             session.credentialKind == .oauth,

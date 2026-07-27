@@ -27,6 +27,17 @@ nonisolated enum GitLabSessionClientError:
     var errorDescription: String? {
         description
     }
+
+    var requiresReauthentication: Bool {
+        switch self {
+        case .api(.unauthenticated),
+             .refresh(.unavailable),
+             .refresh(.token(.invalidGrant)):
+            true
+        default:
+            false
+        }
+    }
 }
 
 actor GitLabSessionClient<Transport, TokenExchanger, CredentialStore>

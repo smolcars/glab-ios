@@ -103,20 +103,38 @@ struct AppSessionTests {
         #expect(appSession.authenticationNotice == nil)
     }
 
-    @Test("Invalidating authentication clears stored and in-memory user data")
-    func invalidatesAuthentication() async throws {
+    @Test("A rejected API session clears stored and in-memory user data")
+    func handlesRejectedAPIAuthentication() async throws {
         let storedSession = try makeSession(token: "revoked-secret")
         let store = InMemoryGitLabCredentialStore(session: storedSession)
         let appSession = AppSession(credentialStore: store)
         await appSession.restore()
 
-        await appSession.invalidateAuthentication(.expiredOrRevoked)
+        await appSession.handleAuthenticationFailure(
+            .api(.unauthenticated)
+        )
         let persisted = try await store.load()
 
         #expect(persisted == nil)
         #expect(appSession.state == .signedOut)
         #expect(appSession.storedSession == nil)
         #expect(appSession.authenticationNotice == .expiredOrRevoked)
+    }
+
+    @Test("A recoverable API failure keeps the current session")
+    func ignoresRecoverableAPIFailure() async throws {
+        let storedSession = try makeSession(token: "offline-secret")
+        let store = InMemoryGitLabCredentialStore(session: storedSession)
+        let appSession = AppSession(credentialStore: store)
+        await appSession.restore()
+
+        await appSession.handleAuthenticationFailure(
+            .api(.connectivity(.notConnectedToInternet))
+        )
+
+        #expect(appSession.state == .signedIn(storedSession))
+        #expect(try await store.load() == storedSession)
+        #expect(appSession.authenticationNotice == nil)
     }
 
     @Test("Surfaces restore failures")
