@@ -52,6 +52,7 @@ struct GitLabOAuthSignInView: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var showsAccessTokenSignIn = false
+    @State private var showsPrivacyAndAccess = false
     @State private var showsSelfManagedSignIn = false
 
     var body: some View {
@@ -65,7 +66,7 @@ struct GitLabOAuthSignInView: View {
                             minLength:
                                 dynamicTypeSize.isAccessibilitySize
                                     ? 20
-                                    : 44
+                                    : 24
                         )
 
                         VStack(spacing: 18) {
@@ -93,9 +94,9 @@ struct GitLabOAuthSignInView: View {
                     )
                     .padding(
                         .top,
-                        dynamicTypeSize.isAccessibilitySize ? 12 : 36
+                        dynamicTypeSize.isAccessibilitySize ? 12 : 24
                     )
-                    .padding(.bottom, 24)
+                    .padding(.bottom, 16)
                 }
                 .scrollBounceBehavior(.basedOnSize)
             }
@@ -109,6 +110,12 @@ struct GitLabOAuthSignInView: View {
                 PersonalAccessTokenSignInScene(
                     appSession: appSession,
                     showsCancelButton: true
+                )
+                .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showsPrivacyAndAccess) {
+                GitLabPrivacyAndAccessSheet(
+                    presentation: .oauthSignIn
                 )
                 .presentationDragIndicator(.visible)
             }
@@ -183,6 +190,22 @@ struct GitLabOAuthSignInView: View {
                         ? "oauth.securityDetail"
                         : "oauth.missingConfiguration"
                 )
+
+            Button {
+                showsPrivacyAndAccess = true
+            } label: {
+                Label(
+                    "Privacy & API access",
+                    systemImage: "hand.raised.fill"
+                )
+                .font(.callout.weight(.semibold))
+                .frame(minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .disabled(model.isSubmitting)
+            .accessibilityIdentifier(
+                "oauth.privacyAndAccess"
+            )
 
             Button {
                 model.usesCustomInstance = true

@@ -14,6 +14,7 @@ struct AccountView: View {
             List {
                 profileSection
                 accountSection
+                privacySection
 
                 if session.apiAccess == .readOnly {
                     readOnlySection
@@ -96,6 +97,27 @@ struct AccountView: View {
                 Image(systemName: "eye.fill")
                     .foregroundStyle(.orange)
             }
+        }
+    }
+
+    private var privacySection: some View {
+        Section("Privacy") {
+            NavigationLink {
+                GitLabPrivacyAndAccessView(
+                    presentation:
+                        GitLabPrivacyAndAccessPresentation(
+                            session: session
+                        )
+                )
+            } label: {
+                Label(
+                    "Privacy & API access",
+                    systemImage: "hand.raised.fill"
+                )
+            }
+            .accessibilityIdentifier(
+                "account.privacyAndAccess"
+            )
         }
     }
 
