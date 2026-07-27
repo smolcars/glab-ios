@@ -1,55 +1,62 @@
 import Foundation
 @testable import Glab
 
-nonisolated func makeTestIssue(
+nonisolated func makeTestMergeRequest(
     id: Int = 101,
     iid: Int = 7,
     projectID: Int = 42,
-    title: String = "Fix pagination",
+    title: String = "Review pagination",
     description: String? = "Follow the Link header.",
     state: String = "opened",
-    confidential: Bool = false,
-    labels: [String] = ["bug"],
-    author: GitLabAPIUser = makeTestIssueUser(),
-    assignees: [GitLabAPIUser] = [makeTestIssueUser(id: 2)],
-    milestone: GitLabIssueMilestone? = nil,
-    dueDate: String? = nil,
+    draft: Bool? = false,
+    legacyWorkInProgress: Bool? = nil,
+    labels: [String] = ["backend"],
+    author: GitLabAPIUser = makeTestAPIUser(),
+    assignees: [GitLabAPIUser] = [],
+    reviewers: [GitLabAPIUser] = [],
+    sourceBranch: String = "feature/pagination",
+    targetBranch: String = "main",
     userNotesCount: Int = 3,
     createdAt: Date = Date(timeIntervalSince1970: 1_700_000_000),
     updatedAt: Date = Date(timeIntervalSince1970: 1_700_003_600),
     closedAt: Date? = nil,
+    mergedAt: Date? = nil,
     webURL: URL? = URL(
-        string: "https://gitlab.example.com/group/project/-/issues/7"
+        string:
+            "https://gitlab.example.com/group/project/-/merge_requests/7"
     ),
-    reference: String = "group/project#7"
-) -> GitLabIssue {
-    GitLabIssue(
+    reference: String = "group/project!7"
+) -> GitLabMergeRequest {
+    GitLabMergeRequest(
         id: id,
         iid: iid,
         projectID: projectID,
         title: title,
         description: description,
         state: state,
-        confidential: confidential,
+        draft: draft,
+        legacyWorkInProgress: legacyWorkInProgress,
         labels: labels,
         author: author,
         assignees: assignees,
-        milestone: milestone,
-        dueDate: dueDate,
+        reviewers: reviewers,
+        sourceBranch: sourceBranch,
+        targetBranch: targetBranch,
         userNotesCount: userNotesCount,
         createdAt: createdAt,
         updatedAt: updatedAt,
         closedAt: closedAt,
+        mergedAt: mergedAt,
         webURL: webURL,
-        references: GitLabIssueReferences(
-            short: "#\(iid)",
+        references: GitLabMergeRequestReferences(
+            short: "!\(iid)",
             relative: reference,
             full: reference
         )
     )
 }
 
-nonisolated func makeTestIssueUser(
+nonisolated func makeTestAPIUser(
     id: Int = 1,
     username: String = "octocat",
     name: String = "The Octocat"

@@ -17,40 +17,6 @@ nonisolated enum GitLabIssueStateKind:
     case unknown
 }
 
-nonisolated struct GitLabIssueUser:
-    Decodable,
-    Equatable,
-    Identifiable,
-    Sendable
-{
-    let id: Int
-    let username: String
-    let name: String
-    let avatarURL: URL?
-    let webURL: URL?
-
-    var summary: GitLabUserSummary {
-        GitLabUserSummary(
-            id: id,
-            username: username,
-            name: name,
-            avatarURL: avatarURL
-        )
-    }
-
-    var displayName: String {
-        summary.displayName
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case id
-        case username
-        case name
-        case avatarURL = "avatar_url"
-        case webURL = "web_url"
-    }
-}
-
 nonisolated struct GitLabIssueMilestone:
     Decodable,
     Equatable,
@@ -95,8 +61,8 @@ nonisolated struct GitLabIssue:
     let state: String
     let confidential: Bool
     let labels: [String]
-    let author: GitLabIssueUser
-    let assignees: [GitLabIssueUser]
+    let author: GitLabAPIUser
+    let assignees: [GitLabAPIUser]
     let milestone: GitLabIssueMilestone?
     let dueDate: String?
     let userNotesCount: Int
@@ -131,21 +97,7 @@ nonisolated struct GitLabIssue:
     }
 
     var safeWebURL: URL? {
-        guard
-            let webURL,
-            let components = URLComponents(
-                url: webURL,
-                resolvingAgainstBaseURL: false
-            ),
-            components.scheme?.lowercased() == "https",
-            components.host != nil,
-            components.user == nil,
-            components.password == nil
-        else {
-            return nil
-        }
-
-        return webURL
+        GitLabWebURL.validated(webURL)
     }
 
     private var normalizedState: String {

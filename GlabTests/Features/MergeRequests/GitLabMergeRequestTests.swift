@@ -1,0 +1,159 @@
+import Foundation
+import Testing
+@testable import Glab
+
+@Suite("GitLab merge request contract")
+struct GitLabMergeRequestTests {
+    @Test("Decodes merge request list and detail fields")
+    func decodesMergeRequest() throws {
+        let mergeRequest = try decodeMergeRequest(
+            draftFields: #""draft": true,"#
+        )
+
+        #expect(
+            mergeRequest.route
+                == GitLabMergeRequestRoute(
+                    projectID: 42,
+                    mergeRequestIID: 7
+                )
+        )
+        #expect(mergeRequest.isDraft)
+        #expect(mergeRequest.description == nil)
+        #expect(mergeRequest.labels.isEmpty)
+        #expect(mergeRequest.assignees.isEmpty)
+        #expect(mergeRequest.reviewers.isEmpty)
+        #expect(mergeRequest.closedAt == nil)
+        #expect(mergeRequest.mergedAt == nil)
+        #expect(mergeRequest.safeWebURL?.scheme == "https")
+    }
+
+    @Test("Uses legacy work-in-progress only when draft is absent")
+    func decodesDraftCompatibility() throws {
+        let current = try decodeMergeRequest(
+            draftFields:
+                #""draft": false, "work_in_progress": true,"#
+        )
+        let legacy = try decodeMergeRequest(
+            draftFields: #""work_in_progress": true,"#
+        )
+        let missing = try decodeMergeRequest(draftFields: "")
+
+        #expect(!current.isDraft)
+        #expect(legacy.isDraft)
+        #expect(!missing.isDraft)
+    }
+
+    @Test("Uses project ID and IID for route identity")
+    func identifiesRoutes() {
+        let first = makeTestMergeRequest(
+            id: 101,
+            iid: 7,
+            projectID: 42
+        )
+        let sameIIDInAnotherProject = makeTestMergeRequest(
+            id: 202,
+            iid: 7,
+            projectID: 84
+        )
+        let anotherIID = makeTestMergeRequest(
+            id: 203,
+            iid: 8,
+            projectID: 42
+        )
+
+        #expect(first.route != sameIIDInAnotherProject.route)
+        #expect(first.route != anotherIID.route)
+    }
+
+    @Test(
+        "Maps merge request states to stable presentation kinds",
+        arguments: [
+            ("opened", GitLabMergeRequestStateKind.opened, "Opened"),
+            (" CLOSED ", GitLabMergeRequestStateKind.closed, "Closed"),
+            ("merged", GitLabMergeRequestStateKind.merged, "Merged"),
+            ("locked", GitLabMergeRequestStateKind.locked, "Locked"),
+            ("checking", GitLabMergeRequestStateKind.unknown, "Checking"),
+            (" ", GitLabMergeRequestStateKind.unknown, "Unknown"),
+        ]
+    )
+    func mapsStates(
+        state: String,
+        expectedKind: GitLabMergeRequestStateKind,
+        expectedTitle: String
+    ) {
+        let mergeRequest = makeTestMergeRequest(state: state)
+
+        #expect(mergeRequest.stateKind == expectedKind)
+        #expect(mergeRequest.stateTitle == expectedTitle)
+    }
+
+    @Test("Rejects unsafe merge request web URLs")
+    func validatesWebURL() {
+        let insecure = makeTestMergeRequest(
+            webURL: URL(
+                string:
+                    "http://gitlab.example.com/group/project/-/merge_requests/7"
+            )
+        )
+        let credentialBearing = makeTestMergeRequest(
+            webURL: URL(
+                string:
+                    "https://user@gitlab.example.com/group/project/"
+                    + "-/merge_requests/7"
+            )
+        )
+
+        #expect(insecure.safeWebURL == nil)
+        #expect(credentialBearing.safeWebURL == nil)
+    }
+}
+
+private extension GitLabMergeRequestTests {
+    func decodeMergeRequest(
+        draftFields: String
+    ) throws -> GitLabMergeRequest {
+        let data = Data(
+            """
+            {
+              "id": 101,
+              "iid": 7,
+              "project_id": 42,
+              "title": "Review pagination",
+              "description": null,
+              "state": "opened",
+              \(draftFields)
+              "labels": [],
+              "author": {
+                "id": 1,
+                "username": "octocat",
+                "name": "The Octocat",
+                "avatar_url": null,
+                "web_url": "https://gitlab.example.com/octocat"
+              },
+              "assignees": [],
+              "reviewers": [],
+              "source_branch": "feature/pagination",
+              "target_branch": "main",
+              "user_notes_count": 0,
+              "created_at": "2026-07-20T12:00:00.000Z",
+              "updated_at": "2026-07-27T12:30:00.123Z",
+              "closed_at": null,
+              "merged_at": null,
+              "web_url": "https://gitlab.example.com/group/project/-/merge_requests/7",
+              "references": {
+                "short": "!7",
+                "relative": "group/project!7",
+                "full": "group/project!7"
+              }
+            }
+            """.utf8
+        )
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        return try decoder.decode(
+            GitLabMergeRequest.self,
+            from: data
+        )
+    }
+}

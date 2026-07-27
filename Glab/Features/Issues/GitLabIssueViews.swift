@@ -567,7 +567,7 @@ private struct GitLabIssueDetailContent: View {
     }
 
     private func issueUser(
-        _ user: GitLabIssueUser,
+        _ user: GitLabAPIUser,
         role: String
     ) -> some View {
         HStack(spacing: 12) {
