@@ -2,6 +2,9 @@ import SwiftUI
 
 struct TodosView: View {
     let model: TodosModel
+    let issueLoader: any GitLabIssueLoading
+    let mergeRequestLoader:
+        any GitLabMergeRequestLoading
     let appSession: AppSession
 
     var body: some View {
@@ -31,6 +34,11 @@ struct TodosView: View {
             .background(Color(uiColor: .systemBackground))
             .navigationTitle("Todos")
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(
+                for: GitLabTodoNativeRoute.self
+            ) { route in
+                nativeDestination(for: route)
+            }
             .refreshable {
                 await refresh()
             }
@@ -136,16 +144,7 @@ struct TodosView: View {
             }
 
             ForEach(model.todos) { todo in
-                GitLabTodoRow(todo: todo)
-                    .accessibilityIdentifier(
-                        "todos.row.\(todo.id)"
-                    )
-                    .task {
-                        await model.loadNextPageIfNeeded(
-                            after: todo
-                        )
-                        await handleAuthenticationFailure()
-                    }
+                todoRow(todo)
             }
 
             if model.isLoadingNextPage {
@@ -170,6 +169,54 @@ struct TodosView: View {
                     .frame(maxWidth: .infinity)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func todoRow(
+        _ todo: GitLabTodo
+    ) -> some View {
+        Group {
+            if let route = todo.nativeRoute {
+                NavigationLink(value: route) {
+                    GitLabTodoRow(todo: todo)
+                }
+            } else if let url = todo.safeTargetURL {
+                Link(destination: url) {
+                    GitLabTodoRow(todo: todo)
+                }
+            } else {
+                GitLabTodoRow(todo: todo)
+            }
+        }
+        .accessibilityIdentifier(
+            "todos.row.\(todo.id)"
+        )
+        .task {
+            await model.loadNextPageIfNeeded(
+                after: todo
+            )
+            await handleAuthenticationFailure()
+        }
+    }
+
+    @ViewBuilder
+    private func nativeDestination(
+        for route: GitLabTodoNativeRoute
+    ) -> some View {
+        switch route {
+        case let .issue(issueRoute):
+            GitLabIssueDetailView(
+                route: issueRoute,
+                loader: issueLoader,
+                appSession: appSession
+            )
+        case let .mergeRequest(mergeRequestRoute):
+            GitLabMergeRequestDetailView(
+                route: mergeRequestRoute,
+                loader: mergeRequestLoader,
+                appSession: appSession
+            )
         }
     }
 

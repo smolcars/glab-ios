@@ -124,6 +124,9 @@ struct SignedInShellView: View {
             ) {
                 TodosView(
                     model: todosModel,
+                    issueLoader: issueLoader,
+                    mergeRequestLoader:
+                        mergeRequestLoader,
                     appSession: appSession
                 )
             }
