@@ -203,6 +203,7 @@ struct AssignedIssuesModelTests {
 
         #expect(model.issues == [issue])
         #expect(model.nextPageURL == nextPageURL)
+        #expect(model.didFailNextPage)
         #expect(
             model.loadError == .api(.server(statusCode: 503))
         )
@@ -265,6 +266,41 @@ struct AssignedIssuesModelTests {
                 from: now.addingTimeInterval(-elapsed),
                 relativeTo: now
             ) == expected
+        )
+    }
+
+    @Test("Formats GitLab date-only values")
+    func formatsDueDate() {
+        #expect(
+            GitLabIssueDateFormatter.dueDate(
+                "2026-07-27",
+                locale: Locale(identifier: "en_US")
+            ) == "Jul 27, 2026"
+        )
+        #expect(
+            GitLabIssueDateFormatter.dueDate(
+                "not-a-date",
+                locale: Locale(identifier: "en_US")
+            ) == nil
+        )
+    }
+
+    @Test("Formats issue descriptions with native Markdown")
+    func formatsDescriptionMarkdown() {
+        let formatted =
+            GitLabIssueDescriptionFormatter.attributedString(
+                """
+                Use **care**.
+
+                ```text
+                safe-call
+                ```
+                """
+            )
+
+        #expect(
+            String(formatted.characters)
+                == "Use care.\n\nsafe-call"
         )
     }
 }
@@ -379,4 +415,3 @@ private actor StubIssueLoader: GitLabIssueLoading {
         return try issueResults.removeFirst().get()
     }
 }
-

@@ -37,6 +37,8 @@ struct SignedInShellView: View {
 
     @State private var selectedTab = GitLabAppTab.defaultTab
     @State private var homeDashboardModel: HomeDashboardModel
+    @State private var assignedIssuesModel: AssignedIssuesModel
+    private let issueLoader: any GitLabIssueLoading
 
     init(
         session: GitLabStoredSession,
@@ -59,11 +61,20 @@ struct SignedInShellView: View {
                 )
             }
         )
+        let issueLoader = LiveGitLabIssueLoader(
+            client: client
+        )
+        self.issueLoader = issueLoader
         _homeDashboardModel = State(
             initialValue: HomeDashboardModel(
                 loader: LiveHomeDashboardLoader(
                     client: client
                 )
+            )
+        )
+        _assignedIssuesModel = State(
+            initialValue: AssignedIssuesModel(
+                loader: issueLoader
             )
         )
     }
@@ -78,7 +89,9 @@ struct SignedInShellView: View {
                 HomeView(
                     session: session,
                     appSession: appSession,
-                    model: homeDashboardModel
+                    model: homeDashboardModel,
+                    assignedIssuesModel: assignedIssuesModel,
+                    issueLoader: issueLoader
                 )
             }
 

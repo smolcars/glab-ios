@@ -28,8 +28,8 @@ This plan is based on the current official GitLab documentation:
   the required metadata in both documented responses.
 - Search is intentionally local and covers only rows already loaded. It matches
   title, full reference, labels, and assignee names/usernames.
-- Descriptions are displayed as readable plain text in this MVP. Full GitLab
-  Flavored Markdown rendering and issue notes are later work.
+- Descriptions use native best-effort Markdown rendering in this MVP. Full
+  GitLab Flavored Markdown rendering and issue notes are later work.
 - “Open in GitLab” accepts only an HTTPS API-provided `web_url`.
 - This item is read-only. Editing, commenting, subscribing, and other issue
   mutations are out of scope.

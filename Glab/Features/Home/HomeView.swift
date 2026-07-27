@@ -4,6 +4,8 @@ struct HomeView: View {
     let session: GitLabStoredSession
     let appSession: AppSession
     let model: HomeDashboardModel
+    let assignedIssuesModel: AssignedIssuesModel
+    let issueLoader: any GitLabIssueLoading
 
     @State private var path = NavigationPath()
     @State private var showsAccount = false
@@ -61,11 +63,7 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.large)
             .navigationDestination(for: HomeDashboardSection.self) {
                 section in
-                HomeDashboardListView(
-                    section: section,
-                    model: model,
-                    refresh: refreshDashboard
-                )
+                destination(for: section)
             }
             .refreshable {
                 await refreshDashboard()
@@ -125,6 +123,25 @@ struct HomeView: View {
             name: user.name,
             avatarURL: user.avatarURL
         )
+    }
+
+    @ViewBuilder
+    private func destination(
+        for section: HomeDashboardSection
+    ) -> some View {
+        if section == .assignedIssues {
+            AssignedIssuesView(
+                model: assignedIssuesModel,
+                loader: issueLoader,
+                appSession: appSession
+            )
+        } else {
+            HomeDashboardListView(
+                section: section,
+                model: model,
+                refresh: refreshDashboard
+            )
+        }
     }
 
     private func loadDashboard() async {
