@@ -31,10 +31,10 @@ Baseline:
 
 ### OAuth robustness
 
-- [ ] Cancel the active `ASWebAuthenticationSession` when its Swift task is
+- [x] Cancel the active `ASWebAuthenticationSession` when its Swift task is
   cancelled, complete the continuation exactly once, and allow a later sign-in
   attempt.
-- [ ] Fail cleanly when no foreground presentation window is available instead
+- [x] Fail cleanly when no foreground presentation window is available instead
   of crashing in the presentation-context callback.
 - [x] Reject malformed OAuth token timestamps that overflow when `created_at`
   and `expires_in` are combined.

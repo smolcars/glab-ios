@@ -38,54 +38,115 @@ protocol GitLabOAuthWebAuthenticating: Sendable {
 }
 
 @MainActor
+protocol GitLabOAuthWebAuthenticationSession: AnyObject {
+    var presentationContextProvider:
+        (any ASWebAuthenticationPresentationContextProviding)? { get set }
+    var prefersEphemeralWebBrowserSession: Bool { get set }
+
+    func start() -> Bool
+    func cancel()
+}
+
+extension ASWebAuthenticationSession:
+    GitLabOAuthWebAuthenticationSession
+{}
+
+@MainActor
 final class ASWebAuthenticationSessionGitLabOAuthAuthenticator:
     NSObject,
     GitLabOAuthWebAuthenticating,
     ASWebAuthenticationPresentationContextProviding
 {
-    private var session: ASWebAuthenticationSession?
+    typealias SessionFactory = @MainActor (
+        URL,
+        String?,
+        @escaping (URL?, (any Error)?) -> Void
+    ) -> any GitLabOAuthWebAuthenticationSession
+    typealias PresentationAnchorProvider =
+        @MainActor () -> ASPresentationAnchor?
+
+    private let sessionFactory: SessionFactory
+    private let presentationAnchorProvider: PresentationAnchorProvider
+    private var session: (any GitLabOAuthWebAuthenticationSession)?
+    private var continuation: CheckedContinuation<URL, any Error>?
+    private var activePresentationAnchor: ASPresentationAnchor?
+
+    override init() {
+        sessionFactory = { authorizationURL, callbackURLScheme, completion in
+            ASWebAuthenticationSession(
+                url: authorizationURL,
+                callbackURLScheme: callbackURLScheme,
+                completionHandler: completion
+            )
+        }
+        presentationAnchorProvider = Self.foregroundPresentationAnchor
+        super.init()
+    }
+
+    init(
+        sessionFactory: @escaping SessionFactory,
+        presentationAnchorProvider:
+            @escaping PresentationAnchorProvider
+    ) {
+        self.sessionFactory = sessionFactory
+        self.presentationAnchorProvider = presentationAnchorProvider
+        super.init()
+    }
 
     func authenticate(
         at authorizationURL: URL,
         callbackURLScheme: String
     ) async throws(GitLabOAuthWebAuthenticationError) -> URL {
-        guard session == nil else {
+        guard session == nil, continuation == nil else {
+            throw .couldNotStart
+        }
+        guard !Task.isCancelled else {
+            throw .cancelled
+        }
+        guard let presentationAnchor = presentationAnchorProvider() else {
             throw .couldNotStart
         }
 
         do {
-            return try await withCheckedThrowingContinuation { continuation in
-                let session = ASWebAuthenticationSession(
-                    url: authorizationURL,
-                    callbackURLScheme: callbackURLScheme
-                ) { [weak self] callbackURL, error in
-                    Task { @MainActor in
-                        self?.session = nil
+            activePresentationAnchor = presentationAnchor
 
-                        if let callbackURL {
-                            continuation.resume(returning: callbackURL)
-                        } else if Self.isCancellation(error) {
-                            continuation.resume(
-                                throwing: GitLabOAuthWebAuthenticationError.cancelled
-                            )
-                        } else {
-                            continuation.resume(
-                                throwing: GitLabOAuthWebAuthenticationError.failed
+            return try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation {
+                    continuation in
+                    guard !Task.isCancelled else {
+                        activePresentationAnchor = nil
+                        continuation.resume(
+                            throwing:
+                                GitLabOAuthWebAuthenticationError.cancelled
+                        )
+                        return
+                    }
+
+                    self.continuation = continuation
+                    let session = sessionFactory(
+                        authorizationURL,
+                        callbackURLScheme
+                    ) { [weak self] callbackURL, error in
+                        Task { @MainActor in
+                            self?.complete(
+                                callbackURL: callbackURL,
+                                error: error
                             )
                         }
                     }
+
+                    session.presentationContextProvider = self
+                    session.prefersEphemeralWebBrowserSession = false
+                    self.session = session
+
+                    guard session.start() else {
+                        finish(with: .failure(.couldNotStart))
+                        return
+                    }
                 }
-
-                session.presentationContextProvider = self
-                session.prefersEphemeralWebBrowserSession = false
-                self.session = session
-
-                guard session.start() else {
-                    self.session = nil
-                    continuation.resume(
-                        throwing: GitLabOAuthWebAuthenticationError.couldNotStart
-                    )
-                    return
+            } onCancel: {
+                Task { @MainActor [weak self] in
+                    self?.cancelActiveSession()
                 }
             }
         } catch let error as GitLabOAuthWebAuthenticationError {
@@ -98,16 +159,11 @@ final class ASWebAuthenticationSessionGitLabOAuthAuthenticator:
     func presentationAnchor(
         for session: ASWebAuthenticationSession
     ) -> ASPresentationAnchor {
-        guard
-            let windowScene = UIApplication.shared.connectedScenes
-                .compactMap({ $0 as? UIWindowScene })
-                .first(where: { $0.activationState == .foregroundActive })
-        else {
-            preconditionFailure("OAuth requires an active window scene.")
+        if let activePresentationAnchor {
+            return activePresentationAnchor
         }
 
-        return windowScene.windows.first(where: \.isKeyWindow)
-            ?? ASPresentationAnchor(windowScene: windowScene)
+        return presentationAnchorProvider() ?? ASPresentationAnchor()
     }
 
     private static func isCancellation(_ error: (any Error)?) -> Bool {
@@ -115,5 +171,64 @@ final class ASWebAuthenticationSessionGitLabOAuthAuthenticator:
             return false
         }
         return error.code == .canceledLogin
+    }
+
+    private static func foregroundPresentationAnchor() -> ASPresentationAnchor? {
+        guard
+            let windowScene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: {
+                    $0.activationState == .foregroundActive
+                })
+        else {
+            return nil
+        }
+
+        return windowScene.windows.first(where: \.isKeyWindow)
+            ?? ASPresentationAnchor(windowScene: windowScene)
+    }
+
+    private func complete(
+        callbackURL: URL?,
+        error: (any Error)?
+    ) {
+        if let callbackURL {
+            finish(with: .success(callbackURL))
+        } else if Self.isCancellation(error) {
+            finish(with: .failure(.cancelled))
+        } else {
+            finish(with: .failure(.failed))
+        }
+    }
+
+    private func cancelActiveSession() {
+        guard continuation != nil else {
+            return
+        }
+
+        session?.cancel()
+        finish(with: .failure(.cancelled))
+    }
+
+    private func finish(
+        with result: Result<
+            URL,
+            GitLabOAuthWebAuthenticationError
+        >
+    ) {
+        guard let continuation else {
+            return
+        }
+
+        self.continuation = nil
+        session = nil
+        activePresentationAnchor = nil
+
+        switch result {
+        case let .success(callbackURL):
+            continuation.resume(returning: callbackURL)
+        case let .failure(error):
+            continuation.resume(throwing: error)
+        }
     }
 }
