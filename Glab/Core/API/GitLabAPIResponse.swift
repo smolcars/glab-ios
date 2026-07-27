@@ -8,23 +8,49 @@ nonisolated struct GitLabAPIResponse<Value>: Sendable where Value: Sendable {
 nonisolated struct GitLabResponseMetadata: Equatable, Sendable {
     let requestID: String?
     let nextPageURL: URL?
+    let totalCount: Int?
 
-    init(requestID: String? = nil, nextPageURL: URL? = nil) {
+    init(
+        requestID: String? = nil,
+        nextPageURL: URL? = nil,
+        totalCount: Int? = nil
+    ) {
         self.requestID = requestID
         self.nextPageURL = nextPageURL
+        self.totalCount = totalCount
     }
 
     init(response: HTTPURLResponse) {
         let requestID = response
             .value(forHTTPHeaderField: "X-Request-ID")?
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        let totalCount = response
+            .value(forHTTPHeaderField: "X-Total")
+            .flatMap(Self.nonnegativeInteger)
 
         self.init(
             requestID: requestID?.isEmpty == false ? requestID : nil,
             nextPageURL: Self.nextPageURL(
                 from: response.value(forHTTPHeaderField: "Link")
-            )
+            ),
+            totalCount: totalCount
         )
+    }
+
+    private static func nonnegativeInteger(
+        _ value: String
+    ) -> Int? {
+        let normalized = value.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard
+            let count = Int(normalized),
+            count >= 0
+        else {
+            return nil
+        }
+
+        return count
     }
 
     private static func nextPageURL(from linkHeader: String?) -> URL? {
