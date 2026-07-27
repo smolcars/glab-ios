@@ -181,6 +181,12 @@ Test:
 
 ### [ ] MVP-05 — Implement GitLab.com and self-managed OAuth with PKCE
 
+Implementation status (2026-07-27): the OAuth/PKCE logic, refresh handling,
+setup UI, personal-access-token fallback, unit tests, and simulator inspection
+are complete. This item remains unchecked until a GitLab.com OAuth application
+is registered, its real Application ID is supplied to the build, and a
+clean-install live callback is verified. See [Glab OAuth setup](OAUTH_SETUP.md).
+
 Deliver:
 
 - Register the Glab OAuth redirect on GitLab.com and configure its public
