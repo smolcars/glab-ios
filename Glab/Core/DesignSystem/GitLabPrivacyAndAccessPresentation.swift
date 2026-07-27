@@ -1,3 +1,5 @@
+import Foundation
+
 nonisolated struct GitLabPrivacyAndAccessPresentation:
     Equatable,
     Sendable
@@ -12,6 +14,14 @@ nonisolated struct GitLabPrivacyAndAccessPresentation:
     let authenticationSummary: String
     let storageSummary: String
     let dataUseSummary: String
+
+    var privacyPolicyURL: URL? {
+        URL(
+            string:
+                "https://github.com/smolcars/glab-ios/"
+                + "blob/master/PRIVACY.md"
+        )
+    }
 
     init(session: GitLabStoredSession) {
         self.init(

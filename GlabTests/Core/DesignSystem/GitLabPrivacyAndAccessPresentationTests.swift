@@ -78,6 +78,19 @@ struct GitLabPrivacyAndAccessPresentationTests {
         )
     }
 
+    @Test("Links to the public Glab privacy policy")
+    func linksToPrivacyPolicy() throws {
+        let url = try #require(
+            GitLabPrivacyAndAccessPresentation
+                .oauthSignIn
+                .privacyPolicyURL
+        )
+
+        #expect(url.scheme == "https")
+        #expect(url.host == "github.com")
+        #expect(url.path.hasSuffix("/PRIVACY.md"))
+    }
+
     @Test("Presentation cannot contain a credential value")
     func excludesCredentialValues() throws {
         let secret = "never-render-this-token"

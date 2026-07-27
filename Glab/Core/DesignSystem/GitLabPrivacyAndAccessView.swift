@@ -44,6 +44,24 @@ struct GitLabPrivacyAndAccessView: View {
                     Image(systemName: "hand.raised.fill")
                         .foregroundStyle(.orange)
                 }
+
+                if let privacyPolicyURL =
+                    presentation.privacyPolicyURL
+                {
+                    Link(
+                        destination: privacyPolicyURL
+                    ) {
+                        Label(
+                            "Privacy Policy",
+                            systemImage:
+                                "arrow.up.right.square"
+                        )
+                    }
+                    .accessibilityIdentifier(
+                        "privacyAndAccess"
+                            + ".privacyPolicyLink"
+                    )
+                }
             }
         }
         .listStyle(.insetGrouped)
