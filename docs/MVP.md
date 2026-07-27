@@ -312,7 +312,7 @@ Verify:
 - No token, OAuth Application ID, or other local secret appears in committed
   documentation.
 
-### [ ] MVP-10 — Add merge request lists and details
+### [x] MVP-10 — Add merge request lists and details
 
 Deliver:
 
@@ -329,7 +329,7 @@ Test:
 - Pagination, de-duplication, filtering, and project ID plus MR IID routing.
 - Do not infer mergeability from stale list fields.
 
-### [ ] MVP-11 — Add recent and starred project lists
+### [x] MVP-11 — Add recent and starred project lists
 
 Deliver:
 

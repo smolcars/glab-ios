@@ -123,9 +123,9 @@ Scope:
 - The configured read-only self-managed instance returned 4 assigned merge
   requests, 1 review request, and a valid detail response matching the decoded
   contract. No response content or credential was recorded.
-- Final interactive simulator verification remains open because the Mac UI is
-  locked; the installed build and screenshot-only Home check are not counted as
-  a tap-through.
+- Both list modes and native details were exercised on iPhone 17 Pro in light
+  and dark appearance. Search, refresh, scrolling, row routing, and back
+  navigation all passed.
 
 ### Repair checklist
 
@@ -139,7 +139,7 @@ Scope:
   domain-named initializers and properties so views and tests remain explicit.
 - [x] Run the complete signed suite and static analyzer after the shared-state
   refactor.
-- [ ] Tap both Home shortcuts, populated list rows, details, scrolling, search,
+- [x] Tap both Home shortcuts, populated list rows, details, scrolling, search,
   refresh, and back navigation on iPhone 17 Pro; inspect assigned and review
   modes plus a detail in light and dark appearance.
 
@@ -174,7 +174,7 @@ Scope:
 - All production Swift, tests, app/project configuration, and MVP
   documentation were reviewed again after recent and starred project browsing
   was added.
-- The complete signed suite passes all 170 tests (218 parameterized
+- The complete signed suite passes all 171 tests (219 parameterized
   executions) on iPhone 17 Pro, iOS 26.5. Xcode static analysis and property
   list validation are clean.
 - Both project modes and both merge-request modes were exercised against the
@@ -185,15 +185,15 @@ Scope:
 
 ### Repair checklist
 
-- [ ] Keep empty and initial-error resource states inside a scroll container
+- [x] Keep empty and initial-error resource states inside a scroll container
   so pull to refresh remains available when GitLab returns no rows.
-- [ ] Remove GitLab template comments and ATX heading markers from the
+- [x] Remove GitLab template comments and ATX heading markers from the
   intentionally limited native description rendering, with unit coverage.
-- [ ] Prevent the long “Assigned Merge Requests” navigation title from
+- [x] Prevent the long “Assigned Merge Requests” navigation title from
   truncating on iPhone 17 Pro while keeping both list modes consistent.
-- [ ] Update the README and ordered MVP checklist to match the verified
+- [x] Update the README and ordered MVP checklist to match the verified
   merge-request and project implementation.
-- [ ] Re-run the complete signed suite and analyzer after the repairs, then
+- [x] Re-run the complete signed suite and analyzer after the repairs, then
   inspect the affected screens in light and dark appearance.
 
 ### Deliberately unchanged

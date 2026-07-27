@@ -20,9 +20,13 @@ Glab is under active MVP development. The current app includes:
 - A native Home/Todos shell and Home work previews.
 - Paginated assigned-issue browsing, local filtering, and native issue
   details.
+- Paginated assigned and review-requested merge-request browsing with native
+  read-only details.
+- Paginated recent and starred project browsing with local filtering and safe
+  GitLab web routing.
 
-Merge requests, projects, and the full Todos inbox are still being built. The
-ordered scope and acceptance criteria live in [the MVP checklist](docs/MVP.md).
+The full Todos inbox and completion actions are still being built. The ordered
+scope and acceptance criteria live in [the MVP checklist](docs/MVP.md).
 
 GitLab.com OAuth logic is implemented, but its clean-install live callback
 remains an explicit release-verification item until a real public Application
