@@ -62,3 +62,34 @@ Baseline:
   another today but represent independently evolving GitLab API resources.
 - Home preview routes intentionally contain three items until their full
   paginated MVP list features are implemented.
+
+## Post-MVP-09 audit
+
+Baseline after assigned issues and issue details:
+
+- 135 parameterized test invocations pass on iPhone 17 Pro, iOS 26.5.
+- Swift 6 complete concurrency checking and Xcode static analysis pass.
+- The new feature follows the existing Model-View and injected-loader
+  boundaries; an architecture migration is still not justified.
+
+### Repair checklist
+
+- [ ] Preserve loaded issues while making a failed pull-to-refresh visible and
+  retryable instead of silently retaining stale content.
+- [ ] Reuse the established GitLab user display-name and avatar presentation
+  path for issue users so future merge-request users do not create a third
+  normalization implementation.
+- [ ] Present opened, closed, and unknown issue states with accurate text,
+  symbols, and semantic colors in both list rows and details.
+- [ ] Add focused unit tests for each repaired state or formatting rule.
+- [ ] Run the complete test suite, static analyzer, and the changed issue UI in
+  light and dark appearance before closing this audit.
+
+### Forward design gate
+
+All production endpoints through MVP-09 are read-only, so adding speculative
+mutation types now would not improve current correctness. Before MVP-13 adds
+the first Todo mutation, requests must explicitly declare whether they require
+read or write access, the session client must reject unsupported writes before
+transport, and mutation controls must remain visible but disabled with an
+accessible explanation for `read_api` sessions.
