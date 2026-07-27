@@ -161,15 +161,22 @@ struct MergeRequestsModelTests {
     }
 
     @Test("Preserves rows and reports a failed refresh")
-    func preservesRowsAfterRefreshFailure() async {
+    func preservesRowsAfterRefreshFailure() async throws {
         let original = makeTestMergeRequest(id: 1, iid: 1)
         let refreshed = makeTestMergeRequest(id: 2, iid: 2)
+        let staleNextPageURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.example.com/api/v4/"
+                    + "merge_requests?page=2"
+            )
+        )
         let loader = StubMergeRequestLoader(
             pageResults: [
                 .success(
                     GitLabMergeRequestPage(
                         mergeRequests: [original],
-                        nextPageURL: nil
+                        nextPageURL: staleNextPageURL
                     )
                 ),
                 .failure(.api(.server(statusCode: 503))),
@@ -193,6 +200,14 @@ struct MergeRequestsModelTests {
         #expect(model.didFailRefresh)
         #expect(
             model.loadError == .api(.server(statusCode: 503))
+        )
+
+        await model.loadNextPageIfNeeded(after: original)
+
+        #expect(model.didFailRefresh)
+        #expect(!model.didFailNextPage)
+        #expect(
+            await loader.pageRequestURLs == [nil, nil]
         )
 
         await model.refresh()

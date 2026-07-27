@@ -132,7 +132,8 @@ final class MergeRequestsModel {
             let nextPageURL,
             !isLoadingInitial,
             !isRefreshing,
-            !isLoadingNextPage
+            !isLoadingNextPage,
+            !didFailRefresh
         else {
             return
         }

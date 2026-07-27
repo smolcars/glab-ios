@@ -177,15 +177,21 @@ struct AssignedIssuesModelTests {
     }
 
     @Test("Preserves rows and reports a failed refresh")
-    func preservesRowsAfterRefreshFailure() async {
+    func preservesRowsAfterRefreshFailure() async throws {
         let original = makeTestIssue(id: 1, iid: 1)
         let refreshed = makeTestIssue(id: 2, iid: 2)
+        let staleNextPageURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.example.com/api/v4/issues?page=2"
+            )
+        )
         let loader = StubIssueLoader(
             pageResults: [
                 .success(
                     GitLabIssuePage(
                         issues: [original],
-                        nextPageURL: nil
+                        nextPageURL: staleNextPageURL
                     )
                 ),
                 .failure(.api(.server(statusCode: 503))),
@@ -206,6 +212,14 @@ struct AssignedIssuesModelTests {
         #expect(model.didFailRefresh)
         #expect(
             model.loadError == .api(.server(statusCode: 503))
+        )
+
+        await model.loadNextPageIfNeeded(after: original)
+
+        #expect(model.didFailRefresh)
+        #expect(!model.didFailNextPage)
+        #expect(
+            await loader.pageRequestURLs == [nil, nil]
         )
 
         await model.refresh()

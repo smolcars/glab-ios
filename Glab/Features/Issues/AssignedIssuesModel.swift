@@ -120,7 +120,8 @@ final class AssignedIssuesModel {
             let nextPageURL,
             !isLoadingInitial,
             !isRefreshing,
-            !isLoadingNextPage
+            !isLoadingNextPage,
+            !didFailRefresh
         else {
             return
         }
