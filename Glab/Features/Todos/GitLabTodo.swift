@@ -234,6 +234,14 @@ nonisolated enum GitLabTodoAction:
     }
 }
 
+nonisolated enum GitLabTodoNativeRoute:
+    Hashable,
+    Sendable
+{
+    case issue(GitLabIssueRoute)
+    case mergeRequest(GitLabMergeRequestRoute)
+}
+
 nonisolated struct GitLabTodoProject:
     Decodable,
     Equatable,
@@ -327,6 +335,44 @@ nonisolated struct GitLabTodo:
 
     var safeTargetURL: URL? {
         GitLabWebURL.validated(targetURL)
+    }
+
+    var nativeRoute: GitLabTodoNativeRoute? {
+        guard
+            let iid = target?.iid,
+            let projectID =
+                target?.projectID ?? project?.id
+        else {
+            return nil
+        }
+
+        return switch targetType {
+        case .issue:
+            .issue(
+                GitLabIssueRoute(
+                    projectID: projectID,
+                    issueIID: iid
+                )
+            )
+        case .mergeRequest:
+            .mergeRequest(
+                GitLabMergeRequestRoute(
+                    projectID: projectID,
+                    mergeRequestIID: iid
+                )
+            )
+        case
+            .commit,
+            .epic,
+            .design,
+            .alert,
+            .project,
+            .namespace,
+            .vulnerability,
+            .wikiPage,
+            .unknown:
+            nil
+        }
     }
 
     private enum CodingKeys: String, CodingKey {

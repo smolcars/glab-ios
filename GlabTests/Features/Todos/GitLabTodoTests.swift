@@ -149,6 +149,119 @@ struct GitLabTodoTests {
 
         #expect(todo.safeTargetURL == nil)
     }
+
+    @Test("Routes issue Todos to native issue details")
+    func derivesIssueRoute() throws {
+        let todo = try decodeTodo(
+            targetType: "Issue"
+        )
+
+        #expect(
+            todo.nativeRoute
+                == .issue(
+                    GitLabIssueRoute(
+                        projectID: 2,
+                        issueIID: 7
+                    )
+                )
+        )
+    }
+
+    @Test("Routes merge request Todos to native merge request details")
+    func derivesMergeRequestRoute() throws {
+        let todo = try decodeTodo()
+
+        #expect(
+            todo.nativeRoute
+                == .mergeRequest(
+                    GitLabMergeRequestRoute(
+                        projectID: 2,
+                        mergeRequestIID: 7
+                    )
+                )
+        )
+    }
+
+    @Test("Falls back to the Todo project identity for native routing")
+    func fallsBackToProjectIdentity() throws {
+        let todo = try decodeTodo(
+            target: """
+                {
+                  "id": 34,
+                  "iid": 7,
+                  "title": "Review authentication changes"
+                }
+                """
+        )
+
+        #expect(
+            todo.nativeRoute
+                == .mergeRequest(
+                    GitLabMergeRequestRoute(
+                        projectID: 2,
+                        mergeRequestIID: 7
+                    )
+                )
+        )
+    }
+
+    @Test(
+        "Non-native target categories use only a safe web URL",
+        arguments: [
+            "Commit",
+            "Epic",
+            "DesignManagement::Design",
+            "AlertManagement::Alert",
+            "Project",
+            "Namespace",
+            "Vulnerability",
+            "WikiPage::Meta",
+            "WorkItem",
+        ]
+    )
+    func routesNonNativeTargetToWeb(
+        targetType: String
+    ) throws {
+        let todo = try decodeTodo(
+            targetType: targetType
+        )
+
+        #expect(todo.nativeRoute == nil)
+        #expect(todo.safeTargetURL?.scheme == "https")
+    }
+
+    @Test("Incomplete native identity falls back to a safe web URL")
+    func incompleteNativeRouteFallsBackToWeb() throws {
+        let todo = try decodeTodo(
+            target: """
+                {
+                  "id": 34,
+                  "title": "Review authentication changes"
+                }
+                """
+        )
+
+        #expect(todo.nativeRoute == nil)
+        #expect(todo.safeTargetURL?.scheme == "https")
+    }
+
+    @Test("Missing or unsafe URLs do not make incomplete targets interactive")
+    func rejectsIncompleteUnsafeRoutes() throws {
+        let missingURL = try decodeTodo(
+            target: "null",
+            targetURL: "null"
+        )
+        let unsafeURL = try decodeTodo(
+            target: "null",
+            targetURL:
+                #""http://gitlab.example.com/mobile/glab-ios""#
+        )
+
+        #expect(missingURL.nativeRoute == nil)
+        #expect(missingURL.safeTargetURL == nil)
+        #expect(unsafeURL.nativeRoute == nil)
+        #expect(unsafeURL.safeTargetURL == nil)
+    }
 }
 
 private extension GitLabTodoTests {
@@ -184,7 +297,8 @@ private extension GitLabTodoTests {
         targetURL: String =
             #""https://gitlab.example.com/mobile/glab-ios/-/merge_requests/7""#,
         body: String =
-            #""Please review the token refresh path.""#
+            #""Please review the token refresh path.""#,
+        targetType: String = "MergeRequest"
     ) throws -> GitLabTodo {
         let data = Data(
             """
@@ -193,7 +307,7 @@ private extension GitLabTodoTests {
               "project": \(project),
               "author": \(author),
               "action_name": "approval_required",
-              "target_type": "MergeRequest",
+              "target_type": "\(targetType)",
               "target": \(target),
               "target_url": \(targetURL),
               "body": \(body),
