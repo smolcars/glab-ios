@@ -6,6 +6,8 @@ struct TodosView: View {
     let mergeRequestLoader:
         any GitLabMergeRequestLoading
     let appSession: AppSession
+    @State private var isConfirmingMarkAllDone =
+        false
 
     var body: some View {
         @Bindable var model = model
@@ -26,6 +28,24 @@ struct TodosView: View {
                         edges: .bottom
                     )
 
+                if
+                    model.selectedState == .pending,
+                    !model.canComplete
+                {
+                    readOnlyCompletionRow
+                }
+
+                if let failure = model.mutationFailure {
+                    mutationFailureRow(failure)
+                }
+
+                if
+                    isCompleting,
+                    !model.todos.isEmpty
+                {
+                    completionProgressRow
+                }
+
                 resourceRows
             }
             .id(model.query)
@@ -34,6 +54,31 @@ struct TodosView: View {
             .background(Color(uiColor: .systemBackground))
             .navigationTitle("Todos")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                if model.selectedState == .pending {
+                    ToolbarItem(
+                        placement: .topBarTrailing
+                    ) {
+                        Button(
+                            "Mark All",
+                            systemImage:
+                                "checkmark.circle"
+                        ) {
+                            isConfirmingMarkAllDone =
+                                true
+                        }
+                        .disabled(
+                            !model.canMarkAllDone
+                        )
+                        .accessibilityIdentifier(
+                            "todos.markAllButton"
+                        )
+                        .accessibilityHint(
+                            completionAccessibilityHint
+                        )
+                    }
+                }
+            }
             .navigationDestination(
                 for: GitLabTodoNativeRoute.self
             ) { route in
@@ -45,6 +90,25 @@ struct TodosView: View {
             .task(id: model.query) {
                 await model.loadIfNeeded()
                 await handleAuthenticationFailure()
+            }
+            .confirmationDialog(
+                "Mark all pending Todos done?",
+                isPresented:
+                    $isConfirmingMarkAllDone,
+                titleVisibility: .visible
+            ) {
+                Button("Mark All Todos") {
+                    Task {
+                        await model.markAllDone()
+                        await handleAuthenticationFailure()
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text(
+                    "This updates every pending Todo on GitLab. "
+                        + "Completed items remain available under Done."
+                )
             }
         }
     }
@@ -96,6 +160,30 @@ struct TodosView: View {
                 message: "Loading \(listDescription)"
             )
             .padding(.vertical, 8)
+            .listRowSeparator(.hidden)
+        } else if
+            model.todos.isEmpty,
+            isCompleting
+        {
+            VStack(spacing: 14) {
+                ProgressView()
+                    .controlSize(.large)
+                Text(completionProgressTitle)
+                    .font(.headline)
+                Text(
+                    "The change is being saved to GitLab."
+                )
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 430)
+            .accessibilityElement(
+                children: .combine
+            )
+            .accessibilityIdentifier(
+                "todos.completionProgress"
+            )
             .listRowSeparator(.hidden)
         } else if
             model.todos.isEmpty,
@@ -176,6 +264,53 @@ struct TodosView: View {
     private func todoRow(
         _ todo: GitLabTodo
     ) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            todoDestination(todo)
+
+            if todo.state == .pending {
+                Button {
+                    Task {
+                        await model.markDone(todo)
+                        await handleAuthenticationFailure()
+                    }
+                } label: {
+                    Image(
+                        systemName:
+                            "checkmark.circle"
+                    )
+                    .font(.title3.weight(.semibold))
+                    .frame(width: 44, height: 44)
+                    .contentShape(.circle)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.orange)
+                .disabled(
+                    !model.canComplete
+                        || model.isMarkingAllDone
+                )
+                .accessibilityLabel(
+                    "Mark \(todo.title) done"
+                )
+                .accessibilityHint(
+                    completionAccessibilityHint
+                )
+                .accessibilityIdentifier(
+                    "todos.markDone.\(todo.id)"
+                )
+            }
+        }
+        .task {
+            await model.loadNextPageIfNeeded(
+                after: todo
+            )
+            await handleAuthenticationFailure()
+        }
+    }
+
+    @ViewBuilder
+    private func todoDestination(
+        _ todo: GitLabTodo
+    ) -> some View {
         Group {
             if let route = todo.nativeRoute {
                 NavigationLink(value: route) {
@@ -189,15 +324,13 @@ struct TodosView: View {
                 GitLabTodoRow(todo: todo)
             }
         }
+        .frame(
+            maxWidth: .infinity,
+            alignment: .leading
+        )
         .accessibilityIdentifier(
             "todos.row.\(todo.id)"
         )
-        .task {
-            await model.loadNextPageIfNeeded(
-                after: todo
-            )
-            await handleAuthenticationFailure()
-        }
     }
 
     @ViewBuilder
@@ -227,6 +360,82 @@ struct TodosView: View {
             "Todos",
         ]
         .joined(separator: " ")
+    }
+
+    private var readOnlyCompletionRow: some View {
+        Label {
+            Text(
+                "Read-only access. The api scope is required "
+                    + "to complete Todos."
+            )
+            .font(.footnote)
+        } icon: {
+            Image(systemName: "lock.fill")
+        }
+        .foregroundStyle(.orange)
+        .listRowBackground(
+            Color.orange.opacity(0.1)
+        )
+        .accessibilityIdentifier(
+            "todos.readOnlyMessage"
+        )
+    }
+
+    private var completionProgressRow: some View {
+        HStack(spacing: 10) {
+            ProgressView()
+            Text(completionProgressTitle)
+                .font(.footnote.weight(.medium))
+        }
+        .foregroundStyle(.secondary)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(
+            "todos.completionProgress"
+        )
+    }
+
+    private func mutationFailureRow(
+        _ failure: GitLabTodoMutationFailure
+    ) -> some View {
+        GitLabInlineRetryRow(
+            title: mutationFailureTitle(failure),
+            message: failure.error.description,
+            accessibilityIdentifier:
+                "todos.mutationError"
+        ) {
+            Task {
+                await model.retryFailedMutation()
+                await handleAuthenticationFailure()
+            }
+        }
+    }
+
+    private var isCompleting: Bool {
+        model.isMarkingAllDone
+            || !model.completingTodoIDs.isEmpty
+    }
+
+    private var completionProgressTitle: String {
+        model.isMarkingAllDone
+            ? "Completing all Todos…"
+            : "Completing Todo…"
+    }
+
+    private var completionAccessibilityHint: String {
+        model.canComplete
+            ? "Updates this Todo on GitLab."
+            : "Requires a personal access token with the api scope."
+    }
+
+    private func mutationFailureTitle(
+        _ failure: GitLabTodoMutationFailure
+    ) -> String {
+        switch failure {
+        case .markDone:
+            "Couldn’t complete Todo"
+        case .markAllDone:
+            "Couldn’t complete all Todos"
+        }
     }
 
     private var targetDescription: String {
