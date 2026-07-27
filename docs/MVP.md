@@ -101,7 +101,7 @@ Acceptance:
 - The GitHub reference images have been reviewed for navigation, hierarchy,
   list density, and detail presentation.
 
-### [ ] MVP-01 — Create the iOS project and test target
+### [x] MVP-01 — Create the iOS project and test target
 
 Deliver:
 
