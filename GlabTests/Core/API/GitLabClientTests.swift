@@ -386,6 +386,265 @@ struct GitLabClientTests {
             )
         }
     }
+
+    @Test("Retries a transient GET and keeps the recorded backoff")
+    func retriesTransientGet() async throws {
+        let transport = SequenceTransport(
+            outcomes: [
+                .urlError(URLError(.timedOut)),
+                .response(
+                    Data(
+                        #"{"id":7,"created_at":"2026-01-01T00:00:00Z"}"#.utf8
+                    ),
+                    try makeHTTPResponse(statusCode: 200)
+                ),
+            ]
+        )
+        let sleeper = RecordingSleeper()
+        let client = try makeClient(
+            transport: transport,
+            sleep: { duration in
+                await sleeper.record(duration)
+            }
+        )
+
+        let project = try await client.send(
+            GitLabAPIRequest<TestProject>.get(
+                requires: .read,
+                path: ["projects", "7"]
+            )
+        )
+
+        #expect(project.id == 7)
+        #expect(await transport.requestCount == 2)
+        #expect(await sleeper.delays == [.milliseconds(500)])
+    }
+
+    @Test("Retries a transient next-page GET")
+    func retriesTransientNextPage() async throws {
+        let transport = SequenceTransport(
+            outcomes: [
+                .response(
+                    Data(),
+                    try makeHTTPResponse(statusCode: 503)
+                ),
+                .response(
+                    Data("[]".utf8),
+                    try makeHTTPResponse(statusCode: 200)
+                ),
+            ]
+        )
+        let sleeper = RecordingSleeper()
+        let client = try makeClient(
+            transport: transport,
+            sleep: { duration in
+                await sleeper.record(duration)
+            }
+        )
+        let pageURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.com/api/v4/projects?page=2"
+            )
+        )
+
+        let response = try await client.sendPage(
+            GitLabAPIPageRequest<[TestProject]>.next(pageURL)
+        )
+
+        #expect(response.value.isEmpty)
+        #expect(await transport.requestCount == 2)
+        #expect(await sleeper.delays == [.milliseconds(500)])
+    }
+
+    @Test("Returns the final error after exhausting GET retries")
+    func exhaustsTransientGetRetries() async throws {
+        let transport = SequenceTransport(
+            outcomes: [
+                .urlError(URLError(.timedOut)),
+                .response(
+                    Data(),
+                    try makeHTTPResponse(statusCode: 500)
+                ),
+                .response(
+                    Data(),
+                    try makeHTTPResponse(statusCode: 503)
+                ),
+            ]
+        )
+        let sleeper = RecordingSleeper()
+        let client = try makeClient(
+            transport: transport,
+            sleep: { duration in
+                await sleeper.record(duration)
+            }
+        )
+
+        await #expect(
+            throws: GitLabAPIError.server(statusCode: 503)
+        ) {
+            try await client.send(
+                GitLabAPIRequest<TestProject>.get(
+                    requires: .read,
+                    path: ["projects"]
+                )
+            )
+        }
+
+        #expect(await transport.requestCount == 3)
+        #expect(
+            await sleeper.delays
+                == [.milliseconds(500), .seconds(1)]
+        )
+    }
+
+    @Test("Never retries a POST after a transient failure")
+    func doesNotRetryPost() async throws {
+        let transport = SequenceTransport(
+            outcomes: [
+                .urlError(URLError(.timedOut)),
+                .response(
+                    Data(),
+                    try makeHTTPResponse(statusCode: 204)
+                ),
+            ]
+        )
+        let sleeper = RecordingSleeper()
+        let client = try makeClient(
+            transport: transport,
+            sleep: { duration in
+                await sleeper.record(duration)
+            }
+        )
+
+        await #expect(
+            throws: GitLabAPIError.connectivity(.timedOut)
+        ) {
+            try await client.send(
+                GitLabAPIRequest<GitLabEmptyResponse>.post(
+                    requires: .write,
+                    path: ["todos", "42", "mark_as_done"]
+                )
+            )
+        }
+
+        #expect(await transport.requestCount == 1)
+        #expect(await sleeper.delays.isEmpty)
+    }
+
+    @Test("Does not retry an offline, authentication, or rate-limit failure")
+    func doesNotRetryNontransientGet() async throws {
+        let outcomes: [(StubOutcome, GitLabAPIError)] = [
+            (
+                .urlError(URLError(.notConnectedToInternet)),
+                .connectivity(.notConnectedToInternet)
+            ),
+            (
+                .response(
+                    Data(),
+                    try makeHTTPResponse(statusCode: 401)
+                ),
+                .unauthenticated
+            ),
+            (
+                .response(
+                    Data(),
+                    try makeHTTPResponse(statusCode: 403)
+                ),
+                .forbidden
+            ),
+            (
+                .response(
+                    Data(),
+                    try makeHTTPResponse(
+                        statusCode: 429,
+                        headers: ["Retry-After": "30"]
+                    )
+                ),
+                .rateLimited(retryAfterSeconds: 30)
+            ),
+        ]
+
+        for (outcome, expectedError) in outcomes {
+            let transport = SequenceTransport(
+                outcomes: [outcome]
+            )
+            let sleeper = RecordingSleeper()
+            let client = try makeClient(
+                transport: transport,
+                sleep: { duration in
+                    await sleeper.record(duration)
+                }
+            )
+
+            do {
+                _ = try await client.send(
+                    GitLabAPIRequest<TestProject>.get(
+                        requires: .read,
+                        path: ["projects", "7"]
+                    )
+                )
+                Issue.record(
+                    "Expected \(expectedError) to fail immediately"
+                )
+            } catch let error {
+                #expect(error == expectedError)
+            }
+
+            #expect(await transport.requestCount == 1)
+            #expect(await sleeper.delays.isEmpty)
+        }
+    }
+
+    @Test("Cancellation during backoff stops before another request")
+    func cancelsDuringBackoff() async throws {
+        let transport = SequenceTransport(
+            outcomes: [
+                .urlError(URLError(.timedOut)),
+                .response(
+                    Data(
+                        #"{"id":7,"created_at":"2026-01-01T00:00:00Z"}"#.utf8
+                    ),
+                    try makeHTTPResponse(statusCode: 200)
+                ),
+            ]
+        )
+        let sleeper = SuspendingSleeper()
+        let client = try makeClient(
+            transport: transport,
+            sleep: { duration in
+                try await sleeper.sleep(duration)
+            }
+        )
+        let task = Task {
+            () -> Result<TestProject, GitLabAPIError> in
+            do {
+                return .success(
+                    try await client.send(
+                        GitLabAPIRequest<TestProject>.get(
+                            requires: .read,
+                            path: ["projects", "7"]
+                        )
+                    )
+                )
+            } catch let error as GitLabAPIError {
+                return .failure(error)
+            } catch {
+                return .failure(.transport)
+            }
+        }
+
+        await sleeper.waitUntilStarted()
+        task.cancel()
+        let result = await task.value
+
+        if case .failure(.cancelled) = result {
+            // Expected.
+        } else {
+            Issue.record("Expected cancellation during backoff")
+        }
+        #expect(await transport.requestCount == 1)
+    }
 }
 
 private extension GitLabClientTests {
@@ -441,6 +700,71 @@ private extension GitLabClientTests {
         }
     }
 
+    actor SequenceTransport: GitLabHTTPTransport {
+        private var outcomes: [StubOutcome]
+        private(set) var requestCount = 0
+
+        init(outcomes: [StubOutcome]) {
+            self.outcomes = outcomes
+        }
+
+        func data(
+            for request: URLRequest
+        ) async throws -> (Data, URLResponse) {
+            requestCount += 1
+            guard !outcomes.isEmpty else {
+                throw StubError()
+            }
+
+            let outcome = outcomes.removeFirst()
+            switch outcome {
+            case let .response(data, response):
+                return (data, response)
+            case let .urlError(error):
+                throw error
+            case .cancellation:
+                throw CancellationError()
+            case .otherError:
+                throw StubError()
+            }
+        }
+    }
+
+    actor RecordingSleeper {
+        private(set) var delays: [Duration] = []
+
+        func record(_ duration: Duration) {
+            delays.append(duration)
+        }
+    }
+
+    actor SuspendingSleeper {
+        private var didStart = false
+        private var startContinuations:
+            [CheckedContinuation<Void, Never>] = []
+
+        func sleep(_ duration: Duration) async throws {
+            didStart = true
+            let continuations = startContinuations
+            startContinuations.removeAll()
+            for continuation in continuations {
+                continuation.resume()
+            }
+
+            try await Task.sleep(for: .seconds(60))
+        }
+
+        func waitUntilStarted() async {
+            guard !didStart else {
+                return
+            }
+
+            await withCheckedContinuation { continuation in
+                startContinuations.append(continuation)
+            }
+        }
+    }
+
     nonisolated func makeClient(
         outcome: StubOutcome
     ) throws -> GitLabClient<StubTransport> {
@@ -449,7 +773,23 @@ private extension GitLabClientTests {
                 host: GitLabHost("gitlab.com"),
                 authorization: .oauth(accessToken: "oauth-secret")
             ),
-            transport: StubTransport(outcome: outcome)
+            transport: StubTransport(outcome: outcome),
+            sleep: { _ in }
+        )
+    }
+
+    nonisolated func makeClient<Transport: GitLabHTTPTransport>(
+        transport: Transport,
+        sleep:
+            @escaping @Sendable (Duration) async throws -> Void
+    ) throws -> GitLabClient<Transport> {
+        try GitLabClient(
+            requestBuilder: GitLabRequestBuilder(
+                host: GitLabHost("gitlab.com"),
+                authorization: .oauth(accessToken: "oauth-secret")
+            ),
+            transport: transport,
+            sleep: sleep
         )
     }
 
