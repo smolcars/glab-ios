@@ -255,7 +255,7 @@ Verify:
   text size.
 - Reduce Motion is respected.
 
-### [ ] MVP-08 — Build the Home “My Work” dashboard
+### [x] MVP-08 — Build the Home “My Work” dashboard
 
 Deliver:
 
