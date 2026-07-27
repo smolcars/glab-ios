@@ -26,9 +26,14 @@ Glab is under active MVP development. The current app includes:
   GitLab web routing.
 - A paginated pending/done Todos inbox with issue/merge-request filters,
   resilient unknown target handling, and a reliable-count tab badge.
+- Native issue/merge-request Todo routing, safe browser fallbacks for other
+  targets, and optimistic single/all completion with rollback.
+- Read/write request declarations that prevent a `read_api` session from
+  sending unsupported mutations.
 
-Todo routing and completion actions are the next MVP phase. The ordered scope
-and acceptance criteria live in [the MVP checklist](docs/MVP.md).
+Resilience, accessibility, and privacy hardening are the next MVP phase. The
+ordered scope and acceptance criteria live in
+[the MVP checklist](docs/MVP.md).
 
 GitLab.com OAuth logic is implemented, but its clean-install live callback
 remains an explicit release-verification item until a real public Application

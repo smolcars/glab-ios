@@ -2,6 +2,9 @@
 
 Last updated: 2026-07-27
 
+Status: complete. The implementation, regression suite, static analysis,
+privacy scan, and iPhone 17 Pro interaction pass satisfy the gates below.
+
 ## Outcome
 
 Make Todo rows useful without broadening the MVP beyond its two focused

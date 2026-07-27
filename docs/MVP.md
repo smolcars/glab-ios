@@ -366,7 +366,7 @@ Test:
 - Polymorphic target decoding with missing project/author/target data.
 - Filtering, pagination, refresh, and badge derivation.
 
-### [ ] MVP-13 — Add Todo routing and completion actions
+### [x] MVP-13 — Add Todo routing and completion actions
 
 Deliver:
 

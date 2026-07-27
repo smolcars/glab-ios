@@ -23,7 +23,7 @@ The redirect URI must match exactly. If the GitLab version shows a
 **Confidential** checkbox, leave it off. Glab uses PKCE and does not accept,
 store, or embed a client secret.
 
-The `api` scope is required because the MVP will both read data and complete
+The `api` scope is required because the app reads data and completes
 Todos. GitLab's `read_api` scope cannot perform that write operation.
 
 ## GitLab.com

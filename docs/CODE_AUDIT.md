@@ -251,3 +251,51 @@ Scope:
 - Todo rows remain noninteractive in MVP-12. MVP-13 must first make every API
   request declare read versus write access and enforce that declaration before
   transport, then add native/browser routing and completion controls.
+
+## Post-MVP-13 audit
+
+Scope:
+
+- All production Swift, tests, app/project configuration, and MVP
+  documentation were reviewed after native Todo routing and completion were
+  added.
+- Request access declarations, OAuth and personal-token authentication,
+  refresh/cancellation behavior, Keychain storage, pagination, cached filter
+  state, optimistic mutations, URL validation, and error redaction were
+  checked as complete flows rather than as isolated files.
+- Production logging and secret scans found no response-body logging,
+  credential interpolation, analytics, or committed local configuration.
+  Test credentials remain obviously synthetic and are used only to verify
+  header construction and redaction.
+
+### Repair checklist
+
+- [x] Snapshot the cached pending Todo IDs affected by mark-all so a failure
+  restores only that operation and preserves earlier successful completions.
+- [x] Reconcile a successful pending refresh after mark-all, allowing newly
+  created Todos to appear instead of remaining hidden for the app session.
+- [x] Keep completed IDs out of the pending badge when GitLab briefly returns a
+  stale page, while accepting a server-authoritative lower total.
+- [x] Capture the exact Todo query and page model before an asynchronous load,
+  so changing filters during a refresh cannot reconcile the wrong cache.
+- [x] Stop already-cancelled REST and OAuth token operations before transport,
+  with regression tests proving that no request is recorded.
+- [x] Update the README, OAuth wording, MVP checklist, and MVP-13 status to
+  match the implemented product.
+- [x] Re-run the complete signed suite, static analyzer, property-list and
+  privacy scans, then launch and tap the final build in the iPhone 17 Pro
+  simulator.
+
+### Deliberately unchanged
+
+- Issue, merge-request, project, and Todo rows remain feature-specific. Their
+  data and interaction requirements are different enough that a generic row
+  or list abstraction would obscure behavior without removing meaningful
+  duplication.
+- `TodosModel` continues to compose the shared pagination model rather than
+  moving optimistic writes into that generic type. Mutation overlays are
+  Todo-specific, while the shared model remains a small read-only state
+  engine.
+- A successful mark-all remains optimistic until the next pending refresh.
+  The app does not poll, persist optimistic state, or add undo outside the MVP
+  contract.
