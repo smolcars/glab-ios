@@ -21,7 +21,7 @@ struct AppRootView: View {
                     ?? error.description
             )
         case let .signedIn(session):
-            SignedInHomeView(
+            SignedInShellView(
                 session: session,
                 appSession: appSession
             )
