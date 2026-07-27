@@ -60,11 +60,11 @@ This plan is based on the current official GitLab documentation:
 
 ### 3. Deterministic feature state
 
-- [ ] Add an observable assigned-issues model with initial load, refresh,
+- [x] Add an observable assigned-issues model with initial load, refresh,
   incremental load, duplicate suppression, and non-destructive error handling.
-- [ ] Add local filtering and compact relative-time formatting.
-- [ ] Add an observable detail model with loading, loaded, and retry states.
-- [ ] Test page append/de-duplication, filtering, refresh, cancellation/error
+- [x] Add local filtering and compact relative-time formatting.
+- [x] Add an observable detail model with loading, loaded, and retry states.
+- [x] Test page append/de-duplication, filtering, refresh, cancellation/error
   behavior, detail loading, and relative-time boundaries.
 
 ### 4. SwiftUI integration
