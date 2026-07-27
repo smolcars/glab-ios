@@ -16,11 +16,21 @@ nonisolated struct LiveHomeDashboardLoader:
         -> HomeDashboardLoadResult
     {
         async let user = loadCurrentUser()
-        async let assignedIssues = loadAssignedIssues()
-        async let assignedMergeRequests = loadAssignedMergeRequests()
-        async let reviewRequests = loadReviewRequests()
-        async let recentProjects = loadRecentProjects()
-        async let starredProjects = loadStarredProjects()
+        async let assignedIssues = loadWorkItems(
+            HomeDashboardEndpoints.assignedIssues
+        ) { $0.workItem }
+        async let assignedMergeRequests = loadWorkItems(
+            HomeDashboardEndpoints.assignedMergeRequests
+        ) { $0.workItem }
+        async let reviewRequests = loadWorkItems(
+            HomeDashboardEndpoints.reviewRequests
+        ) { $0.workItem }
+        async let recentProjects = loadWorkItems(
+            HomeDashboardEndpoints.recentProjects
+        ) { $0.workItem }
+        async let starredProjects = loadWorkItems(
+            HomeDashboardEndpoints.starredProjects
+        ) { $0.workItem }
 
         let values = await (
             user,
@@ -61,66 +71,16 @@ nonisolated struct LiveHomeDashboardLoader:
         }
     }
 
-    private func loadAssignedIssues() async
+    private func loadWorkItems<Item>(
+        _ request: GitLabAPIRequest<[Item]>,
+        transform: @Sendable (Item) -> GitLabHomeWorkItem
+    ) async
         -> HomeDashboardLoadResult.WorkResult
+    where Item: Decodable, Item: Sendable
     {
         do {
-            let issues = try await client.send(
-                HomeDashboardEndpoints.assignedIssues
-            )
-            return .success(issues.map(\.workItem))
-        } catch {
-            return .failure(error)
-        }
-    }
-
-    private func loadAssignedMergeRequests() async
-        -> HomeDashboardLoadResult.WorkResult
-    {
-        do {
-            let mergeRequests = try await client.send(
-                HomeDashboardEndpoints.assignedMergeRequests
-            )
-            return .success(mergeRequests.map(\.workItem))
-        } catch {
-            return .failure(error)
-        }
-    }
-
-    private func loadReviewRequests() async
-        -> HomeDashboardLoadResult.WorkResult
-    {
-        do {
-            let mergeRequests = try await client.send(
-                HomeDashboardEndpoints.reviewRequests
-            )
-            return .success(mergeRequests.map(\.workItem))
-        } catch {
-            return .failure(error)
-        }
-    }
-
-    private func loadRecentProjects() async
-        -> HomeDashboardLoadResult.WorkResult
-    {
-        do {
-            let projects = try await client.send(
-                HomeDashboardEndpoints.recentProjects
-            )
-            return .success(projects.map(\.workItem))
-        } catch {
-            return .failure(error)
-        }
-    }
-
-    private func loadStarredProjects() async
-        -> HomeDashboardLoadResult.WorkResult
-    {
-        do {
-            let projects = try await client.send(
-                HomeDashboardEndpoints.starredProjects
-            )
-            return .success(projects.map(\.workItem))
+            let items = try await client.send(request)
+            return .success(items.map(transform))
         } catch {
             return .failure(error)
         }
