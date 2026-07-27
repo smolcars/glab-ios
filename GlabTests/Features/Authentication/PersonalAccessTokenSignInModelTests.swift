@@ -86,6 +86,14 @@ struct PersonalAccessTokenSignInModelTests {
         #expect(try await store.load() == nil)
         #expect(model.token == "rejected-secret")
         #expect(model.failure == .authentication(.invalidToken))
+        #expect(
+            !String(describing: model.failure)
+                .contains("rejected-secret")
+        )
+        #expect(
+            !String(reflecting: model.failure)
+                .contains("rejected-secret")
+        )
         #expect(!model.isSubmitting)
     }
 

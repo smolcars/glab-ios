@@ -27,7 +27,12 @@ nonisolated enum GitLabOAuthPKCEError:
     }
 }
 
-nonisolated struct GitLabOAuthPKCE: Equatable, Sendable {
+nonisolated struct GitLabOAuthPKCE:
+    Equatable,
+    Sendable,
+    CustomStringConvertible,
+    CustomDebugStringConvertible
+{
     let state: String
     let codeVerifier: String
     let codeChallenge: String
@@ -56,6 +61,16 @@ nonisolated struct GitLabOAuthPKCE: Equatable, Sendable {
 
     static func challenge(for codeVerifier: String) -> String {
         base64URLEncoded(Data(SHA256.hash(data: Data(codeVerifier.utf8))))
+    }
+
+    var description: String {
+        "GitLabOAuthPKCE(state: <redacted>, "
+            + "codeVerifier: <redacted>, "
+            + "codeChallenge: <redacted>)"
+    }
+
+    var debugDescription: String {
+        description
     }
 
     fileprivate static func base64URLEncoded(_ data: Data) -> String {

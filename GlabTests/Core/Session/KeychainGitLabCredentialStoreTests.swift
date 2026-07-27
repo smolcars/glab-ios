@@ -24,12 +24,18 @@ struct KeychainGitLabCredentialStoreTests {
                 keychainAccessibility(
                     service: store.service,
                     account: store.account
-                ) == kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly as String
+                ) == kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String
             )
 
             try await store.save(replacement)
             let restoredReplacement = try await store.load()
             #expect(restoredReplacement == replacement)
+            #expect(
+                keychainAccessibility(
+                    service: store.service,
+                    account: store.account
+                ) == kSecAttrAccessibleWhenUnlockedThisDeviceOnly as String
+            )
 
             try await store.delete()
             let deleted = try await store.load()
@@ -160,7 +166,7 @@ private extension KeychainGitLabCredentialStoreTests {
                 kSecAttrService as String: service,
                 kSecAttrAccount as String: account,
                 kSecAttrAccessible as String:
-                    kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+                    kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
                 kSecAttrSynchronizable as String: kCFBooleanFalse as Any,
                 kSecUseDataProtectionKeychain as String: kCFBooleanTrue as Any,
                 kSecValueData as String: data,

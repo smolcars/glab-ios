@@ -195,6 +195,7 @@ struct GitLabOAuthTokenClientTests {
     @Test("Maps transport, cancellation, and server failures without response bodies")
     func mapsTransportFailures() async throws {
         let secret = "never-expose-oauth-response"
+        let refreshToken = "never-expose-submitted-refresh-token"
         let server = RecordingTransport(
             outcomes: [
                 .response(
@@ -211,7 +212,7 @@ struct GitLabOAuthTokenClientTests {
         do {
             _ = try await GitLabOAuthTokenClient(transport: server).refresh(
                 configuration: makeConfiguration(),
-                refreshToken: "refresh"
+                refreshToken: refreshToken
             )
             Issue.record("Expected the server response to fail")
         } catch {
@@ -219,6 +220,8 @@ struct GitLabOAuthTokenClientTests {
             #expect(oauthError == .server(statusCode: 503))
             #expect(!String(describing: error).contains(secret))
             #expect(!String(reflecting: error).contains(secret))
+            #expect(!String(describing: error).contains(refreshToken))
+            #expect(!String(reflecting: error).contains(refreshToken))
         }
         await #expect(
             throws: GitLabOAuthTokenError.connectivity(.cannotConnectToHost)

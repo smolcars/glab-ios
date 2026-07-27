@@ -96,7 +96,7 @@ actor KeychainGitLabCredentialStore:
 
         var addQuery = baseQuery
         addQuery[kSecAttrAccessible as String] =
-            kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         addQuery[kSecValueData as String] = data
 
         let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
@@ -111,7 +111,7 @@ actor KeychainGitLabCredentialStore:
             baseQuery as CFDictionary,
             [
                 kSecAttrAccessible as String:
-                    kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+                    kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
                 kSecValueData as String: data,
             ] as CFDictionary
         )

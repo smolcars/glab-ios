@@ -30,6 +30,26 @@ struct GitLabOAuthFlowConstructionTests {
         #expect(!pkce.codeVerifier.contains("="))
     }
 
+    @Test("Redacts OAuth state, verifier, and challenge from descriptions")
+    func redactsPKCEDescriptions() throws {
+        let state = "never-print-oauth-state"
+        let verifier = String(repeating: "v", count: 64)
+        let pkce = try GitLabOAuthPKCE(
+            state: state,
+            codeVerifier: verifier
+        )
+
+        for description in [
+            String(describing: pkce),
+            String(reflecting: pkce),
+        ] {
+            #expect(description.contains("<redacted>"))
+            #expect(!description.contains(state))
+            #expect(!description.contains(verifier))
+            #expect(!description.contains(pkce.codeChallenge))
+        }
+    }
+
     @Test("Rejects malformed PKCE values and random data")
     func rejectsMalformedPKCEValues() {
         #expect(throws: GitLabOAuthPKCEError.invalidState) {
