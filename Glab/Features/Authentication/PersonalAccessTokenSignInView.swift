@@ -2,11 +2,16 @@ import SwiftUI
 
 struct PersonalAccessTokenSignInScene: View {
     @State private var model: PersonalAccessTokenSignInModel
+    private let showsCancelButton: Bool
 
-    init(appSession: AppSession) {
+    init(
+        appSession: AppSession,
+        showsCancelButton: Bool = false
+    ) {
         let authenticator = GitLabPersonalAccessTokenAuthenticator(
             transport: URLSessionGitLabHTTPTransport()
         )
+        self.showsCancelButton = showsCancelButton
         _model = State(
             initialValue: PersonalAccessTokenSignInModel(
                 authenticator: authenticator,
@@ -16,7 +21,10 @@ struct PersonalAccessTokenSignInScene: View {
     }
 
     var body: some View {
-        PersonalAccessTokenSignInView(model: model)
+        PersonalAccessTokenSignInView(
+            model: model,
+            showsCancelButton: showsCancelButton
+        )
     }
 }
 
@@ -27,6 +35,9 @@ struct PersonalAccessTokenSignInView: View {
     }
 
     @Bindable var model: PersonalAccessTokenSignInModel
+    let showsCancelButton: Bool
+
+    @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedField: Field?
 
     var body: some View {
@@ -49,8 +60,17 @@ struct PersonalAccessTokenSignInView: View {
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .scrollDismissesKeyboard(.interactively)
-            .navigationTitle("Sign in")
+            .navigationTitle("Sign in with a token")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                if showsCancelButton {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            dismiss()
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -65,8 +85,8 @@ struct PersonalAccessTokenSignInView: View {
                 .font(.title2.bold())
 
             Text(
-                "Use a personal access token now. Web sign-in with your "
-                    + "username, 2FA, or SSO is coming in the next authentication step."
+                "Use a personal access token when web sign-in is unavailable "
+                    + "or your GitLab administrator has not registered Glab."
             )
             .font(.body)
             .foregroundStyle(.secondary)

@@ -8,8 +8,7 @@ protocol GitLabOAuthApplicationIDStoring: Sendable {
 
 @MainActor
 final class UserDefaultsGitLabOAuthApplicationIDStore:
-    GitLabOAuthApplicationIDStoring,
-    @unchecked Sendable
+    GitLabOAuthApplicationIDStoring
 {
     private let defaults: UserDefaults
     private let storageKey: String

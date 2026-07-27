@@ -188,6 +188,35 @@ struct GitLabOAuthSignInModelTests {
             ) == "plist-id"
         )
     }
+
+    @Test("Stores non-secret Application IDs by normalized host")
+    func storesApplicationIDsInUserDefaults() throws {
+        let suiteName = "GitLabOAuthSignInModelTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        let store = UserDefaultsGitLabOAuthApplicationIDStore(
+            defaults: defaults
+        )
+        let host = try GitLabHost("gitlab.example.com/company")
+
+        store.save(" application-id ", for: host)
+
+        #expect(store.applicationID(for: host) == "application-id")
+        #expect(
+            store.applicationID(
+                for: try GitLabHost(
+                    "https://gitlab.example.com//company/api/v4/"
+                )
+            ) == "application-id"
+        )
+        #expect(
+            store.applicationID(
+                for: try GitLabHost("gitlab.example.com/other")
+            ) == nil
+        )
+    }
 }
 
 private extension GitLabOAuthSignInModelTests {
@@ -221,8 +250,7 @@ private extension GitLabOAuthSignInModelTests {
 
     @MainActor
     final class StubApplicationIDStore:
-        GitLabOAuthApplicationIDStoring,
-        @unchecked Sendable
+        GitLabOAuthApplicationIDStoring
     {
         private(set) var applicationIDs: [String: String] = [:]
 

@@ -8,7 +8,7 @@ struct AppRootView: View {
         case .restoring:
             restoringView
         case .signedOut, .failed:
-            PersonalAccessTokenSignInScene(appSession: appSession)
+            GitLabOAuthSignInScene(appSession: appSession)
         case let .signedIn(session):
             SignedInPlaceholderView(session: session)
         }
