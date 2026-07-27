@@ -62,10 +62,7 @@ struct HomeView: View {
 
     private var readOnlyCallout: some View {
         Label {
-            Text(
-                "This token is read-only. Actions such as completing "
-                    + "Todos will be disabled."
-            )
+            Text("Read-only access. Changes are disabled.")
         } icon: {
             Image(systemName: "eye.fill")
         }
@@ -76,6 +73,10 @@ struct HomeView: View {
         .background(
             Color.orange.opacity(0.1),
             in: .rect(cornerRadius: 16)
+        )
+        .accessibilityLabel(
+            "This token is read-only. Actions such as completing "
+                + "Todos will be disabled."
         )
     }
 
