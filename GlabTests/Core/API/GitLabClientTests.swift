@@ -306,6 +306,54 @@ struct GitLabClientTests {
         }
     }
 
+    @Test("A pre-cancelled request never reaches transport")
+    func stopsBeforeTransportWhenAlreadyCancelled() async throws {
+        let transport = CountingTransport(
+            response: (
+                Data(
+                    #"{"id":7,"created_at":"2026-01-01T00:00:00Z"}"#.utf8
+                ),
+                try makeHTTPResponse(statusCode: 200)
+            )
+        )
+        let client = try GitLabClient(
+            requestBuilder: GitLabRequestBuilder(
+                host: GitLabHost("gitlab.com"),
+                authorization:
+                    .oauth(accessToken: "oauth-secret")
+            ),
+            transport: transport
+        )
+
+        let result = await Task {
+            () -> Result<TestProject, GitLabAPIError> in
+            withUnsafeCurrentTask {
+                $0?.cancel()
+            }
+            do {
+                return .success(
+                    try await client.send(
+                        GitLabAPIRequest<TestProject>.get(
+                            requires: .read,
+                            path: ["projects", "7"]
+                        )
+                    )
+                )
+            } catch let error as GitLabAPIError {
+                return .failure(error)
+            } catch {
+                return .failure(.transport)
+            }
+        }.value
+
+        if case .failure(.cancelled) = result {
+            // Expected.
+        } else {
+            Issue.record("Expected cancellation before transport")
+        }
+        #expect(await transport.requestCount == 0)
+    }
+
     @Test("Maps invalid and unknown transport responses")
     func mapsOtherTransportFailures() async throws {
         let invalidResponseClient = try makeClient(
@@ -374,6 +422,22 @@ private extension GitLabClientTests {
             case .otherError:
                 throw StubError()
             }
+        }
+    }
+
+    actor CountingTransport: GitLabHTTPTransport {
+        let response: (Data, URLResponse)
+        private(set) var requestCount = 0
+
+        init(response: (Data, URLResponse)) {
+            self.response = response
+        }
+
+        func data(
+            for request: URLRequest
+        ) async throws -> (Data, URLResponse) {
+            requestCount += 1
+            return response
         }
     }
 

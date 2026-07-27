@@ -31,6 +31,10 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
     func sendPage<Response>(
         _ page: GitLabAPIPageRequest<Response>
     ) async throws(GitLabAPIError) -> GitLabAPIResponse<Response> {
+        guard !Task.isCancelled else {
+            throw .cancelled
+        }
+
         let request: URLRequest
 
         do {

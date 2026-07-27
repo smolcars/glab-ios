@@ -235,6 +235,38 @@ struct GitLabOAuthTokenClientTests {
             )
         }
     }
+
+    @Test("A pre-cancelled token exchange never reaches transport")
+    func stopsBeforeTokenTransportWhenAlreadyCancelled() async throws {
+        let transport = RecordingTransport(
+            outcomes: [.cancellation]
+        )
+        let client = GitLabOAuthTokenClient(
+            transport: transport
+        )
+        let configuration = try makeConfiguration()
+
+        let error = await Task {
+            () -> GitLabOAuthTokenError? in
+            withUnsafeCurrentTask {
+                $0?.cancel()
+            }
+            do {
+                _ = try await client.refresh(
+                    configuration: configuration,
+                    refreshToken: "refresh"
+                )
+                return nil
+            } catch let error as GitLabOAuthTokenError {
+                return error
+            } catch {
+                return .transport
+            }
+        }.value
+
+        #expect(error == .cancelled)
+        #expect(await transport.requests.isEmpty)
+    }
 }
 
 private extension GitLabOAuthTokenClientTests {

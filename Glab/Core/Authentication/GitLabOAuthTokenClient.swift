@@ -120,6 +120,10 @@ where Transport: GitLabHTTPTransport {
     private func credential(
         for request: URLRequest
     ) async throws(GitLabOAuthTokenError) -> GitLabCredential {
+        guard !Task.isCancelled else {
+            throw .cancelled
+        }
+
         let data: Data
         let response: URLResponse
 
