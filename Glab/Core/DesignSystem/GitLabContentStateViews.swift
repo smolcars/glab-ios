@@ -51,24 +51,131 @@ struct GitLabEmptyStateView: View {
 }
 
 struct GitLabRetryStateView: View {
-    let message: String
+    let presentation: GitLabRecoveryPresentation
     let retry: () -> Void
+
+    init(
+        error: GitLabSessionClientError,
+        retry: @escaping () -> Void
+    ) {
+        presentation = GitLabRecoveryPresentation(
+            error: error
+        )
+        self.retry = retry
+    }
+
+    init(
+        message: String,
+        retry: @escaping () -> Void
+    ) {
+        presentation = .generic(message: message)
+        self.retry = retry
+    }
 
     var body: some View {
         ContentUnavailableView {
             Label(
-                "Couldn’t load GitLab",
-                systemImage: "exclamationmark.triangle"
+                presentation.title,
+                systemImage: presentation.systemImage
             )
         } description: {
-            Text(message)
+            Text(presentation.message)
         } actions: {
-            Button("Try Again", systemImage: "arrow.clockwise") {
-                retry()
+            if
+                presentation.retryAvailability
+                    != .unavailable
+            {
+                GitLabRetryControl(
+                    availability:
+                        presentation.retryAvailability,
+                    action: retry
+                ) {
+                    Label(
+                        "Try Again",
+                        systemImage: "arrow.clockwise"
+                    )
+                }
+                .buttonStyle(.glass)
+                .tint(.orange)
+                .accessibilityIdentifier(
+                    "gitlab.retryButton"
+                )
             }
-            .buttonStyle(.glass)
-            .tint(.orange)
         }
+    }
+}
+
+struct GitLabRetryControl<Label: View>: View {
+    let availability:
+        GitLabRecoveryPresentation.RetryAvailability
+    let action: () -> Void
+    let label: Label
+
+    @State private var isWaiting: Bool
+
+    init(
+        availability:
+            GitLabRecoveryPresentation.RetryAvailability,
+        action: @escaping () -> Void,
+        @ViewBuilder label: () -> Label
+    ) {
+        self.availability = availability
+        self.action = action
+        self.label = label()
+        _isWaiting = State(
+            initialValue:
+                availability.waitSeconds.map { $0 > 0 }
+                    ?? false
+        )
+    }
+
+    @ViewBuilder
+    var body: some View {
+        if availability == .unavailable {
+            label
+        } else {
+            Button(action: action) {
+                label
+            }
+            .disabled(isWaiting)
+            .task(id: availability) {
+                await waitIfNeeded()
+            }
+        }
+    }
+
+    private func waitIfNeeded() async {
+        guard
+            let seconds = availability.waitSeconds,
+            seconds > 0
+        else {
+            isWaiting = false
+            return
+        }
+
+        isWaiting = true
+
+        do {
+            try await Task.sleep(
+                for: .seconds(seconds)
+            )
+        } catch {
+            return
+        }
+
+        guard !Task.isCancelled else {
+            return
+        }
+        isWaiting = false
+    }
+}
+
+private extension GitLabRecoveryPresentation.RetryAvailability {
+    var waitSeconds: Int? {
+        guard case let .after(seconds) = self else {
+            return nil
+        }
+        return seconds
     }
 }
 

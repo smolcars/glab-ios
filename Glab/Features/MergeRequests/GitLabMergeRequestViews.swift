@@ -73,7 +73,7 @@ struct MergeRequestsView: View {
         {
             GitLabContentStateScrollView {
                 GitLabRetryStateView(
-                    message: error.description
+                    error: error
                 ) {
                     Task {
                         await refresh()
@@ -107,7 +107,7 @@ struct MergeRequestsView: View {
                 GitLabInlineRetryRow(
                     title:
                         "Couldn’t refresh merge requests",
-                    message: error.description,
+                    error: error,
                     accessibilityIdentifier:
                         "mergeRequests.refreshError"
                 ) {
@@ -161,18 +161,21 @@ struct MergeRequestsView: View {
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
-            } else if model.didFailNextPage {
-                Button {
+            } else if
+                model.didFailNextPage,
+                let error = model.loadError
+            {
+                GitLabInlineRetryRow(
+                    title:
+                        "Couldn’t load more merge requests",
+                    error: error,
+                    accessibilityIdentifier:
+                        "mergeRequests.nextPageError"
+                ) {
                     Task {
                         await model.retryNextPage()
                         await handleAuthenticationFailure()
                     }
-                } label: {
-                    Label(
-                        "Try loading more merge requests again",
-                        systemImage: "arrow.clockwise"
-                    )
-                    .frame(maxWidth: .infinity)
                 }
             }
         }
@@ -453,7 +456,7 @@ struct GitLabMergeRequestDetailView: View {
             }
         case let .failed(error):
             GitLabRetryStateView(
-                message: error.description
+                error: error
             ) {
                 Task {
                     await model.retry()

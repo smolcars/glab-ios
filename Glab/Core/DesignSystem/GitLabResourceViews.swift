@@ -2,19 +2,36 @@ import SwiftUI
 
 struct GitLabInlineRetryRow: View {
     let title: String
-    let message: String
+    let presentation: GitLabRecoveryPresentation
     let accessibilityIdentifier: String
     let retry: () -> Void
 
+    init(
+        title: String,
+        error: GitLabSessionClientError,
+        accessibilityIdentifier: String,
+        retry: @escaping () -> Void
+    ) {
+        self.title = title
+        presentation = GitLabRecoveryPresentation(
+            error: error
+        )
+        self.accessibilityIdentifier =
+            accessibilityIdentifier
+        self.retry = retry
+    }
+
     var body: some View {
-        Button {
-            retry()
-        } label: {
+        GitLabRetryControl(
+            availability:
+                presentation.retryAvailability,
+            action: retry
+        ) {
             Label {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
                         .font(.callout.weight(.semibold))
-                    Text(message)
+                    Text(presentation.message)
                         .font(.caption)
                 }
                 .frame(
@@ -23,8 +40,7 @@ struct GitLabInlineRetryRow: View {
                 )
             } icon: {
                 Image(
-                    systemName:
-                        "arrow.clockwise.circle.fill"
+                    systemName: presentation.systemImage
                 )
             }
         }

@@ -63,7 +63,7 @@ struct ProjectsView: View {
         {
             GitLabContentStateScrollView {
                 GitLabRetryStateView(
-                    message: error.description
+                    error: error
                 ) {
                     Task {
                         await refresh()
@@ -94,7 +94,7 @@ struct ProjectsView: View {
             {
                 GitLabInlineRetryRow(
                     title: "Couldn’t refresh projects",
-                    message: error.description,
+                    error: error,
                     accessibilityIdentifier:
                         "projects.refreshError"
                 ) {
@@ -139,18 +139,20 @@ struct ProjectsView: View {
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
-            } else if model.didFailNextPage {
-                Button {
+            } else if
+                model.didFailNextPage,
+                let error = model.loadError
+            {
+                GitLabInlineRetryRow(
+                    title: "Couldn’t load more projects",
+                    error: error,
+                    accessibilityIdentifier:
+                        "projects.nextPageError"
+                ) {
                     Task {
                         await model.retryNextPage()
                         await handleAuthenticationFailure()
                     }
-                } label: {
-                    Label(
-                        "Try loading more projects again",
-                        systemImage: "arrow.clockwise"
-                    )
-                    .frame(maxWidth: .infinity)
                 }
             }
         }

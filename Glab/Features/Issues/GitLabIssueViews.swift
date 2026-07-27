@@ -44,7 +44,7 @@ struct AssignedIssuesView: View {
             }
         } else if model.issues.isEmpty, let error = model.loadError {
             GitLabContentStateScrollView {
-                GitLabRetryStateView(message: error.description) {
+                GitLabRetryStateView(error: error) {
                     Task {
                         await refresh()
                     }
@@ -69,7 +69,7 @@ struct AssignedIssuesView: View {
             if model.didFailRefresh, let error = model.loadError {
                 GitLabInlineRetryRow(
                     title: "Couldn’t refresh issues",
-                    message: error.description,
+                    error: error,
                     accessibilityIdentifier:
                         "issues.refreshError"
                 ) {
@@ -114,18 +114,20 @@ struct AssignedIssuesView: View {
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
-            } else if model.didFailNextPage {
-                Button {
+            } else if
+                model.didFailNextPage,
+                let error = model.loadError
+            {
+                GitLabInlineRetryRow(
+                    title: "Couldn’t load more issues",
+                    error: error,
+                    accessibilityIdentifier:
+                        "issues.nextPageError"
+                ) {
                     Task {
                         await model.retryNextPage()
                         await handleAuthenticationFailure()
                     }
-                } label: {
-                    Label(
-                        "Try loading more issues again",
-                        systemImage: "arrow.clockwise"
-                    )
-                    .frame(maxWidth: .infinity)
                 }
             }
         }
@@ -329,7 +331,7 @@ struct GitLabIssueDetailView: View {
                 .padding(20)
             }
         case let .failed(error):
-            GitLabRetryStateView(message: error.description) {
+            GitLabRetryStateView(error: error) {
                 Task {
                     await model.retry()
                     await handleAuthenticationFailure()

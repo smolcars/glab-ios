@@ -190,7 +190,7 @@ struct TodosView: View {
             let error = model.loadError
         {
             GitLabRetryStateView(
-                message: error.description
+                error: error
             ) {
                 Task {
                     await refresh()
@@ -221,7 +221,7 @@ struct TodosView: View {
             {
                 GitLabInlineRetryRow(
                     title: "Couldn’t refresh Todos",
-                    message: error.description,
+                    error: error,
                     accessibilityIdentifier:
                         "todos.refreshError"
                 ) {
@@ -243,18 +243,20 @@ struct TodosView: View {
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
-            } else if model.didFailNextPage {
-                Button {
+            } else if
+                model.didFailNextPage,
+                let error = model.loadError
+            {
+                GitLabInlineRetryRow(
+                    title: "Couldn’t load more Todos",
+                    error: error,
+                    accessibilityIdentifier:
+                        "todos.nextPageError"
+                ) {
                     Task {
                         await model.retryNextPage()
                         await handleAuthenticationFailure()
                     }
-                } label: {
-                    Label(
-                        "Try loading more Todos again",
-                        systemImage: "arrow.clockwise"
-                    )
-                    .frame(maxWidth: .infinity)
                 }
             }
         }
@@ -399,7 +401,7 @@ struct TodosView: View {
     ) -> some View {
         GitLabInlineRetryRow(
             title: mutationFailureTitle(failure),
-            message: failure.error.description,
+            error: failure.error,
             accessibilityIdentifier:
                 "todos.mutationError"
         ) {
