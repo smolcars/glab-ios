@@ -1,0 +1,92 @@
+import Foundation
+
+nonisolated enum GitLabHostError: Error, Equatable, Sendable, CustomStringConvertible {
+    case empty
+    case invalidURL
+    case missingHost
+    case unsupportedScheme(String)
+    case credentialsNotAllowed
+    case queryOrFragmentNotAllowed
+
+    var description: String {
+        switch self {
+        case .empty:
+            "The GitLab host is empty."
+        case .invalidURL:
+            "The GitLab host is not a valid URL."
+        case .missingHost:
+            "The GitLab URL does not include a host."
+        case let .unsupportedScheme(scheme):
+            "GitLab hosts must use HTTPS, not \(scheme)."
+        case .credentialsNotAllowed:
+            "Credentials cannot be included in a GitLab host URL."
+        case .queryOrFragmentNotAllowed:
+            "A GitLab host URL cannot include a query or fragment."
+        }
+    }
+}
+
+nonisolated struct GitLabHost: Equatable, Sendable {
+    let siteURL: URL
+    let apiBaseURL: URL
+
+    init(_ input: String) throws(GitLabHostError) {
+        let trimmedInput = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedInput.isEmpty else {
+            throw .empty
+        }
+
+        let inputWithScheme = if trimmedInput.contains("://") {
+            trimmedInput
+        } else {
+            "https://\(trimmedInput)"
+        }
+
+        guard var components = URLComponents(string: inputWithScheme) else {
+            throw .invalidURL
+        }
+
+        let scheme = components.scheme?.lowercased() ?? ""
+        guard scheme == "https" else {
+            throw .unsupportedScheme(scheme)
+        }
+        guard let host = components.host, !host.isEmpty else {
+            throw .missingHost
+        }
+        guard components.user == nil, components.password == nil else {
+            throw .credentialsNotAllowed
+        }
+        guard components.query == nil, components.fragment == nil else {
+            throw .queryOrFragmentNotAllowed
+        }
+
+        components.scheme = "https"
+        components.percentEncodedPath = Self.normalizedSitePath(components.percentEncodedPath)
+
+        guard let siteURL = components.url else {
+            throw .invalidURL
+        }
+
+        components.percentEncodedPath += "/api/v4"
+        guard let apiBaseURL = components.url else {
+            throw .invalidURL
+        }
+
+        self.siteURL = siteURL
+        self.apiBaseURL = apiBaseURL
+    }
+
+    private static func normalizedSitePath(_ path: String) -> String {
+        var path = path
+
+        while path.hasSuffix("/") {
+            path.removeLast()
+        }
+
+        if path.hasSuffix("/api/v4") {
+            path.removeLast("/api/v4".count)
+        }
+
+        return path
+    }
+}
