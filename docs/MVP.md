@@ -139,7 +139,7 @@ Test:
 - Successful empty/object/array responses, malformed JSON, representative
   status codes, `Retry-After`, and pagination with missing optional headers.
 
-### [ ] MVP-03 — Add secure account and session storage
+### [x] MVP-03 — Add secure account and session storage
 
 Deliver:
 
