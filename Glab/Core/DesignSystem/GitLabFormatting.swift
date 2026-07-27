@@ -53,7 +53,7 @@ nonisolated enum GitLabIssueDateFormatter {
     }
 }
 
-nonisolated enum GitLabIssueDescriptionFormatter {
+nonisolated enum GitLabDescriptionFormatter {
     static func attributedString(_ value: String) -> AttributedString {
         let valueWithoutCodeFences = value
             .split(

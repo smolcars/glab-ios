@@ -1,0 +1,128 @@
+import SwiftUI
+
+struct GitLabInlineRetryRow: View {
+    let title: String
+    let message: String
+    let accessibilityIdentifier: String
+    let retry: () -> Void
+
+    var body: some View {
+        Button {
+            retry()
+        } label: {
+            Label {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.callout.weight(.semibold))
+                    Text(message)
+                        .font(.caption)
+                }
+                .frame(
+                    maxWidth: .infinity,
+                    alignment: .leading
+                )
+            } icon: {
+                Image(
+                    systemName:
+                        "arrow.clockwise.circle.fill"
+                )
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.red)
+        .listRowBackground(Color.red.opacity(0.1))
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+struct GitLabLabelPill: View {
+    let name: String
+
+    var body: some View {
+        Text(name)
+            .font(.caption2.weight(.medium))
+            .lineLimit(1)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .foregroundStyle(.orange)
+            .background(
+                Color.orange.opacity(0.12),
+                in: .capsule
+            )
+    }
+}
+
+struct GitLabAPIUserRow: View {
+    let user: GitLabAPIUser
+    let role: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            GitLabUserAvatar(
+                user: user.summary,
+                size: 34
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(role)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(user.displayName)
+                    .font(.body.weight(.medium))
+                Text("@\(user.username)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct GitLabDetailSection<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.headline)
+
+            content
+                .frame(
+                    maxWidth: .infinity,
+                    alignment: .leading
+                )
+        }
+    }
+}
+
+struct GitLabOpenInGitLabLink: View {
+    let destination: URL
+    let accessibilityIdentifier: String
+
+    var body: some View {
+        Link(destination: destination) {
+            Label(
+                "Open in GitLab",
+                systemImage: "safari"
+            )
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 30)
+        }
+        .buttonStyle(.glassProminent)
+        .tint(.orange)
+        .controlSize(.large)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .accessibilityIdentifier(accessibilityIdentifier)
+    }
+}

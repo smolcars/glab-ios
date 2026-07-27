@@ -327,7 +327,7 @@ struct AssignedIssuesModelTests {
     @Test("Formats issue descriptions with native Markdown")
     func formatsDescriptionMarkdown() {
         let formatted =
-            GitLabIssueDescriptionFormatter.attributedString(
+            GitLabDescriptionFormatter.attributedString(
                 """
                 Use **care**.
 

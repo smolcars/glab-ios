@@ -62,33 +62,16 @@ struct AssignedIssuesView: View {
     private var issueList: some View {
         List {
             if model.didFailRefresh, let error = model.loadError {
-                Button {
+                GitLabInlineRetryRow(
+                    title: "Couldn’t refresh issues",
+                    message: error.description,
+                    accessibilityIdentifier:
+                        "issues.refreshError"
+                ) {
                     Task {
                         await refresh()
                     }
-                } label: {
-                    Label {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Couldn’t refresh issues")
-                                .font(.callout.weight(.semibold))
-                            Text(error.description)
-                                .font(.caption)
-                        }
-                        .frame(
-                            maxWidth: .infinity,
-                            alignment: .leading
-                        )
-                    } icon: {
-                        Image(
-                            systemName:
-                                "arrow.clockwise.circle.fill"
-                        )
-                    }
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.red)
-                .listRowBackground(Color.red.opacity(0.1))
-                .accessibilityIdentifier("issues.refreshError")
             }
 
             if
@@ -202,7 +185,7 @@ private struct GitLabIssueRow: View {
             if !issue.labels.isEmpty {
                 HStack(spacing: 6) {
                     ForEach(issue.labels.prefix(3), id: \.self) {
-                        GitLabIssueLabel(name: $0)
+                        GitLabLabelPill(name: $0)
                     }
 
                     if issue.labels.count > 3 {
@@ -297,23 +280,6 @@ private struct GitLabIssueStateLabel: View {
         case .unknown:
             .secondary
         }
-    }
-}
-
-private struct GitLabIssueLabel: View {
-    let name: String
-
-    var body: some View {
-        Text(name)
-            .font(.caption2.weight(.medium))
-            .lineLimit(1)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .foregroundStyle(.orange)
-            .background(
-                Color.orange.opacity(0.12),
-                in: .capsule
-            )
     }
 }
 
@@ -414,21 +380,11 @@ private struct GitLabIssueDetailContent: View {
         .accessibilityIdentifier("issues.detail.scroll")
         .safeAreaInset(edge: .bottom) {
             if let webURL = issue.safeWebURL {
-                Link(destination: webURL) {
-                    Label(
-                        "Open in GitLab",
-                        systemImage: "safari"
-                    )
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 30)
-                }
-                .buttonStyle(.glassProminent)
-                .tint(.orange)
-                .controlSize(.large)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .accessibilityIdentifier("issues.openInGitLab")
+                GitLabOpenInGitLabLink(
+                    destination: webURL,
+                    accessibilityIdentifier:
+                        "issues.openInGitLab"
+                )
             }
         }
     }
@@ -457,7 +413,7 @@ private struct GitLabIssueDetailContent: View {
     }
 
     private var descriptionSection: some View {
-        detailSection(title: "Description") {
+        GitLabDetailSection(title: "Description") {
             if
                 let description = issue.description?
                     .trimmingCharacters(
@@ -466,7 +422,7 @@ private struct GitLabIssueDetailContent: View {
                 !description.isEmpty
             {
                 Text(
-                    GitLabIssueDescriptionFormatter
+                    GitLabDescriptionFormatter
                         .attributedString(description)
                 )
                     .font(.body)
@@ -480,11 +436,11 @@ private struct GitLabIssueDetailContent: View {
     }
 
     private var labelsSection: some View {
-        detailSection(title: "Labels") {
+        GitLabDetailSection(title: "Labels") {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(issue.labels, id: \.self) {
-                        GitLabIssueLabel(name: $0)
+                        GitLabLabelPill(name: $0)
                     }
                 }
             }
@@ -492,10 +448,10 @@ private struct GitLabIssueDetailContent: View {
     }
 
     private var peopleSection: some View {
-        detailSection(title: "People") {
+        GitLabDetailSection(title: "People") {
             VStack(alignment: .leading, spacing: 14) {
-                issueUser(
-                    issue.author,
+                GitLabAPIUserRow(
+                    user: issue.author,
                     role: "Author"
                 )
 
@@ -507,7 +463,10 @@ private struct GitLabIssueDetailContent: View {
                     .foregroundStyle(.secondary)
                 } else {
                     ForEach(issue.assignees) {
-                        issueUser($0, role: "Assignee")
+                        GitLabAPIUserRow(
+                            user: $0,
+                            role: "Assignee"
+                        )
                     }
                 }
             }
@@ -515,7 +474,7 @@ private struct GitLabIssueDetailContent: View {
     }
 
     private var planningSection: some View {
-        detailSection(title: "Planning") {
+        GitLabDetailSection(title: "Planning") {
             VStack(alignment: .leading, spacing: 10) {
                 if let milestone = issue.milestone {
                     LabeledContent(
@@ -537,7 +496,7 @@ private struct GitLabIssueDetailContent: View {
     }
 
     private var timestampsSection: some View {
-        detailSection(title: "Activity") {
+        GitLabDetailSection(title: "Activity") {
             VStack(alignment: .leading, spacing: 10) {
                 LabeledContent(
                     "Created",
@@ -563,43 +522,6 @@ private struct GitLabIssueDetailContent: View {
                     )
                 }
             }
-        }
-    }
-
-    private func issueUser(
-        _ user: GitLabAPIUser,
-        role: String
-    ) -> some View {
-        HStack(spacing: 12) {
-            GitLabUserAvatar(
-                user: user.summary,
-                size: 34
-            )
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(role)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(user.displayName)
-                    .font(.body.weight(.medium))
-                Text("@\(user.username)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private func detailSection<Content: View>(
-        title: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.headline)
-
-            content()
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 }
