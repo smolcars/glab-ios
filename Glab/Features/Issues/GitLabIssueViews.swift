@@ -5,13 +5,19 @@ struct AssignedIssuesView: View {
     let loader: any GitLabIssueLoading
     let appSession: AppSession
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         @Bindable var model = model
 
         content
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Assigned Issues")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(
+                dynamicTypeSize.isAccessibilitySize
+                    ? .inline
+                    : .large
+            )
             .searchable(
                 text: $model.searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
@@ -151,84 +157,160 @@ struct AssignedIssuesView: View {
 private struct GitLabIssueRow: View {
     let issue: GitLabIssue
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Text(issue.references.full)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                if issue.confidential {
-                    Image(systemName: "lock.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                        .accessibilityLabel("Confidential")
-                }
-
-                Spacer(minLength: 8)
-
-                Text(
-                    GitLabRelativeTimeFormatter.string(
-                        from: issue.updatedAt
-                    )
-                )
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .accessibilityLabel(
-                    "Updated "
-                        + issue.updatedAt.formatted(
-                            date: .abbreviated,
-                            time: .shortened
-                        )
-                )
-            }
+            header
 
             Text(issue.title)
                 .font(.body.weight(.semibold))
                 .foregroundStyle(.primary)
-                .lineLimit(3)
+                .lineLimit(
+                    dynamicTypeSize.isAccessibilitySize
+                        ? nil
+                        : 3
+                )
 
             if !issue.labels.isEmpty {
-                HStack(spacing: 6) {
-                    ForEach(issue.labels.prefix(3), id: \.self) {
-                        GitLabLabelPill(name: $0)
-                    }
-
-                    if issue.labels.count > 3 {
-                        Text("+\(issue.labels.count - 3)")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                labels
             }
 
-            HStack(spacing: 12) {
-                GitLabIssueStateLabel(issue: issue)
-
-                if !issue.assignees.isEmpty {
-                    Label(
-                        issue.assignees
-                            .map(\.displayName)
-                            .joined(separator: ", "),
-                        systemImage: "person.fill"
-                    )
-                    .lineLimit(1)
-                }
-
-                Spacer(minLength: 4)
-
-                Label(
-                    "\(issue.userNotesCount)",
-                    systemImage: "bubble.left"
-                )
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            metadata
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
+    }
+
+    @ViewBuilder
+    private var header: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 5) {
+                reference
+                updatedTime
+            }
+        } else {
+            HStack(spacing: 6) {
+                reference
+                Spacer(minLength: 8)
+                updatedTime
+            }
+        }
+    }
+
+    private var reference: some View {
+        HStack(spacing: 6) {
+            Text(issue.references.full)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(
+                    dynamicTypeSize.isAccessibilitySize
+                        ? nil
+                        : 1
+                )
+
+            if issue.confidential {
+                Image(systemName: "lock.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("Confidential")
+            }
+        }
+    }
+
+    private var updatedTime: some View {
+        Text(
+            GitLabRelativeTimeFormatter.string(
+                from: issue.updatedAt
+            )
+        )
+        .font(.caption.monospacedDigit())
+        .foregroundStyle(.secondary)
+        .accessibilityLabel(
+            "Updated "
+                + issue.updatedAt.formatted(
+                    date: .abbreviated,
+                    time: .shortened
+                )
+        )
+    }
+
+    @ViewBuilder
+    private var labels: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 6) {
+                labelPills
+            }
+        } else {
+            HStack(spacing: 6) {
+                labelPills
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var labelPills: some View {
+        ForEach(issue.labels.prefix(3), id: \.self) {
+            GitLabLabelPill(name: $0)
+        }
+
+        if issue.labels.count > 3 {
+            Text("+\(issue.labels.count - 3)")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var metadata: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 6) {
+                state
+                assignees
+                comments
+            }
+        } else {
+            HStack(spacing: 12) {
+                state
+                assignees
+                Spacer(minLength: 4)
+                comments
+            }
+        }
+    }
+
+    private var state: some View {
+        GitLabIssueStateLabel(issue: issue)
+            .font(.caption)
+    }
+
+    @ViewBuilder
+    private var assignees: some View {
+        if !issue.assignees.isEmpty {
+            Label(
+                issue.assignees
+                    .map(\.displayName)
+                    .joined(separator: ", "),
+                systemImage: "person.fill"
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(
+                dynamicTypeSize.isAccessibilitySize
+                    ? nil
+                    : 1
+            )
+        }
+    }
+
+    private var comments: some View {
+        Label(
+            "\(issue.userNotesCount)",
+            systemImage: "bubble.left"
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 
     private var accessibilityLabel: String {

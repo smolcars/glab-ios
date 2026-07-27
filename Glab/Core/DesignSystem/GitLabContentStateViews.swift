@@ -33,6 +33,40 @@ struct GitLabLoadingStateView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(message)
+        .gitLabAccessibilityAnnouncement(message)
+        .accessibilityIdentifier("gitlab.loadingState")
+    }
+}
+
+private struct GitLabAccessibilityAnnouncementModifier:
+    ViewModifier
+{
+    let message: String
+
+    @State private var announcedMessage: String?
+
+    func body(content: Content) -> some View {
+        content.task(id: message) {
+            guard announcedMessage != message else {
+                return
+            }
+            announcedMessage = message
+            AccessibilityNotification
+                .Announcement(message)
+                .post()
+        }
+    }
+}
+
+extension View {
+    func gitLabAccessibilityAnnouncement(
+        _ message: String
+    ) -> some View {
+        modifier(
+            GitLabAccessibilityAnnouncementModifier(
+                message: message
+            )
+        )
     }
 }
 

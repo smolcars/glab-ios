@@ -123,7 +123,12 @@ struct GitLabOAuthSignInView: View {
     }
 
     private var brand: some View {
-        VStack(spacing: 8) {
+        VStack(
+            spacing:
+                dynamicTypeSize.isAccessibilitySize
+                    ? 24
+                    : 8
+        ) {
             Image("GitLabLogo")
                 .resizable()
                 .scaledToFit()
@@ -146,11 +151,19 @@ struct GitLabOAuthSignInView: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .fixedSize(
+                    horizontal: false,
+                    vertical: true
+                )
 
             Text("Independent and not affiliated with GitLab Inc.")
                 .font(.footnote)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
+                .fixedSize(
+                    horizontal: false,
+                    vertical: true
+                )
         }
         .accessibilityElement(children: .combine)
     }
@@ -185,6 +198,10 @@ struct GitLabOAuthSignInView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+                .fixedSize(
+                    horizontal: false,
+                    vertical: true
+                )
                 .accessibilityIdentifier(
                     model.isGitLabDotComConfigured
                         ? "oauth.securityDetail"
@@ -371,7 +388,7 @@ private struct SelfManagedGitLabOAuthView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Self-managed GitLab")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
@@ -574,6 +591,10 @@ private struct GitLabOAuthCallout: View {
         Label {
             Text(message)
                 .font(.callout)
+                .fixedSize(
+                    horizontal: false,
+                    vertical: true
+                )
         } icon: {
             Image(systemName: systemImage)
         }

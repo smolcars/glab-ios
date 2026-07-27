@@ -203,54 +203,23 @@ struct MergeRequestsView: View {
 private struct GitLabMergeRequestRow: View {
     let mergeRequest: GitLabMergeRequest
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Text(mergeRequest.references.full)
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                Spacer(minLength: 8)
-
-                Text(
-                    GitLabRelativeTimeFormatter.string(
-                        from: mergeRequest.updatedAt
-                    )
-                )
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-                .accessibilityLabel(
-                    "Updated "
-                        + mergeRequest.updatedAt.formatted(
-                            date: .abbreviated,
-                            time: .shortened
-                        )
-                )
-            }
+            header
 
             Text(mergeRequest.title)
                 .font(.body.weight(.semibold))
                 .foregroundStyle(.primary)
-                .lineLimit(3)
+                .lineLimit(
+                    dynamicTypeSize.isAccessibilitySize
+                        ? nil
+                        : 3
+                )
 
             if !mergeRequest.labels.isEmpty {
-                HStack(spacing: 6) {
-                    ForEach(
-                        mergeRequest.labels.prefix(3),
-                        id: \.self
-                    ) {
-                        GitLabLabelPill(name: $0)
-                    }
-
-                    if mergeRequest.labels.count > 3 {
-                        Text(
-                            "+\(mergeRequest.labels.count - 3)"
-                        )
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    }
-                }
+                labels
             }
 
             Label(
@@ -261,33 +230,155 @@ private struct GitLabMergeRequestRow: View {
             )
             .font(.caption)
             .foregroundStyle(.secondary)
-            .lineLimit(1)
+            .lineLimit(
+                dynamicTypeSize.isAccessibilitySize
+                    ? nil
+                    : 1
+            )
 
+            status
+            people
+        }
+        .padding(.vertical, 5)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    @ViewBuilder
+    private var header: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 5) {
+                reference
+                updatedTime
+            }
+        } else {
+            HStack(spacing: 6) {
+                reference
+                Spacer(minLength: 8)
+                updatedTime
+            }
+        }
+    }
+
+    private var reference: some View {
+        Text(mergeRequest.references.full)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(.secondary)
+            .lineLimit(
+                dynamicTypeSize.isAccessibilitySize
+                        ? nil
+                        : 1
+            )
+            .fixedSize(
+                horizontal: false,
+                vertical: dynamicTypeSize.isAccessibilitySize
+            )
+    }
+
+    private var updatedTime: some View {
+        Text(
+            GitLabRelativeTimeFormatter.string(
+                from: mergeRequest.updatedAt
+            )
+        )
+        .font(.caption.monospacedDigit())
+        .foregroundStyle(.secondary)
+        .accessibilityLabel(
+            "Updated "
+                + mergeRequest.updatedAt.formatted(
+                    date: .abbreviated,
+                    time: .shortened
+                )
+        )
+    }
+
+    @ViewBuilder
+    private var labels: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 6) {
+                labelPills
+            }
+        } else {
+            HStack(spacing: 6) {
+                labelPills
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var labelPills: some View {
+        ForEach(
+            mergeRequest.labels.prefix(3),
+            id: \.self
+        ) {
+            GitLabLabelPill(name: $0)
+        }
+
+        if mergeRequest.labels.count > 3 {
+            Text(
+                "+\(mergeRequest.labels.count - 3)"
+            )
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var status: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 6) {
+                state
+                draft
+                comments
+            }
+        } else {
             HStack(spacing: 12) {
-                GitLabMergeRequestStateLabel(
-                    mergeRequest: mergeRequest
-                )
-
-                if mergeRequest.isDraft {
-                    GitLabMergeRequestDraftLabel()
-                }
-
+                state
+                draft
                 Spacer(minLength: 4)
+                comments
+            }
+        }
+    }
 
-                Label(
-                    "\(mergeRequest.userNotesCount)",
-                    systemImage: "bubble.left"
-                )
-                .foregroundStyle(.secondary)
+    private var state: some View {
+        GitLabMergeRequestStateLabel(
+            mergeRequest: mergeRequest
+        )
+        .font(.caption)
+    }
+
+    @ViewBuilder
+    private var draft: some View {
+        if mergeRequest.isDraft {
+            GitLabMergeRequestDraftLabel()
+                .font(.caption)
+        }
+    }
+
+    private var comments: some View {
+        Label(
+            "\(mergeRequest.userNotesCount)",
+            systemImage: "bubble.left"
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private var people: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 6) {
+                author
+                if let peopleSummary {
+                    Text(peopleSummary)
+                }
             }
             .font(.caption)
-
+            .foregroundStyle(.secondary)
+        } else {
             HStack(spacing: 6) {
-                Label(
-                    mergeRequest.author.displayName,
-                    systemImage: "person.crop.circle"
-                )
-                .lineLimit(1)
+                author
 
                 if let peopleSummary {
                     Text("•")
@@ -298,9 +389,18 @@ private struct GitLabMergeRequestRow: View {
             .font(.caption)
             .foregroundStyle(.secondary)
         }
-        .padding(.vertical, 5)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private var author: some View {
+        Label(
+            mergeRequest.author.displayName,
+            systemImage: "person.crop.circle"
+        )
+        .lineLimit(
+            dynamicTypeSize.isAccessibilitySize
+                ? nil
+                : 1
+        )
     }
 
     private var peopleSummary: String? {

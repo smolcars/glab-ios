@@ -33,8 +33,13 @@ struct AppRootView: View {
             Image(systemName: "chevron.left.forwardslash.chevron.right")
                 .font(.system(size: 38, weight: .semibold))
                 .foregroundStyle(.orange)
+                .accessibilityHidden(true)
             ProgressView("Restoring GitLab session…")
         }
+        .gitLabAccessibilityAnnouncement(
+            "Restoring GitLab session"
+        )
+        .accessibilityIdentifier("app.restoringSession")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(uiColor: .systemGroupedBackground))
     }

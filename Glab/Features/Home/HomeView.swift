@@ -83,10 +83,12 @@ struct HomeView: View {
                             user: displayedUser,
                             size: 30
                         )
+                        .frame(width: 44, height: 44)
                     }
                     .accessibilityLabel(
                         "Account for \(displayedUser.displayName)"
                     )
+                    .accessibilityHint("Opens account settings.")
                     .accessibilityIdentifier("home.accountButton")
                 }
             }

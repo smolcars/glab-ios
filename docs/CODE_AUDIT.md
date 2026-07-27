@@ -299,3 +299,50 @@ Scope:
 - A successful mark-all remains optimistic until the next pending refresh.
   The app does not poll, persist optimistic state, or add undo outside the MVP
   contract.
+
+## MVP-14 accessibility audit
+
+Scope:
+
+- Authentication, Home, Account, sign-out, both tabs, Todo filters and rows,
+  issue and merge-request rows/details, project rows, loading states, and Todo
+  mutation progress were exercised on iPhone 17 Pro.
+- The changed flows were inspected at the largest accessibility text size and
+  at the default size. Light and dark appearance plus standard and Increased
+  Contrast rendering were covered across the signed-out and signed-in
+  simulators.
+- Simulator accessibility hierarchy inspection confirmed stable identifiers
+  and complete synthesized labels for the authentication choices, tab bar,
+  account/sign-out controls, Todo controls, and resource rows.
+
+### Repair checklist
+
+- [x] Keep sign-in branding, setup guidance, error copy, and token controls
+  vertically expandable, with an inline self-managed navigation title at
+  accessibility sizes.
+- [x] Replace segmented instance and Todo filters with scalable menu pickers
+  only at accessibility text sizes; preserve the existing dense segmented
+  presentation at standard sizes.
+- [x] Stack issue, merge-request, project, and Todo metadata vertically at
+  accessibility sizes so titles, references, paths, states, people, and
+  actions remain visible instead of collapsing to icons or ellipses.
+- [x] Give root tabs and session restoration stable identifiers, ensure the
+  Home account control has a 44-point hit region, and announce loading and
+  Todo-mutation progress once per status change.
+- [x] Inspect the privacy explanation, account sheet, sign-out confirmation,
+  empty states, list navigation, and native details without changing the real
+  read-only simulator session.
+- [x] Re-run the complete signed suite: 238 logical tests and 349 parameterized
+  executions pass. Property-list validation and the accessibility-change
+  static analysis are clean.
+
+### Deliberately unchanged
+
+- Standard-size resource rows keep their existing compact presentation. The
+  vertical variants activate only for accessibility Dynamic Type categories.
+- The app has no custom animation whose meaning or access changes under Reduce
+  Motion. Semantic state continues to use text and symbols as well as color,
+  so Differentiate Without Color does not remove information.
+- Pure SwiftUI layout branches and accessibility modifiers do not add core
+  logic, so they rely on the existing model tests plus simulator hierarchy and
+  interaction verification rather than duplicative unit tests.

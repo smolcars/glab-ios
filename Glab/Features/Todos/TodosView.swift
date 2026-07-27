@@ -6,6 +6,7 @@ struct TodosView: View {
     let mergeRequestLoader:
         any GitLabMergeRequestLoading
     let appSession: AppSession
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var isConfirmingMarkAllDone =
         false
 
@@ -116,41 +117,69 @@ struct TodosView: View {
     private func filterControls(
         model: Bindable<TodosModel>
     ) -> some View {
-        VStack(spacing: 10) {
-            Picker(
-                "Todo state",
-                selection: model.selectedState
-            ) {
-                ForEach(
-                    GitLabTodoState.allCases,
-                    id: \.self
-                ) { state in
-                    Text(state.title)
-                        .tag(state)
-                }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier(
-                "todos.statePicker"
-            )
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 0) {
+                    statePicker(model: model)
+                        .pickerStyle(.menu)
+                        .frame(minHeight: 44)
 
-            Picker(
-                "Target type",
-                selection: model.selectedTargetFilter
-            ) {
-                ForEach(
-                    GitLabTodoTargetFilter.allCases,
-                    id: \.self
-                ) { targetFilter in
-                    Text(targetFilter.title)
-                        .tag(targetFilter)
+                    Divider()
+
+                    targetPicker(model: model)
+                        .pickerStyle(.menu)
+                        .frame(minHeight: 44)
+                }
+            } else {
+                VStack(spacing: 10) {
+                    statePicker(model: model)
+                        .pickerStyle(.segmented)
+
+                    targetPicker(model: model)
+                        .pickerStyle(.segmented)
                 }
             }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier(
-                "todos.targetPicker"
-            )
         }
+    }
+
+    private func statePicker(
+        model: Bindable<TodosModel>
+    ) -> some View {
+        Picker(
+            "State",
+            selection: model.selectedState
+        ) {
+            ForEach(
+                GitLabTodoState.allCases,
+                id: \.self
+            ) { state in
+                Text(state.title)
+                    .tag(state)
+            }
+        }
+        .accessibilityIdentifier(
+            "todos.statePicker"
+        )
+    }
+
+    private func targetPicker(
+        model: Bindable<TodosModel>
+    ) -> some View {
+        Picker(
+            "Target",
+            selection: model.selectedTargetFilter
+        ) {
+            ForEach(
+                GitLabTodoTargetFilter.allCases,
+                id: \.self
+            ) { targetFilter in
+                Text(targetFilter.title)
+                    .tag(targetFilter)
+            }
+        }
+        .accessibilityIdentifier(
+            "todos.targetPicker"
+        )
     }
 
     @ViewBuilder
@@ -180,6 +209,9 @@ struct TodosView: View {
             .frame(minHeight: 430)
             .accessibilityElement(
                 children: .combine
+            )
+            .gitLabAccessibilityAnnouncement(
+                completionProgressTitle
             )
             .accessibilityIdentifier(
                 "todos.completionProgress"
@@ -391,6 +423,9 @@ struct TodosView: View {
         }
         .foregroundStyle(.secondary)
         .accessibilityElement(children: .combine)
+        .gitLabAccessibilityAnnouncement(
+            completionProgressTitle
+        )
         .accessibilityIdentifier(
             "todos.completionProgress"
         )
@@ -484,85 +519,138 @@ struct TodosView: View {
 private struct GitLabTodoRow: View {
     let todo: GitLabTodo
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             typeIcon
 
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) {
-                    Text(todo.targetType.title)
-                        .foregroundStyle(accentColor)
-
-                    Text("·")
-                        .foregroundStyle(.tertiary)
-
-                    Text(todo.projectTitle)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 8)
-
-                    Text(
-                        GitLabRelativeTimeFormatter.string(
-                            from: todo.updatedAt
-                        )
-                    )
-                    .monospacedDigit()
-                    .accessibilityLabel(
-                        "Updated "
-                            + todo.updatedAt.formatted(
-                                date: .abbreviated,
-                                time: .shortened
-                            )
-                    )
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                header
 
                 Text(todo.title)
                     .font(.body.weight(.semibold))
                     .foregroundStyle(.primary)
-                    .lineLimit(3)
+                    .lineLimit(
+                        dynamicTypeSize.isAccessibilitySize
+                            ? nil
+                            : 3
+                    )
 
                 if let body = todo.displayBody {
                     Text(body)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                        .lineLimit(
+                            dynamicTypeSize.isAccessibilitySize
+                                ? nil
+                                : 2
+                        )
                 }
 
-                HStack(spacing: 6) {
-                    if let author = todo.author {
-                        GitLabUserAvatar(
-                            user: author.summary,
-                            size: 20
-                        )
-                        .accessibilityHidden(true)
-                    } else {
-                        Image(
-                            systemName:
-                                "person.crop.circle"
-                        )
-                        .font(.system(size: 20))
-                        .foregroundStyle(.secondary)
-                        .accessibilityHidden(true)
-                    }
-
-                    Text(todo.authorTitle)
-                        .lineLimit(1)
-
-                    Text("·")
-                        .foregroundStyle(.tertiary)
-
-                    Text(todo.action.title)
-                        .lineLimit(1)
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                footer
             }
         }
         .padding(.vertical, 5)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
+    }
+
+    @ViewBuilder
+    private var header: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(todo.targetType.title)
+                    .foregroundStyle(accentColor)
+                Text(todo.projectTitle)
+                updatedTime
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        } else {
+            HStack(spacing: 6) {
+                Text(todo.targetType.title)
+                    .foregroundStyle(accentColor)
+
+                Text("·")
+                    .foregroundStyle(.tertiary)
+
+                Text(todo.projectTitle)
+                    .lineLimit(1)
+
+                Spacer(minLength: 8)
+                updatedTime
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private var updatedTime: some View {
+        Text(
+            GitLabRelativeTimeFormatter.string(
+                from: todo.updatedAt
+            )
+        )
+        .monospacedDigit()
+        .accessibilityLabel(
+            "Updated "
+                + todo.updatedAt.formatted(
+                    date: .abbreviated,
+                    time: .shortened
+                )
+        )
+    }
+
+    @ViewBuilder
+    private var footer: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 5) {
+                author
+                Text(todo.action.title)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        } else {
+            HStack(spacing: 6) {
+                author
+
+                Text("·")
+                    .foregroundStyle(.tertiary)
+
+                Text(todo.action.title)
+                    .lineLimit(1)
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    private var author: some View {
+        HStack(spacing: 6) {
+            if let author = todo.author {
+                GitLabUserAvatar(
+                    user: author.summary,
+                    size: 20
+                )
+                .accessibilityHidden(true)
+            } else {
+                Image(
+                    systemName:
+                        "person.crop.circle"
+                )
+                .font(.system(size: 20))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            }
+
+            Text(todo.authorTitle)
+                .lineLimit(
+                    dynamicTypeSize.isAccessibilitySize
+                        ? nil
+                        : 1
+                )
+        }
     }
 
     private var typeIcon: some View {

@@ -104,11 +104,7 @@ struct SignedInShellView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            Tab(
-                GitLabAppTab.home.title,
-                systemImage: GitLabAppTab.home.systemImage,
-                value: GitLabAppTab.home
-            ) {
+            Tab(value: GitLabAppTab.home) {
                 HomeView(
                     session: session,
                     appSession: appSession,
@@ -118,13 +114,16 @@ struct SignedInShellView: View {
                     mergeRequestLoader: mergeRequestLoader,
                     projectLoader: projectLoader
                 )
+            } label: {
+                Label(
+                    GitLabAppTab.home.title,
+                    systemImage:
+                        GitLabAppTab.home.systemImage
+                )
+                .accessibilityIdentifier("tab.home")
             }
 
-            Tab(
-                GitLabAppTab.todos.title,
-                systemImage: GitLabAppTab.todos.systemImage,
-                value: GitLabAppTab.todos
-            ) {
+            Tab(value: GitLabAppTab.todos) {
                 TodosView(
                     model: todosModel,
                     issueLoader: issueLoader,
@@ -132,6 +131,13 @@ struct SignedInShellView: View {
                         mergeRequestLoader,
                     appSession: appSession
                 )
+            } label: {
+                Label(
+                    GitLabAppTab.todos.title,
+                    systemImage:
+                        GitLabAppTab.todos.systemImage
+                )
+                .accessibilityIdentifier("tab.todos")
             }
             .badge(todosModel.pendingBadgeCount ?? 0)
         }

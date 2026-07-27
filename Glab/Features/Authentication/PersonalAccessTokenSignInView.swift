@@ -38,6 +38,7 @@ struct PersonalAccessTokenSignInView: View {
     let showsCancelButton: Bool
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @FocusState private var focusedField: Field?
     @State private var signInTask: Task<Void, Never>?
 
@@ -96,6 +97,10 @@ struct PersonalAccessTokenSignInView: View {
             )
             .font(.body)
             .foregroundStyle(.secondary)
+            .fixedSize(
+                horizontal: false,
+                vertical: true
+            )
         }
     }
 
@@ -104,12 +109,16 @@ struct PersonalAccessTokenSignInView: View {
             Label("GitLab instance", systemImage: "server.rack")
                 .font(.headline)
 
-            Picker("GitLab instance", selection: $model.usesCustomInstance) {
-                Text("GitLab.com").tag(false)
-                Text("Self-managed").tag(true)
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    instancePicker
+                        .pickerStyle(.menu)
+                        .frame(minHeight: 44)
+                } else {
+                    instancePicker
+                        .pickerStyle(.segmented)
+                }
             }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier("signIn.instancePicker")
 
             if model.usesCustomInstance {
                 Divider()
@@ -133,6 +142,10 @@ struct PersonalAccessTokenSignInView: View {
                 Text("HTTPS with a system-trusted certificate is required.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .fixedSize(
+                        horizontal: false,
+                        vertical: true
+                    )
             } else {
                 Text("gitlab.com")
                     .font(.subheadline)
@@ -140,6 +153,19 @@ struct PersonalAccessTokenSignInView: View {
             }
         }
         .signInCard()
+    }
+
+    private var instancePicker: some View {
+        Picker(
+            "Instance",
+            selection: $model.usesCustomInstance
+        ) {
+            Text("GitLab.com").tag(false)
+            Text("Self-managed").tag(true)
+        }
+        .accessibilityIdentifier(
+            "signIn.instancePicker"
+        )
     }
 
     private var tokenCard: some View {
@@ -212,6 +238,10 @@ struct PersonalAccessTokenSignInView: View {
                 Text(detail)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .fixedSize(
+                        horizontal: false,
+                        vertical: true
+                    )
             }
         }
     }
@@ -222,6 +252,10 @@ struct PersonalAccessTokenSignInView: View {
         Label {
             Text(failure.description)
                 .font(.callout)
+                .fixedSize(
+                    horizontal: false,
+                    vertical: true
+                )
         } icon: {
             Image(systemName: "exclamationmark.triangle.fill")
         }

@@ -4,6 +4,7 @@ struct ProjectsView: View {
     let mode: GitLabProjectListMode
     let appSession: AppSession
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var model: ProjectsModel
 
     init(
@@ -29,7 +30,11 @@ struct ProjectsView: View {
                 Color(uiColor: .systemGroupedBackground)
             )
             .navigationTitle(mode.title)
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(
+                dynamicTypeSize.isAccessibilitySize
+                    ? .inline
+                    : .large
+            )
             .searchable(
                 text: $model.searchText,
                 placement:
@@ -201,40 +206,41 @@ private struct GitLabProjectRow: View {
     let project: GitLabProject
     let showsExternalLink: Bool
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            GitLabProjectAvatar(project: project)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 12) {
+                        GitLabProjectAvatar(
+                            project: project
+                        )
+                        namespace
+                        Spacer(minLength: 4)
+                        externalLinkIcon
+                    }
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(project.namespaceTitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    name
+                    path
+                    accessibilityMetadata
+                }
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+                    GitLabProjectAvatar(
+                        project: project
+                    )
 
-                Text(project.name)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
+                    VStack(alignment: .leading, spacing: 5) {
+                        namespace
+                        name
+                        path
+                        metadata
+                    }
 
-                Text(project.pathWithNamespace)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                metadata
-            }
-
-            Spacer(minLength: 4)
-
-            if showsExternalLink {
-                Image(
-                    systemName:
-                        "arrow.up.right.square"
-                )
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.tertiary)
-                .padding(.top, 3)
-                .accessibilityHidden(true)
+                    Spacer(minLength: 4)
+                    externalLinkIcon
+                }
             }
         }
         .padding(.vertical, 3)
@@ -247,6 +253,64 @@ private struct GitLabProjectRow: View {
                 ? "Opens in GitLab"
                 : "A safe GitLab link is unavailable"
         )
+    }
+
+    private var namespace: some View {
+        Text(project.namespaceTitle)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(
+                dynamicTypeSize.isAccessibilitySize
+                        ? nil
+                        : 1
+            )
+            .fixedSize(
+                horizontal: false,
+                vertical: dynamicTypeSize.isAccessibilitySize
+            )
+    }
+
+    private var name: some View {
+        Text(project.name)
+            .font(.body.weight(.semibold))
+            .foregroundStyle(.primary)
+            .lineLimit(
+                dynamicTypeSize.isAccessibilitySize
+                        ? nil
+                        : 2
+            )
+            .fixedSize(
+                horizontal: false,
+                vertical: dynamicTypeSize.isAccessibilitySize
+            )
+    }
+
+    private var path: some View {
+        Text(project.pathWithNamespace)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(
+                dynamicTypeSize.isAccessibilitySize
+                        ? nil
+                        : 1
+            )
+            .fixedSize(
+                horizontal: false,
+                vertical: dynamicTypeSize.isAccessibilitySize
+            )
+    }
+
+    @ViewBuilder
+    private var externalLinkIcon: some View {
+        if showsExternalLink {
+            Image(
+                systemName: "arrow.up.right.square"
+            )
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.tertiary)
+            .padding(.top, 3)
+            .accessibilityHidden(true)
+        }
     }
 
     private var metadata: some View {
@@ -262,6 +326,16 @@ private struct GitLabProjectRow: View {
                 starsMetadata
                 activityMetadata
             }
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+    }
+
+    private var accessibilityMetadata: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            visibilityMetadata
+            starsMetadata
+            activityMetadata
         }
         .font(.caption2)
         .foregroundStyle(.secondary)
