@@ -295,6 +295,23 @@ Test:
 - Page append/de-duplication, local filtering, relative date formatting, and
   route identity using project ID plus issue IID.
 
+### [x] MVP-09A — Add repository setup and license documentation
+
+Deliver:
+
+- Add a root README that describes the app, current implementation status,
+  authentication choices, build/test workflow, security boundaries, and links
+  to the detailed MVP and OAuth documentation.
+- Add the standard MIT license with a contributor-owned copyright notice.
+- Clearly identify Glab as an unofficial project that is not affiliated with
+  GitLab.
+
+Verify:
+
+- Every local documentation link and command matches the current repository.
+- No token, OAuth Application ID, or other local secret appears in committed
+  documentation.
+
 ### [ ] MVP-10 — Add merge request lists and details
 
 Deliver:
@@ -360,14 +377,18 @@ Deliver:
   confirmation.
 - Use optimistic row removal/state changes with rollback and an accessible
   error if the request fails.
-- Disable completion in a read-only token session and explain the required
-  permission.
+- Make every API request declare whether it requires read or write access, and
+  reject a write request before transport when the session is read-only.
+- Keep completion controls visible but disabled in a read-only token session,
+  with an accessible explanation that `api` permission is required.
 
 Test:
 
 - Native versus browser routing and unsafe/missing target URLs.
 - Successful completion, `204` mark-all response, rollback, duplicate taps,
   in-flight refresh, partial stale data, and read-only capability handling.
+- Read requests remain available while unsupported writes never reach the
+  transport.
 
 ### [ ] MVP-14 — Finish resilience, accessibility, and privacy
 

@@ -93,3 +93,20 @@ the first Todo mutation, requests must explicitly declare whether they require
 read or write access, the session client must reject unsupported writes before
 transport, and mutation controls must remain visible but disabled with an
 accessible explanation for `read_api` sessions.
+
+## Post-MVP-09A documentation audit
+
+The repository-documentation phase changed only `README.md`, `LICENSE`, and MVP
+documentation. The production Swift, tests, project configuration, and the 138
+passing-test baseline are identical to the fully reviewed post-MVP-09 tree.
+
+Checks:
+
+- [x] Every README local link resolves to a tracked repository path.
+- [x] The documented iPhone 17 Pro, iOS 26.5 simulator destination is
+  available.
+- [x] `.env` remains ignored and no local credential or OAuth Application ID
+  is present in the documentation diff.
+- [x] The standard MIT grant and unofficial-app disclaimer are present.
+
+No material code finding was introduced by this documentation-only phase.
