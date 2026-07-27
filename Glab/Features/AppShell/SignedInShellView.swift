@@ -38,6 +38,7 @@ struct SignedInShellView: View {
     @State private var selectedTab = GitLabAppTab.defaultTab
     @State private var homeDashboardModel: HomeDashboardModel
     @State private var assignedIssuesModel: AssignedIssuesModel
+    @State private var todosModel: TodosModel
     private let issueLoader: any GitLabIssueLoading
     private let mergeRequestLoader:
         any GitLabMergeRequestLoading
@@ -89,6 +90,13 @@ struct SignedInShellView: View {
                 loader: issueLoader
             )
         )
+        _todosModel = State(
+            initialValue: TodosModel(
+                loader: LiveGitLabTodoLoader(
+                    client: client
+                )
+            )
+        )
     }
 
     var body: some View {
@@ -114,8 +122,12 @@ struct SignedInShellView: View {
                 systemImage: GitLabAppTab.todos.systemImage,
                 value: GitLabAppTab.todos
             ) {
-                TodosView()
+                TodosView(
+                    model: todosModel,
+                    appSession: appSession
+                )
             }
+            .badge(todosModel.pendingBadgeCount ?? 0)
         }
         .tint(.orange)
         .accessibilityIdentifier("signedIn.tabView")
