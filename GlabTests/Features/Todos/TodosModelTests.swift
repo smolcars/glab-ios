@@ -39,7 +39,11 @@ struct TodosModelTests {
                 ),
             ]
         )
-        let model = TodosModel(loader: loader)
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite
+        )
 
         await model.loadIfNeeded()
         await model.loadNextPageIfNeeded(
@@ -108,7 +112,11 @@ struct TodosModelTests {
                 ),
             ]
         )
-        let model = TodosModel(loader: loader)
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite
+        )
 
         await model.loadIfNeeded()
         model.selectedState = .done
@@ -149,7 +157,11 @@ struct TodosModelTests {
                 ),
             ]
         )
-        let model = TodosModel(loader: loader)
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite
+        )
 
         await model.loadIfNeeded()
 
@@ -172,7 +184,11 @@ struct TodosModelTests {
                 ),
             ]
         )
-        let model = TodosModel(loader: loader)
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite
+        )
 
         await model.loadIfNeeded()
 
@@ -199,7 +215,11 @@ struct TodosModelTests {
                 ),
             ]
         )
-        let model = TodosModel(loader: loader)
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite
+        )
 
         await model.loadIfNeeded()
 
@@ -221,7 +241,11 @@ struct TodosModelTests {
                 .failure(.api(.server(statusCode: 503))),
             ]
         )
-        let model = TodosModel(loader: loader)
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite
+        )
 
         await model.loadIfNeeded()
         await model.refresh()
@@ -253,7 +277,11 @@ struct TodosModelTests {
                 .failure(.api(.cancelled)),
             ]
         )
-        let model = TodosModel(loader: loader)
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite
+        )
 
         await model.loadIfNeeded()
         await model.refresh()
@@ -295,7 +323,11 @@ struct TodosModelTests {
                 ),
             ]
         )
-        let model = TodosModel(loader: loader)
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite
+        )
 
         await model.loadIfNeeded()
         await model.loadNextPageIfNeeded(after: first)
@@ -335,7 +367,11 @@ struct TodosModelTests {
                 .failure(.api(.cancelled)),
             ]
         )
-        let model = TodosModel(loader: loader)
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite
+        )
 
         await model.loadIfNeeded()
         await model.loadNextPageIfNeeded(after: first)
@@ -354,7 +390,11 @@ struct TodosModelTests {
                 .failure(.api(.cancelled)),
             ]
         )
-        let model = TodosModel(loader: loader)
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite
+        )
 
         await model.loadIfNeeded()
 
@@ -371,7 +411,11 @@ struct TodosModelTests {
                 .failure(.api(.unauthenticated)),
             ]
         )
-        let model = TodosModel(loader: loader)
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite
+        )
 
         await model.loadIfNeeded()
 
@@ -382,7 +426,10 @@ struct TodosModelTests {
     }
 }
 
-private actor StubTodoLoader: GitLabTodoLoading {
+private actor StubTodoLoader:
+    GitLabTodoLoading,
+    GitLabTodoMutating
+{
     private var pageResults: [
         Result<GitLabTodoPage, GitLabSessionClientError>
     ]
@@ -415,5 +462,17 @@ private actor StubTodoLoader: GitLabTodoLoading {
         }
 
         return try pageResults.removeFirst().get()
+    }
+
+    func markDone(
+        id: Int
+    ) async throws(GitLabSessionClientError) -> GitLabTodo {
+        throw .api(.invalidResponse)
+    }
+
+    func markAllDone()
+        async throws(GitLabSessionClientError)
+    {
+        throw .api(.invalidResponse)
     }
 }

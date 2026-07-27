@@ -41,6 +41,7 @@ where
     private(set) var didFailRefresh = false
     private(set) var didFailNextPage = false
     private(set) var hasLoaded = false
+    private(set) var contentRevision = 0
     var searchText = ""
 
     private let loadPage:
@@ -151,6 +152,7 @@ where
             nextPageURL = page.nextPageURL
             totalItemCount = page.totalCount
             hasLoaded = true
+            contentRevision += 1
         } catch {
             guard
                 !Task.isCancelled,

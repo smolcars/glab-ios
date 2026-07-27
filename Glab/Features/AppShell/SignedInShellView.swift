@@ -75,6 +75,9 @@ struct SignedInShellView: View {
         let projectLoader = LiveGitLabProjectLoader(
             client: client
         )
+        let todoService = LiveGitLabTodoLoader(
+            client: client
+        )
         self.issueLoader = issueLoader
         self.mergeRequestLoader = mergeRequestLoader
         self.projectLoader = projectLoader
@@ -92,9 +95,9 @@ struct SignedInShellView: View {
         )
         _todosModel = State(
             initialValue: TodosModel(
-                loader: LiveGitLabTodoLoader(
-                    client: client
-                )
+                loader: todoService,
+                mutator: todoService,
+                apiAccess: session.apiAccess
             )
         )
     }
