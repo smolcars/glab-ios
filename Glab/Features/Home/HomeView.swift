@@ -132,33 +132,36 @@ struct HomeView: View {
     private func destination(
         for section: HomeDashboardSection
     ) -> some View {
-        if section == .assignedIssues {
+        switch section {
+        case .assignedIssues:
             AssignedIssuesView(
                 model: assignedIssuesModel,
                 loader: issueLoader,
                 appSession: appSession
             )
-        } else if
-            let mode = section.mergeRequestListMode
-        {
+        case .assignedMergeRequests:
             MergeRequestsView(
-                mode: mode,
+                mode: .assigned,
                 loader: mergeRequestLoader,
                 appSession: appSession
             )
-        } else if
-            let mode = section.projectListMode
-        {
+        case .reviewRequests:
+            MergeRequestsView(
+                mode: .reviewRequested,
+                loader: mergeRequestLoader,
+                appSession: appSession
+            )
+        case .recentProjects:
             ProjectsView(
-                mode: mode,
+                mode: .recent,
                 loader: projectLoader,
                 appSession: appSession
             )
-        } else {
-            HomeDashboardListView(
-                section: section,
-                model: model,
-                refresh: refreshDashboard
+        case .starredProjects:
+            ProjectsView(
+                mode: .starred,
+                loader: projectLoader,
+                appSession: appSession
             )
         }
     }

@@ -58,33 +58,6 @@ nonisolated enum HomeDashboardSection:
         }
     }
 
-    var mergeRequestListMode:
-        GitLabMergeRequestListMode?
-    {
-        switch self {
-        case .assignedMergeRequests:
-            .assigned
-        case .reviewRequests:
-            .reviewRequested
-        case .assignedIssues,
-             .recentProjects,
-             .starredProjects:
-            nil
-        }
-    }
-
-    var projectListMode: GitLabProjectListMode? {
-        switch self {
-        case .recentProjects:
-            .recent
-        case .starredProjects:
-            .starred
-        case .assignedIssues,
-             .assignedMergeRequests,
-             .reviewRequests:
-            nil
-        }
-    }
 }
 
 nonisolated struct GitLabHomeWorkItem:

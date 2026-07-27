@@ -33,30 +33,6 @@ struct GitLabProjectEndpointTests {
                 + "&simple=true&per_page=20"
         )
     }
-
-    @Test("Maps Home shortcuts to the correct project mode")
-    func mapsHomeShortcuts() {
-        #expect(
-            HomeDashboardSection.recentProjects
-                .projectListMode == .recent
-        )
-        #expect(
-            HomeDashboardSection.starredProjects
-                .projectListMode == .starred
-        )
-        #expect(
-            HomeDashboardSection.assignedIssues
-                .projectListMode == nil
-        )
-        #expect(
-            HomeDashboardSection.assignedMergeRequests
-                .projectListMode == nil
-        )
-        #expect(
-            HomeDashboardSection.reviewRequests
-                .projectListMode == nil
-        )
-    }
 }
 
 private extension GitLabProjectEndpointTests {

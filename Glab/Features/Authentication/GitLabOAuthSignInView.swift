@@ -319,6 +319,7 @@ private struct SelfManagedGitLabOAuthView: View {
 
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedField: Field?
+    @State private var signInTask: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -351,6 +352,7 @@ private struct SelfManagedGitLabOAuthView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
+                        cancelSignIn()
                         dismiss()
                     }
                 }
@@ -358,6 +360,9 @@ private struct SelfManagedGitLabOAuthView: View {
         }
         .onAppear {
             model.usesCustomInstance = true
+        }
+        .onDisappear {
+            cancelSignIn()
         }
     }
 
@@ -445,10 +450,7 @@ private struct SelfManagedGitLabOAuthView: View {
 
     private var signInButton: some View {
         Button {
-            focusedField = nil
-            Task {
-                await model.signIn()
-            }
+            startSignIn()
         } label: {
             HStack(spacing: 9) {
                 if model.isSubmitting {
@@ -522,10 +524,21 @@ private struct SelfManagedGitLabOAuthView: View {
             return
         }
 
+        startSignIn()
+    }
+
+    private func startSignIn() {
         focusedField = nil
-        Task {
+        signInTask?.cancel()
+        signInTask = Task {
             await model.signIn()
+            signInTask = nil
         }
+    }
+
+    private func cancelSignIn() {
+        signInTask?.cancel()
+        signInTask = nil
     }
 }
 

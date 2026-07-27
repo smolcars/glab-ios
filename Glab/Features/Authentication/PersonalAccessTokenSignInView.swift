@@ -39,6 +39,7 @@ struct PersonalAccessTokenSignInView: View {
 
     @Environment(\.dismiss) private var dismiss
     @FocusState private var focusedField: Field?
+    @State private var signInTask: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -61,16 +62,21 @@ struct PersonalAccessTokenSignInView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Sign in with a token")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.visible, for: .navigationBar)
             .toolbar {
                 if showsCancelButton {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") {
+                            cancelSignIn()
                             dismiss()
                         }
                     }
                 }
             }
+        }
+        .onDisappear {
+            cancelSignIn()
         }
     }
 
@@ -231,10 +237,7 @@ struct PersonalAccessTokenSignInView: View {
 
     private var signInButton: some View {
         Button {
-            focusedField = nil
-            Task {
-                await model.signIn()
-            }
+            startSignIn()
         } label: {
             ZStack {
                 Text("Connect GitLab")
@@ -263,10 +266,21 @@ struct PersonalAccessTokenSignInView: View {
             return
         }
 
+        startSignIn()
+    }
+
+    private func startSignIn() {
         focusedField = nil
-        Task {
+        signInTask?.cancel()
+        signInTask = Task {
             await model.signIn()
+            signInTask = nil
         }
+    }
+
+    private func cancelSignIn() {
+        signInTask?.cancel()
+        signInTask = nil
     }
 }
 
