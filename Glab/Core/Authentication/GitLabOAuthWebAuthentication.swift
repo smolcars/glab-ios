@@ -159,11 +159,14 @@ final class ASWebAuthenticationSessionGitLabOAuthAuthenticator:
     func presentationAnchor(
         for session: ASWebAuthenticationSession
     ) -> ASPresentationAnchor {
-        if let activePresentationAnchor {
-            return activePresentationAnchor
+        guard let activePresentationAnchor else {
+            preconditionFailure(
+                "An OAuth session cannot request a presentation anchor "
+                    + "before it starts."
+            )
         }
 
-        return presentationAnchorProvider() ?? ASPresentationAnchor()
+        return activePresentationAnchor
     }
 
     private static func isCancellation(_ error: (any Error)?) -> Bool {

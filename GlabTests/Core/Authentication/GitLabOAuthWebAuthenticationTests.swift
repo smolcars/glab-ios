@@ -1,6 +1,7 @@
 import AuthenticationServices
 import Foundation
 import Testing
+import UIKit
 @testable import Glab
 
 @Suite("GitLab OAuth web authentication")
@@ -11,7 +12,17 @@ struct GitLabOAuthWebAuthenticationTests {
         let firstSession = StubWebAuthenticationSession()
         let secondSession = StubWebAuthenticationSession()
         var sessions = [firstSession, secondSession]
-        let authenticator = makeAuthenticator { completion in
+        let windowScene = try #require(
+            UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first
+        )
+        let presentationAnchor = ASPresentationAnchor(
+            windowScene: windowScene
+        )
+        let authenticator = makeAuthenticator(
+            presentationAnchor: presentationAnchor
+        ) { completion in
             let session = sessions.removeFirst()
             session.completion = completion
             return session
@@ -128,6 +139,7 @@ private extension GitLabOAuthWebAuthenticationTests {
     }
 
     func makeAuthenticator(
+        presentationAnchor: ASPresentationAnchor,
         sessionFactory:
             @escaping (
                 @escaping (URL?, (any Error)?) -> Void
@@ -138,7 +150,7 @@ private extension GitLabOAuthWebAuthenticationTests {
                 sessionFactory(completion)
             },
             presentationAnchorProvider: {
-                ASPresentationAnchor()
+                presentationAnchor
             }
         )
     }
