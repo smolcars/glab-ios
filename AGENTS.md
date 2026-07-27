@@ -7,6 +7,7 @@
 - Use liquid glass as much as possible for things.
 - Use the ios simulator to test your changes for yourself after you build them.
 - Always use the gitlab API documentation as the source of truth.
+- Always plan first before coding.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
