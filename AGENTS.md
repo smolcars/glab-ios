@@ -9,6 +9,7 @@
 - Run the simulator and look at the UI and see if the UI looks good and not broken and tap around to test.
 - Always use the gitlab API documentation as the source of truth.
 - Always plan first before coding.
+- When making UI changes, always consider the user experience and design guidelines/design skill.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
