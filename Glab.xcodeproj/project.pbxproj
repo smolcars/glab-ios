@@ -324,7 +324,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				GLAB_GITLAB_COM_OAUTH_APPLICATION_ID = 2d801cac91f7dd586d467a8f6293540546b66bbc6222699d10b0db34ea5b7307;
-				INFOPLIST_FILE = Configuration/Glab-Info.plist;
+				INFOPLIST_FILE = "Configuration/Glab-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Glab;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -362,7 +362,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				GLAB_GITLAB_COM_OAUTH_APPLICATION_ID = 2d801cac91f7dd586d467a8f6293540546b66bbc6222699d10b0db34ea5b7307;
-				INFOPLIST_FILE = Configuration/Glab-Info.plist;
+				INFOPLIST_FILE = "Configuration/Glab-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = Glab;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
