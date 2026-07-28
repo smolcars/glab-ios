@@ -543,6 +543,12 @@ struct GitLabDiscussionCard: View {
                         apiAccess: apiAccess,
                         reactionService:
                             reactionService,
+                        reply:
+                            note.isSystem
+                            ? nil
+                            : reply,
+                        replyAccessibilityIdentifier:
+                            "discussion.reply.\(discussion.id).note.\(note.id)",
                         showsResolvedBadge:
                             resolutionModel
                                 == nil,
@@ -553,18 +559,16 @@ struct GitLabDiscussionCard: View {
             }
 
             if
-                reply != nil
-                    || resolutionModel?
-                        .status(
-                            for: discussion
-                        ) != nil
+                resolutionModel?
+                    .status(
+                        for: discussion
+                    ) != nil
             {
                 Divider()
                     .padding(.leading, 46)
 
                 GitLabDiscussionThreadFooter(
                     discussion: discussion,
-                    reply: reply,
                     resolutionModel:
                         resolutionModel,
                     apiAccess: apiAccess
@@ -602,6 +606,9 @@ private struct GitLabDiscussionNoteView: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let reply: (() -> Void)?
+    let replyAccessibilityIdentifier:
+        String
     let showsResolvedBadge: Bool
     let appSession: AppSession
 
@@ -628,6 +635,9 @@ private struct GitLabDiscussionNoteView: View {
                         reactionService,
                     allowsMutation:
                         !note.isSystem,
+                    reply: reply,
+                    replyAccessibilityIdentifier:
+                        replyAccessibilityIdentifier,
                     accountID: accountID,
                     appSession: appSession
                 )
@@ -838,7 +848,6 @@ private struct GitLabDiscussionThreadFooter:
     View
 {
     let discussion: GitLabDiscussion
-    let reply: (() -> Void)?
     let resolutionModel:
         GitLabDiscussionResolutionModel?
     let apiAccess: GitLabAPIAccess
@@ -869,46 +878,12 @@ private struct GitLabDiscussionThreadFooter:
             alignment: .leading,
             spacing: 8
         ) {
-            ViewThatFits(
-                in: .horizontal
-            ) {
-                HStack(spacing: 10) {
-                    replyControl
-                    Spacer(minLength: 4)
-                    resolutionControl
-                }
-
-                VStack(
-                    alignment: .leading,
-                    spacing: 8
-                ) {
-                    replyControl
-                    resolutionControl
-                }
+            HStack {
+                Spacer(minLength: 0)
+                resolutionControl
             }
 
             resolutionDetails
-        }
-    }
-
-    @ViewBuilder
-    private var replyControl: some View {
-        if let reply {
-            Button(
-                "Reply",
-                systemImage:
-                    "arrowshape.turn.up.left"
-            ) {
-                reply()
-            }
-            .buttonStyle(.glass)
-            .frame(minHeight: 44)
-            .accessibilityIdentifier(
-                "discussion.reply.\(discussion.id)"
-            )
-            .accessibilityHint(
-                "Opens a Markdown reply editor."
-            )
         }
     }
 
@@ -982,13 +957,15 @@ private struct GitLabDiscussionThreadFooter:
                         )
                     }
                     .font(
-                        .subheadline
+                        .callout
                             .weight(.semibold)
                     )
-                    .frame(minHeight: 44)
                 }
                 .buttonStyle(.glass)
+                .controlSize(.small)
                 .tint(.orange)
+                .frame(minHeight: 44)
+                .contentShape(.rect)
                 .disabled(
                     !presentation
                         .isActionEnabled

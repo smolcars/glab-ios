@@ -97,6 +97,54 @@ struct GitLabMergeRequestReadinessTests {
         )
     }
 
+    @Test("Provides concise collapsed summaries")
+    func providesCompactSummaries() {
+        let ready = makeReadiness()
+        let blockedAndPending = makeReadiness(
+            detailedStatus: "not_approved",
+            draft: true,
+            pipelineStatus: "manual",
+            approvals:
+                .available(
+                    GitLabMergeRequestApprovalSummary(
+                        approved: false,
+                        approvalsRequired: 3,
+                        approvalsLeft: 2,
+                        approvedBy: []
+                    )
+                )
+        )
+        let pending = makeReadiness(
+            pipelineStatus: "running"
+        )
+        let unavailable = makeReadiness(
+            approvalState:
+                .failed(
+                    .api(
+                        .server(statusCode: 503)
+                    )
+                )
+        )
+
+        #expect(
+            ready.compactSummary
+                == "All checks clear"
+        )
+        #expect(
+            blockedAndPending
+                .compactSummary
+                == "2 need attention · 1 in progress"
+        )
+        #expect(
+            pending.compactSummary
+                == "1 check in progress"
+        )
+        #expect(
+            unavailable.compactSummary
+                == "1 check unavailable"
+        )
+    }
+
     @Test(
         "Maps transient detailed statuses to pending",
         arguments: [

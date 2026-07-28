@@ -2,6 +2,9 @@ import SwiftUI
 
 struct GitLabEmojiReactionView: View {
     let allowsMutation: Bool
+    let reply: (() -> Void)?
+    let replyAccessibilityIdentifier:
+        String?
     let accountID: GitLabAccountID
     let appSession: AppSession
 
@@ -19,10 +22,16 @@ struct GitLabEmojiReactionView: View {
         mutator:
             any GitLabEmojiReactionMutating,
         allowsMutation: Bool = true,
+        reply: (() -> Void)? = nil,
+        replyAccessibilityIdentifier:
+            String? = nil,
         accountID: GitLabAccountID,
         appSession: AppSession
     ) {
         self.allowsMutation = allowsMutation
+        self.reply = reply
+        self.replyAccessibilityIdentifier =
+            replyAccessibilityIdentifier
         self.accountID = accountID
         self.appSession = appSession
         _model = State(
@@ -89,6 +98,7 @@ struct GitLabEmojiReactionView: View {
     private var showsContent: Bool {
         !model.groups.isEmpty
             || model.loadError != nil
+            || reply != nil
             || (
                 allowsMutation
                     && model.hasWriteAccess
@@ -98,7 +108,10 @@ struct GitLabEmojiReactionView: View {
     private var reactionControls:
         some View
     {
-        HStack(spacing: 8) {
+        VStack(
+            alignment: .leading,
+            spacing: 8
+        ) {
             if !model.groups.isEmpty {
                 ScrollView(
                     .horizontal,
@@ -114,17 +127,15 @@ struct GitLabEmojiReactionView: View {
                 }
             }
 
-            if
+            if let reply {
+                commentActionPill(reply)
+            } else if
                 allowsMutation,
                 model.hasWriteAccess
             {
-                reactionPicker
+                standaloneReactionPicker
             }
         }
-        .accessibilityLabel("Emoji reactions")
-        .accessibilityHint(
-            readOnlyAccessibilityHint
-        )
     }
 
     @ViewBuilder
@@ -235,17 +246,90 @@ struct GitLabEmojiReactionView: View {
         .contentShape(.capsule)
     }
 
-    private var reactionPicker: some View {
-        Button {
-            isPickerPresented = true
-        } label: {
-            Text("🙂")
-                .font(.title3)
+    private var standaloneReactionPicker:
+        some View
+    {
+        reactionPicker(
+            showsOwnGlass: true
+        )
+    }
+
+    private func commentActionPill(
+        _ reply: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 0) {
+            Button {
+                reply()
+            } label: {
+                Image(
+                    systemName:
+                        "arrowshape.turn.up.left"
+                )
+                .font(.body)
                 .frame(
                     width: 44,
                     height: 44
                 )
                 .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Reply")
+            .accessibilityHint(
+                "Opens a Markdown reply editor."
+            )
+            .accessibilityIdentifier(
+                replyAccessibilityIdentifier
+                    ?? targetIdentifier
+                        + ".reply"
+            )
+
+            if
+                allowsMutation,
+                model.hasWriteAccess
+            {
+                Divider()
+                    .frame(height: 20)
+                    .accessibilityHidden(true)
+
+                reactionPicker(
+                    showsOwnGlass: false
+                )
+            }
+        }
+        .foregroundStyle(.orange)
+        .glassEffect(
+            .regular.interactive()
+        )
+    }
+
+    private func reactionPicker(
+        showsOwnGlass: Bool
+    ) -> some View {
+        Button {
+            isPickerPresented = true
+        } label: {
+            ZStack {
+                if showsOwnGlass {
+                    Color.clear
+                        .frame(
+                            width: 32,
+                            height: 32
+                        )
+                        .glassEffect(
+                            .regular
+                                .interactive(),
+                            in: Circle()
+                        )
+                }
+
+                Text("🙂")
+                    .font(.body)
+            }
+            .frame(
+                width: 44,
+                height: 44
+            )
+            .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .disabled(!model.canMutate)

@@ -6,20 +6,26 @@ struct GitLabMergeRequestReadinessView: View {
     let approvalError:
         GitLabSessionClientError?
     let retryApproval: () -> Void
+    @State private var isExpanded = false
 
     var body: some View {
         GitLabDetailSection(
             title: "Merge readiness"
         ) {
             VStack(spacing: 0) {
-                overallRow
+                summaryControl
 
-                ForEach(readiness.checks) {
-                    check in
-                    Divider()
-                        .padding(.leading, 52)
+                if isExpanded {
+                    ForEach(readiness.checks) {
+                        check in
+                        Divider()
+                            .padding(
+                                .leading,
+                                44
+                            )
 
-                    checkRow(check)
+                        checkRow(check)
+                    }
                 }
             }
             .background(
@@ -47,41 +53,65 @@ struct GitLabMergeRequestReadinessView: View {
         }
     }
 
-    private var overallRow: some View {
-        HStack(
-            alignment: .top,
-            spacing: 12
-        ) {
-            Image(
-                systemName:
-                    readiness.overall.systemImage
-            )
-            .font(.title3)
-            .foregroundStyle(
-                readiness.overall.tint
-            )
-            .frame(width: 24)
-            .accessibilityHidden(true)
+    private var summaryControl: some View {
+        Button {
+            isExpanded.toggle()
+        } label: {
+            HStack(spacing: 10) {
+                Image(
+                    systemName:
+                        readiness.overall
+                        .systemImage
+                )
+                .font(.body)
+                .foregroundStyle(
+                    readiness.overall.tint
+                )
+                .frame(width: 22)
+                .accessibilityHidden(true)
 
-            VStack(
-                alignment: .leading,
-                spacing: 3
-            ) {
-                Text(readiness.overall.title)
+                VStack(
+                    alignment: .leading,
+                    spacing: 1
+                ) {
+                    Text(
+                        readiness.overall.title
+                    )
                     .font(
-                        .body.weight(.semibold)
+                        .callout.weight(
+                            .semibold
+                        )
                     )
 
-                Text(readiness.overall.detail)
-                    .font(.subheadline)
+                    Text(
+                        readiness.compactSummary
+                    )
+                    .font(.caption)
                     .foregroundStyle(.secondary)
+                }
+                .frame(
+                    maxWidth: .infinity,
+                    alignment: .leading
+                )
+
+                Image(
+                    systemName:
+                        isExpanded
+                        ? "chevron.up"
+                        : "chevron.down"
+                )
+                .font(
+                    .caption.weight(.semibold)
+                )
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             }
-            .frame(
-                maxWidth: .infinity,
-                alignment: .leading
-            )
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .frame(minHeight: 44)
+            .contentShape(.rect)
         }
-        .padding(16)
+        .buttonStyle(.plain)
         .accessibilityElement(
             children: .ignore
         )
@@ -89,7 +119,15 @@ struct GitLabMergeRequestReadinessView: View {
             readiness.accessibilityLabel
         )
         .accessibilityValue(
-            readiness.overall.detail
+            readiness.compactSummary
+                + (isExpanded
+                    ? ", expanded"
+                    : ", collapsed")
+        )
+        .accessibilityHint(
+            isExpanded
+                ? "Collapses merge readiness details."
+                : "Expands merge readiness details."
         )
         .accessibilityIdentifier(
             "mergeRequests.readiness.overall"
@@ -102,26 +140,26 @@ struct GitLabMergeRequestReadinessView: View {
     ) -> some View {
         HStack(
             alignment: .center,
-            spacing: 12
+            spacing: 10
         ) {
             HStack(
                 alignment: .top,
-                spacing: 12
+                spacing: 10
             ) {
                 Image(
                     systemName:
                         check.state.systemImage
                 )
-                .font(.body)
+                .font(.callout)
                 .foregroundStyle(
                     check.state.tint
                 )
-                .frame(width: 24)
+                .frame(width: 22)
                 .accessibilityHidden(true)
 
                 VStack(
                     alignment: .leading,
-                    spacing: 3
+                    spacing: 2
                 ) {
                     Text(check.kind.title)
                         .font(.caption)
@@ -131,13 +169,13 @@ struct GitLabMergeRequestReadinessView: View {
 
                     Text(check.title)
                         .font(
-                            .body.weight(
+                            .callout.weight(
                                 .semibold
                             )
                         )
 
                     Text(check.detail)
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundStyle(
                             .secondary
                         )
@@ -165,24 +203,22 @@ struct GitLabMergeRequestReadinessView: View {
                         systemName:
                             "arrow.up.right"
                     )
-                    .font(
-                        .callout.weight(
-                            .semibold
-                        )
-                    )
-                    .frame(
-                        width: 28,
-                        height: 28
-                    )
+                    .font(.caption.weight(.semibold))
                 }
                 .buttonStyle(.glass)
+                .controlSize(.small)
+                .frame(
+                    width: 44,
+                    height: 44
+                )
+                .contentShape(.rect)
                 .accessibilityLabel(
                     "Open \(check.kind.title.lowercased()) in GitLab"
                 )
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .accessibilityIdentifier(
             "mergeRequests.readiness."
                 + check.kind

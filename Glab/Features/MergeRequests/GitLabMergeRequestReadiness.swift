@@ -257,6 +257,77 @@ nonisolated struct GitLabMergeRequestReadiness:
         "Merge readiness, \(overall.title)"
     }
 
+    var compactSummary: String {
+        let categories: [
+            (
+                count: Int,
+                singular: String,
+                plural: String
+            )
+        ] = [
+            (
+                checks.count {
+                    $0.state == .blocked
+                },
+                "needs attention",
+                "need attention"
+            ),
+            (
+                checks.count {
+                    $0.state == .pending
+                },
+                "in progress",
+                "in progress"
+            ),
+            (
+                checks.count {
+                    $0.state == .unavailable
+                        || $0.state == .unknown
+                },
+                "unavailable",
+                "unavailable"
+            ),
+        ]
+        let active = categories.filter {
+            $0.count > 0
+        }
+
+        if active.count == 1,
+           let category = active.first
+        {
+            let noun =
+                category.count == 1
+                ? "check"
+                : "checks"
+            let phrase =
+                category.count == 1
+                ? category.singular
+                : category.plural
+            return "\(category.count) \(noun) \(phrase)"
+        }
+        if !active.isEmpty {
+            return active.map {
+                let phrase =
+                    $0.count == 1
+                    ? $0.singular
+                    : $0.plural
+                return "\($0.count) \(phrase)"
+            }
+            .joined(separator: " · ")
+        }
+
+        switch overall {
+        case .ready:
+            return "All checks clear"
+        case .blocked:
+            return "Requirements need attention"
+        case .pending:
+            return "GitLab is checking"
+        case .unknown:
+            return "Details unavailable"
+        }
+    }
+
     private static func overallState(
         mergeRequestState:
             GitLabMergeRequestStateKind,
