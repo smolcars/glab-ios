@@ -199,6 +199,6 @@ private nonisolated func testDocument(
         hunks: [],
         lineCount: 1,
         estimatedCacheCost: source.utf8.count,
-        maximumRenderedLineLength: source.count
+        maximumRenderedColumnCount: source.count
     )
 }

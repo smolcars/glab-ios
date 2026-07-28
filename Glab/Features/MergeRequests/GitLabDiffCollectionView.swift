@@ -20,12 +20,12 @@ enum GitLabDiffLayoutMetrics {
     }
 
     static func contentWidth(
-        maximumLineLength: Int,
+        maximumColumnCount: Int,
         rowHeight: CGFloat
     ) -> CGFloat {
         let scale = scale(for: rowHeight)
         let estimated =
-            CGFloat(maximumLineLength)
+            CGFloat(maximumColumnCount)
                 * 8 * scale
                 + 124 * scale
         return min(

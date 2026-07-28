@@ -709,6 +709,14 @@ simulator evidence.
 - Row height and font respected Dynamic Type, but the first UIKit pass kept
   default-size gutter and content-width estimates. Large accessibility sizes
   could therefore clip line numbers or long code horizontally.
+- The selected-file task identity includes account, merge request, head, and
+  path, but not the patch revision. A stale cached first page can therefore be
+  replaced by corrected network text for the same file without retriggering
+  parsing, leaving the cached document visible until the user navigates away.
+- The parser records Swift grapheme count as the maximum rendered line length.
+  Tabs advance multiple columns and wide Unicode glyphs commonly occupy two,
+  so the collection content width can under-allocate valid source and clip it
+  with no remaining horizontal scroll range.
 
 ### Repair plan
 
@@ -722,6 +730,17 @@ simulator evidence.
    hunk, file-switch, unavailable-state, and two-axis scroll checks.
 4. Derive gutters and content width from the same scaled row metric as the
    font, while retaining the documented width cap for pathological lines.
+5. Add a regression proving that two payloads with the same account, route,
+   head, and path but different patch text have distinct document identities.
+   Precompute a privacy-safe patch digest while constructing the diff file and
+   include it in the selected-file task and collection identity.
+6. Replace the ambiguous maximum-line-length metric with an estimated rendered
+   column count calculated off MainActor. Add parser and layout tests covering
+   tab stops, combining marks, and wide Unicode before using it to size the
+   horizontal content surface.
+7. Run the focused model/parser/renderer suites first, then repeat the live
+   cache-warm file selection, Unicode/long-line, hunk-jump, and two-axis
+   simulator checks before closing the findings.
 
 ## Non-goals
 

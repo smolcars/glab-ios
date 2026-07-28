@@ -191,7 +191,8 @@ struct GitLabDiffCollectionViewPerformanceTests {
                 GitLabMergeRequestDiffFileID(
                     oldPath: "Sources/File.swift",
                     newPath: "Sources/File.swift"
-                )
+                ),
+            sourceDigest: Data([0x01])
         )
     }
 
@@ -284,9 +285,9 @@ private final class RendererHost {
                 contentWidth:
                     GitLabDiffLayoutMetrics
                     .contentWidth(
-                        maximumLineLength:
+                        maximumColumnCount:
                             document
-                            .maximumRenderedLineLength,
+                            .maximumRenderedColumnCount,
                         rowHeight:
                             GitLabDiffLayoutMetrics
                             .baseRowHeight

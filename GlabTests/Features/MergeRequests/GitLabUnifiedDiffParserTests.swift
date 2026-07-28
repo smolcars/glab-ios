@@ -100,7 +100,7 @@ struct GitLabUnifiedDiffParserTests {
         #expect(document.lineCount == 13)
         #expect(document.estimatedCacheCost > 0)
         #expect(
-            document.maximumRenderedLineLength
+            document.maximumRenderedColumnCount
                 == 50
         )
     }
@@ -122,6 +122,42 @@ struct GitLabUnifiedDiffParserTests {
                 .map(\.text)
                 == ["same", "old", "new"]
         )
+    }
+
+    @Test("Measures tabs, combining marks, and wide Unicode as display columns")
+    func measuresRenderedColumns() async throws {
+        let document =
+            try await GitLabUnifiedDiffParser.parse(
+                "@@ -0,0 +1 @@\n+\tA\u{301}界🙂\t\t"
+            )
+
+        #expect(
+            document.maximumRenderedColumnCount
+                == 16
+        )
+    }
+
+    @Test(
+        "Uses rendered columns when allocating horizontal scroll width"
+    )
+    @MainActor
+    func sizesHorizontalContentByRenderedColumns() {
+        let narrow =
+            GitLabDiffLayoutMetrics.contentWidth(
+                maximumColumnCount: 100,
+                rowHeight:
+                    GitLabDiffLayoutMetrics
+                        .baseRowHeight
+            )
+        let wide =
+            GitLabDiffLayoutMetrics.contentWidth(
+                maximumColumnCount: 200,
+                rowHeight:
+                    GitLabDiffLayoutMetrics
+                        .baseRowHeight
+            )
+
+        #expect(wide > narrow)
     }
 
     @Test("Uses count one when a hunk range omits its count")

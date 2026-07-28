@@ -221,7 +221,8 @@ struct GitLabMergeRequestDiffTests {
             accountID: firstAccount,
             route: route,
             headSHA: "head-a",
-            fileID: fileID
+            fileID: fileID,
+            sourceDigest: Data([0x01])
         )
 
         #expect(
@@ -230,7 +231,8 @@ struct GitLabMergeRequestDiffTests {
                     accountID: firstAccount,
                     route: route,
                     headSHA: "head-a",
-                    fileID: fileID
+                    fileID: fileID,
+                    sourceDigest: Data([0x01])
                 )
         )
         #expect(
@@ -240,7 +242,8 @@ struct GitLabMergeRequestDiffTests {
                     accountID: secondAccount,
                     route: route,
                     headSHA: "head-a",
-                    fileID: fileID
+                    fileID: fileID,
+                    sourceDigest: Data([0x01])
                 ),
                 GitLabDiffDocumentID(
                     accountID: firstAccount,
@@ -250,13 +253,15 @@ struct GitLabMergeRequestDiffTests {
                             mergeRequestIID: 7
                         ),
                     headSHA: "head-a",
-                    fileID: fileID
+                    fileID: fileID,
+                    sourceDigest: Data([0x01])
                 ),
                 GitLabDiffDocumentID(
                     accountID: firstAccount,
                     route: route,
                     headSHA: "head-b",
-                    fileID: fileID
+                    fileID: fileID,
+                    sourceDigest: Data([0x01])
                 ),
                 GitLabDiffDocumentID(
                     accountID: firstAccount,
@@ -268,9 +273,37 @@ struct GitLabMergeRequestDiffTests {
                                 "Sources/Other.swift",
                             newPath:
                                 "Sources/Other.swift"
-                        )
+                        ),
+                    sourceDigest: Data([0x01])
                 ),
-            ]).count == 5
+                GitLabDiffDocumentID(
+                    accountID: firstAccount,
+                    route: route,
+                    headSHA: "head-a",
+                    fileID: fileID,
+                    sourceDigest: Data([0x02])
+                ),
+            ]).count == 6
+        )
+    }
+
+    @Test("Changes the source digest when corrected patch text arrives")
+    func distinguishesCorrectedPatchText() {
+        let cached = GitLabMergeRequestDiffFile(
+            oldPath: "Sources/File.swift",
+            newPath: "Sources/File.swift",
+            diff: "@@ -1 +1 @@\n-old\n+cached"
+        )
+        let network = GitLabMergeRequestDiffFile(
+            oldPath: "Sources/File.swift",
+            newPath: "Sources/File.swift",
+            diff: "@@ -1 +1 @@\n-old\n+network"
+        )
+
+        #expect(cached.id == network.id)
+        #expect(
+            cached.diffSourceDigest
+                != network.diffSourceDigest
         )
     }
 

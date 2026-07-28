@@ -19,6 +19,7 @@ nonisolated struct GitLabDiffDocumentID:
     let route: GitLabMergeRequestRoute
     let headSHA: String
     let fileID: GitLabMergeRequestDiffFileID
+    let sourceDigest: Data
 }
 
 nonisolated enum GitLabMergeRequestDiffAvailability:
@@ -58,6 +59,7 @@ nonisolated struct GitLabMergeRequestDiffFile:
     let isGeneratedFile: Bool
     let isCollapsed: Bool
     let isTooLarge: Bool
+    let diffSourceDigest: Data
 
     init(
         oldPath: String,
@@ -83,6 +85,11 @@ nonisolated struct GitLabMergeRequestDiffFile:
         self.isGeneratedFile = isGeneratedFile
         self.isCollapsed = isCollapsed
         self.isTooLarge = isTooLarge
+        diffSourceDigest = Data(
+            SHA256.hash(
+                data: Data(diff.utf8)
+            )
+        )
     }
 
     var id: GitLabMergeRequestDiffFileID {

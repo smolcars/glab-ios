@@ -79,7 +79,7 @@ nonisolated struct GitLabParsedDiffDocument:
     let hunks: [GitLabDiffHunk]
     let lineCount: Int
     let estimatedCacheCost: Int
-    let maximumRenderedLineLength: Int
+    let maximumRenderedColumnCount: Int
 }
 
 nonisolated enum GitLabUnifiedDiffParserError:
@@ -118,7 +118,7 @@ nonisolated enum GitLabUnifiedDiffParser {
                 hunks: [],
                 lineCount: 0,
                 estimatedCacheCost: 0,
-                maximumRenderedLineLength: 0
+                maximumRenderedColumnCount: 0
             )
         }
 
@@ -142,7 +142,7 @@ nonisolated enum GitLabUnifiedDiffParser {
         var isInsideHunk = false
         var lineOrdinal = 0
         var renderedTextCost = 0
-        var maximumRenderedLineLength = 0
+        var maximumRenderedColumnCount = 0
 
         for (index, rawSourceLine) in sourceLines.enumerated() {
             if index.isMultiple(of: 256) {
@@ -192,8 +192,8 @@ nonisolated enum GitLabUnifiedDiffParser {
                     header,
                     renderedTextCost:
                         &renderedTextCost,
-                    maximumLength:
-                        &maximumRenderedLineLength
+                    maximumColumns:
+                        &maximumRenderedColumnCount
                 )
                 continue
             }
@@ -207,8 +207,8 @@ nonisolated enum GitLabUnifiedDiffParser {
                     metadata,
                     renderedTextCost:
                         &renderedTextCost,
-                    maximumLength:
-                        &maximumRenderedLineLength
+                    maximumColumns:
+                        &maximumRenderedColumnCount
                 )
                 continue
             }
@@ -224,8 +224,8 @@ nonisolated enum GitLabUnifiedDiffParser {
                     marker,
                     renderedTextCost:
                         &renderedTextCost,
-                    maximumLength:
-                        &maximumRenderedLineLength
+                    maximumColumns:
+                        &maximumRenderedColumnCount
                 )
                 continue
             }
@@ -287,8 +287,8 @@ nonisolated enum GitLabUnifiedDiffParser {
                     metadata,
                     renderedTextCost:
                         &renderedTextCost,
-                    maximumLength:
-                        &maximumRenderedLineLength
+                    maximumColumns:
+                        &maximumRenderedColumnCount
                 )
                 continue
             }
@@ -298,8 +298,8 @@ nonisolated enum GitLabUnifiedDiffParser {
                 text,
                 renderedTextCost:
                     &renderedTextCost,
-                maximumLength:
-                    &maximumRenderedLineLength
+                maximumColumns:
+                    &maximumRenderedColumnCount
             )
         }
 
@@ -314,8 +314,8 @@ nonisolated enum GitLabUnifiedDiffParser {
             hunks: hunks,
             lineCount: sourceLines.count,
             estimatedCacheCost: estimatedCacheCost,
-            maximumRenderedLineLength:
-                maximumRenderedLineLength
+            maximumRenderedColumnCount:
+                maximumRenderedColumnCount
         )
     }
 
@@ -420,12 +420,40 @@ nonisolated enum GitLabUnifiedDiffParser {
     private static func record(
         _ text: String,
         renderedTextCost: inout Int,
-        maximumLength: inout Int
+        maximumColumns: inout Int
     ) {
         renderedTextCost += text.utf8.count
-        maximumLength = max(
-            maximumLength,
-            text.count
+        maximumColumns = max(
+            maximumColumns,
+            renderedColumnCount(text)
         )
+    }
+
+    private static func renderedColumnCount(
+        _ text: String
+    ) -> Int {
+        let tabWidth = 4
+        var columns = 0
+
+        for scalar in text.unicodeScalars {
+            if scalar.value == 0x09 {
+                columns +=
+                    tabWidth - columns % tabWidth
+                continue
+            }
+
+            switch scalar.properties.generalCategory {
+            case .nonspacingMark,
+                 .enclosingMark,
+                 .format:
+                continue
+            default:
+                columns += scalar.value < 0x80
+                    ? 1
+                    : 2
+            }
+        }
+
+        return columns
     }
 }

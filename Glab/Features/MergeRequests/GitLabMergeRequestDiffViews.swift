@@ -551,13 +551,20 @@ private struct GitLabMergeRequestDiffFileView: View {
                         "GitLab returned an empty patch "
                         + "for this file."
                 )
-            } else {
+            } else if let selectedDocumentID {
                 GitLabDiffDocumentView(
                     document: document,
                     documentID:
                         selectedDocumentID,
                     selectedHunkJump:
                         selectedHunkJump
+                )
+            } else {
+                unavailableContent(
+                    title: "File no longer loaded",
+                    message:
+                        "Return to the changed-file list "
+                        + "and select this file again."
                 )
             }
         case let .failed(message):
@@ -688,13 +695,18 @@ private struct GitLabMergeRequestDiffFileView: View {
     }
 
     private var selectedDocumentID:
-        GitLabDiffDocumentID
+        GitLabDiffDocumentID?
     {
-        GitLabDiffDocumentID(
+        guard let selectedFile else {
+            return nil
+        }
+        return GitLabDiffDocumentID(
             accountID: accountID,
             route: route,
             headSHA: headSHA,
-            fileID: selectedFileID
+            fileID: selectedFileID,
+            sourceDigest:
+                selectedFile.diffSourceDigest
         )
     }
 
@@ -810,8 +822,8 @@ private struct GitLabDiffDocumentView: View {
 
     private var minimumContentWidth: CGFloat {
         GitLabDiffLayoutMetrics.contentWidth(
-            maximumLineLength:
-                document.maximumRenderedLineLength,
+            maximumColumnCount:
+                document.maximumRenderedColumnCount,
             rowHeight: rowHeight
         )
     }
