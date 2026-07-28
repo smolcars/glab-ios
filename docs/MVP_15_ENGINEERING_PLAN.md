@@ -2,10 +2,9 @@
 
 Last updated: 2026-07-27
 
-Status: in progress. Release configuration and repeatable checks can be
-completed locally. Live OAuth and GitLab.com token rows remain dependent on
-credentials and registered OAuth applications that are not currently
-configured.
+Status: repository-side release work is complete. Live OAuth, GitLab.com
+token, App Store distribution validation, and the remaining environment-owned
+visual rows are still pending; the results are recorded below.
 
 ## Outcome
 
@@ -33,14 +32,12 @@ offering.
 - The project targets iPhone on iOS 26 or newer, uses bundle identifier
   `com.glab.ios`, version `1.0` build `1`, automatic signing, and the configured
   Apple development team.
-- The asset catalog has the GitLab sign-in logo but no `AppIcon` set. Apple
-  requires an app icon before distribution.
-- The app explains its API scope and privacy behavior, but the repository has
-  no public privacy policy and the app has no privacy-policy link. Apple
-  requires the policy in App Store Connect and inside the app.
-- The app uses only system HTTPS/TLS cryptography, but
-  `ITSAppUsesNonExemptEncryption` is absent. Declaring exempt encryption as
-  `NO` avoids repeating App Store Connect's export questionnaire.
+- The asset catalog contains a distinctive Glab app icon that does not use
+  official GitLab or GitHub branding.
+- The repository contains a public privacy policy and the app links to it from
+  the signed-out and Account privacy presentations.
+- The app uses only system HTTPS/TLS cryptography and declares
+  `ITSAppUsesNonExemptEncryption` as `false`.
 - The privacy manifest declares app-owned `UserDefaults` reason `CA92.1`, no
   tracking, and no collected data. The final archive must contain that exact
   manifest.
@@ -193,3 +190,77 @@ result.
    and repository cleanliness pass.
 8. Each verified slice is committed and pushed to `master`; blocked external
    rows remain visible and are never converted into false checkmarks.
+
+## Release-candidate verification record
+
+Candidate code commit: `f788c44`
+
+### Automated gates
+
+- The complete signed suite passes 244 logical tests in 44 suites on a fresh,
+  credential-free iPhone 17 Pro simulator running iOS 26.5.
+- Xcode static analysis succeeds. Its only diagnostic is the Xcode toolchain's
+  skipped App Intents metadata extraction for a target that does not use App
+  Intents.
+- The signed Release archive succeeds and contains one `arm64` iPhone app,
+  bundle identifier `com.glab.ios`, version `1.0` build `1`, minimum iOS 26.0,
+  the `glab` callback scheme, the primary app icon, privacy manifest, and
+  `ITSAppUsesNonExemptEncryption = false`. It contains no test bundle.
+- The archived privacy manifest declares no tracking, tracking domains, or
+  collected data, and only the app-owned `UserDefaults` required-reason
+  category `CA92.1`.
+- Tracked-source and archive scans find no configured token or host value.
+  Production-source scans find no logging calls that could expose API data.
+- The local archive is development-signed, including
+  `get-task-allow = true`. Organizer/App Store Connect distribution signing and
+  validation remain a separate release-owner action; a successful local
+  archive is not presented as App Store validation.
+
+### Authentication matrix
+
+| Row | Result |
+| --- | --- |
+| GitLab.com OAuth | Blocked: no registered Glab Application ID is configured |
+| GitLab.com personal access token | Blocked: no GitLab.com test token is configured |
+| Self-managed OAuth | Blocked: no instance Application ID or web-login test account is configured |
+| Self-managed personal access token | Passed from a fresh install: live validation, read-only capability, and Keychain-backed relaunch restoration |
+
+The available self-managed host later became unreachable from both macOS and
+the simulator. The outage prevented a current server-version query and the
+remaining populated large-device rows; it did not affect the deterministic
+client/model gates or the already completed fresh-install session proof.
+
+### State and device matrix
+
+- The live read-only self-managed session covered Home, Todos, every
+  pending/done and all/issues/merge-requests filter combination, disabled
+  mutation explanations, account/privacy, sign-out confirmation, and all five
+  Home shortcut routes on iPhone 13 mini.
+- The small-device pass covered dark appearance and the largest accessibility
+  text size. The redesigned signed-out flow was separately inspected on iPhone
+  17 Pro Max in light/default and dark/large-text configurations, including
+  the privacy, OAuth setup, and token sheets.
+- Empty, expired-session, offline, rate-limit, permission, retained-refresh,
+  pagination, retry, cancellation, and optimistic mutation rollback states are
+  covered deterministically by the signed test suite. Live timeout/retry and
+  empty-retry loading behavior were also exercised without mutating GitLab
+  data.
+- The default Home Screen app icon is visually legible. Dark/tinted Home
+  Screen variants remain pending because the host Mac was locked and Simulator
+  command-line automation cannot change the system icon treatment.
+- A signed-in large-device walkthrough and a repeated live server-version
+  query remain pending until the configured self-managed host is reachable.
+
+### Compatibility declaration
+
+- Glab supports iPhone on iOS 26 or newer.
+- The declared self-managed GitLab floor is 15.5 because the token capability
+  check uses `GET /personal_access_tokens/self`, introduced in GitLab 15.5.
+- Self-managed instances must use HTTPS with a certificate trusted by iOS.
+- The configured live server version could not be recorded during this pass
+  because the server became unreachable; the declared floor is therefore
+  documentation-derived, not claimed as a live older-server compatibility
+  test.
+
+MVP-15 and MVP-05 remain unchecked until the live OAuth rows, GitLab.com token
+row, outstanding device rows, and distribution validation are completed.

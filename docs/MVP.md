@@ -432,6 +432,21 @@ Exit criteria:
 - There are no known crashes, credential leaks, dead-end screens, or blocking
   accessibility issues in the MVP paths.
 
+Implementation status:
+
+- Repository-side release metadata, the app icon, privacy policy/link, export
+  declaration, signed Release archive, complete signed test suite, static
+  analysis, source/archive secret scans, and available self-managed
+  personal-token verification pass.
+- The declared support floor is iOS 26+ and GitLab 15.5+ over HTTPS with a
+  certificate trusted by iOS.
+- GitLab.com OAuth, GitLab.com token, self-managed OAuth, App Store
+  distribution validation, and the remaining environment-owned device rows
+  are still pending. See the
+  [MVP-15 verification record](MVP_15_ENGINEERING_PLAN.md#release-candidate-verification-record).
+- This item and MVP-05 deliberately remain unchecked; deterministic tests do
+  not replace the required live authentication rows.
+
 ## Explicitly out of MVP
 
 - Push notifications, background refresh, Live Activities, widgets, and badges

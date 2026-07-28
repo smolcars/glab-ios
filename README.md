@@ -37,9 +37,11 @@ Glab is under active MVP development. The current app includes:
 - In-app privacy/API-scope explanations, redacted secret-bearing types, and an
   App Store privacy manifest declaring no tracking or collected data.
 
-Feature implementation through MVP-14 is complete. Clean-install account
-matrix testing and release verification in MVP-15 are next; the ordered scope
-and acceptance criteria live in [the MVP checklist](docs/MVP.md).
+Feature implementation through MVP-14 and the repository-side MVP-15 release
+gates are complete. The available self-managed personal-token clean-install
+row passes; live OAuth, GitLab.com token, remaining environment-owned device,
+and App Store distribution checks are still open. The exact results live in
+[the MVP-15 verification record](docs/MVP_15_ENGINEERING_PLAN.md#release-candidate-verification-record).
 
 GitLab.com OAuth logic is implemented, but its clean-install live callback
 remains an explicit release-verification item until a real public Application
@@ -49,8 +51,13 @@ ID is configured. See [OAuth setup](docs/OAUTH_SETUP.md).
 
 - macOS with an Xcode release that includes the iOS 26 SDK.
 - iOS 26 or newer.
-- A GitLab.com account or an HTTPS self-managed GitLab instance whose
-  certificate is trusted by iOS.
+- GitLab.com, or GitLab 15.5 or newer for self-managed instances.
+- HTTPS with a certificate trusted by iOS for self-managed instances.
+
+GitLab 15.5 is the declared self-managed floor because Glab uses
+`GET /personal_access_tokens/self` to determine a personal token's capabilities
+and expiry. The current release pass did not exercise every supported GitLab
+server version.
 
 ## Build and run
 

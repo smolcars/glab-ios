@@ -391,3 +391,54 @@ Scope:
   its tests do not link App Intents, then reports that extraction was skipped.
   This is an unused-toolchain diagnostic; the Swift compiler and static
   analyzer report no findings.
+
+## MVP-15 release-candidate audit
+
+Scope:
+
+- All production Swift, tests, app/project configuration, release metadata,
+  privacy declarations, and MVP documentation were reviewed after the release
+  archive and live verification pass.
+- The complete signed suite passes 244 logical tests in 44 suites on a fresh,
+  credential-free iPhone 17 Pro simulator running iOS 26.5. Xcode static
+  analysis and the signed Release archive succeed.
+- Authentication, request retries, empty/retained resource states,
+  cancellation, Todos mutations, destructive confirmations, Keychain session
+  restoration, archive contents, and secret-bearing boundaries were examined
+  as complete flows.
+
+### Repair checklist
+
+- [x] Stop retrying a request after Foundation's full request timeout, avoiding
+  multiple 60-second waits while retaining bounded retries for fast
+  connection-loss and server failures.
+- [x] Keep an empty resource visibly loading when the user retries, rather than
+  clearing its error into a false empty state while the request is in flight.
+- [x] Use native alerts for destructive Account and Todo confirmations so the
+  destructive action and Cancel remain reachable at the largest accessibility
+  text size on a small iPhone.
+- [x] Run the complete suite on a fresh simulator so a retained live Keychain
+  session cannot affect otherwise isolated app-host tests.
+- [x] Align client retry coverage with the bounded timeout contract and add
+  deterministic regression tests before keeping each production repair.
+- [x] Inspect and scan the Release archive for its app icon, privacy manifest,
+  export declaration, bundle/version metadata, test bundles, and configured
+  host/token values.
+
+### Deliberately unchanged or externally blocked
+
+- A 60-second request timeout remains Foundation's default. The app no longer
+  compounds that delay automatically, and a shorter arbitrary timeout would
+  penalize legitimately slow self-managed instances.
+- Feature-specific issue, merge-request, project, and Todo rows/models remain
+  separate. The audit found no meaningful duplication that warrants erasing
+  their distinct API and interaction behavior.
+- GitLab.com OAuth, GitLab.com token, and self-managed OAuth live verification
+  require credentials or registered applications that are not configured.
+  Unit tests are not substituted for those rows.
+- The configured self-managed host became unreachable during the release pass,
+  so its current version and the remaining signed-in large-device rows cannot
+  be claimed as passed.
+- The local archive is development-signed. Distribution signing and App Store
+  validation remain external release actions and are not inferred from a
+  successful local archive.
