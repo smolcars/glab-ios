@@ -614,6 +614,8 @@ struct GitLabMergeRequestDetailView: View {
     @State private var showsEditor = false
     @State private var taskToggleModel:
         GitLabDescriptionTaskToggleModel
+    @State private var resolutionModel:
+        GitLabDiscussionResolutionModel
 
     init(
         route: GitLabMergeRequestRoute,
@@ -658,6 +660,11 @@ struct GitLabMergeRequestDetailView: View {
             GitLabMergeRequestDetailModel(
                 route: route,
                 loader: loader
+            )
+        let discussionModel =
+            GitLabDiscussionsModel(
+                resource: discussionResource,
+                loader: discussionLoader
             )
         _model = State(
             initialValue: detailModel
@@ -711,10 +718,38 @@ struct GitLabMergeRequestDetailView: View {
                 )
         )
         _discussionModel = State(
+            initialValue: discussionModel
+        )
+        _resolutionModel = State(
             initialValue:
-                GitLabDiscussionsModel(
-                    resource: discussionResource,
-                    loader: discussionLoader
+                GitLabDiscussionResolutionModel(
+                    accountID: accountID,
+                    route: route,
+                    apiAccess: apiAccess,
+                    mutator: discussionMutator,
+                    isAccountCurrent: {
+                        appSession
+                            .activeAccountID
+                            == accountID
+                    },
+                    currentDiscussion: {
+                        discussionID in
+                        discussionModel
+                            .discussions
+                            .first {
+                                $0.id
+                                    == discussionID
+                            }
+                    },
+                    reconcile: {
+                        discussionModel
+                            .reconcileAuthoritativeDiscussion(
+                                $0
+                            )
+                    },
+                    refreshReadiness: {
+                        await detailModel.retry()
+                    }
                 )
         )
     }
@@ -755,6 +790,7 @@ struct GitLabMergeRequestDetailView: View {
             }
             .onDisappear {
                 taskToggleModel.cancel()
+                resolutionModel.cancelAll()
             }
             .onChange(
                 of:
@@ -878,6 +914,8 @@ struct GitLabMergeRequestDetailView: View {
                     },
                     discussionModel:
                         discussionModel,
+                    resolutionModel:
+                        resolutionModel,
                     discussionResource:
                         discussionResource,
                     accountID: accountID,
@@ -918,6 +956,8 @@ struct GitLabMergeRequestDetailView: View {
             ?? approvalModel
                 .authenticationFailure
             ?? discussionModel.authenticationFailure
+            ?? resolutionModel
+                .authenticationFailure
             ?? taskToggleModel
                 .authenticationFailure
     }
@@ -1085,6 +1125,8 @@ private struct GitLabMergeRequestDetailContent: View {
         Bool
     let retryApproval: () -> Void
     let discussionModel: GitLabDiscussionsModel
+    let resolutionModel:
+        GitLabDiscussionResolutionModel
     let discussionResource:
         GitLabDiscussionResource
     let accountID: GitLabAccountID
@@ -1161,6 +1203,8 @@ private struct GitLabMergeRequestDetailContent: View {
                     apiAccess: apiAccess,
                     reactionService:
                         reactionService,
+                    resolutionModel:
+                        resolutionModel,
                     appSession: appSession,
                     launchComposer:
                         launchComposer
@@ -1269,6 +1313,8 @@ private struct GitLabMergeRequestDetailContent: View {
                         diffLoader,
                     discussionModel:
                         discussionModel,
+                    resolutionModel:
+                        resolutionModel,
                     apiAccess: apiAccess,
                     discussionMutator:
                         discussionMutator,
@@ -1411,6 +1457,8 @@ private struct
         any GitLabMergeRequestDiffLoading
     let discussionModel:
         GitLabDiscussionsModel
+    let resolutionModel:
+        GitLabDiscussionResolutionModel
     let apiAccess: GitLabAPIAccess
     let discussionMutator:
         any GitLabDiscussionMutating
@@ -1432,6 +1480,8 @@ private struct
             any GitLabMergeRequestDiffLoading,
         discussionModel:
             GitLabDiscussionsModel,
+        resolutionModel:
+            GitLabDiscussionResolutionModel,
         apiAccess: GitLabAPIAccess,
         discussionMutator:
             any GitLabDiscussionMutating,
@@ -1446,6 +1496,8 @@ private struct
         self.diffLoader = diffLoader
         self.discussionModel =
             discussionModel
+        self.resolutionModel =
+            resolutionModel
         self.apiAccess = apiAccess
         self.discussionMutator =
             discussionMutator
@@ -1478,6 +1530,8 @@ private struct
                 loader: diffLoader,
                 discussionModel:
                     discussionModel,
+                resolutionModel:
+                    resolutionModel,
                 apiAccess: apiAccess,
                 discussionMutator:
                     discussionMutator,

@@ -34,6 +34,8 @@ struct GitLabMergeRequestDiffListView: View {
         GitLabMergeRequestDiffVersionIdentity?
     let discussionModel:
         GitLabDiscussionsModel
+    let resolutionModel:
+        GitLabDiscussionResolutionModel
     let apiAccess: GitLabAPIAccess
     let discussionMutator:
         any GitLabDiscussionMutating
@@ -59,6 +61,8 @@ struct GitLabMergeRequestDiffListView: View {
         loader: any GitLabMergeRequestDiffLoading,
         discussionModel:
             GitLabDiscussionsModel,
+        resolutionModel:
+            GitLabDiscussionResolutionModel,
         apiAccess: GitLabAPIAccess,
         discussionMutator:
             any GitLabDiscussionMutating,
@@ -74,6 +78,8 @@ struct GitLabMergeRequestDiffListView: View {
         self.diffVersion = diffVersion
         self.discussionModel =
             discussionModel
+        self.resolutionModel =
+            resolutionModel
         self.apiAccess = apiAccess
         self.discussionMutator =
             discussionMutator
@@ -232,6 +238,8 @@ struct GitLabMergeRequestDiffListView: View {
                                     diffVersion,
                                 discussionModel:
                                     discussionModel,
+                                resolutionModel:
+                                    resolutionModel,
                                 discussionIndex:
                                     discussionIndex,
                                 apiAccess:
@@ -561,6 +569,8 @@ private struct GitLabMergeRequestDiffFileView: View {
         GitLabMergeRequestDiffVersionIdentity?
     let discussionModel:
         GitLabDiscussionsModel
+    let resolutionModel:
+        GitLabDiscussionResolutionModel
     let discussionIndex:
         GitLabDiffDiscussionIndex?
     let apiAccess: GitLabAPIAccess
@@ -593,6 +603,8 @@ private struct GitLabMergeRequestDiffFileView: View {
             GitLabMergeRequestDiffVersionIdentity?,
         discussionModel:
             GitLabDiscussionsModel,
+        resolutionModel:
+            GitLabDiscussionResolutionModel,
         discussionIndex:
             GitLabDiffDiscussionIndex?,
         apiAccess: GitLabAPIAccess,
@@ -612,6 +624,8 @@ private struct GitLabMergeRequestDiffFileView: View {
         self.diffVersion = diffVersion
         self.discussionModel =
             discussionModel
+        self.resolutionModel =
+            resolutionModel
         self.discussionIndex =
             discussionIndex
         self.apiAccess = apiAccess
@@ -680,6 +694,8 @@ private struct GitLabMergeRequestDiffFileView: View {
                 apiAccess: apiAccess,
                 mutator:
                     discussionMutator,
+                resolutionModel:
+                    resolutionModel,
                 reactionService:
                     reactionService,
                 appSession: appSession,
@@ -701,6 +717,8 @@ private struct GitLabMergeRequestDiffFileView: View {
                     apiAccess: apiAccess,
                     mutator:
                         discussionMutator,
+                    resolutionModel:
+                        resolutionModel,
                     reactionService:
                         reactionService,
                     appSession: appSession,

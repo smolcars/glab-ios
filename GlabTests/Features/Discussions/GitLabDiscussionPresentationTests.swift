@@ -120,6 +120,288 @@ struct GitLabDiscussionPresentationTests {
     }
 }
 
+@Suite("GitLab discussion resolution presentation")
+struct GitLabDiscussionResolutionPresentationTests {
+    @Test("Presents unresolved and resolved thread actions")
+    func presentsAuthoritativeStates() {
+        let resolver =
+            GitLabAPIUser(
+                id: 2,
+                username: "resolver",
+                name: "Resolve Person",
+                avatarURL: nil,
+                webURL: nil
+            )
+        let unresolved =
+            GitLabDiscussionResolutionPresentation(
+                status:
+                    GitLabDiscussionResolutionStatus(
+                        isResolved: false,
+                        phase: .idle,
+                        desiredResolved: nil,
+                        resolvedBy: nil,
+                        resolvedAt: nil,
+                        failure: nil
+                    ),
+                apiAccess: .readWrite,
+                discussionID: "thread"
+            )
+        let resolved =
+            GitLabDiscussionResolutionPresentation(
+                status:
+                    GitLabDiscussionResolutionStatus(
+                        isResolved: true,
+                        phase: .idle,
+                        desiredResolved: nil,
+                        resolvedBy: resolver,
+                        resolvedAt:
+                            Date(
+                                timeIntervalSince1970:
+                                    1_000
+                            ),
+                        failure: nil
+                    ),
+                apiAccess: .readWrite,
+                discussionID: "thread"
+            )
+
+        #expect(unresolved.action == .toggle)
+        #expect(unresolved.actionTitle == "Resolve")
+        #expect(unresolved.statusTitle == nil)
+        #expect(unresolved.isActionEnabled)
+        #expect(!unresolved.showsProgress)
+
+        #expect(resolved.action == .toggle)
+        #expect(resolved.actionTitle == "Reopen")
+        #expect(
+            resolved.statusTitle
+                == "Resolved by Resolve Person"
+        )
+        #expect(resolved.isActionEnabled)
+    }
+
+    @Test("Presents optimistic resolution without fabricating resolver metadata")
+    func presentsPendingStates() {
+        let resolving =
+            presentation(
+                isResolved: true,
+                phase: .pending,
+                desiredResolved: true
+            )
+        let reopening =
+            presentation(
+                isResolved: false,
+                phase: .pending,
+                desiredResolved: false
+            )
+
+        #expect(resolving.action == nil)
+        #expect(
+            resolving.actionTitle
+                == "Resolving…"
+        )
+        #expect(
+            resolving.statusTitle
+                == "Resolution pending"
+        )
+        #expect(resolving.showsProgress)
+        #expect(!resolving.isActionEnabled)
+
+        #expect(reopening.action == nil)
+        #expect(
+            reopening.actionTitle
+                == "Reopening…"
+        )
+        #expect(
+            reopening.statusTitle
+                == "Reopen pending"
+        )
+        #expect(reopening.showsProgress)
+    }
+
+    @Test("Presents explicit check and retry recovery")
+    func presentsRecovery() {
+        let unknown =
+            presentation(
+                isResolved: true,
+                phase: .deliveryUnknown,
+                desiredResolved: true,
+                failure:
+                    .mutation(
+                        .request(
+                            .api(
+                                .connectivity(
+                                    .networkConnectionLost
+                                )
+                            )
+                        ),
+                        certainty:
+                            .deliveryUnknown
+                    )
+            )
+        let checking =
+            presentation(
+                isResolved: true,
+                phase: .checkingGitLab,
+                desiredResolved: true
+            )
+        let retry =
+            presentation(
+                isResolved: false,
+                phase: .retryAvailable,
+                desiredResolved: true
+            )
+
+        #expect(unknown.action == .checkGitLab)
+        #expect(
+            unknown.actionTitle
+                == "Check GitLab"
+        )
+        #expect(
+            unknown.statusTitle
+                == "Resolution not confirmed"
+        )
+        #expect(unknown.isActionEnabled)
+
+        #expect(checking.action == nil)
+        #expect(
+            checking.actionTitle
+                == "Checking GitLab…"
+        )
+        #expect(checking.showsProgress)
+
+        #expect(retry.action == .retry)
+        #expect(
+            retry.actionTitle
+                == "Retry resolve"
+        )
+        #expect(
+            retry.statusTitle
+                == "Still unresolved"
+        )
+    }
+
+    @Test("Uses safe read-only and permission-denied wording")
+    func presentsAccessFailures() {
+        let readOnly =
+            GitLabDiscussionResolutionPresentation(
+                status:
+                    GitLabDiscussionResolutionStatus(
+                        isResolved: false,
+                        phase: .idle,
+                        desiredResolved: nil,
+                        resolvedBy: nil,
+                        resolvedAt: nil,
+                        failure: nil
+                    ),
+                apiAccess: .readOnly,
+                discussionID: "thread"
+            )
+        let denied =
+            presentation(
+                isResolved: false,
+                phase: .rejected,
+                desiredResolved: true,
+                failure:
+                    .mutation(
+                        .request(
+                            .api(.forbidden)
+                        ),
+                        certainty:
+                            .rejected
+                    )
+            )
+
+        #expect(readOnly.action == nil)
+        #expect(
+            readOnly.actionTitle
+                == "Read-only"
+        )
+        #expect(
+            readOnly.failureMessage
+                == "This account has read-only API access."
+        )
+        #expect(!readOnly.isActionEnabled)
+
+        #expect(denied.action == .toggle)
+        #expect(
+            denied.failureMessage
+                == "GitLab did not allow this thread change."
+        )
+        #expect(denied.isActionEnabled)
+    }
+
+    @Test("Provides stable accessible resolution controls")
+    func presentsAccessibility() {
+        let resolved =
+            presentation(
+                isResolved: true,
+                phase: .idle
+            )
+        let unknown =
+            presentation(
+                isResolved: false,
+                phase: .deliveryUnknown,
+                desiredResolved: false
+            )
+
+        #expect(
+            resolved.accessibilityLabel
+                == "Reopen thread"
+        )
+        #expect(
+            resolved.accessibilityValue
+                == "Resolved"
+        )
+        #expect(
+            resolved.accessibilityHint
+                == "Reopens this discussion on GitLab."
+        )
+        #expect(
+            resolved.accessibilityIdentifier
+                == "discussion.resolution.thread"
+        )
+
+        #expect(
+            unknown.accessibilityLabel
+                == "Check thread resolution on GitLab"
+        )
+        #expect(
+            unknown.accessibilityValue
+                == "Reopen not confirmed"
+        )
+        #expect(
+            unknown.accessibilityHint
+                == "Checks GitLab without sending another change."
+        )
+    }
+
+    private func presentation(
+        isResolved: Bool,
+        phase:
+            GitLabDiscussionResolutionPhase,
+        desiredResolved: Bool? = nil,
+        failure:
+            GitLabDiscussionResolutionFailure?
+            = nil
+    ) -> GitLabDiscussionResolutionPresentation {
+        GitLabDiscussionResolutionPresentation(
+            status:
+                GitLabDiscussionResolutionStatus(
+                    isResolved: isResolved,
+                    phase: phase,
+                    desiredResolved:
+                        desiredResolved,
+                    resolvedBy: nil,
+                    resolvedAt: nil,
+                    failure: failure
+                ),
+            apiAccess: .readWrite,
+            discussionID: "thread"
+        )
+    }
+}
+
 @Suite("GitLab activity text normalization")
 struct GitLabActivityTextNormalizerTests {
     @Test("Converts bounded server HTML into compact readable text")

@@ -19,6 +19,8 @@ struct GitLabDiffLineDiscussionSheet: View {
     let webURL: URL?
     let apiAccess: GitLabAPIAccess
     let mutator: any GitLabDiscussionMutating
+    let resolutionModel:
+        GitLabDiscussionResolutionModel
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
@@ -48,6 +50,8 @@ struct GitLabDiffLineDiscussionSheet: View {
             webURL: webURL,
             apiAccess: apiAccess,
             mutator: mutator,
+            resolutionModel:
+                resolutionModel,
             reactionService:
                 reactionService,
             appSession: appSession,
@@ -63,6 +67,8 @@ struct GitLabAllDiffDiscussionsSheet: View {
     let webURL: URL?
     let apiAccess: GitLabAPIAccess
     let mutator: any GitLabDiscussionMutating
+    let resolutionModel:
+        GitLabDiscussionResolutionModel
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
@@ -85,6 +91,8 @@ struct GitLabAllDiffDiscussionsSheet: View {
             webURL: webURL,
             apiAccess: apiAccess,
             mutator: mutator,
+            resolutionModel:
+                resolutionModel,
             reactionService:
                 reactionService,
             appSession: appSession,
@@ -129,6 +137,8 @@ private struct GitLabDiffDiscussionSheet:
     let webURL: URL?
     let apiAccess: GitLabAPIAccess
     let mutator: any GitLabDiscussionMutating
+    let resolutionModel:
+        GitLabDiscussionResolutionModel
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
@@ -186,6 +196,8 @@ private struct GitLabDiffDiscussionSheet:
                                     apiAccess,
                                 reactionService:
                                     reactionService,
+                                resolutionModel:
+                                    resolutionModel,
                                 appSession:
                                     appSession,
                                 reply:
@@ -313,6 +325,8 @@ private struct GitLabCollapsedDiffDiscussion:
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let resolutionModel:
+        GitLabDiscussionResolutionModel
     let appSession: AppSession
     let reply: (() -> Void)?
 
@@ -399,6 +413,8 @@ private struct GitLabCollapsedDiffDiscussion:
                     apiAccess: apiAccess,
                     reactionService:
                         reactionService,
+                    resolutionModel:
+                        resolutionModel,
                     appSession: appSession,
                     reply: reply
                 )

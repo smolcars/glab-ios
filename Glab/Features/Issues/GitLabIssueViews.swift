@@ -882,6 +882,7 @@ private struct GitLabIssueDetailContent: View {
                     apiAccess: apiAccess,
                     reactionService:
                         reactionService,
+                    resolutionModel: nil,
                     appSession: appSession,
                     launchComposer:
                         launchComposer

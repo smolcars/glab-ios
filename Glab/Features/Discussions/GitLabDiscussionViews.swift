@@ -9,6 +9,8 @@ struct GitLabDiscussionSection: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let resolutionModel:
+        GitLabDiscussionResolutionModel?
     let appSession: AppSession
     let launchComposer:
         (GitLabDiscussionComposerTarget) -> Void
@@ -124,6 +126,8 @@ struct GitLabDiscussionSection: View {
                     apiAccess: apiAccess,
                     reactionService:
                         reactionService,
+                    resolutionModel:
+                        resolutionModel,
                     appSession: appSession,
                     reply: replyAction(
                         for: discussion
@@ -496,6 +500,8 @@ struct GitLabDiscussionCard: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let resolutionModel:
+        GitLabDiscussionResolutionModel?
     let appSession: AppSession
     let reply: (() -> Void)?
 
@@ -537,31 +543,33 @@ struct GitLabDiscussionCard: View {
                         apiAccess: apiAccess,
                         reactionService:
                             reactionService,
+                        showsResolvedBadge:
+                            resolutionModel
+                                == nil,
                         appSession:
                             appSession
                     )
                 }
             }
 
-            if let reply {
+            if
+                reply != nil
+                    || resolutionModel?
+                        .status(
+                            for: discussion
+                        ) != nil
+            {
                 Divider()
                     .padding(.leading, 46)
 
-                Button(
-                    "Reply",
-                    systemImage:
-                        "arrowshape.turn.up.left"
-                ) {
-                    reply()
-                }
-                .buttonStyle(.glass)
+                GitLabDiscussionThreadFooter(
+                    discussion: discussion,
+                    reply: reply,
+                    resolutionModel:
+                        resolutionModel,
+                    apiAccess: apiAccess
+                )
                 .padding(12)
-                .accessibilityIdentifier(
-                    "discussion.reply.\(discussion.id)"
-                )
-                .accessibilityHint(
-                    "Opens a Markdown reply editor."
-                )
             }
         }
         .background(
@@ -594,6 +602,7 @@ private struct GitLabDiscussionNoteView: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let showsResolvedBadge: Bool
     let appSession: AppSession
 
     var body: some View {
@@ -697,7 +706,10 @@ private struct GitLabDiscussionNoteView: View {
         if
             note.isInternal
                 || note.kind == .diff
-                || note.isResolved
+                || (
+                    showsResolvedBadge
+                        && note.isResolved
+                )
         {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 6) {
@@ -724,7 +736,10 @@ private struct GitLabDiscussionNoteView: View {
                 systemImage: "chevron.left.forwardslash.chevron.right"
             )
         }
-        if note.isResolved {
+        if
+            showsResolvedBadge,
+            note.isResolved
+        {
             GitLabDiscussionBadge(
                 title: "Resolved",
                 systemImage: "checkmark.circle.fill"
@@ -809,10 +824,266 @@ private struct GitLabDiscussionNoteView: View {
         if note.kind == .diff {
             parts.append("Code discussion")
         }
-        if note.isResolved {
+        if
+            showsResolvedBadge,
+            note.isResolved
+        {
             parts.append("Resolved")
         }
         return parts.joined(separator: ", ")
+    }
+}
+
+private struct GitLabDiscussionThreadFooter:
+    View
+{
+    let discussion: GitLabDiscussion
+    let reply: (() -> Void)?
+    let resolutionModel:
+        GitLabDiscussionResolutionModel?
+    let apiAccess: GitLabAPIAccess
+
+    private var status:
+        GitLabDiscussionResolutionStatus?
+    {
+        resolutionModel?.status(
+            for: discussion
+        )
+    }
+
+    private var presentation:
+        GitLabDiscussionResolutionPresentation?
+    {
+        status.map {
+            GitLabDiscussionResolutionPresentation(
+                status: $0,
+                apiAccess: apiAccess,
+                discussionID:
+                    discussion.id
+            )
+        }
+    }
+
+    var body: some View {
+        VStack(
+            alignment: .leading,
+            spacing: 8
+        ) {
+            ViewThatFits(
+                in: .horizontal
+            ) {
+                HStack(spacing: 10) {
+                    replyControl
+                    Spacer(minLength: 4)
+                    resolutionControl
+                }
+
+                VStack(
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    replyControl
+                    resolutionControl
+                }
+            }
+
+            resolutionDetails
+        }
+    }
+
+    @ViewBuilder
+    private var replyControl: some View {
+        if let reply {
+            Button(
+                "Reply",
+                systemImage:
+                    "arrowshape.turn.up.left"
+            ) {
+                reply()
+            }
+            .buttonStyle(.glass)
+            .frame(minHeight: 44)
+            .accessibilityIdentifier(
+                "discussion.reply.\(discussion.id)"
+            )
+            .accessibilityHint(
+                "Opens a Markdown reply editor."
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var resolutionControl:
+        some View
+    {
+        if let presentation {
+            Button {
+                perform(
+                    presentation.action
+                )
+            } label: {
+                HStack(spacing: 7) {
+                    if
+                        presentation
+                            .showsProgress
+                    {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(
+                            systemName:
+                                presentation
+                                .action
+                                == .checkGitLab
+                                ? "arrow.triangle.2.circlepath"
+                                : status?
+                                    .isResolved
+                                    == true
+                                    ? "arrow.uturn.backward.circle"
+                                    : "checkmark.circle"
+                        )
+                    }
+
+                    Text(
+                        presentation
+                            .actionTitle
+                    )
+                }
+                .font(
+                    .subheadline
+                        .weight(.semibold)
+                )
+                .frame(minHeight: 44)
+            }
+            .buttonStyle(.glass)
+            .tint(.orange)
+            .disabled(
+                !presentation
+                    .isActionEnabled
+            )
+            .accessibilityLabel(
+                presentation
+                    .accessibilityLabel
+            )
+            .accessibilityValue(
+                presentation
+                    .accessibilityValue
+            )
+            .accessibilityHint(
+                presentation
+                    .accessibilityHint
+            )
+            .accessibilityIdentifier(
+                presentation
+                    .accessibilityIdentifier
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var resolutionDetails:
+        some View
+    {
+        if
+            let presentation,
+            presentation.statusTitle != nil
+                || presentation
+                    .failureMessage != nil
+        {
+            VStack(
+                alignment: .leading,
+                spacing: 3
+            ) {
+                if
+                    let statusTitle =
+                        presentation
+                            .statusTitle
+                {
+                    HStack(
+                        spacing: 5
+                    ) {
+                        Image(
+                            systemName:
+                                status?
+                                    .isResolved
+                                    == true
+                                ? "checkmark.circle.fill"
+                                : "info.circle"
+                        )
+                        Text(statusTitle)
+
+                        if
+                            let resolvedAt =
+                                status?
+                                .resolvedAt
+                        {
+                            Text("•")
+                            Text(
+                                GitLabRelativeTimeFormatter
+                                    .string(
+                                        from:
+                                            resolvedAt
+                                    )
+                            )
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(
+                        .secondary
+                    )
+                }
+
+                if
+                    let failureMessage =
+                        presentation
+                            .failureMessage
+                {
+                    Text(failureMessage)
+                        .font(.caption)
+                        .foregroundStyle(
+                            presentation
+                                .action
+                                == .checkGitLab
+                                    ? Color.orange
+                                    : Color.red
+                        )
+                }
+            }
+            .accessibilityElement(
+                children: .combine
+            )
+        }
+    }
+
+    private func perform(
+        _ action:
+            GitLabDiscussionResolutionAction?
+    ) {
+        guard
+            let resolutionModel,
+            let action
+        else {
+            return
+        }
+        Task {
+            switch action {
+            case .toggle:
+                await resolutionModel
+                    .toggle(discussion)
+            case .checkGitLab:
+                await resolutionModel
+                    .checkGitLab(
+                        discussionID:
+                            discussion.id
+                    )
+            case .retry:
+                await resolutionModel
+                    .retry(
+                        discussionID:
+                            discussion.id
+                    )
+            }
+        }
     }
 }
 
