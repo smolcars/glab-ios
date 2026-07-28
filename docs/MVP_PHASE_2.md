@@ -357,9 +357,9 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect the completed diff line identity, discussion model, comment
+- [x] Inspect the completed diff line identity, discussion model, comment
   composer, reaction behavior, and MR version/head-SHA handling.
-- [ ] Before writing code, create `docs/P2_07_ENGINEERING_PLAN.md`. Document
+- [x] Before writing code, create `docs/P2_07_ENGINEERING_PLAN.md`. Document
   GitLab position payloads, base/start/head SHA ownership, old/new path and
   line mapping, outdated threads, UI placement, write reconciliation,
   invalidation, tests, performance, and non-goals.
