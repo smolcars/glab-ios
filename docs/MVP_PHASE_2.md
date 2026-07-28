@@ -479,7 +479,7 @@ Todo:
   editing code, add regression and security tests where applicable, implement
   every fix, and repeat the feature verification and review.
 
-### [ ] P2-10 — Refine merge-request review controls and activity
+### [x] P2-10 — Refine merge-request review controls and activity
 
 Outcome:
 
@@ -502,48 +502,48 @@ Todo:
   self-managed relative-root behavior, fallback states, state ownership,
   activity grouping, composer presentation, accessibility, tests,
   performance risks, Simulator matrix, and non-goals.
-- [ ] Write failing tests for the GraphQL URL/body/authentication contract,
+- [x] Write failing tests for the GraphQL URL/body/authentication contract,
   response decoding, unsupported/partial responses, read-only access,
   fallback file counts, and independent diff-summary loading failures.
-- [ ] Write failing tests for system-activity partitioning, mixed threads,
+- [x] Write failing tests for system-activity partitioning, mixed threads,
   stable ordering, bounded HTML-to-text normalization, empty/malformed
   activity bodies, and pagination when the last loaded discussion is system
   activity.
-- [ ] Implement one small read-only GraphQL request for
+- [x] Implement one small read-only GraphQL request for
   `MergeRequest.diffStatsSummary`. Do not download or parse every diff merely
   to count files or lines, and do not automatically turn a query failure into
   a failure of the MR detail screen.
-- [ ] Replace the dedicated Changes section with one compact floating glass
+- [x] Replace the dedicated Changes section with one compact floating glass
   control showing changed files, additions, and deletions. Retain the
   existing changed-file destination and a useful REST-count fallback.
-- [ ] Collapse system-only discussions into one Activity strip. Expand the
+- [x] Collapse system-only discussions into one Activity strip. Expand the
   strip and each event independently, keep user discussions threaded and
   ordered, and prevent raw system-note HTML from consuming the screen.
-- [ ] Move the MR Add Comment action into a compact floating glass control.
+- [x] Move the MR Add Comment action into a compact floating glass control.
   Reuse the existing composer, reconciliation, draft, mutation, and read-only
   capability logic without adding a second posting path.
-- [ ] Apply the same compact top-trailing Add Comment action to issue detail.
+- [x] Apply the same compact top-trailing Add Comment action to issue detail.
   Remove the issue-only inline control and keep one shared composer,
   reconciliation, draft, mutation, and read-only capability path.
-- [ ] Group the official icon-only GitLab web link and Add Comment action in
+- [x] Group the official icon-only GitLab web link and Add Comment action in
   one top-trailing Liquid Glass pill on issue and merge-request details.
   Remove their bottom floating GitLab controls while retaining the MR diff
   summary as its sole bottom action.
-- [ ] Verify successful, loading, unavailable, and failed diff summaries;
+- [x] Verify successful, loading, unavailable, and failed diff summaries;
   no/short/long activity; comments plus activity; read-only and write-enabled
   composer presentation; pagination; Dynamic Type; VoiceOver; Reduce Motion;
   Reduce Transparency; and light/dark appearance in the iPhone 17 Pro
   Simulator. Do not use a physical device or live mutation.
-- [ ] Run focused tests, the complete suite, a Release Simulator build,
+- [x] Run focused tests, the complete suite, a Release Simulator build,
   static analysis, performance fixtures, API compatibility checks, and
   credential/privacy scans.
-- [ ] Perform a deep code review of all code added or changed for this
+- [x] Perform a deep code review of all code added or changed for this
   feature. Look for bugs, bad code, duplicated loading or composer paths,
   GraphQL/REST compatibility assumptions, request or credential leakage,
   stale counts, main-actor parsing, unbounded normalization, lost discussion
   pagination, unstable disclosure state, glass/accessibility mistakes, and
   code that needs refactoring. Record the findings in the engineering plan.
-- [ ] If the review finds anything material, write a repair plan before
+- [x] If the review finds anything material, write a repair plan before
   editing code, add regression and performance tests where applicable,
   implement every fix, and repeat the feature verification and review.
 

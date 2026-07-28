@@ -3,9 +3,9 @@
 ## Status
 
 - Planning: complete
-- Implementation: in progress
-- Verification: in progress
-- Deep review: not started
+- Implementation: complete
+- Verification: complete
+- Deep review: complete
 
 This document is the required plan for P2-10. Production code must not be
 changed for this feature until this plan is committed.
@@ -481,6 +481,35 @@ Repair plan:
    analyzer, and the issue/MR Simulator interaction checks again. Repeat this
    review and close P2-10 only when no material finding remains.
 
+## Completion verification
+
+All seven findings were repaired according to the plan above. The second
+review found no open material bug, duplication, or refactoring requirement in
+the P2-10 scope.
+
+Final verification:
+
+- 60 focused request, summary, discussion, composer, and reaction tests passed.
+- The complete serialized suite passed with 570 tests in 96 suites, including
+  optimized diff and activity performance fixtures.
+- The Release iPhone 17 Pro Simulator build and Xcode static analyzer passed.
+- Tracked-source credential scanning found no hosted OAuth secret, bearer
+  token, or private-token value.
+- Dark, light, standard, and accessibility-size screenshots retained readable
+  top and bottom controls. The final Release walkthrough confirmed the issue
+  and MR GitLab/comment actions share one top-trailing glass pill, no bottom
+  GitLab control remains, and the MR diff capsule does not overlap the tab
+  bar.
+- Simulator automation opened both resource types, exercised the read-only
+  comment explanation without mutation, opened Changed Files from the diff
+  capsule, returned to the MR, and confirmed the capsule remained available.
+  The load-once regression test and view-task review confirm navigation
+  re-entry no longer forces an automatic summary retry.
+- The reaction popover remains presentation-only over the tested reaction
+  model: it is an emoji-only horizontal row anchored to the trigger’s
+  bottom-leading point, retains a 44-point trigger target and accessible
+  labels, and disables every choice whenever mutation becomes unavailable.
+
 ## Explicit non-goals
 
 - Replacing the existing diff viewer or parser.
@@ -491,6 +520,7 @@ Repair plan:
 - A general HTML renderer or expanding the Markdown parser to execute raw
   HTML.
 - Editing, deleting, resolving, or reacting to system activity.
-- Redesigning issue-detail controls.
+- Redesigning issue-detail controls beyond the shared toolbar action group.
 - Live posting with the configured read-only self-managed token.
-- Physical-device installation, testing, or performance claims.
+- Physical-device testing or performance claims. A final install-only device
+  delivery may be performed when the owner explicitly requests it.
