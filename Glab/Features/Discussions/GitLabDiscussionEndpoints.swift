@@ -1,6 +1,13 @@
 import Foundation
 
 nonisolated enum GitLabDiscussionEndpoints {
+    private struct ResolutionBody:
+        Encodable,
+        Sendable
+    {
+        let resolved: Bool
+    }
+
     private struct DiffDiscussionBody:
         Encodable
     {
@@ -58,6 +65,38 @@ nonisolated enum GitLabDiscussionEndpoints {
             requires: .write,
             path: path(for: resource),
             body: body
+        )
+    }
+
+    static func mergeRequestDiscussion(
+        at route: GitLabMergeRequestRoute,
+        discussionID: String
+    ) -> GitLabAPIRequest<GitLabDiscussion> {
+        .get(
+            requires: .read,
+            path:
+                path(
+                    for: .mergeRequest(route)
+                )
+                + [discussionID]
+        )
+    }
+
+    static func setMergeRequestDiscussionResolution(
+        at route: GitLabMergeRequestRoute,
+        discussionID: String,
+        resolved: Bool
+    ) throws -> GitLabAPIRequest<GitLabDiscussion> {
+        try .put(
+            path:
+                path(
+                    for: .mergeRequest(route)
+                )
+                + [discussionID],
+            body:
+                ResolutionBody(
+                    resolved: resolved
+                )
         )
     }
 

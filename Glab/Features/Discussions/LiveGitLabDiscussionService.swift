@@ -65,6 +65,19 @@ nonisolated protocol GitLabDiscussionLoading:
 nonisolated protocol GitLabDiscussionMutating:
     Sendable
 {
+    func loadMergeRequestDiscussion(
+        at route: GitLabMergeRequestRoute,
+        discussionID: String
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+
+    func setMergeRequestDiscussionResolution(
+        at route: GitLabMergeRequestRoute,
+        discussionID: String,
+        resolved: Bool
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+
     func createDiscussion(
         for resource: GitLabDiscussionResource,
         body: GitLabDiscussionCommentBody
@@ -185,6 +198,73 @@ nonisolated struct LiveGitLabDiscussionService:
                     apiResponse: $0
                 )
             )
+        }
+    }
+
+    @concurrent
+    func loadMergeRequestDiscussion(
+        at route: GitLabMergeRequestRoute,
+        discussionID: String
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        do {
+            return try await client.send(
+                GitLabDiscussionEndpoints
+                    .mergeRequestDiscussion(
+                        at: route,
+                        discussionID:
+                            discussionID
+                    )
+            )
+        } catch {
+            throw .request(error)
+        }
+    }
+
+    @concurrent
+    func setMergeRequestDiscussionResolution(
+        at route: GitLabMergeRequestRoute,
+        discussionID: String,
+        resolved: Bool
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        let endpoint:
+            GitLabAPIRequest<GitLabDiscussion>
+        do {
+            endpoint =
+                try GitLabDiscussionEndpoints
+                    .setMergeRequestDiscussionResolution(
+                        at: route,
+                        discussionID:
+                            discussionID,
+                        resolved: resolved
+                    )
+        } catch {
+            throw .encoding
+        }
+
+        do {
+            let discussion =
+                try await client.send(
+                    endpoint
+                )
+            await invalidateDiscussions(
+                for: .mergeRequest(route)
+            )
+            return discussion
+        } catch {
+            if
+                error
+                    .mutationDeliveryCertainty
+                    == .deliveryUnknown
+            {
+                await invalidateDiscussions(
+                    for: .mergeRequest(route)
+                )
+            }
+            throw .request(error)
         }
     }
 

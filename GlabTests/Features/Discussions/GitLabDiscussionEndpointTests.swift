@@ -73,6 +73,114 @@ struct GitLabDiscussionEndpointTests {
         )
     }
 
+    @Test("Builds the exact merge request discussion endpoint")
+    func buildsExactMergeRequestDiscussionEndpoint() {
+        let endpoint =
+            GitLabDiscussionEndpoints
+                .mergeRequestDiscussion(
+                    at:
+                        GitLabMergeRequestRoute(
+                            projectID: 99,
+                            mergeRequestIID: 13
+                        ),
+                    discussionID:
+                        "opaque-discussion-id"
+                )
+
+        #expect(endpoint.method == .get)
+        #expect(endpoint.requiredAccess == .read)
+        #expect(
+            endpoint.pathComponents
+                == [
+                    "projects",
+                    "99",
+                    "merge_requests",
+                    "13",
+                    "discussions",
+                    "opaque-discussion-id",
+                ]
+        )
+        #expect(endpoint.queryItems.isEmpty)
+        #expect(endpoint.body == nil)
+    }
+
+    @Test(
+        "Builds resolve and reopen discussion PUT endpoints",
+        arguments: [true, false]
+    )
+    func buildsResolutionEndpoint(
+        resolved: Bool
+    ) throws {
+        let endpoint =
+            try GitLabDiscussionEndpoints
+                .setMergeRequestDiscussionResolution(
+                    at:
+                        GitLabMergeRequestRoute(
+                            projectID: 99,
+                            mergeRequestIID: 13
+                        ),
+                    discussionID:
+                        "opaque-discussion-id",
+                    resolved: resolved
+                )
+
+        #expect(endpoint.method == .put)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(
+            endpoint.pathComponents
+                == [
+                    "projects",
+                    "99",
+                    "merge_requests",
+                    "13",
+                    "discussions",
+                    "opaque-discussion-id",
+                ]
+        )
+        #expect(endpoint.queryItems.isEmpty)
+        #expect(
+            try decodedResolvedBody(
+                from: endpoint
+            ) == resolved
+        )
+    }
+
+    @Test("Keeps an opaque discussion ID in one encoded path segment")
+    func encodesOpaqueDiscussionIdentity() throws {
+        let endpoint =
+            try GitLabDiscussionEndpoints
+                .setMergeRequestDiscussionResolution(
+                    at:
+                        GitLabMergeRequestRoute(
+                            projectID: 99,
+                            mergeRequestIID: 13
+                        ),
+                    discussionID:
+                        "opaque/id?part#hash%value",
+                    resolved: true
+                )
+        let request =
+            try GitLabRequestBuilder(
+                host:
+                    GitLabHost(
+                        "gitlab.example.com"
+                    ),
+                authorization:
+                    .personalAccessToken(
+                        "test-token"
+                    )
+            )
+            .build(endpoint)
+
+        #expect(
+            request.url?
+                .absoluteString
+                == "https://gitlab.example.com/api/v4/"
+                    + "projects/99/merge_requests/13/discussions/"
+                    + "opaque%2Fid%3Fpart%23hash%25value"
+        )
+    }
+
     @Test(
         "Builds new discussion POST endpoints",
         arguments: [
@@ -253,5 +361,21 @@ struct GitLabDiscussionEndpointTests {
                 as? [String: String]
         )
         return try #require(object["body"])
+    }
+
+    private func decodedResolvedBody<Response>(
+        from endpoint:
+            GitLabAPIRequest<Response>
+    ) throws -> Bool
+    where Response: Decodable & Sendable {
+        let data = try #require(endpoint.body)
+        let object = try #require(
+            JSONSerialization
+                .jsonObject(with: data)
+                as? [String: Bool]
+        )
+        return try #require(
+            object["resolved"]
+        )
     }
 }

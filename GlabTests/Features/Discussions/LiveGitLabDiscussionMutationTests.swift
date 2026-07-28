@@ -59,6 +59,203 @@ struct LiveGitLabDiscussionMutationTests {
         )
     }
 
+    @Test("Loads one merge request discussion without invalidating")
+    func loadsExactMergeRequestDiscussion()
+        async throws
+    {
+        let discussion =
+            makeTestDiscussion(
+                id: "thread-a"
+            )
+        let client =
+            RecordingDiscussionMutationClient(
+                discussionResult:
+                    .success(discussion)
+            )
+        let service =
+            LiveGitLabDiscussionService(
+                client: client
+            )
+
+        let result =
+            try await service
+                .loadMergeRequestDiscussion(
+                    at: mergeRequestRoute,
+                    discussionID: "thread-a"
+                )
+
+        #expect(result == discussion)
+        #expect(
+            await client.sentPaths
+                == [
+                    "projects/42/merge_requests/9/discussions/thread-a",
+                ]
+        )
+        #expect(
+            await client.sentMethods == [.get]
+        )
+        #expect(
+            await client
+                .sentResolutionBodies
+                == [nil]
+        )
+        #expect(
+            await client.invalidatedPaths
+                .isEmpty
+        )
+    }
+
+    @Test(
+        "Sets merge request discussion resolution and invalidates its list",
+        arguments: [true, false]
+    )
+    func setsDiscussionResolution(
+        resolved: Bool
+    ) async throws {
+        let discussion =
+            makeTestDiscussion(
+                id: "thread-a"
+            )
+        let client =
+            RecordingDiscussionMutationClient(
+                discussionResult:
+                    .success(discussion)
+            )
+        let service =
+            LiveGitLabDiscussionService(
+                client: client
+            )
+
+        let result =
+            try await service
+                .setMergeRequestDiscussionResolution(
+                    at: mergeRequestRoute,
+                    discussionID: "thread-a",
+                    resolved: resolved
+                )
+
+        #expect(result == discussion)
+        #expect(
+            await client.sentPaths
+                == [
+                    "projects/42/merge_requests/9/discussions/thread-a",
+                ]
+        )
+        #expect(
+            await client.sentMethods == [.put]
+        )
+        #expect(
+            await client
+                .sentResolutionBodies
+                == [resolved]
+        )
+        #expect(
+            await client.invalidatedPaths
+                == [
+                    "projects/42/merge_requests/9/discussions",
+                ]
+        )
+    }
+
+    @Test(
+        "Invalidates uncertain resolution writes but not rejected writes",
+        arguments: [
+            (
+                failure:
+                    GitLabSessionClientError.api(
+                        .validation(
+                            statusCode: 422
+                        )
+                    ),
+                invalidates: false
+            ),
+            (
+                failure:
+                    GitLabSessionClientError.api(
+                        .forbidden
+                    ),
+                invalidates: false
+            ),
+            (
+                failure:
+                    GitLabSessionClientError.api(
+                        .server(
+                            statusCode: 503
+                        )
+                    ),
+                invalidates: true
+            ),
+            (
+                failure:
+                    GitLabSessionClientError.api(
+                        .connectivity(
+                            .networkConnectionLost
+                        )
+                    ),
+                invalidates: true
+            ),
+            (
+                failure:
+                    GitLabSessionClientError.api(
+                        .cancelled
+                    ),
+                invalidates: true
+            ),
+        ]
+    )
+    func invalidatesResolutionFailureAsNeeded(
+        failure: GitLabSessionClientError,
+        invalidates: Bool
+    ) async {
+        let client =
+            RecordingDiscussionMutationClient(
+                discussionResult:
+                    .failure(failure)
+            )
+        let service =
+            LiveGitLabDiscussionService(
+                client: client
+            )
+
+        await #expect(
+            throws:
+                GitLabDiscussionMutationError
+                    .request(failure)
+        ) {
+            try await service
+                .setMergeRequestDiscussionResolution(
+                    at: mergeRequestRoute,
+                    discussionID: "thread-a",
+                    resolved: true
+                )
+        }
+
+        #expect(
+            await client.sentPaths
+                == [
+                    "projects/42/merge_requests/9/discussions/thread-a",
+                ]
+        )
+        #expect(
+            await client.sentMethods == [.put]
+        )
+        #expect(
+            await client
+                .sentResolutionBodies
+                == [true]
+        )
+        #expect(
+            await client.invalidatedPaths
+                == (
+                    invalidates
+                        ? [
+                            "projects/42/merge_requests/9/discussions",
+                        ]
+                        : []
+                )
+        )
+    }
+
     @Test("Creates a reply and invalidates only its discussion cache")
     func createsReply() async throws {
         let created =
@@ -580,6 +777,10 @@ private actor RecordingDiscussionMutationClient:
         >
 
     private(set) var sentPaths: [String] = []
+    private(set) var sentMethods:
+        [GitLabHTTPMethod] = []
+    private(set) var sentResolutionBodies:
+        [Bool?] = []
     private(set) var invalidatedPaths:
         [String] = []
 
@@ -621,6 +822,14 @@ private actor RecordingDiscussionMutationClient:
             endpoint.pathComponents
                 .joined(separator: "/")
         )
+        sentMethods.append(
+            endpoint.method
+        )
+        sentResolutionBodies.append(
+            Self.resolvedValue(
+                from: endpoint.body
+            )
+        )
 
         if Response.self
             == GitLabDiscussion.self
@@ -659,6 +868,21 @@ private actor RecordingDiscussionMutationClient:
             endpoint.pathComponents
                 .joined(separator: "/")
         )
+    }
+
+    private static func resolvedValue(
+        from body: Data?
+    ) -> Bool? {
+        guard
+            let body,
+            let object =
+                try? JSONSerialization
+                    .jsonObject(with: body)
+                    as? [String: Bool]
+        else {
+            return nil
+        }
+        return object["resolved"]
     }
 }
 

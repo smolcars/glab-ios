@@ -948,6 +948,29 @@ private actor RecordingComposerMutator:
         self.events = events
     }
 
+    func loadMergeRequestDiscussion(
+        at route: GitLabMergeRequestRoute,
+        discussionID: String
+    ) throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        throw .request(
+            .api(.invalidResponse)
+        )
+    }
+
+    func setMergeRequestDiscussionResolution(
+        at route: GitLabMergeRequestRoute,
+        discussionID: String,
+        resolved: Bool
+    ) throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        throw .request(
+            .api(.invalidResponse)
+        )
+    }
+
     func createDiscussion(
         for resource: GitLabDiscussionResource,
         body: GitLabDiscussionCommentBody
@@ -1000,6 +1023,29 @@ private actor GatedComposerMutator:
     private var shouldRelease = false
     private var releaseContinuation:
         CheckedContinuation<Void, Never>?
+
+    func loadMergeRequestDiscussion(
+        at route: GitLabMergeRequestRoute,
+        discussionID: String
+    ) throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        throw .request(
+            .api(.invalidResponse)
+        )
+    }
+
+    func setMergeRequestDiscussionResolution(
+        at route: GitLabMergeRequestRoute,
+        discussionID: String,
+        resolved: Bool
+    ) throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        throw .request(
+            .api(.invalidResponse)
+        )
+    }
 
     func createDiscussion(
         for resource: GitLabDiscussionResource,
@@ -1097,6 +1143,29 @@ private actor SequencedComposerMutator:
         ]
     ) {
         self.results = results
+    }
+
+    func loadMergeRequestDiscussion(
+        at route: GitLabMergeRequestRoute,
+        discussionID: String
+    ) throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        throw .request(
+            .api(.invalidResponse)
+        )
+    }
+
+    func setMergeRequestDiscussionResolution(
+        at route: GitLabMergeRequestRoute,
+        discussionID: String,
+        resolved: Bool
+    ) throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        throw .request(
+            .api(.invalidResponse)
+        )
     }
 
     func createDiscussion(
