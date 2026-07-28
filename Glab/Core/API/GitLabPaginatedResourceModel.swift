@@ -34,6 +34,24 @@ where Item: Sendable {
         self.source = source
         self.cacheStoredAt = cacheStoredAt
     }
+
+    init(
+        apiResponse:
+            GitLabAPIResponseEvent<[Item]>
+    ) {
+        self.init(
+            page: GitLabResourcePage(
+                items: apiResponse.value,
+                nextPageURL:
+                    apiResponse.metadata.nextPageURL,
+                totalCount:
+                    apiResponse.metadata.totalCount
+            ),
+            source: apiResponse.source,
+            cacheStoredAt:
+                apiResponse.cacheStoredAt
+        )
+    }
 }
 
 @MainActor
@@ -135,11 +153,17 @@ where
         guard !hasLoaded else {
             return
         }
-        await replaceItems(isInitial: true)
+        await replaceItems(
+            showsInitialLoading: true,
+            refreshBehavior: .ifStale
+        )
     }
 
     func refresh() async {
-        await replaceItems(isInitial: items.isEmpty)
+        await replaceItems(
+            showsInitialLoading: items.isEmpty,
+            refreshBehavior: .always
+        )
     }
 
     func loadNextPageIfNeeded(after item: Item) async {
@@ -153,7 +177,10 @@ where
         await loadNextPage()
     }
 
-    private func replaceItems(isInitial: Bool) async {
+    private func replaceItems(
+        showsInitialLoading: Bool,
+        refreshBehavior: GitLabCacheRefreshBehavior
+    ) async {
         guard
             !isLoadingInitial,
             !isRefreshing,
@@ -163,7 +190,7 @@ where
         }
 
         let previousFailureState = failureState
-        if isInitial {
+        if showsInitialLoading {
             isLoadingInitial = true
         } else {
             isRefreshing = true
@@ -180,7 +207,7 @@ where
         do {
             if let loadFirstPage {
                 try await loadFirstPage(
-                    isInitial ? .ifStale : .always
+                    refreshBehavior
                 ) { [weak self] event in
                     guard !Task.isCancelled else {
                         return
@@ -213,7 +240,8 @@ where
             let retainedFirstPage = hasLoaded
             loadError = error
             didFailRefresh =
-                !isInitial || retainedFirstPage
+                !showsInitialLoading
+                    || retainedFirstPage
             hasLoaded = true
         }
     }

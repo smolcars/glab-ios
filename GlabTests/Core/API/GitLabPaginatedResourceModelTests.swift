@@ -117,6 +117,48 @@ struct GitLabPaginatedResourceModelTests {
         #expect(model.firstPageSource == .cache(.stale))
     }
 
+    @Test("Refresh always contacts GitLab after an empty first page")
+    @MainActor
+    func refreshesEmptyFirstPageFromNetwork() async {
+        let loader = EmptyFirstPageLoader()
+        let model = GitLabPaginatedResourceModel<Int, Int>(
+            loadPage: {
+                (_: URL?) async throws(
+                    GitLabSessionClientError
+                ) -> GitLabResourcePage<Int> in
+                throw .api(.invalidResponse)
+            },
+            loadFirstPage: {
+                (
+                    refreshBehavior:
+                        GitLabCacheRefreshBehavior,
+                    onPage:
+                        @Sendable (
+                            GitLabResourcePageEvent<Int>
+                        ) async -> Void
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> Void in
+                await loader.load(
+                    refreshBehavior: refreshBehavior,
+                    onPage: onPage
+                )
+            },
+            identity: { $0 },
+            searchValues: { ["\($0)"] }
+        )
+
+        await model.loadIfNeeded()
+        await model.refresh()
+
+        #expect(model.items.isEmpty)
+        #expect(model.hasLoaded)
+        #expect(
+            await loader.refreshBehaviors
+                == [.ifStale, .always]
+        )
+    }
+
     @Test(
         "Preserves loaded content across recovery categories",
         arguments: [
@@ -192,6 +234,31 @@ struct GitLabPaginatedResourceModelTests {
 
         await loader.finishRetry()
         await retry.value
+    }
+}
+
+private actor EmptyFirstPageLoader {
+    private(set) var refreshBehaviors:
+        [GitLabCacheRefreshBehavior] = []
+
+    func load(
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @Sendable (
+                GitLabResourcePageEvent<Int>
+            ) async -> Void
+    ) async {
+        refreshBehaviors.append(refreshBehavior)
+        await onPage(
+            GitLabResourcePageEvent(
+                page: GitLabResourcePage(
+                    items: [],
+                    nextPageURL: nil,
+                    totalCount: 0
+                ),
+                source: .network
+            )
+        )
     }
 }
 

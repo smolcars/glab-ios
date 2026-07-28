@@ -84,9 +84,13 @@ final class AppSession {
                     state = .signedIn(session)
                 } else {
                     authenticationNotice = .expiredOrRevoked
-                    try await credentialStore.delete()
-                    await purgeCache(for: session)
-                    state = .signedOut
+                    if let error = await discardInvalidSession(
+                        session
+                    ) {
+                        state = .failed(error)
+                    } else {
+                        state = .signedOut
+                    }
                 }
             } else {
                 state = .signedOut
@@ -178,5 +182,21 @@ final class AppSession {
         await responseCache.removeAll(
             for: GitLabCacheAccount(session: session)
         )
+    }
+
+    private func discardInvalidSession(
+        _ session: GitLabStoredSession
+    ) async -> GitLabCredentialStoreError? {
+        let deletionError: GitLabCredentialStoreError?
+
+        do {
+            try await credentialStore.delete()
+            deletionError = nil
+        } catch {
+            deletionError = error
+        }
+
+        await purgeCache(for: session)
+        return deletionError
     }
 }

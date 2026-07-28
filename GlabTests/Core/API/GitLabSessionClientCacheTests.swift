@@ -360,6 +360,59 @@ struct GitLabSessionClientCacheTests {
         )
     }
 
+    @Test("Invalidation cancels an older in-flight exact-key read")
+    func invalidationCancelsInFlightRead() async throws {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let cache = InMemoryGitLabResponseCache(
+            currentDate: { now }
+        )
+        let transport = GatedCacheTransport(
+            outcome: .success("obsolete")
+        )
+        let fixture = try makeFixture(
+            transport: transport,
+            cache: cache,
+            currentDate: { now }
+        )
+        try await cache.store(
+            cachedResponse(
+                value: "cached",
+                storedAt: now.addingTimeInterval(-90)
+            ),
+            for: fixture.cacheKey
+        )
+
+        let load = Task {
+            try await fixture.client.loadResponse(
+                fixture.request,
+                cachePolicy: cachePolicy,
+                refreshBehavior: .ifStale
+            ) { _ in }
+        }
+        await transport.waitUntilRequested()
+
+        await fixture.client.invalidateCachedResponse(
+            fixture.request
+        )
+        await transport.release()
+        await transport.waitUntilCompleted()
+
+        await #expect(
+            throws:
+                GitLabSessionClientError.api(
+                    .cancelled
+                )
+        ) {
+            try await load.value
+        }
+
+        #expect(
+            await cache.response(
+                for: fixture.cacheKey
+            ) == nil
+        )
+    }
+
     @Test("A stale ETag entry is reused after HTTP 304")
     func revalidatesWithEntityTag() async throws {
         let now = Date(timeIntervalSince1970: 10_000)
@@ -726,8 +779,11 @@ private extension GitLabSessionClientCacheTests {
             CheckedContinuation<Void, Never>?
         private var requestWaiters:
             [CheckedContinuation<Void, Never>] = []
+        private var completionWaiters:
+            [CheckedContinuation<Void, Never>] = []
         private var lastRequest: URLRequest?
         private(set) var requestCount = 0
+        private var completionCount = 0
 
         init(
             outcome: Outcome,
@@ -740,6 +796,14 @@ private extension GitLabSessionClientCacheTests {
         func data(
             for request: URLRequest
         ) async throws -> (Data, URLResponse) {
+            defer {
+                completionCount += 1
+                let waiters = completionWaiters
+                completionWaiters.removeAll()
+                waiters.forEach {
+                    $0.resume()
+                }
+            }
             requestCount += 1
             lastRequest = request
             let waiters = requestWaiters
@@ -805,6 +869,15 @@ private extension GitLabSessionClientCacheTests {
             isReleased = true
             continuation?.resume()
             continuation = nil
+        }
+
+        func waitUntilCompleted() async {
+            guard completionCount == 0 else {
+                return
+            }
+            await withCheckedContinuation {
+                completionWaiters.append($0)
+            }
         }
     }
 

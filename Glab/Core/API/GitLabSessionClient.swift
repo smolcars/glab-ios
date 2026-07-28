@@ -214,6 +214,9 @@ where
             return
         }
 
+        await readCoalescer.cancelResponse(
+            for: key
+        )
         await responseCache.remove(for: key)
     }
 

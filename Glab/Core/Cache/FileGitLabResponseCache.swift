@@ -67,12 +67,13 @@ actor FileGitLabResponseCache:
             return nil
         }
 
+        let accessedAt = currentDate()
         let accessed = record.response.accessed(
-            at: currentDate()
+            at: accessedAt
         )
-        try? persist(
-            accessed,
-            at: fileURL
+        try? fileManager.setAttributes(
+            [.modificationDate: accessedAt],
+            ofItemAtPath: fileURL.path
         )
         return accessed
     }

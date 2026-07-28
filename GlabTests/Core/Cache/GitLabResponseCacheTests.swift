@@ -181,6 +181,54 @@ struct GitLabResponseCacheTests {
         }
     }
 
+    @Test("Updates LRU metadata without rewriting the cached payload")
+    func touchesResponseWithoutRewritingPayload() async throws {
+        try await withTemporaryCache { rootDirectory in
+            let storedAt = Date(
+                timeIntervalSince1970: 1_000
+            )
+            let accessedAt = Date(
+                timeIntervalSince1970: 2_000
+            )
+            let key = try cacheKey(userID: 11)
+            let store = FileGitLabResponseCache(
+                rootDirectory: rootDirectory,
+                currentDate: { accessedAt }
+            )
+            try await store.store(
+                cachedResponse(
+                    body: Data("private response".utf8),
+                    storedAt: storedAt
+                ),
+                for: key
+            )
+            let cacheFile = try #require(
+                cacheFiles(in: rootDirectory).first
+            )
+            let dataBeforeRead = try Data(
+                contentsOf: cacheFile
+            )
+
+            let restored = await store.response(
+                for: key
+            )
+            let dataAfterRead = try Data(
+                contentsOf: cacheFile
+            )
+            let modificationDate = try cacheFile
+                .resourceValues(
+                    forKeys: [
+                        .contentModificationDateKey,
+                    ]
+                )
+                .contentModificationDate
+
+            #expect(restored?.lastAccessedAt == accessedAt)
+            #expect(dataAfterRead == dataBeforeRead)
+            #expect(modificationDate == accessedAt)
+        }
+    }
+
     @Test("Purges only the selected account")
     func purgesSelectedAccount() async throws {
         try await withTemporaryCache { rootDirectory in

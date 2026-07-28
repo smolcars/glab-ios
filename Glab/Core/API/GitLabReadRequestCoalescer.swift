@@ -54,6 +54,24 @@ actor GitLabReadRequestCoalescer {
         }
     }
 
+    func cancelResponse(
+        for key: GitLabResponseCacheKey
+    ) {
+        guard let read = reads.removeValue(
+            forKey: key
+        ) else {
+            return
+        }
+
+        read.task.cancel()
+        for continuation in read.waiters.values {
+            continuation.resume(
+                returning:
+                    .failure(.api(.cancelled))
+            )
+        }
+    }
+
     private func addWaiter(
         id: UUID,
         continuation:

@@ -74,6 +74,41 @@ struct AppSessionTests {
         #expect(appSession.authenticationNotice == .expiredOrRevoked)
     }
 
+    @Test("Purges an invalid OAuth cache when credential deletion fails")
+    func purgesInvalidOAuthCacheAfterDeletionFailure() async throws {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let error = GitLabCredentialStoreError.keychain(
+            status: -1
+        )
+        let storedSession = try makeOAuthSession(
+            refreshToken: nil,
+            expiresAt: now.addingTimeInterval(-60)
+        )
+        let cache = InMemoryGitLabResponseCache()
+        let cacheKey = try makeCacheKey(for: storedSession)
+        try await cache.store(
+            makeCachedResponse(),
+            for: cacheKey
+        )
+        let appSession = AppSession(
+            credentialStore: DeleteFailingCredentialStore(
+                session: storedSession,
+                error: error
+            ),
+            responseCache: cache,
+            currentDate: { now }
+        )
+
+        await appSession.restore()
+
+        #expect(appSession.state == .failed(error))
+        #expect(
+            appSession.authenticationNotice
+                == .expiredOrRevoked
+        )
+        #expect(await cache.response(for: cacheKey) == nil)
+    }
+
     @Test("Persists a newly established session before signing in")
     func establishesSession() async throws {
         let store = InMemoryGitLabCredentialStore()

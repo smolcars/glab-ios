@@ -144,16 +144,7 @@ nonisolated struct LiveGitLabMergeRequestLoader:
         ) {
             await onPage(
                 GitLabResourcePageEvent(
-                    page: GitLabResourcePage(
-                        items: $0.value,
-                        nextPageURL:
-                            $0.metadata.nextPageURL,
-                        totalCount:
-                            $0.metadata.totalCount
-                    ),
-                    source: $0.source,
-                    cacheStoredAt:
-                        $0.cacheStoredAt
+                    apiResponse: $0
                 )
             )
         }
