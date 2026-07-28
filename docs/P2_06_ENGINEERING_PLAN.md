@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-28
 
-Status: planned; production implementation has not started.
+Status: complete; implemented, reviewed, and verified.
 
 Glab has not shipped. Breaking internal APIs, model initializers, and cache
 formats are acceptable when they make the viewer smaller, safer, or measurably
@@ -637,20 +637,20 @@ Generators must be deterministic, bounded, and excluded from production.
 
 Complete after implementation:
 
-- [ ] `/diffs` endpoint, pagination, and optional-field compatibility
-- [ ] MR/head revision ownership and stale-head invalidation
-- [ ] Old/new path and line-number correctness
-- [ ] Malformed input and unavailable-state honesty
-- [ ] Off-main parsing and cancellation propagation
-- [ ] Parsed-cache identity, coalescing, bounds, and LRU behavior
-- [ ] No eager all-file parsing or giant text construction
-- [ ] SwiftUI/UIKit virtualization and horizontal scrolling
-- [ ] Hunk navigation and rapid-navigation cleanup
-- [ ] Account, host, MR, head, and path isolation
-- [ ] Accessibility, Dynamic Type, appearance, and reduced-effects settings
-- [ ] Confidential source, URL, credential, and cache-key privacy
-- [ ] Duplicate parsing/rendering logic and unnecessary abstraction
-- [ ] Static analysis, complete tests, performance, memory, and hitch results
+- [x] `/diffs` endpoint, pagination, and optional-field compatibility
+- [x] MR/head revision ownership and stale-head invalidation
+- [x] Old/new path and line-number correctness
+- [x] Malformed input and unavailable-state honesty
+- [x] Off-main parsing and cancellation propagation
+- [x] Parsed-cache identity, coalescing, bounds, and LRU behavior
+- [x] No eager all-file parsing or giant text construction
+- [x] SwiftUI/UIKit virtualization and horizontal scrolling
+- [x] Hunk navigation and rapid-navigation cleanup
+- [x] Account, host, MR, head, and path isolation
+- [x] Accessibility, Dynamic Type, appearance, and reduced-effects settings
+- [x] Confidential source, URL, credential, and cache-key privacy
+- [x] Duplicate parsing/rendering logic and unnecessary abstraction
+- [x] Static analysis, complete tests, performance, memory, and hitch results
 
 ### Renderer decision evidence
 
@@ -679,14 +679,15 @@ retained their honest fallback, and file switches reset stale hunk state.
 Dark, light, and accessibility-extra-large inspections retained readable line
 numbers and code. Focused diff/API/model/cache tests pass.
 
-Isolated optimized results on the iPhone 17 Pro Simulator:
+Final isolated optimized results on the iPhone 17 Pro Simulator after the
+deep-review repairs:
 
-- Parser p95: 1k `0.497 ms`, 10k `5.173 ms`, 50k `27.226 ms`.
-- Warm parsed-cache p95: `0.114 ms`.
-- Parse-to-visible renderer: 10k median `80.240 ms`, p95 `82.350 ms`;
-  50k median `94.792 ms`, p95 `96.058 ms`.
-- 50k incremental resident memory: `4.219 MiB`.
-- 600-frame/10-second scroll: layout-work p95 `4.924 ms`, hitch-time
+- Parser p95: 1k `1.116 ms`, 10k `9.821 ms`, 50k `51.840 ms`.
+- Warm parsed-cache p95: `0.115 ms`.
+- Parse-to-visible renderer: 10k median `83.352 ms`, p95 `87.986 ms`;
+  50k median `120.296 ms`, p95 `122.737 ms`.
+- 50k incremental resident memory: `5.031 MiB`.
+- 600-frame/10-second scroll: layout-work p95 `4.885 ms`, hitch-time
   ratio `0%`, maximum frame `16.667 ms`.
 
 The iOS 26.5 Simulator reported that the Animation Hitches template is not
@@ -718,7 +719,7 @@ simulator evidence.
   so the collection content width can under-allocate valid source and clip it
   with no remaining horizontal scroll range.
 
-### Repair plan
+### Repair plan (completed)
 
 1. Introduce one privacy-safe document identity containing account, merge
    request route, head SHA, and path pair. Use it for the SwiftUI parse task and
@@ -741,6 +742,21 @@ simulator evidence.
 7. Run the focused model/parser/renderer suites first, then repeat the live
    cache-warm file selection, Unicode/long-line, hunk-jump, and two-axis
    simulator checks before closing the findings.
+
+### Review conclusion
+
+The two material findings above were fixed after their repair plan and
+regression tests were recorded. The final review found no remaining material
+bug, unsafe duplication, unbounded cache, main-actor parse, stale publication,
+credential exposure, or deprecated endpoint use in P2-06.
+
+Focused API/model/parser/renderer tests, the complete test suite, and
+`xcodebuild analyze` pass. The privacy/deprecation scan finds no `/changes`,
+`/raw_diffs`, `access_raw_diffs`, source logging, or credential logging in the
+feature. The final read-only self-managed iPhone 17 Pro Simulator pass covered
+exact hunk navigation, vertical and horizontal scrolling, a cache-warm reopen,
+light/dark appearance, and accessibility-extra-large sizing without issuing a
+write request.
 
 ## Non-goals
 

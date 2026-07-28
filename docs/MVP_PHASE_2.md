@@ -292,7 +292,7 @@ Todo:
   editing code, add regression tests where applicable, implement every fix,
   and repeat the feature verification and review.
 
-### [ ] P2-06 — Build a performant merge-request diff viewer
+### [x] P2-06 — Build a performant merge-request diff viewer
 
 Outcome:
 
@@ -308,42 +308,42 @@ Todo:
   parser isolation, view virtualization, memory/cache budgets, pagination,
   cancellation, large-diff fallback, accessibility, benchmarks, tests, UI
   verification, and non-goals.
-- [ ] Do not build on the deprecated MR `/changes` endpoint. Use the paginated
+- [x] Do not build on the deprecated MR `/changes` endpoint. Use the paginated
   `/diffs` endpoint and preserve file metadata such as renamed, deleted,
   generated, collapsed, and too-large state when the server supplies it.
-- [ ] Create unified-diff fixtures covering ordinary changes, context, missing
+- [x] Create unified-diff fixtures covering ordinary changes, context, missing
   newlines, renames, binary/generated files, malformed hunks, Unicode, very
   long lines, and approximately 1,000, 10,000, and 50,000 changed lines.
-- [ ] Write failing parser, pagination, malformed-input, cancellation, cache
+- [x] Write failing parser, pagination, malformed-input, cancellation, cache
   identity, head-SHA invalidation, and too-large fallback tests.
-- [ ] Implement parsing away from the main actor into immutable file, hunk,
+- [x] Implement parsing away from the main actor into immutable file, hunk,
   and line values. Propagate cancellation during long parses.
-- [ ] Show a paginated changed-file summary and load/render one file at a time.
+- [x] Show a paginated changed-file summary and load/render one file at a time.
   Do not eagerly parse every file in an MR.
-- [ ] Use a virtualized line presentation. Profile SwiftUI first, and use a
+- [x] Use a virtualized line presentation. Profile SwiftUI first, and use a
   focused UIKit collection-view/TextKit surface if measured SwiftUI behavior
   cannot meet the recorded performance budget.
-- [ ] Provide fixed-width text, additions/deletions/context styling,
+- [x] Provide fixed-width text, additions/deletions/context styling,
   horizontal access to long lines, selectable content where practical, hunk
   navigation, and clear file-status indicators.
-- [ ] Cache parsed diffs by account, project, MR, head SHA, path, and parser
+- [x] Cache parsed diffs by account, project, MR, head SHA, path, and parser
   version with explicit byte/count limits and least-recently-used eviction.
-- [ ] Provide an honest unavailable state and Open in GitLab action for files
+- [x] Provide an honest unavailable state and Open in GitLab action for files
   GitLab reports as collapsed, too large, binary, or otherwise unavailable.
-- [ ] Measure parsing, first file render, memory, and scroll hitching with every
+- [x] Measure parsing, first file render, memory, and scroll hitching with every
   fixture. Record baseline/final measurements and verify that leaving a file
   cancels unnecessary work.
-- [ ] Verify file pagination, file navigation, long lines, huge fixtures,
+- [x] Verify file pagination, file navigation, long lines, huge fixtures,
   light/dark appearance, Dynamic Type, Reduce Motion, and rapid back navigation
   in the iPhone 17 Pro Simulator.
-- [ ] Run focused correctness/performance tests, the complete suite, static
+- [x] Run focused correctness/performance tests, the complete suite, static
   analysis, and cache/privacy scans.
-- [ ] Perform a deep code review of all code added or changed for this feature.
+- [x] Perform a deep code review of all code added or changed for this feature.
   Look for bugs, bad code, duplicated parsing/rendering logic, parser
   correctness errors, main-actor work, unbounded memory/cache growth,
   cancellation failures, stale-head data, and code that needs refactoring.
   Record the findings in the engineering plan.
-- [ ] If the review finds anything material, write a repair plan before
+- [x] If the review finds anything material, write a repair plan before
   editing code, add regression and performance tests where applicable,
   implement every fix, and repeat the feature verification and review.
 
