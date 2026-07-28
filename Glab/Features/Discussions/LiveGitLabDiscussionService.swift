@@ -1,5 +1,29 @@
 import Foundation
 
+nonisolated enum GitLabDiscussionMutationError:
+    Error,
+    Equatable,
+    Sendable,
+    LocalizedError,
+    CustomStringConvertible
+{
+    case encoding
+    case request(GitLabSessionClientError)
+
+    var description: String {
+        switch self {
+        case .encoding:
+            "Glab could not prepare this comment."
+        case let .request(error):
+            error.description
+        }
+    }
+
+    var errorDescription: String? {
+        description
+    }
+}
+
 nonisolated protocol GitLabDiscussionLoading:
     Sendable
 {
@@ -28,13 +52,15 @@ nonisolated protocol GitLabDiscussionMutating:
     func createDiscussion(
         for resource: GitLabDiscussionResource,
         body: GitLabDiscussionCommentBody
-    ) async throws -> GitLabDiscussion
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
 
     func reply(
         to discussionID: String,
         in resource: GitLabDiscussionResource,
         body: GitLabDiscussionCommentBody
-    ) async throws -> GitLabDiscussionNote
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussionNote
 }
 
 extension GitLabDiscussionLoading {
@@ -143,14 +169,30 @@ nonisolated struct LiveGitLabDiscussionService:
     func createDiscussion(
         for resource: GitLabDiscussionResource,
         body: GitLabDiscussionCommentBody
-    ) async throws -> GitLabDiscussion {
-        let discussion = try await client.send(
-            GitLabDiscussionEndpoints
-                .createDiscussion(
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        let endpoint:
+            GitLabAPIRequest<GitLabDiscussion>
+        do {
+            endpoint =
+                try GitLabDiscussionEndpoints
+                    .createDiscussion(
                     for: resource,
                     body: body
                 )
-        )
+        } catch {
+            throw .encoding
+        }
+
+        let discussion: GitLabDiscussion
+        do {
+            discussion = try await client.send(
+                endpoint
+            )
+        } catch {
+            throw .request(error)
+        }
         await invalidateDiscussions(
             for: resource
         )
@@ -162,14 +204,31 @@ nonisolated struct LiveGitLabDiscussionService:
         to discussionID: String,
         in resource: GitLabDiscussionResource,
         body: GitLabDiscussionCommentBody
-    ) async throws -> GitLabDiscussionNote {
-        let note = try await client.send(
-            GitLabDiscussionEndpoints.reply(
-                to: discussionID,
-                in: resource,
-                body: body
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussionNote
+    {
+        let endpoint:
+            GitLabAPIRequest<GitLabDiscussionNote>
+        do {
+            endpoint =
+                try GitLabDiscussionEndpoints
+                    .reply(
+                        to: discussionID,
+                        in: resource,
+                        body: body
+                    )
+        } catch {
+            throw .encoding
+        }
+
+        let note: GitLabDiscussionNote
+        do {
+            note = try await client.send(
+                endpoint
             )
-        )
+        } catch {
+            throw .request(error)
+        }
         await invalidateDiscussions(
             for: resource
         )

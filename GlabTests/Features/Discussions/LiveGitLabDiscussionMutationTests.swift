@@ -126,7 +126,11 @@ struct LiveGitLabDiscussionMutationTests {
                 "Preserve cache"
             )
 
-        await #expect(throws: failure) {
+        await #expect(
+            throws:
+                GitLabDiscussionMutationError
+                    .request(failure)
+        ) {
             try await service
                 .createDiscussion(
                     for: issue,
