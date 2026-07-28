@@ -113,6 +113,21 @@ nonisolated enum GitLabMergeRequestReadinessCheckKind:
     case conflicts
     case discussions
     case reviewState
+
+    var title: String {
+        switch self {
+        case .pipeline:
+            "Pipeline"
+        case .approvals:
+            "Approvals"
+        case .conflicts:
+            "Conflicts"
+        case .discussions:
+            "Discussions"
+        case .reviewState:
+            "Review state"
+        }
+    }
 }
 
 nonisolated enum GitLabMergeRequestReadinessCheckState:
@@ -144,6 +159,10 @@ nonisolated struct GitLabMergeRequestReadinessCheck:
         GitLabMergeRequestReadinessCheckKind
     {
         kind
+    }
+
+    var accessibilityLabel: String {
+        "\(kind.title), \(title). \(detail)"
     }
 }
 
@@ -222,6 +241,10 @@ nonisolated struct GitLabMergeRequestReadiness:
             discussions,
             reviewState,
         ]
+    }
+
+    var accessibilityLabel: String {
+        "Merge readiness, \(overall.title)"
     }
 
     private static func overallState(

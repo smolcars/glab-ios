@@ -77,6 +77,26 @@ struct GitLabMergeRequestReadinessTests {
         )
     }
 
+    @Test("Provides complete stable accessibility labels")
+    func providesAccessibilityLabels() {
+        let readiness = makeReadiness()
+
+        #expect(
+            readiness.accessibilityLabel
+                == "Merge readiness, Ready to merge"
+        )
+        #expect(
+            readiness.pipeline.accessibilityLabel
+                == "Pipeline, Passed. The head pipeline succeeded."
+        )
+        #expect(
+            readiness.checks.map(\.accessibilityLabel)
+                .allSatisfy {
+                    !$0.isEmpty
+                }
+        )
+    }
+
     @Test(
         "Maps transient detailed statuses to pending",
         arguments: [

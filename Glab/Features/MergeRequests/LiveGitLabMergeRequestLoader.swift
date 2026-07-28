@@ -288,7 +288,7 @@ nonisolated struct LiveGitLabMergeRequestLoader:
         try await client.loadResponse(
             GitLabMergeRequestEndpoints
                 .mergeRequest(at: route),
-            cachePolicy: .workItemDetail,
+            cachePolicy: .mergeRequestReadiness,
             refreshBehavior: refreshBehavior,
             onResponse: onResponse
         )

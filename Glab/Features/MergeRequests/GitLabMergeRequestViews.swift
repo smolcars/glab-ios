@@ -4,6 +4,7 @@ struct MergeRequestsView: View {
     let mode: GitLabMergeRequestListMode
     let loader:
         any GitLabMergeRequestLoading
+            & GitLabMergeRequestApprovalLoading
             & GitLabMergeRequestDiffLoading
     let discussionLoader:
         any GitLabDiscussionLoading
@@ -21,6 +22,7 @@ struct MergeRequestsView: View {
         mode: GitLabMergeRequestListMode,
         loader:
             any GitLabMergeRequestLoading
+                & GitLabMergeRequestApprovalLoading
                 & GitLabMergeRequestDiffLoading,
         discussionLoader:
             any GitLabDiscussionLoading,
@@ -562,6 +564,8 @@ struct GitLabMergeRequestDetailView: View {
 
     @State private var model:
         GitLabMergeRequestDetailModel
+    @State private var approvalModel:
+        GitLabMergeRequestApprovalModel
     @State private var discussionModel:
         GitLabDiscussionsModel
 
@@ -569,6 +573,7 @@ struct GitLabMergeRequestDetailView: View {
         route: GitLabMergeRequestRoute,
         loader:
             any GitLabMergeRequestLoading
+                & GitLabMergeRequestApprovalLoading
                 & GitLabMergeRequestDiffLoading,
         discussionLoader:
             any GitLabDiscussionLoading,
@@ -595,6 +600,13 @@ struct GitLabMergeRequestDetailView: View {
         _model = State(
             initialValue:
                 GitLabMergeRequestDetailModel(
+                    route: route,
+                    loader: loader
+                )
+        )
+        _approvalModel = State(
+            initialValue:
+                GitLabMergeRequestApprovalModel(
                     route: route,
                     loader: loader
                 )
@@ -676,6 +688,16 @@ struct GitLabMergeRequestDetailView: View {
 
                 GitLabMergeRequestDetailContent(
                     mergeRequest: mergeRequest,
+                    approvalState:
+                        approvalModel.state,
+                    approvalError:
+                        approvalError,
+                    retryApproval: {
+                        Task {
+                            await approvalModel
+                                .retry()
+                        }
+                    },
                     discussionModel:
                         discussionModel,
                     discussionResource:
@@ -704,27 +726,65 @@ struct GitLabMergeRequestDetailView: View {
         GitLabSessionClientError?
     {
         model.authenticationFailure
+            ?? approvalModel
+                .authenticationFailure
             ?? discussionModel.authenticationFailure
+    }
+
+    private var approvalError:
+        GitLabSessionClientError?
+    {
+        if let refreshError =
+            approvalModel.refreshError
+        {
+            return refreshError
+        }
+        guard
+            case let .failed(error) =
+                approvalModel.state
+        else {
+            return nil
+        }
+        return error
     }
 
     private func load() async {
         async let detail: Void =
             model.loadIfNeeded()
+        async let approval: Void =
+            approvalModel.loadIfNeeded()
         async let discussion: Void =
             discussionModel.loadIfNeeded()
-        _ = await (detail, discussion)
+        _ = await (
+            detail,
+            approval,
+            discussion
+        )
     }
 
     private func refresh() async {
         async let detail: Void = model.retry()
+        async let approval: Void =
+            approvalModel.retry()
         async let discussion: Void =
             discussionModel.refresh()
-        _ = await (detail, discussion)
+        _ = await (
+            detail,
+            approval,
+            discussion
+        )
     }
 }
 
 private struct GitLabMergeRequestDetailContent: View {
     let mergeRequest: GitLabMergeRequest
+    let approvalState:
+        GitLabResourceDetailState<
+            GitLabMergeRequestApprovalAvailability
+        >
+    let approvalError:
+        GitLabSessionClientError?
+    let retryApproval: () -> Void
     let discussionModel: GitLabDiscussionsModel
     let discussionResource:
         GitLabDiscussionResource
@@ -746,6 +806,20 @@ private struct GitLabMergeRequestDetailContent: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 22) {
                 header
+
+                GitLabMergeRequestReadinessView(
+                    readiness:
+                        GitLabMergeRequestReadiness(
+                            mergeRequest:
+                                mergeRequest,
+                            approvalState:
+                                approvalState
+                        ),
+                    approvalError:
+                        approvalError,
+                    retryApproval:
+                        retryApproval
+                )
 
                 GitLabEmojiReactionView(
                     awardable:

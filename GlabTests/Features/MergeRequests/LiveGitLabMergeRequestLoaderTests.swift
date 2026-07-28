@@ -127,6 +127,40 @@ struct LiveGitLabMergeRequestLoaderTests {
                 == [[diff]]
         )
     }
+
+    @Test("Publishes MR detail through the readiness cache policy")
+    func loadsCachedMergeRequestDetail() async throws {
+        let mergeRequest = makeTestMergeRequest()
+        let client = RecordingMergeRequestClient(
+            mergeRequest: mergeRequest,
+            diff: makeTestDiffFile(),
+            returnedNextPageURL: nil
+        )
+        let loader = LiveGitLabMergeRequestLoader(
+            client: client
+        )
+        let events = MergeRequestEventRecorder()
+
+        try await loader.loadMergeRequest(
+            at: mergeRequest.route,
+            refreshBehavior: .ifStale
+        ) {
+            await events.append($0)
+        }
+
+        #expect(
+            await client.loadedCachePolicies
+                == [.mergeRequestReadiness]
+        )
+        #expect(
+            await client.loadedRefreshBehaviors
+                == [.ifStale]
+        )
+        #expect(
+            await events.values.map(\.value)
+                == [mergeRequest]
+        )
+    }
 }
 
 private extension LiveGitLabMergeRequestLoaderTests {
@@ -237,6 +271,50 @@ private extension LiveGitLabMergeRequestLoaderTests {
                 )
             )
         }
+
+        func loadResponse<Response>(
+            _ endpoint: GitLabAPIRequest<Response>,
+            cachePolicy: GitLabResponseCachePolicy,
+            refreshBehavior:
+                GitLabCacheRefreshBehavior,
+            onResponse:
+                @escaping @Sendable (
+                    GitLabAPIResponseEvent<Response>
+                ) async -> Void
+        ) async throws(GitLabSessionClientError) {
+            loadedCachePolicies.append(cachePolicy)
+            loadedRefreshBehaviors.append(
+                refreshBehavior
+            )
+            await onResponse(
+                GitLabAPIResponseEvent(
+                    value:
+                        mergeRequest
+                            as! Response,
+                    metadata:
+                        GitLabResponseMetadata(),
+                    source: .network
+                )
+            )
+        }
+    }
+}
+
+private actor MergeRequestEventRecorder {
+    private(set) var values:
+        [
+            GitLabAPIResponseEvent<
+                GitLabMergeRequest
+            >
+        ] = []
+
+    func append(
+        _ event:
+            GitLabAPIResponseEvent<
+                GitLabMergeRequest
+            >
+    ) {
+        values.append(event)
     }
 }
 
