@@ -4,3 +4,4 @@ build/
 *.xcuserstate
 xcuserdata/
 .env
+.deriveddata/
