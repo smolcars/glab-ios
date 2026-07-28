@@ -391,7 +391,9 @@ struct GitLabClientTests {
     func retriesTransientGet() async throws {
         let transport = SequenceTransport(
             outcomes: [
-                .urlError(URLError(.timedOut)),
+                .urlError(
+                    URLError(.networkConnectionLost)
+                ),
                 .response(
                     Data(
                         #"{"id":7,"created_at":"2026-01-01T00:00:00Z"}"#.utf8
@@ -461,7 +463,9 @@ struct GitLabClientTests {
     func exhaustsTransientGetRetries() async throws {
         let transport = SequenceTransport(
             outcomes: [
-                .urlError(URLError(.timedOut)),
+                .urlError(
+                    URLError(.networkConnectionLost)
+                ),
                 .response(
                     Data(),
                     try makeHTTPResponse(statusCode: 500)
@@ -532,9 +536,15 @@ struct GitLabClientTests {
         #expect(await sleeper.delays.isEmpty)
     }
 
-    @Test("Does not retry an offline, authentication, or rate-limit failure")
+    @Test(
+        "Does not retry a timeout, offline, authentication, or rate-limit failure"
+    )
     func doesNotRetryNontransientGet() async throws {
         let outcomes: [(StubOutcome, GitLabAPIError)] = [
+            (
+                .urlError(URLError(.timedOut)),
+                .connectivity(.timedOut)
+            ),
             (
                 .urlError(URLError(.notConnectedToInternet)),
                 .connectivity(.notConnectedToInternet)
@@ -600,7 +610,9 @@ struct GitLabClientTests {
     func cancelsDuringBackoff() async throws {
         let transport = SequenceTransport(
             outcomes: [
-                .urlError(URLError(.timedOut)),
+                .urlError(
+                    URLError(.networkConnectionLost)
+                ),
                 .response(
                     Data(
                         #"{"id":7,"created_at":"2026-01-01T00:00:00Z"}"#.utf8
