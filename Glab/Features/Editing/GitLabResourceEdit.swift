@@ -1,5 +1,198 @@
 import Foundation
 
+nonisolated enum GitLabResourceEditTarget:
+    Codable,
+    Equatable,
+    Hashable,
+    Sendable,
+    CustomStringConvertible,
+    CustomDebugStringConvertible
+{
+    case issue(GitLabIssueRoute)
+    case mergeRequest(GitLabMergeRequestRoute)
+
+    private enum Kind:
+        String,
+        Codable
+    {
+        case issue
+        case mergeRequest
+    }
+
+    private enum CodingKeys:
+        String,
+        CodingKey
+    {
+        case kind
+        case projectID
+        case resourceIID
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container =
+            try decoder.container(
+                keyedBy: CodingKeys.self
+            )
+        let kind = try container.decode(
+            Kind.self,
+            forKey: .kind
+        )
+        let projectID = try container.decode(
+            Int.self,
+            forKey: .projectID
+        )
+        let resourceIID = try container.decode(
+            Int.self,
+            forKey: .resourceIID
+        )
+
+        self =
+            switch kind {
+            case .issue:
+                .issue(
+                    GitLabIssueRoute(
+                        projectID: projectID,
+                        issueIID: resourceIID
+                    )
+                )
+            case .mergeRequest:
+                .mergeRequest(
+                    GitLabMergeRequestRoute(
+                        projectID: projectID,
+                        mergeRequestIID:
+                            resourceIID
+                    )
+                )
+            }
+    }
+
+    func encode(
+        to encoder: any Encoder
+    ) throws {
+        var container =
+            encoder.container(
+                keyedBy: CodingKeys.self
+            )
+        try container.encode(
+            kind,
+            forKey: .kind
+        )
+        try container.encode(
+            projectID,
+            forKey: .projectID
+        )
+        try container.encode(
+            resourceIID,
+            forKey: .resourceIID
+        )
+    }
+
+    var description: String {
+        "GitLabResourceEditTarget(<redacted>)"
+    }
+
+    var debugDescription: String {
+        description
+    }
+
+    var projectID: Int {
+        switch self {
+        case let .issue(route):
+            route.projectID
+        case let .mergeRequest(route):
+            route.projectID
+        }
+    }
+
+    var resourceIID: Int {
+        switch self {
+        case let .issue(route):
+            route.issueIID
+        case let .mergeRequest(route):
+            route.mergeRequestIID
+        }
+    }
+
+    var kindStorageIdentifier: String {
+        kind.rawValue
+    }
+
+    private var kind: Kind {
+        switch self {
+        case .issue:
+            .issue
+        case .mergeRequest:
+            .mergeRequest
+        }
+    }
+}
+
+nonisolated struct GitLabResourceEditSnapshot:
+    Codable,
+    Equatable,
+    Sendable,
+    CustomStringConvertible,
+    CustomDebugStringConvertible
+{
+    let target: GitLabResourceEditTarget
+    let title: String
+    let rawDescription: String
+    let updatedAt: Date
+
+    private enum CodingKeys:
+        String,
+        CodingKey
+    {
+        case target
+        case title
+        case rawDescription = "description"
+        case updatedAt
+    }
+
+    init(
+        target: GitLabResourceEditTarget,
+        title: String,
+        description: String,
+        updatedAt: Date
+    ) {
+        self.target = target
+        self.title = title
+        rawDescription = description
+        self.updatedAt = updatedAt
+    }
+
+    init(issue: GitLabIssue) {
+        self.init(
+            target: .issue(issue.route),
+            title: issue.title,
+            description:
+                issue.description ?? "",
+            updatedAt: issue.updatedAt
+        )
+    }
+
+    init(mergeRequest: GitLabMergeRequest) {
+        self.init(
+            target:
+                .mergeRequest(
+                    mergeRequest.route
+                ),
+            title: mergeRequest.title,
+            description:
+                mergeRequest.description ?? "",
+            updatedAt: mergeRequest.updatedAt
+        )
+    }
+
+    var description: String {
+        "GitLabResourceEditSnapshot(<redacted>)"
+    }
+
+    var debugDescription: String {
+        description
+    }
+}
+
 nonisolated enum GitLabResourceEditValidationError:
     Error,
     Equatable,

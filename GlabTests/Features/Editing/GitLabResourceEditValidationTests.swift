@@ -1,8 +1,87 @@
+import Foundation
 import Testing
 @testable import Glab
 
 @Suite("GitLab resource edit validation")
 struct GitLabResourceEditValidationTests {
+    @Test("Builds exact issue and merge request snapshots")
+    func buildsResourceSnapshots() {
+        let issueUpdatedAt =
+            Date(
+                timeIntervalSince1970:
+                    1_700_000_100
+            )
+        let issue = makeTestIssue(
+            iid: 9,
+            projectID: 72,
+            title: "  Issue title  ",
+            description: nil,
+            updatedAt: issueUpdatedAt
+        )
+        let mergeRequestUpdatedAt =
+            Date(
+                timeIntervalSince1970:
+                    1_700_000_200
+            )
+        let mergeRequest =
+            makeTestMergeRequest(
+                iid: 10,
+                projectID: 73,
+                title: "  MR title  ",
+                description:
+                    "\r\n# Exact 👩🏽‍💻\r\n",
+                updatedAt:
+                    mergeRequestUpdatedAt
+            )
+
+        let issueSnapshot =
+            GitLabResourceEditSnapshot(
+                issue: issue
+            )
+        let mergeRequestSnapshot =
+            GitLabResourceEditSnapshot(
+                mergeRequest: mergeRequest
+            )
+
+        #expect(
+            issueSnapshot.target
+                == GitLabResourceEditTarget
+                .issue(issue.route)
+        )
+        #expect(
+            issueSnapshot.title
+                == "  Issue title  "
+        )
+        #expect(
+            issueSnapshot.rawDescription
+                == ""
+        )
+        #expect(
+            issueSnapshot.updatedAt
+                == issueUpdatedAt
+        )
+        #expect(
+            mergeRequestSnapshot.target
+                == GitLabResourceEditTarget
+                .mergeRequest(
+                    mergeRequest.route
+                )
+        )
+        #expect(
+            mergeRequestSnapshot.title
+                == "  MR title  "
+        )
+        #expect(
+            mergeRequestSnapshot
+                .rawDescription
+                == "\r\n# Exact 👩🏽‍💻\r\n"
+        )
+        #expect(
+            mergeRequestSnapshot.updatedAt
+                == mergeRequestUpdatedAt
+        )
+    }
+
     @Test("Preserves exact changed content")
     func preservesChangedContent() throws {
         let title = "  Preserve title spacing  "
