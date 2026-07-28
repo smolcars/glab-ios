@@ -3,9 +3,10 @@
 ## Status
 
 - Planning: complete
-- Implementation: complete; repair pass pending
-- Verification: complete before repair
-- Deep review: in progress; one material finding has a repair plan
+- Implementation: complete
+- Verification: complete after repair
+- Deep review: complete; one material finding was planned, repaired, verified,
+  and reviewed again
 
 This document is the required plan for P3-01. Production code must not be
 changed for this item until this plan is committed.
@@ -108,12 +109,12 @@ endpoint, state owner, or user interface.
 ### HTTP additions
 
 1. Add only `put = "PUT"` to `GitLabHTTPMethod`.
-2. Add a typed bodyless `GitLabAPIRequest.put` factory accepting:
-   - required access,
-   - path components,
-   - query items.
+2. Add a typed bodyless `GitLabAPIRequest.put` factory accepting path
+   components and query items. The factory always requires `.write`; callers
+   cannot weaken that access requirement.
 3. Add a typed JSON-body `GitLabAPIRequest.put` factory accepting the same
-   fields plus an `Encodable & Sendable` body.
+   fields plus an `Encodable & Sendable` body. This factory also always
+   requires `.write`.
 4. Share the existing ISO 8601, sorted-key JSON-body encoding between `POST`
    and `PUT` if this avoids literal duplication without changing GraphQL or
    public behavior.
@@ -257,6 +258,35 @@ No other material correctness, retry, cancellation, delivery-certainty,
 cache, account-isolation, credential-leakage, duplication, or refactoring
 finding is open from the first review.
 
+### Repair
+
+The repair removed the caller-selected access argument from both typed `PUT`
+factories and hard-coded `.write`. All call sites now use the smaller API, and
+the request-construction test still asserts the resulting access requirement.
+
+### Second review
+
+The post-repair review repeated the first review's full scope and confirmed:
+
+- every typed `PUT` is write-scoped by construction and a `read_api` session
+  rejects it before transport;
+- only `GET` is cacheable, coalesced, automatically retried, or reactively
+  replayed after an OAuth `401`;
+- proactive refresh happens before the sole `PUT` transport attempt, so an
+  expired OAuth token does not cause a duplicate write;
+- cancellation is checked before transport and after a non-cooperative
+  transport returns, preventing a late response from reaching feature state;
+- authoritative typed responses, exact account-scoped cache invalidation, and
+  mutation delivery certainty remain the existing reconciliation seams;
+- JSON encoding is shared only by REST `POST` and `PUT`, with no duplicate
+  request path or speculative mutation abstraction;
+- request descriptions, errors, and production logging do not expose
+  authorization values or JSON bodies.
+
+No material bug, bad code, duplicated logic, incorrect state ownership,
+security or privacy issue, concurrency or cancellation race, or needed
+refactor remains open after the repair.
+
 ## Pre-repair verification record
 
 - The request/client/access/OAuth/cache/account focused suites passed. One
@@ -278,3 +308,21 @@ finding is open from the first review.
   The saved read-only self-managed account loaded Home, Todos, and Assigned
   Issues; back navigation returned to Home. The final settled screenshot was
   visually intact and the read-only access notice remained visible.
+
+## Post-repair verification record
+
+- The focused request-construction, client, session-access, mutation-certainty,
+  cache, OAuth-refresh, and multiple-account suites passed with 89 tests.
+- The complete normally signed, serialized iOS 26.5 Simulator suite passed
+  with 581 tests in 96 suites. This includes the four performance suites and
+  the entitlement-dependent Keychain tests.
+- The Release iPhone 17 Pro Simulator build and Xcode static analyzer passed.
+- `git diff --check` passed. Changed-code scans found no forced try, forced
+  cast, fatal error, production request logging, configured credential, or
+  hosted OAuth secret. `PrivacyInfo.xcprivacy` and the app Info.plist passed
+  `plutil` validation.
+- The post-repair Release app was installed only on the iOS 26.5 iPhone 17 Pro
+  Simulator. The automated smoke flow opened Todos, returned Home, opened
+  Assigned Issues, navigated back, and found Assigned Merge Requests. The
+  settled Home screen was visually inspected and remained correctly laid out
+  with the saved read-only self-managed account.

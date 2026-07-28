@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-28
 
-Status: planned. No Phase 3 implementation has started.
+Status: in progress. P3-01 is complete.
 
 ## Product goal
 
@@ -106,7 +106,7 @@ Phase 3 is complete when:
 
 ## Ordered Phase 3 core checklist
 
-### [ ] P3-01 — Build the shared mutation foundation
+### [x] P3-01 — Build the shared mutation foundation
 
 Outcome:
 
@@ -118,42 +118,42 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect `GitLabAPIRequest`, request construction, `GitLabSessionClient`,
+- [x] Inspect `GitLabAPIRequest`, request construction, `GitLabSessionClient`,
   write-access enforcement, mutation delivery certainty, retry policy,
   response caching, account switching, and existing Todo, discussion, and
   reaction mutations.
-- [ ] Before writing production code, create
+- [x] Before writing production code, create
   `docs/P3_01_ENGINEERING_PLAN.md`. Document the exact HTTP additions, request
   body rules, authorization behavior, error and cancellation mapping,
   delivery-certainty semantics, invalidation hooks, test seams, migration
   impact, and non-goals.
-- [ ] Write failing tests for typed `PUT` requests with and without JSON
+- [x] Write failing tests for typed `PUT` requests with and without JSON
   bodies, query encoding, OAuth and personal-token authorization, secret
   redaction, `read_api` rejection before transport, cancellation before
   transport, representative success responses, and every relevant failure
   category.
-- [ ] Write failing tests proving ambiguous writes are not automatically
+- [x] Write failing tests proving ambiguous writes are not automatically
   retried and that a late response from an inactive account or canceled owner
   cannot mutate current feature state.
-- [ ] Add the minimum generic `PUT` support required by documented GitLab
+- [x] Add the minimum generic `PUT` support required by documented GitLab
   endpoints. Do not add speculative HTTP methods or a generic mutation
   framework that hides feature-specific reconciliation.
-- [ ] Reuse and, only where necessary, extend the existing mutation-delivery
+- [x] Reuse and, only where necessary, extend the existing mutation-delivery
   certainty model so features can distinguish a definitely rejected request
   from an action GitLab might already have accepted.
-- [ ] Define small cache invalidation and authoritative-response reconciliation
+- [x] Define small cache invalidation and authoritative-response reconciliation
   seams that later feature services can call without directly owning UI state.
-- [ ] Verify existing POST and DELETE behavior remains unchanged and all
+- [x] Verify existing POST and DELETE behavior remains unchanged and all
   existing authentication, caching, Todo, discussion, and reaction tests still
   pass.
-- [ ] Run focused API tests, the complete test suite, a Release Simulator
+- [x] Run focused API tests, the complete test suite, a Release Simulator
   build, Xcode static analysis, and credential/privacy scans.
-- [ ] Perform a deep code review of all code added or changed for P3-01. Look
+- [x] Perform a deep code review of all code added or changed for P3-01. Look
   for bugs, bad code, duplicated request or mutation logic, incorrect delivery
   certainty, accidental retries, stale-account writes, credential leakage,
   concurrency or cancellation races, and code that needs refactoring. Record
   every finding in `docs/P3_01_ENGINEERING_PLAN.md`.
-- [ ] If the P3-01 review finds anything material, write a repair plan before
+- [x] If the P3-01 review finds anything material, write a repair plan before
   editing code, add regression tests, implement every fix, rerun the complete
   P3-01 verification, and repeat the deep code review until no material finding
   remains.
