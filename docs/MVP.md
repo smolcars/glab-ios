@@ -480,14 +480,17 @@ Implementation status:
 
 Prioritize these only after MVP-15:
 
-1. Read discussions and render more complete GitLab Flavored Markdown.
-2. Comment on issues and merge requests.
-3. Review diffs and pipelines.
-4. Approve and merge with explicit permission/safety design.
-5. Create and edit issues.
-6. Search, groups, repository browsing, and multiple accounts.
-7. Push notifications and carefully budgeted background refresh.
-8. Automatic discovery or administrator provisioning of self-managed OAuth
+1. Add the approved account-scoped foreground
+   [response cache](CACHE_ENGINEERING_PLAN.md). This is a performance and stale
+   fallback layer, not full offline synchronization.
+2. Read discussions and render more complete GitLab Flavored Markdown.
+3. Comment on issues and merge requests.
+4. Review diffs and pipelines.
+5. Approve and merge with explicit permission/safety design.
+6. Create and edit issues.
+7. Search, groups, repository browsing, and multiple accounts.
+8. Push notifications and carefully budgeted background refresh.
+9. Automatic discovery or administrator provisioning of self-managed OAuth
    configuration.
 
 ## Official API references

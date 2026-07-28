@@ -127,6 +127,7 @@ and self-managed registration choices.
 
 - [MVP checklist and API contract](docs/MVP.md)
 - [Engineering plan](docs/ENGINEERING_PLAN.md)
+- [Cache engineering plan](docs/CACHE_ENGINEERING_PLAN.md)
 - [OAuth setup](docs/OAUTH_SETUP.md)
 - [Privacy policy](PRIVACY.md)
 - [Focused code audit](docs/CODE_AUDIT.md)
