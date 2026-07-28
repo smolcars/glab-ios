@@ -84,6 +84,7 @@ where
     var searchText = ""
 
     private var reconciledTailItems: [Item] = []
+    private var loadedNextPageURLs: Set<URL> = []
     private let loadPage:
         @Sendable (URL?) async throws(GitLabSessionClientError)
             -> GitLabResourcePage<Item>
@@ -176,6 +177,25 @@ where
 
     func retryNextPage() async {
         await loadNextPage()
+    }
+
+    func loadAllRemainingPages() async {
+        guard
+            !isLoadingInitial,
+            !isRefreshing,
+            !isLoadingNextPage,
+            !didFailRefresh
+        else {
+            return
+        }
+
+        while
+            nextPageURL != nil,
+            !Task.isCancelled,
+            !didFailNextPage
+        {
+            await loadNextPage()
+        }
     }
 
     @discardableResult
@@ -297,6 +317,7 @@ where
     private func applyFirstPage(
         _ event: GitLabResourcePageEvent<Item>
     ) {
+        loadedNextPageURLs.removeAll()
         items = appendingServerItems(
             event.page.items,
             to: []
@@ -332,6 +353,15 @@ where
         else {
             return
         }
+        guard
+            loadedNextPageURLs
+                .insert(nextPageURL)
+                .inserted
+        else {
+            loadError = .api(.invalidResponse)
+            didFailNextPage = true
+            return
+        }
 
         let previousFailureState = failureState
         isLoadingNextPage = true
@@ -346,6 +376,9 @@ where
         do {
             let page = try await loadPage(nextPageURL)
             guard !Task.isCancelled else {
+                loadedNextPageURLs.remove(
+                    nextPageURL
+                )
                 restoreFailureState(previousFailureState)
                 return
             }
@@ -357,15 +390,22 @@ where
             self.nextPageURL = page.nextPageURL
             totalItemCount =
                 page.totalCount ?? totalItemCount
+            contentRevision += 1
         } catch {
             guard
                 !Task.isCancelled,
                 error != .api(.cancelled)
             else {
+                loadedNextPageURLs.remove(
+                    nextPageURL
+                )
                 restoreFailureState(previousFailureState)
                 return
             }
 
+            loadedNextPageURLs.remove(
+                nextPageURL
+            )
             loadError = error
             didFailNextPage = true
         }

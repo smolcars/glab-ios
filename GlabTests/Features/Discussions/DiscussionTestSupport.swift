@@ -28,14 +28,16 @@ nonisolated func makeTestDiscussionNote(
     updatedAt: Date = Date(
         timeIntervalSince1970: 1_000
     ),
+    type: String? = nil,
     system: Bool? = false,
     internalNote: Bool? = false,
     resolvable: Bool? = false,
-    resolved: Bool? = false
+    resolved: Bool? = false,
+    position: GitLabDiscussionPosition? = nil
 ) -> GitLabDiscussionNote {
     GitLabDiscussionNote(
         id: id,
-        type: nil,
+        type: type,
         body: body,
         author: GitLabAPIUser(
             id: authorID,
@@ -60,6 +62,6 @@ nonisolated func makeTestDiscussionNote(
         resolved: resolved,
         resolvedBy: nil,
         resolvedAt: nil,
-        position: nil
+        position: position
     )
 }

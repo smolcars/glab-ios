@@ -235,6 +235,227 @@ struct GitLabPaginatedResourceModelTests {
         await loader.finishRetry()
         await retry.value
     }
+
+    @Test("Loads every remaining trusted page")
+    @MainActor
+    func loadsAllRemainingPages() async {
+        let loader = AllPagesLoader()
+        let model = GitLabPaginatedResourceModel<
+            Int,
+            Int
+        >(
+            loadPage: {
+                (
+                    pageURL: URL?
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> GitLabResourcePage<Int> in
+                try await loader.load(pageURL)
+            },
+            identity: { $0 },
+            searchValues: { ["\($0)"] }
+        )
+
+        await model.loadIfNeeded()
+        let startingRevision =
+            model.contentRevision
+        await model.loadAllRemainingPages()
+
+        #expect(model.items == [1, 2, 3])
+        #expect(model.nextPageURL == nil)
+        #expect(!model.didFailNextPage)
+        #expect(
+            model.contentRevision
+                == startingRevision + 2
+        )
+        #expect(await loader.requestCount == 3)
+    }
+
+    @Test("Stops and reports a repeated next-page URL")
+    @MainActor
+    func rejectsRepeatedNextPageURL() async {
+        let loader =
+            RepeatingNextPageLoader()
+        let model = GitLabPaginatedResourceModel<
+            Int,
+            Int
+        >(
+            loadPage: {
+                (
+                    pageURL: URL?
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> GitLabResourcePage<Int> in
+                await loader.load(pageURL)
+            },
+            identity: { $0 },
+            searchValues: { ["\($0)"] }
+        )
+
+        await model.loadIfNeeded()
+        await model.loadAllRemainingPages()
+
+        #expect(model.items == [1, 2])
+        #expect(model.didFailNextPage)
+        #expect(
+            model.loadError
+                == GitLabSessionClientError
+                .api(.invalidResponse)
+        )
+        #expect(await loader.requestCount == 2)
+    }
+
+    @Test("Cancellation keeps already loaded pages")
+    @MainActor
+    func cancelsLoadAll() async {
+        let loader = GatedAllPagesLoader()
+        let model = GitLabPaginatedResourceModel<
+            Int,
+            Int
+        >(
+            loadPage: {
+                (
+                    pageURL: URL?
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> GitLabResourcePage<Int> in
+                await loader.load(pageURL)
+            },
+            identity: { $0 },
+            searchValues: { ["\($0)"] }
+        )
+        await model.loadIfNeeded()
+
+        let loading = Task {
+            await model
+                .loadAllRemainingPages()
+        }
+        await loader.waitUntilNextPageStarts()
+        loading.cancel()
+        await loader.release()
+        await loading.value
+
+        #expect(model.items == [1])
+        #expect(!model.didFailNextPage)
+        #expect(model.loadError == nil)
+        #expect(!model.isLoadingNextPage)
+    }
+}
+
+private actor AllPagesLoader {
+    private(set) var requestCount = 0
+
+    func load(
+        _ pageURL: URL?
+    ) throws(GitLabSessionClientError)
+        -> GitLabResourcePage<Int>
+    {
+        requestCount += 1
+        switch pageURL?.lastPathComponent {
+        case nil:
+            return page(
+                item: 1,
+                next: "page-2"
+            )
+        case "page-2":
+            return page(
+                item: 2,
+                next: "page-3"
+            )
+        case "page-3":
+            return page(
+                item: 3,
+                next: nil
+            )
+        default:
+            throw .api(.invalidResponse)
+        }
+    }
+
+    private func page(
+        item: Int,
+        next: String?
+    ) -> GitLabResourcePage<Int> {
+        GitLabResourcePage(
+            items: [item],
+            nextPageURL: next.flatMap {
+                URL(
+                    string:
+                        "https://gitlab.example.com/\($0)"
+                )
+            },
+            totalCount: 3
+        )
+    }
+}
+
+private actor RepeatingNextPageLoader {
+    private(set) var requestCount = 0
+    private let repeatedURL = URL(
+        string:
+            "https://gitlab.example.com/page-2"
+    )
+
+    func load(
+        _ pageURL: URL?
+    ) -> GitLabResourcePage<Int> {
+        requestCount += 1
+        return GitLabResourcePage(
+            items: [pageURL == nil ? 1 : 2],
+            nextPageURL: repeatedURL,
+            totalCount: 3
+        )
+    }
+}
+
+private actor GatedAllPagesLoader {
+    private var didStartNextPage = false
+    private var startWaiters:
+        [CheckedContinuation<Void, Never>] = []
+    private var continuation:
+        CheckedContinuation<Void, Never>?
+
+    func load(
+        _ pageURL: URL?
+    ) async -> GitLabResourcePage<Int> {
+        guard pageURL != nil else {
+            return GitLabResourcePage(
+                items: [1],
+                nextPageURL: URL(
+                    string:
+                        "https://gitlab.example.com/page-2"
+                ),
+                totalCount: 2
+            )
+        }
+
+        didStartNextPage = true
+        let waiters = startWaiters
+        startWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        await withCheckedContinuation {
+            continuation = $0
+        }
+        return GitLabResourcePage(
+            items: [2],
+            nextPageURL: nil,
+            totalCount: 2
+        )
+    }
+
+    func waitUntilNextPageStarts() async {
+        guard !didStartNextPage else {
+            return
+        }
+        await withCheckedContinuation {
+            startWaiters.append($0)
+        }
+    }
+
+    func release() {
+        continuation?.resume()
+        continuation = nil
+    }
 }
 
 private actor EmptyFirstPageLoader {
