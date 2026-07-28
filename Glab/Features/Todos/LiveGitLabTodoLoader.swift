@@ -16,6 +16,44 @@ nonisolated protocol GitLabTodoLoading: Sendable {
         after nextPageURL: URL?
     ) async throws(GitLabSessionClientError)
         -> GitLabTodoPage
+
+    func loadTodosFirstPage(
+        state: GitLabTodoState,
+        targetFilter: GitLabTodoTargetFilter,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<GitLabTodo>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError)
+}
+
+extension GitLabTodoLoading {
+    func loadTodosFirstPage(
+        state: GitLabTodoState,
+        targetFilter: GitLabTodoTargetFilter,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<GitLabTodo>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        let page = try await loadTodosPage(
+            state: state,
+            targetFilter: targetFilter,
+            after: nil
+        )
+        await onPage(
+            GitLabResourcePageEvent(
+                page: GitLabResourcePage(
+                    items: page.todos,
+                    nextPageURL: page.nextPageURL,
+                    totalCount: page.totalCount
+                ),
+                source: .network
+            )
+        )
+    }
 }
 
 nonisolated protocol GitLabTodoMutating: Sendable {
@@ -70,12 +108,51 @@ nonisolated struct LiveGitLabTodoLoader:
     }
 
     @concurrent
+    func loadTodosFirstPage(
+        state: GitLabTodoState,
+        targetFilter: GitLabTodoTargetFilter,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<GitLabTodo>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        try await client.loadPage(
+            .initial(
+                GitLabTodoEndpoints.todos(
+                    state: state,
+                    targetFilter: targetFilter
+                )
+            ),
+            cachePolicy: .todos,
+            refreshBehavior: refreshBehavior
+        ) {
+            await onPage(
+                GitLabResourcePageEvent(
+                    page: GitLabResourcePage(
+                        items: $0.value,
+                        nextPageURL:
+                            $0.metadata.nextPageURL,
+                        totalCount:
+                            $0.metadata.totalCount
+                    ),
+                    source: $0.source,
+                    cacheStoredAt:
+                        $0.cacheStoredAt
+                )
+            )
+        }
+    }
+
+    @concurrent
     func markDone(
         id: Int
     ) async throws(GitLabSessionClientError) -> GitLabTodo {
-        try await client.send(
+        let todo = try await client.send(
             GitLabTodoEndpoints.markDone(id: id)
         )
+        await invalidateTodoCaches()
+        return todo
     }
 
     @concurrent
@@ -85,5 +162,21 @@ nonisolated struct LiveGitLabTodoLoader:
         let _: GitLabEmptyResponse = try await client.send(
             GitLabTodoEndpoints.markAllDone()
         )
+        await invalidateTodoCaches()
+    }
+
+    private func invalidateTodoCaches() async {
+        for state in GitLabTodoState.allCases {
+            for targetFilter
+                in GitLabTodoTargetFilter.allCases
+            {
+                await client.invalidateCachedResponse(
+                    GitLabTodoEndpoints.todos(
+                        state: state,
+                        targetFilter: targetFilter
+                    )
+                )
+            }
+        }
     }
 }

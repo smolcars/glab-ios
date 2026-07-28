@@ -62,6 +62,26 @@ where
                     totalCount: page.totalCount
                 )
             },
+            loadFirstPage: {
+                (
+                    refreshBehavior:
+                        GitLabCacheRefreshBehavior,
+                    onPage:
+                        @escaping @Sendable (
+                            GitLabResourcePageEvent<
+                                GitLabTodo
+                            >
+                        ) async -> Void
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> Void in
+                try await loader.loadTodosFirstPage(
+                    state: query.state,
+                    targetFilter: query.targetFilter,
+                    refreshBehavior: refreshBehavior,
+                    onPage: onPage
+                )
+            },
             identity: { $0.id },
             searchValues: {
                 [

@@ -61,6 +61,10 @@ nonisolated protocol GitLabSessionRequestSending: Sendable {
                 GitLabAPIResponseEvent<Response>
             ) async -> Void
     ) async throws(GitLabSessionClientError)
+
+    func invalidateCachedResponse<Response>(
+        _ endpoint: GitLabAPIRequest<Response>
+    ) async
 }
 
 nonisolated protocol GitLabPaginatedSessionRequestSending:
@@ -100,6 +104,10 @@ extension GitLabSessionRequestSending {
             )
         )
     }
+
+    func invalidateCachedResponse<Response>(
+        _ endpoint: GitLabAPIRequest<Response>
+    ) async {}
 }
 
 extension GitLabPaginatedSessionRequestSending {
@@ -189,6 +197,22 @@ where
             refreshBehavior: refreshBehavior,
             onResponse: onResponse
         )
+    }
+
+    func invalidateCachedResponse<Response>(
+        _ endpoint: GitLabAPIRequest<Response>
+    ) async {
+        guard
+            let responseCache,
+            let key = cacheKey(
+                for: GitLabAPIPageRequest
+                    .initial(endpoint)
+            )
+        else {
+            return
+        }
+
+        await responseCache.remove(for: key)
     }
 
     func sendPage<Response>(

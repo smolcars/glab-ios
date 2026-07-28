@@ -311,6 +311,54 @@ struct GitLabSessionClientCacheTests {
             )?.body == stored.body
         )
     }
+
+    @Test("Invalidation removes only the selected request")
+    func invalidatesSelectedRequest() async throws {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let cache = InMemoryGitLabResponseCache(
+            currentDate: { now }
+        )
+        let fixture = try makeFixture(
+            cache: cache,
+            currentDate: { now }
+        )
+        let otherKey = GitLabResponseCacheKey(
+            account: fixture.cacheKey.account,
+            requestURL: try #require(
+                URL(
+                    string:
+                        "https://gitlab.example.com/api/v4/issues"
+                )
+            )
+        )
+        let response = cachedResponse(
+            value: "cached",
+            storedAt: now
+        )
+        try await cache.store(
+            response,
+            for: fixture.cacheKey
+        )
+        try await cache.store(
+            response,
+            for: otherKey
+        )
+
+        await fixture.client.invalidateCachedResponse(
+            fixture.request
+        )
+
+        #expect(
+            await cache.response(
+                for: fixture.cacheKey
+            ) == nil
+        )
+        #expect(
+            await cache.response(
+                for: otherKey
+            ) != nil
+        )
+    }
 }
 
 private extension GitLabSessionClientCacheTests {

@@ -132,11 +132,11 @@ These values are injected policy, not scattered feature constants.
 
 ### Todos and mutations
 
-- [ ] Persist each state/target first-page query independently.
-- [ ] Preserve the current in-memory filter cache and badge derivation.
-- [ ] Evict affected Todo entries after successful mark-one or mark-all
+- [x] Persist each state/target first-page query independently.
+- [x] Preserve the current in-memory filter cache and badge derivation.
+- [x] Evict affected Todo entries after successful mark-one or mark-all
   mutations so old pending items cannot reappear after relaunch.
-- [ ] Preserve optimistic rollback behavior when a mutation fails or cancels.
+- [x] Preserve optimistic rollback behavior when a mutation fails or cancels.
 
 ### Conditional requests and coalescing
 
