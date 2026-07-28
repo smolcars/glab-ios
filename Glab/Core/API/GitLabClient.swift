@@ -190,7 +190,7 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
 
     private static func error(for response: HTTPURLResponse) -> GitLabAPIError {
         switch response.statusCode {
-        case 400, 422:
+        case 400, 409, 422:
             .validation(statusCode: response.statusCode)
         case 401:
             .unauthenticated

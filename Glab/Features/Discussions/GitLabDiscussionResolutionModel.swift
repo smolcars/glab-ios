@@ -7,6 +7,7 @@ nonisolated enum GitLabDiscussionResolutionPhase:
 {
     case idle
     case pending
+    case refreshingReadiness
     case deliveryUnknown
     case checkingGitLab
     case retryAvailable
@@ -222,6 +223,14 @@ final class GitLabDiscussionResolutionModel {
                 resolvedAt: nil,
                 failure: state.failure
             )
+        case .refreshingReadiness:
+            return Self.status(
+                resolution:
+                    state.baselineResolution,
+                phase: state.phase,
+                desiredResolved: nil,
+                failure: nil
+            )
         case .retryAvailable,
              .rejected:
             return Self.status(
@@ -266,6 +275,8 @@ final class GitLabDiscussionResolutionModel {
                     == .deliveryUnknown
                 || phase
                     == .checkingGitLab
+                || phase
+                    == .refreshingReadiness
                 || phase
                     == .retryAvailable
         {
@@ -721,8 +732,34 @@ final class GitLabDiscussionResolutionModel {
             return
         }
         _ = reconcile(discussion)
-        states[discussionID] = nil
+        guard
+            let resolution =
+                discussion.threadResolution
+        else {
+            recordInvalidReconciliation(
+                discussionID:
+                    discussionID,
+                generation: generation
+            )
+            return
+        }
+        states[discussionID] =
+            TransientState(
+                baseline: discussion,
+                baselineResolution:
+                    resolution,
+                desiredResolved:
+                    resolution.isResolved,
+                generation: generation,
+                phase:
+                    .refreshingReadiness,
+                failure: nil
+            )
         await refreshReadiness()
+        clearIfCurrent(
+            discussionID: discussionID,
+            generation: generation
+        )
     }
 
     private func recordMutationFailure(

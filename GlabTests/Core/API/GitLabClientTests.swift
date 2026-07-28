@@ -279,6 +279,7 @@ struct GitLabClientTests {
             (401, GitLabAPIError.unauthenticated),
             (403, GitLabAPIError.forbidden),
             (404, GitLabAPIError.notFound),
+            (409, GitLabAPIError.validation(statusCode: 409)),
             (418, GitLabAPIError.http(statusCode: 418)),
             (422, GitLabAPIError.validation(statusCode: 422)),
             (429, GitLabAPIError.rateLimited(retryAfterSeconds: nil)),
@@ -311,6 +312,7 @@ struct GitLabClientTests {
             (401, GitLabAPIError.unauthenticated),
             (403, GitLabAPIError.forbidden),
             (404, GitLabAPIError.notFound),
+            (409, GitLabAPIError.validation(statusCode: 409)),
             (418, GitLabAPIError.http(statusCode: 418)),
             (422, GitLabAPIError.validation(statusCode: 422)),
             (

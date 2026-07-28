@@ -164,6 +164,15 @@ struct LiveGitLabDiscussionMutationTests {
                 failure:
                     GitLabSessionClientError.api(
                         .validation(
+                            statusCode: 409
+                        )
+                    ),
+                invalidates: false
+            ),
+            (
+                failure:
+                    GitLabSessionClientError.api(
+                        .validation(
                             statusCode: 422
                         )
                     ),

@@ -219,6 +219,57 @@ struct GitLabDiscussionResolutionPresentationTests {
         #expect(reopening.showsProgress)
     }
 
+    @Test("Presents authoritative state while readiness refreshes")
+    func presentsReadinessRefresh() {
+        let resolver =
+            GitLabAPIUser(
+                id: 2,
+                username: "resolver",
+                name: "Resolve Person",
+                avatarURL: nil,
+                webURL: nil
+            )
+        let presentation =
+            GitLabDiscussionResolutionPresentation(
+                status:
+                    GitLabDiscussionResolutionStatus(
+                        isResolved: true,
+                        phase:
+                            .refreshingReadiness,
+                        desiredResolved: nil,
+                        resolvedBy: resolver,
+                        resolvedAt:
+                            Date(
+                                timeIntervalSince1970:
+                                    1_000
+                            ),
+                        failure: nil
+                    ),
+                apiAccess: .readWrite,
+                discussionID: "thread"
+            )
+
+        #expect(presentation.action == nil)
+        #expect(
+            presentation.actionTitle
+                == "Updating…"
+        )
+        #expect(
+            presentation.statusTitle
+                == "Resolved by Resolve Person"
+        )
+        #expect(presentation.showsProgress)
+        #expect(!presentation.isActionEnabled)
+        #expect(
+            presentation.accessibilityLabel
+                == "Updating merge request readiness"
+        )
+        #expect(
+            presentation.accessibilityValue
+                == "Resolved by Resolve Person"
+        )
+    }
+
     @Test("Presents explicit check and retry recovery")
     func presentsRecovery() {
         let unknown =

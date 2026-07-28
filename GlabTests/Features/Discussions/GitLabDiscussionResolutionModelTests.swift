@@ -188,6 +188,91 @@ struct GitLabDiscussionResolutionModelTests {
         )
     }
 
+    @Test("Keeps the control honestly busy while refreshing readiness")
+    @MainActor
+    func presentsReadinessRefreshState()
+        async throws
+    {
+        let resolver = GitLabAPIUser(
+            id: 77,
+            username: "resolver",
+            name: "Resolve Person",
+            avatarURL: nil,
+            webURL: nil
+        )
+        let unresolved =
+            resolutionDiscussion(
+                id: "thread",
+                resolved: false
+            )
+        let resolved =
+            resolutionDiscussion(
+                id: "thread",
+                resolved: true,
+                resolvedBy: resolver,
+                resolvedAt: Date(
+                    timeIntervalSince1970:
+                        8_000
+                )
+            )
+        let mutator =
+            ResolutionRecordingMutator(
+                resolutionResults: [
+                    "thread": [
+                        .success(resolved),
+                    ],
+                ]
+            )
+        let context =
+            try ResolutionModelContext(
+                discussions: [unresolved],
+                mutator: mutator
+            )
+        context.state.gatesReadiness = true
+
+        let operation = Task {
+            await context.model.toggle(
+                unresolved
+            )
+        }
+        await context.state
+            .waitUntilReadinessRefreshStarts()
+
+        let refreshing = try #require(
+            context.model.status(
+                for: resolved
+            )
+        )
+        #expect(
+            refreshing.phase
+                == .refreshingReadiness
+        )
+        #expect(refreshing.isResolved)
+        #expect(
+            refreshing.resolvedBy
+                == resolver
+        )
+
+        await context.model.toggle(
+            resolved
+        )
+        #expect(
+            await mutator.resolutionCalls
+                .count == 1
+        )
+
+        context.state
+            .releaseReadinessRefresh()
+        await operation.value
+
+        #expect(
+            context.model.status(
+                for: resolved
+            )?
+                .phase == .idle
+        )
+    }
+
     @Test("Allows independent mutations for different discussion IDs")
     @MainActor
     func mutatesIndependentDiscussions() async throws {
@@ -362,6 +447,13 @@ struct GitLabDiscussionResolutionModelTests {
             ),
             .request(
                 .api(.notFound)
+            ),
+            .request(
+                .api(
+                    .validation(
+                        statusCode: 409
+                    )
+                )
             ),
             .request(
                 .api(
@@ -1152,7 +1244,17 @@ private final class ResolutionModelState {
     var reconciled:
         [GitLabDiscussion] = []
     var readinessRefreshCount = 0
+    var gatesReadiness = false
     var isAccountCurrent = true
+    private var readinessRefreshStarted =
+        false
+    private var readinessRefreshReleased =
+        false
+    private var readinessStartWaiters:
+        [CheckedContinuation<Void, Never>] =
+            []
+    private var readinessReleaseWaiter:
+        CheckedContinuation<Void, Never>?
 
     init(
         discussions: [GitLabDiscussion]
@@ -1163,6 +1265,43 @@ private final class ResolutionModelState {
                     ($0.id, $0)
                 }
         )
+    }
+
+    func refreshReadiness() async {
+        readinessRefreshCount += 1
+        guard gatesReadiness else {
+            return
+        }
+
+        readinessRefreshStarted = true
+        for waiter in readinessStartWaiters {
+            waiter.resume()
+        }
+        readinessStartWaiters.removeAll()
+
+        guard !readinessRefreshReleased else {
+            return
+        }
+        await withCheckedContinuation {
+            readinessReleaseWaiter = $0
+        }
+    }
+
+    func waitUntilReadinessRefreshStarts()
+        async
+    {
+        guard !readinessRefreshStarted else {
+            return
+        }
+        await withCheckedContinuation {
+            readinessStartWaiters.append($0)
+        }
+    }
+
+    func releaseReadinessRefresh() {
+        readinessRefreshReleased = true
+        readinessReleaseWaiter?.resume()
+        readinessReleaseWaiter = nil
     }
 }
 
@@ -1226,9 +1365,8 @@ private struct ResolutionModelContext {
                     return true
                 },
                 refreshReadiness: {
-                    state
-                        .readinessRefreshCount
-                        += 1
+                    await state
+                        .refreshReadiness()
                 }
             )
     }

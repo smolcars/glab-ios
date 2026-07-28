@@ -116,6 +116,26 @@ nonisolated struct
                 statusTitle ?? ""
             accessibilityHint =
                 "Waits for GitLab to confirm the change."
+        case .refreshingReadiness:
+            action = nil
+            actionTitle = "Updating…"
+            statusTitle =
+                Self.authoritativeStatus(
+                    status
+                )
+            showsProgress = true
+            isActionEnabled = false
+            accessibilityLabel =
+                "Updating merge request readiness"
+            accessibilityValue =
+                statusTitle
+                    ?? (
+                        status.isResolved
+                            ? "Resolved"
+                            : "Unresolved"
+                    )
+            accessibilityHint =
+                "Waits for the merge request readiness check to finish."
         case .deliveryUnknown:
             let resolving =
                 status.desiredResolved
