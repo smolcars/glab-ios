@@ -3,9 +3,9 @@
 ## Status
 
 - Planning: complete
-- Implementation: not started
-- Verification: not started
-- Deep review: not started
+- Implementation: complete; repair pass pending
+- Verification: complete before repair
+- Deep review: in progress; one material finding has a repair plan
 
 This document is the required plan for P3-01. Production code must not be
 changed for this item until this plan is committed.
@@ -212,7 +212,9 @@ not call a live GitLab mutation endpoint.
 
 ## Deep-review record
 
-Not started. Review must cover:
+### First review
+
+The first review covered:
 
 - request/body duplication and encoding drift,
 - access checks and credential redaction,
@@ -223,6 +225,56 @@ Not started. Review must cover:
 - unnecessary abstractions or feature logic,
 - POST/DELETE regressions.
 
-If a material issue is found, record the finding and a repair plan here before
-editing code, add a regression test, implement the repair, rerun every P3-01
-quality gate, and repeat this review until no material finding remains.
+#### Finding 1 — `PUT` can be mislabeled as read access
+
+Material safety issue:
+
+Both new `put(requires:path:query:)` factories accept a caller-selected
+`GitLabAPIRequestAccess`. A future endpoint can therefore compile with
+`requires: .read`, causing `GitLabSessionClient.ensureAccess` to permit a
+mutating `PUT` for a `read_api` personal-token session.
+
+Every `PUT` endpoint in the Phase 3 source contracts mutates GitLab state.
+Caller-selectable access is unnecessary and makes the write-access guarantee
+dependent on endpoint-author discipline.
+
+Repair plan, written before the repair:
+
+1. Remove the access parameter from both `PUT` factories and always construct
+   them with `.write`.
+2. Update the new tests and keep an explicit assertion that a constructed
+   `PUT` requires write access.
+3. Keep the session-client regression proving a `read_api` session rejects
+   that request before transport and an `api` session sends it exactly once.
+4. Do not change `POST`, GraphQL, or `DELETE`; their existing access contracts
+   predate P3-01 and are outside this surgical repair.
+5. Rerun focused request/client/access/OAuth tests, the complete signed and
+   serialized suite, Release Simulator build, analyzer, scans, and Simulator
+   smoke flow.
+6. Repeat the deep review after the repair.
+
+No other material correctness, retry, cancellation, delivery-certainty,
+cache, account-isolation, credential-leakage, duplication, or refactoring
+finding is open from the first review.
+
+## Pre-repair verification record
+
+- The request/client/access/OAuth/cache/account focused suites passed. One
+  existing cache-coalescing case failed under broad parallel contention and
+  passed immediately in isolation; it also passed in the final full suite.
+- The complete normally signed, serialized iOS 26.5 Simulator suite passed
+  with 581 tests in 96 suites. Disabling signing was rejected as an invalid
+  verification setup because the data-protection Keychain tests correctly
+  require simulator app entitlements.
+- The four contention-sensitive performance suites passed serially on the
+  iOS 26.5 iPhone 17 Pro Simulator. A parallel run's parser timings were
+  discarded because unrelated suites competed for the same Simulator.
+- The Release iPhone 17 Pro Simulator build and Xcode static analyzer passed.
+- Tracked-production-source scans found no configured GitLab token, hosted
+  OAuth secret, forced cast, forced try, production request logging, shared
+  `URLSession`, or `UserDefaults` use in the changed request code.
+- `PrivacyInfo.xcprivacy` and the app Info.plist passed `plutil` validation.
+- The Release app was installed only on the iOS 26.5 iPhone 17 Pro Simulator.
+  The saved read-only self-managed account loaded Home, Todos, and Assigned
+  Issues; back navigation returned to Home. The final settled screenshot was
+  visually intact and the read-only access notice remained visible.
