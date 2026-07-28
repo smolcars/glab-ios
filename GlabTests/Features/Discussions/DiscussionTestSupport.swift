@@ -33,6 +33,8 @@ nonisolated func makeTestDiscussionNote(
     internalNote: Bool? = false,
     resolvable: Bool? = false,
     resolved: Bool? = false,
+    resolvedBy: GitLabAPIUser? = nil,
+    resolvedAt: Date? = nil,
     position: GitLabDiscussionPosition? = nil
 ) -> GitLabDiscussionNote {
     GitLabDiscussionNote(
@@ -60,8 +62,8 @@ nonisolated func makeTestDiscussionNote(
         internalNote: internalNote,
         resolvable: resolvable,
         resolved: resolved,
-        resolvedBy: nil,
-        resolvedAt: nil,
+        resolvedBy: resolvedBy,
+        resolvedAt: resolvedAt,
         position: position
     )
 }

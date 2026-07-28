@@ -360,6 +360,169 @@ struct GitLabDiscussionsModelTests {
         )
     }
 
+    @Test("Reconciles an authoritative discussion without reordering or changing count")
+    @MainActor
+    func reconcilesAuthoritativeDiscussion()
+        async
+    {
+        let first =
+            makeTestDiscussion(
+                id: "first"
+            )
+        let original =
+            makeTestDiscussion(
+                id: "target"
+            )
+        let last =
+            makeTestDiscussion(
+                id: "last"
+            )
+        let model =
+            GitLabDiscussionsModel(
+                resource: resource,
+                loader:
+                    StaticDiscussionLoader(
+                        discussions: [
+                            first,
+                            original,
+                            last,
+                        ],
+                        totalCount: 9
+                    )
+            )
+        await model.loadIfNeeded()
+        let startingRevision =
+            model.contentRevision
+        let authoritative =
+            makeTestDiscussion(
+                id: "target",
+                notes: [
+                    makeTestDiscussionNote(
+                        resolvable: true,
+                        resolved: true
+                    ),
+                ]
+            )
+
+        #expect(
+            model
+                .reconcileAuthoritativeDiscussion(
+                    authoritative
+                )
+        )
+        #expect(
+            model.discussions == [
+                first,
+                authoritative,
+                last,
+            ]
+        )
+        #expect(model.totalItemCount == 9)
+        #expect(
+            model.contentRevision
+                == startingRevision + 1
+        )
+    }
+
+    @Test("Reconciles an authoritative update retained at the pagination tail")
+    @MainActor
+    func reconcilesAuthoritativeTail()
+        async
+    {
+        let first =
+            makeTestDiscussion(
+                id: "first"
+            )
+        let second =
+            makeTestDiscussion(
+                id: "second"
+            )
+        let created =
+            makeTestDiscussion(
+                id: "created"
+            )
+        let authoritative =
+            makeTestDiscussion(
+                id: "created",
+                notes: [
+                    makeTestDiscussionNote(
+                        body: "Authoritative"
+                    ),
+                ]
+            )
+        let model =
+            GitLabDiscussionsModel(
+                resource: resource,
+                loader:
+                    PagingDiscussionLoader(
+                        first: first,
+                        second: second
+                    )
+            )
+        await model.loadIfNeeded()
+        model.reconcileCreatedDiscussion(
+            created
+        )
+
+        #expect(
+            model
+                .reconcileAuthoritativeDiscussion(
+                    authoritative
+                )
+        )
+        await model.loadNextPageIfNeeded(
+            after: authoritative
+        )
+
+        #expect(
+            model.discussions == [
+                first,
+                second,
+                authoritative,
+            ]
+        )
+    }
+
+    @Test("A missing authoritative identity is not inserted")
+    @MainActor
+    func ignoresMissingAuthoritativeDiscussion()
+        async
+    {
+        let original =
+            makeTestDiscussion(
+                id: "original"
+            )
+        let model =
+            GitLabDiscussionsModel(
+                resource: resource,
+                loader:
+                    StaticDiscussionLoader(
+                        discussions: [original],
+                        totalCount: 4
+                    )
+            )
+        await model.loadIfNeeded()
+        let startingRevision =
+            model.contentRevision
+
+        #expect(
+            !model
+                .reconcileAuthoritativeDiscussion(
+                    makeTestDiscussion(
+                        id: "missing"
+                    )
+                )
+        )
+        #expect(
+            model.discussions == [original]
+        )
+        #expect(model.totalItemCount == 4)
+        #expect(
+            model.contentRevision
+                == startingRevision
+        )
+    }
+
     @Test("Reconciles composer results through one shared path")
     @MainActor
     func reconcilesComposerResults() async {

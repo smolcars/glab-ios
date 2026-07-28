@@ -77,6 +77,15 @@ where
     }
 
     @discardableResult
+    func reconcileAuthoritativeDiscussion(
+        _ discussion: GitLabDiscussion
+    ) -> Bool {
+        reconcileItemIfPresent(
+            discussion
+        )
+    }
+
+    @discardableResult
     func reconcileCreatedReply(
         _ note: GitLabDiscussionNote,
         discussionID: String

@@ -260,6 +260,254 @@ struct GitLabDiscussionTests {
         #expect(!discussion.isSystemActivity)
     }
 
+    @Test("Derives unresolved and resolved thread state from the first resolvable note")
+    func derivesThreadResolution() {
+        let resolver = GitLabAPIUser(
+            id: 44,
+            username: "resolver",
+            name: "Resolve Person",
+            avatarURL: nil,
+            webURL: nil
+        )
+        let resolvedAt = Date(
+            timeIntervalSince1970: 2_000
+        )
+        let unresolved =
+            makeTestDiscussion(
+                id: "unresolved",
+                notes: [
+                    makeTestDiscussionNote(
+                        resolvable: true,
+                        resolved: false
+                    ),
+                ]
+            )
+        let resolved =
+            makeTestDiscussion(
+                id: "resolved",
+                notes: [
+                    makeTestDiscussionNote(
+                        resolvable: true,
+                        resolved: true,
+                        resolvedBy: resolver,
+                        resolvedAt: resolvedAt
+                    ),
+                ]
+            )
+
+        #expect(
+            unresolved.threadResolution
+                == GitLabDiscussionThreadResolution(
+                    discussionID: "unresolved",
+                    isResolved: false,
+                    resolvedBy: nil,
+                    resolvedAt: nil
+                )
+        )
+        #expect(
+            resolved.threadResolution
+                == GitLabDiscussionThreadResolution(
+                    discussionID: "resolved",
+                    isResolved: true,
+                    resolvedBy: resolver,
+                    resolvedAt: resolvedAt
+                )
+        )
+    }
+
+    @Test("Ignores individual, empty, system-only, and non-resolvable discussions")
+    func ignoresNonActionableResolutionSources() {
+        let resolvable =
+            makeTestDiscussionNote(
+                type: "DiscussionNote",
+                resolvable: true
+            )
+        let discussions = [
+            makeTestDiscussion(
+                id: "individual",
+                individualNote: true,
+                notes: [resolvable]
+            ),
+            makeTestDiscussion(
+                id: "empty",
+                notes: []
+            ),
+            makeTestDiscussion(
+                id: "system",
+                notes: [
+                    makeTestDiscussionNote(
+                        system: true,
+                        resolvable: false,
+                        resolved: true
+                    ),
+                ]
+            ),
+            makeTestDiscussion(
+                id: "ordinary",
+                notes: [
+                    makeTestDiscussionNote(
+                        resolvable: false,
+                        resolved: true
+                    ),
+                ]
+            ),
+        ]
+
+        #expect(
+            discussions.allSatisfy {
+                $0.threadResolution == nil
+            }
+        )
+    }
+
+    @Test("Uses the first resolvable note and never infers from a resolved reply")
+    func usesFirstResolvableNote() {
+        let firstResolver =
+            GitLabAPIUser(
+                id: 1,
+                username: "first",
+                name: "First",
+                avatarURL: nil,
+                webURL: nil
+            )
+        let discussion =
+            makeTestDiscussion(
+                notes: [
+                    makeTestDiscussionNote(
+                        id: 1,
+                        resolvable: false,
+                        resolved: true
+                    ),
+                    makeTestDiscussionNote(
+                        id: 2,
+                        resolvable: true,
+                        resolved: false,
+                        resolvedBy: firstResolver,
+                        resolvedAt: Date(
+                            timeIntervalSince1970:
+                                3_000
+                        )
+                    ),
+                    makeTestDiscussionNote(
+                        id: 3,
+                        resolvable: true,
+                        resolved: true
+                    ),
+                ]
+            )
+
+        #expect(
+            discussion.threadResolution?
+                .isResolved == false
+        )
+        #expect(
+            discussion.threadResolution?
+                .resolvedBy == nil
+        )
+        #expect(
+            discussion.threadResolution?
+                .resolvedAt == nil
+        )
+    }
+
+    @Test("Diff position age and mapping do not affect thread resolution")
+    func derivesResolutionForEveryDiffPosition() {
+        let positions: [
+            GitLabDiscussionPosition?
+        ] = [
+            GitLabDiscussionPosition(
+                baseSHA: "base",
+                startSHA: "start",
+                headSHA: "head",
+                positionType: "text",
+                oldPath: "Old.swift",
+                newPath: "New.swift",
+                oldLine: 2,
+                newLine: 3
+            ),
+            GitLabDiscussionPosition(
+                baseSHA: "old-base",
+                startSHA: "old-start",
+                headSHA: "old-head",
+                positionType: "text",
+                oldPath: "Old.swift",
+                newPath: "New.swift",
+                oldLine: 2,
+                newLine: 3
+            ),
+            GitLabDiscussionPosition(
+                positionType: "text"
+            ),
+            nil,
+        ]
+
+        for (index, position) in
+            positions.enumerated()
+        {
+            let discussion =
+                makeTestDiscussion(
+                    id: "diff-\(index)",
+                    notes: [
+                        makeTestDiscussionNote(
+                            type: "DiffNote",
+                            resolvable: true,
+                            resolved: false,
+                            position: position
+                        ),
+                    ]
+                )
+
+            #expect(
+                discussion.threadResolution?
+                    .discussionID
+                    == "diff-\(index)"
+            )
+            #expect(
+                discussion.threadResolution?
+                    .isResolved == false
+            )
+        }
+    }
+
+    @Test("Missing resolved state is unresolved and malformed metadata is hidden")
+    func handlesEvolvingResolutionFields() {
+        let resolver =
+            GitLabAPIUser(
+                id: 1,
+                username: "resolver",
+                name: "Resolver",
+                avatarURL: nil,
+                webURL: nil
+            )
+        let discussion =
+            makeTestDiscussion(
+                notes: [
+                    makeTestDiscussionNote(
+                        resolvable: true,
+                        resolved: nil,
+                        resolvedBy: resolver,
+                        resolvedAt: Date(
+                            timeIntervalSince1970:
+                                4_000
+                        )
+                    ),
+                ]
+            )
+
+        #expect(
+            discussion.threadResolution?
+                .isResolved == false
+        )
+        #expect(
+            discussion.threadResolution?
+                .resolvedBy == nil
+        )
+        #expect(
+            discussion.threadResolution?
+                .resolvedAt == nil
+        )
+    }
+
     @Test("Only user notes surface the edited presentation status")
     func editedPresentationStatus() {
         let updatedAt = Date(

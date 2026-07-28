@@ -390,6 +390,16 @@ nonisolated struct GitLabDiscussionNote:
     }
 }
 
+nonisolated struct GitLabDiscussionThreadResolution:
+    Equatable,
+    Sendable
+{
+    let discussionID: String
+    let isResolved: Bool
+    let resolvedBy: GitLabAPIUser?
+    let resolvedAt: Date?
+}
+
 nonisolated struct GitLabDiscussion:
     Decodable,
     Equatable,
@@ -403,6 +413,32 @@ nonisolated struct GitLabDiscussion:
     var isSystemActivity: Bool {
         !notes.isEmpty
             && notes.allSatisfy(\.isSystem)
+    }
+
+    var threadResolution:
+        GitLabDiscussionThreadResolution?
+    {
+        guard
+            !individualNote,
+            let note = notes.first(
+                where: \.isResolvable
+            )
+        else {
+            return nil
+        }
+        let isResolved = note.isResolved
+        return GitLabDiscussionThreadResolution(
+            discussionID: id,
+            isResolved: isResolved,
+            resolvedBy:
+                isResolved
+                    ? note.resolvedBy
+                    : nil,
+            resolvedAt:
+                isResolved
+                    ? note.resolvedAt
+                    : nil
+        )
     }
 
     func reconciling(
