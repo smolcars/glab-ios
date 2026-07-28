@@ -469,6 +469,24 @@ Animation Hitches, and Allocations templates for the simulator surface.
 Performance tests run in isolation. Debug-build numbers are diagnostic;
 optimized-build numbers determine the gate.
 
+### Renderer profiling method
+
+Keep the benchmark entirely in the test target. Host the production
+`GitLabDiffCollectionView` in a real `UIWindow` with deterministic generated
+documents; do not add a benchmark route or fixture source to the app.
+
+- Measure parse start through the first non-empty visible-cell layout for 10k
+  and 50k documents, reporting median and p95.
+- Measure resident memory immediately before parsing the first 50k document
+  and after its visible collection layout.
+- Sweep the 50k collection for 600 frames over 10 seconds at a fast inertial
+  rate of four rows per frame, recording layout work, over-budget time, and
+  the largest frame. Traversing all 50,000 rows in 10 seconds is intentionally
+  excluded because it would replace roughly 83 rows per frame rather than
+  model a user scroll.
+- Run the harness alone in an optimized build on the iPhone 17 Pro Simulator
+  and cross-check the run with Animation Hitches and Allocations traces.
+
 ## Fixtures
 
 Keep small correctness fixtures readable and generate large fixtures
@@ -659,8 +677,25 @@ the iPhone 17 Pro Simulator. Hunk 2 aligned at the top of the viewport,
 horizontal and vertical scrolling remained interactive, unavailable files
 retained their honest fallback, and file switches reset stale hunk state.
 Dark, light, and accessibility-extra-large inspections retained readable line
-numbers and code. Focused diff/API/model/cache tests pass. Final time, memory,
-and hitch measurements remain pending.
+numbers and code. Focused diff/API/model/cache tests pass.
+
+Isolated optimized results on the iPhone 17 Pro Simulator:
+
+- Parser p95: 1k `0.497 ms`, 10k `5.173 ms`, 50k `27.226 ms`.
+- Warm parsed-cache p95: `0.114 ms`.
+- Parse-to-visible renderer: 10k median `80.240 ms`, p95 `82.350 ms`;
+  50k median `94.792 ms`, p95 `96.058 ms`.
+- 50k incremental resident memory: `4.219 MiB`.
+- 600-frame/10-second scroll: layout-work p95 `4.924 ms`, hitch-time
+  ratio `0%`, maximum frame `16.667 ms`.
+
+The iOS 26.5 Simulator reported that the Animation Hitches template is not
+supported on this platform. Allocations attached to both the optimized test
+host and the persistent live app, but `xctrace` hung while finalizing and
+produced no valid export after the bounded capture. These tool limitations are
+recorded rather than treated as passing traces; the optimized display-link
+frame gate and direct resident-memory measurement above are the reproducible
+simulator evidence.
 
 ### Findings
 
