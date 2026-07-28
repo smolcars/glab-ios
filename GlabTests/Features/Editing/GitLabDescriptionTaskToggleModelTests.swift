@@ -778,6 +778,137 @@ struct GitLabDescriptionTaskToggleModelTests {
         #expect(await service.updateCount == 1)
     }
 
+    @Test("Cancellation during source validation publishes nothing")
+    @MainActor
+    func cancellationDuringRewrite() async throws {
+        let context = try TaskToggleTestContext()
+        let gate = TaskToggleRewriteGate()
+        let service =
+            TaskToggleRecordingService()
+        let model = context.makeModel(
+            service: service,
+            rewrite: {
+                source,
+                task,
+                state in
+                try await gate.rewrite(
+                    source,
+                    task: task,
+                    to: state
+                )
+            }
+        )
+
+        let operation = Task {
+            await model.toggle(
+                context.task,
+                in: context.snapshot
+            )
+        }
+        await gate.waitUntilStarted()
+
+        model.cancel()
+        await gate.release()
+        await operation.value
+
+        #expect(model.phase == .idle)
+        #expect(model.failure == nil)
+        #expect(model.activeTaskSourceID == nil)
+        #expect(await service.loadCount == 0)
+        #expect(await service.updateCount == 0)
+    }
+
+    @Test("An account switch rejects late validation without stale UI state")
+    @MainActor
+    func accountSwitchDuringRewrite() async throws {
+        let context = try TaskToggleTestContext()
+        let gate = TaskToggleRewriteGate()
+        let service =
+            TaskToggleRecordingService()
+        let accountState =
+            TaskToggleAccountState()
+        let model = context.makeModel(
+            service: service,
+            isAccountCurrent: {
+                accountState.isCurrent
+            },
+            rewrite: {
+                source,
+                task,
+                state in
+                try await gate.rewrite(
+                    source,
+                    task: task,
+                    to: state
+                )
+            }
+        )
+
+        let operation = Task {
+            await model.toggle(
+                context.task,
+                in: context.snapshot
+            )
+        }
+        await gate.waitUntilStarted()
+
+        accountState.isCurrent = false
+        await gate.release()
+        await operation.value
+
+        #expect(model.phase == .idle)
+        #expect(model.failure == nil)
+        #expect(model.activeTaskSourceID == nil)
+        #expect(await service.loadCount == 0)
+        #expect(await service.updateCount == 0)
+    }
+
+    @Test("A restored unknown-delivery draft blocks a second write")
+    @MainActor
+    func restoredUnknownDelivery() async throws {
+        let context = try TaskToggleTestContext()
+        let key = GitLabResourceEditDraftKey(
+            accountID: context.accountID,
+            target: context.snapshot.target
+        )
+        let draft =
+            GitLabResourceEditDraft(
+                baseline: context.snapshot,
+                title: context.snapshot.title,
+                description: "- [x] Ship",
+                revision: 4,
+                requiresDeliveryCheck: true
+            )
+        let store =
+            InMemoryGitLabResourceEditDraftStore()
+        try await store.store(
+            draft,
+            for: key
+        )
+        let service =
+            TaskToggleRecordingService()
+        let model = context.makeModel(
+            service: service,
+            draftStore: store
+        )
+
+        await model.toggle(
+            context.task,
+            in: context.snapshot
+        )
+
+        #expect(
+            model.failure
+                == .existingDraft(
+                    requiresDeliveryCheck:
+                        true
+                )
+        )
+        #expect(await store.draft(for: key) == draft)
+        #expect(await service.loadCount == 0)
+        #expect(await service.updateCount == 0)
+    }
+
     private func indexedTask(
         in source: String
     ) async throws -> GitLabMarkdownIndexedTask {
@@ -1078,4 +1209,9 @@ private actor FailingTaskToggleDraftStore:
     func removeAll(
         for accountID: GitLabAccountID
     ) {}
+}
+
+@MainActor
+private final class TaskToggleAccountState {
+    var isCurrent = true
 }

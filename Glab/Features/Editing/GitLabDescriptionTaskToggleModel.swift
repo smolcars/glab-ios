@@ -600,5 +600,14 @@ final class GitLabDescriptionTaskToggleModel {
             return
         }
         operationTask = nil
+        guard !isAccountCurrent() else {
+            return
+        }
+        editorModel?.cancelActiveOperation()
+        editorModel = nil
+        phase = .idle
+        failure = nil
+        activeTaskSourceID = nil
+        intendedState = nil
     }
 }
