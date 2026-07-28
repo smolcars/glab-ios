@@ -569,6 +569,47 @@ struct GitLabClientTests {
         #expect(await sleeper.delays.isEmpty)
     }
 
+    @Test("Never retries a DELETE after a transient failure")
+    func doesNotRetryDelete() async throws {
+        let transport = SequenceTransport(
+            outcomes: [
+                .urlError(URLError(.timedOut)),
+                .response(
+                    Data(),
+                    try makeHTTPResponse(statusCode: 204)
+                ),
+            ]
+        )
+        let sleeper = RecordingSleeper()
+        let client = try makeClient(
+            transport: transport,
+            sleep: { duration in
+                await sleeper.record(duration)
+            }
+        )
+
+        await #expect(
+            throws: GitLabAPIError.connectivity(.timedOut)
+        ) {
+            try await client.send(
+                GitLabAPIRequest<GitLabEmptyResponse>.delete(
+                    requires: .write,
+                    path: [
+                        "projects",
+                        "42",
+                        "issues",
+                        "7",
+                        "award_emoji",
+                        "91",
+                    ]
+                )
+            )
+        }
+
+        #expect(await transport.requestCount == 1)
+        #expect(await sleeper.delays.isEmpty)
+    }
+
     @Test(
         "Does not retry a timeout, offline, authentication, or rate-limit failure"
     )

@@ -3,6 +3,7 @@ import Foundation
 nonisolated enum GitLabHTTPMethod: String, Sendable {
     case get = "GET"
     case post = "POST"
+    case delete = "DELETE"
 }
 
 nonisolated enum GitLabAPIRequestAccess:
@@ -64,6 +65,20 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
             pathComponents: path,
             queryItems: query,
             body: try encoder.encode(body)
+        )
+    }
+
+    static func delete(
+        requires access: GitLabAPIRequestAccess,
+        path: [String],
+        query: [URLQueryItem] = []
+    ) -> Self {
+        Self(
+            method: .delete,
+            requiredAccess: access,
+            pathComponents: path,
+            queryItems: query,
+            body: nil
         )
     }
 }

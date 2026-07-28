@@ -115,6 +115,34 @@ struct GitLabRequestConstructionTests {
         #expect(request.value(forHTTPHeaderField: "Content-Type") == nil)
     }
 
+    @Test("Builds DELETE requests without a body")
+    func buildsDeleteRequest() throws {
+        let endpoint = GitLabAPIRequest<GitLabEmptyResponse>.delete(
+            requires: .write,
+            path: [
+                "projects",
+                "42",
+                "issues",
+                "7",
+                "award_emoji",
+                "91",
+            ]
+        )
+        let request = try GitLabRequestBuilder(
+            host: GitLabHost("gitlab.com"),
+            authorization: .personalAccessToken("pat-secret")
+        ).build(endpoint)
+
+        #expect(request.httpMethod == "DELETE")
+        #expect(request.httpBody == nil)
+        #expect(
+            request.value(
+                forHTTPHeaderField: "Content-Type"
+            ) == nil
+        )
+        #expect(endpoint.requiredAccess == .write)
+    }
+
     @Test("Carries an explicit access requirement")
     func carriesAccessRequirement() {
         let read = GitLabAPIRequest<TestResponse>.get(

@@ -40,14 +40,6 @@ nonisolated enum GitLabDiscussionComposerResult:
     )
 }
 
-nonisolated enum GitLabDiscussionDeliveryCertainty:
-    Equatable,
-    Sendable
-{
-    case rejected
-    case deliveryUnknown
-}
-
 nonisolated enum GitLabDiscussionComposerFailure:
     Equatable,
     Sendable
@@ -58,11 +50,11 @@ nonisolated enum GitLabDiscussionComposerFailure:
     case mutation(
         GitLabDiscussionMutationError,
         certainty:
-            GitLabDiscussionDeliveryCertainty
+            GitLabMutationDeliveryCertainty
     )
 
     var certainty:
-        GitLabDiscussionDeliveryCertainty?
+        GitLabMutationDeliveryCertainty?
     {
         guard
             case let .mutation(
@@ -93,43 +85,13 @@ nonisolated enum GitLabDiscussionComposerFailure:
 
 extension GitLabDiscussionMutationError {
     var deliveryCertainty:
-        GitLabDiscussionDeliveryCertainty
+        GitLabMutationDeliveryCertainty
     {
         switch self {
         case .encoding:
             .rejected
         case let .request(error):
-            error.deliveryCertainty
-        }
-    }
-}
-
-private extension GitLabSessionClientError {
-    var deliveryCertainty:
-        GitLabDiscussionDeliveryCertainty
-    {
-        switch self {
-        case .insufficientAccess,
-             .refresh:
-            .rejected
-        case let .api(error):
-            switch error {
-            case .invalidRequest,
-                 .unauthenticated,
-                 .forbidden,
-                 .notFound,
-                 .validation:
-                .rejected
-            case .rateLimited,
-                 .server,
-                 .http,
-                 .connectivity,
-                 .cancelled,
-                 .invalidResponse,
-                 .decoding,
-                 .transport:
-                .deliveryUnknown
-            }
+            error.mutationDeliveryCertainty
         }
     }
 }
