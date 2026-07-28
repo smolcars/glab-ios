@@ -176,3 +176,63 @@ struct GitLabOpenInGitLabControl: View {
         )
     }
 }
+
+struct GitLabResourceDetailToolbarActions:
+    ToolbarContent
+{
+    let destination: URL?
+    let openInGitLabAccessibilityIdentifier:
+        String
+    let canComment: Bool
+    let addComment: () -> Void
+
+    var body: some ToolbarContent {
+        ToolbarItemGroup(
+            placement: .topBarTrailing
+        ) {
+            if let destination {
+                Link(
+                    destination:
+                        destination
+                ) {
+                    Image("GitLabLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(
+                            width: 26,
+                            height: 26
+                        )
+                        .scaleEffect(2.5)
+                        .clipped()
+                        .accessibilityHidden(
+                            true
+                        )
+                }
+                .accessibilityLabel(
+                    "Open in GitLab"
+                )
+                .accessibilityIdentifier(
+                    openInGitLabAccessibilityIdentifier
+                )
+            }
+
+            Button {
+                addComment()
+            } label: {
+                Label(
+                    "Add comment",
+                    systemImage:
+                        "square.and.pencil"
+                )
+            }
+            .accessibilityIdentifier(
+                "discussion.addComment"
+            )
+            .accessibilityHint(
+                canComment
+                    ? "Opens a Markdown comment editor."
+                    : "Explains why commenting is unavailable."
+            )
+        }
+    }
+}

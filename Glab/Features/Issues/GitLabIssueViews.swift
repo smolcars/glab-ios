@@ -404,6 +404,10 @@ struct GitLabIssueDetailView: View {
     @State private var model: GitLabIssueDetailModel
     @State private var discussionModel:
         GitLabDiscussionsModel
+    @State private var composerTarget:
+        GitLabDiscussionComposerTarget?
+    @State private var
+        showsReadOnlyCommentAlert = false
 
     init(
         route: GitLabIssueRoute,
@@ -448,6 +452,22 @@ struct GitLabIssueDetailView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Issue")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if isDetailLoaded {
+                    GitLabResourceDetailToolbarActions(
+                        destination:
+                            detailWebURL,
+                        openInGitLabAccessibilityIdentifier:
+                            "issues.openInGitLab",
+                        canComment:
+                            apiAccess.canWrite
+                    ) {
+                        launchComposer(
+                            .newDiscussion
+                        )
+                    }
+                }
+            }
             .refreshable {
                 await refresh()
             }
@@ -468,6 +488,39 @@ struct GitLabIssueDetailView: View {
                             for: accountID
                         )
                 }
+            }
+            .sheet(item: $composerTarget) {
+                target in
+                GitLabDiscussionComposerView(
+                    accountID: accountID,
+                    resource:
+                        discussionResource,
+                    target: target,
+                    apiAccess: apiAccess,
+                    mutator:
+                        discussionMutator,
+                    draftStore:
+                        appSession
+                            .discussionDraftStore,
+                    appSession: appSession,
+                    onSuccess:
+                        discussionModel
+                            .reconcile
+                )
+                .presentationDragIndicator(
+                    .visible
+                )
+            }
+            .alert(
+                "Commenting unavailable",
+                isPresented:
+                    $showsReadOnlyCommentAlert
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(
+                    "This account has read-only API access. Sign in with OAuth or an API token with the api scope to post comments."
+                )
             }
     }
 
@@ -512,17 +565,11 @@ struct GitLabIssueDetailView: View {
                     discussionResource:
                         discussionResource,
                     accountID: accountID,
-                    apiAccess:
-                        appSession.accounts
-                            .first {
-                                $0.id == accountID
-                            }?
-                            .apiAccess
-                            ?? .readOnly,
-                    discussionMutator:
-                        discussionMutator,
+                    apiAccess: apiAccess,
                     reactionService:
                         reactionService,
+                    launchComposer:
+                        launchComposer,
                     appSession: appSession
                 )
             }
@@ -534,6 +581,52 @@ struct GitLabIssueDetailView: View {
     {
         model.authenticationFailure
             ?? discussionModel.authenticationFailure
+    }
+
+    private var apiAccess:
+        GitLabAPIAccess
+    {
+        appSession.accounts
+            .first {
+                $0.id == accountID
+            }?
+            .apiAccess
+            ?? .readOnly
+    }
+
+    private var isDetailLoaded: Bool {
+        guard case .loaded = model.state else {
+            return false
+        }
+        return true
+    }
+
+    private var detailWebURL: URL? {
+        guard
+            case let .loaded(issue) =
+                model.state
+        else {
+            return nil
+        }
+        return issue.safeWebURL
+    }
+
+    private func launchComposer(
+        _ target:
+            GitLabDiscussionComposerTarget
+    ) {
+        switch
+            GitLabDiscussionComposerLaunchPolicy
+                .decision(
+                    for: target,
+                    apiAccess: apiAccess
+                )
+        {
+        case let .present(target):
+            composerTarget = target
+        case .explainReadOnly:
+            showsReadOnlyCommentAlert = true
+        }
     }
 
     private func load() async {
@@ -559,15 +652,12 @@ private struct GitLabIssueDetailContent: View {
         GitLabDiscussionResource
     let accountID: GitLabAccountID
     let apiAccess: GitLabAPIAccess
-    let discussionMutator:
-        any GitLabDiscussionMutating
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let launchComposer:
+        (GitLabDiscussionComposerTarget) -> Void
     let appSession: AppSession
-
-    @State private var composerTarget:
-        GitLabDiscussionComposerTarget?
 
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
@@ -624,61 +714,14 @@ private struct GitLabIssueDetailContent: View {
                     reactionService:
                         reactionService,
                     appSession: appSession,
-                    showsMutationControl: true,
+                    showsMutationControl: false,
                     launchComposer:
                         launchComposer
                 )
             }
             .padding(20)
-            .padding(.bottom, issue.safeWebURL == nil ? 0 : 76)
         }
         .accessibilityIdentifier("issues.detail.scroll")
-        .safeAreaInset(edge: .bottom) {
-            if let webURL = issue.safeWebURL {
-                GitLabOpenInGitLabLink(
-                    destination: webURL,
-                    accessibilityIdentifier:
-                        "issues.openInGitLab"
-                )
-            }
-        }
-        .sheet(item: $composerTarget) {
-            target in
-            GitLabDiscussionComposerView(
-                accountID: accountID,
-                resource: discussionResource,
-                target: target,
-                apiAccess: apiAccess,
-                mutator: discussionMutator,
-                draftStore:
-                    appSession
-                        .discussionDraftStore,
-                appSession: appSession,
-                onSuccess:
-                    discussionModel
-                        .reconcile
-            )
-            .presentationDragIndicator(
-                .visible
-            )
-        }
-    }
-
-    private func launchComposer(
-        _ target:
-            GitLabDiscussionComposerTarget
-    ) {
-        guard
-            case let .present(target) =
-                GitLabDiscussionComposerLaunchPolicy
-                    .decision(
-                        for: target,
-                        apiAccess: apiAccess
-                    )
-        else {
-            return
-        }
-        composerTarget = target
     }
 
     private var header: some View {
