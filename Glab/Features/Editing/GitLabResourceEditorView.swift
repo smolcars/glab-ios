@@ -198,6 +198,9 @@ struct GitLabResourceEditorView: View {
                 modeOptions
             }
             .pickerStyle(.menu)
+            .accessibilityIdentifier(
+                "resourceEditor.mode"
+            )
         } else {
             Picker(
                 "Description mode",
@@ -206,6 +209,9 @@ struct GitLabResourceEditorView: View {
                 modeOptions
             }
             .pickerStyle(.segmented)
+            .accessibilityIdentifier(
+                "resourceEditor.mode"
+            )
         }
     }
 
@@ -374,9 +380,16 @@ struct GitLabResourceEditorView: View {
 
         if model.apiAccess == .readOnly {
             return .notice(
-                title: "Read-only account",
+                title:
+                    dynamicTypeSize
+                    .isAccessibilitySize
+                    ? "Read-only"
+                    : "Read-only account",
                 message:
-                    "You can edit, preview, and keep a local draft. Sign in with OAuth or an API token with the api scope to save.",
+                    dynamicTypeSize
+                    .isAccessibilitySize
+                    ? "Save is unavailable. Preview and local drafts still work."
+                    : "You can edit, preview, and keep a local draft. Sign in with OAuth or an API token with the api scope to save.",
                 systemImage: "eye.fill",
                 tint: .orange,
                 action: nil
@@ -719,13 +732,18 @@ private struct GitLabResourceEditorStatusView: View {
     let retryDraftStorage: () -> Void
     let checkGitLab: () -> Void
 
+    @Environment(\.dynamicTypeSize)
+    private var dynamicTypeSize
+
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             if status.showsProgress {
                 ProgressView()
                     .tint(status.tint)
             } else if let systemImage =
-                status.systemImage
+                status.systemImage,
+                !dynamicTypeSize
+                    .isAccessibilitySize
             {
                 Image(systemName: systemImage)
                     .foregroundStyle(status.tint)
