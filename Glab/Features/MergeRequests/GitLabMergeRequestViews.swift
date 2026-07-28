@@ -292,21 +292,7 @@ private struct GitLabMergeRequestRow: View {
                 labels
             }
 
-            Label(
-                mergeRequest.sourceBranch
-                    + " → "
-                    + mergeRequest.targetBranch,
-                systemImage: "arrow.triangle.branch"
-            )
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .lineLimit(
-                dynamicTypeSize.isAccessibilitySize
-                    ? nil
-                    : 1
-            )
-
-            status
+            branchStatus
             people
         }
         .padding(.vertical, 5)
@@ -394,16 +380,19 @@ private struct GitLabMergeRequestRow: View {
     }
 
     @ViewBuilder
-    private var status: some View {
+    private var branchStatus: some View {
         if dynamicTypeSize.isAccessibilitySize {
             VStack(alignment: .leading, spacing: 6) {
-                state
-                draft
-                comments
+                branch
+
+                HStack(spacing: 12) {
+                    draft
+                    comments
+                }
             }
         } else {
             HStack(spacing: 12) {
-                state
+                branch
                 draft
                 Spacer(minLength: 4)
                 comments
@@ -411,11 +400,32 @@ private struct GitLabMergeRequestRow: View {
         }
     }
 
-    private var state: some View {
-        GitLabMergeRequestStateLabel(
-            mergeRequest: mergeRequest
-        )
+    private var branch: some View {
+        Label {
+            Text(
+                mergeRequest.sourceBranch
+                    + " → "
+                    + mergeRequest.targetBranch
+            )
+            .foregroundStyle(.secondary)
+        } icon: {
+            GitLabMergeRequestStateIcon(
+                mergeRequest: mergeRequest
+            )
+        }
         .font(.caption)
+        .lineLimit(
+            dynamicTypeSize.isAccessibilitySize
+                ? nil
+                : 1
+        )
+        .accessibilityLabel(
+            mergeRequest.stateTitle
+                + ", from "
+                + mergeRequest.sourceBranch
+                + " to "
+                + mergeRequest.targetBranch
+        )
     }
 
     @ViewBuilder
@@ -528,15 +538,13 @@ private struct GitLabMergeRequestRow: View {
     }
 }
 
-private struct GitLabMergeRequestStateLabel: View {
+private struct GitLabMergeRequestStateIcon: View {
     let mergeRequest: GitLabMergeRequest
 
     var body: some View {
-        Label(
-            mergeRequest.stateTitle,
-            systemImage: systemImage
-        )
-        .foregroundStyle(color)
+        Image(systemName: systemImage)
+            .foregroundStyle(color)
+            .accessibilityHidden(true)
     }
 
     private var systemImage: String {
@@ -570,13 +578,25 @@ private struct GitLabMergeRequestStateLabel: View {
     }
 }
 
+private struct GitLabMergeRequestStateLabel: View {
+    let mergeRequest: GitLabMergeRequest
+
+    var body: some View {
+        Label {
+            Text(mergeRequest.stateTitle)
+        } icon: {
+            GitLabMergeRequestStateIcon(
+                mergeRequest: mergeRequest
+            )
+        }
+    }
+}
+
 private struct GitLabMergeRequestDraftLabel: View {
     var body: some View {
-        Label(
-            "Draft",
-            systemImage: "pencil.line"
-        )
-        .foregroundStyle(.orange)
+        Image(systemName: "pencil.line")
+            .foregroundStyle(.orange)
+            .accessibilityLabel("Draft")
     }
 }
 
