@@ -42,6 +42,14 @@ struct GitLabSearchResultTests {
         )
         #expect(project.visibility == nil)
         #expect(project.lastActivityAt == nil)
+        #expect(
+            result.nativeRoute == .project(
+                GitLabProjectRoute(
+                    pathWithNamespace:
+                        "mobile/glab-ios"
+                )
+            )
+        )
     }
 
     @Test("Decodes a sparse issue search result without detail-only references")
@@ -74,6 +82,10 @@ struct GitLabSearchResultTests {
         #expect(issue.labels == ["bug"])
         #expect(issue.author == nil)
         #expect(issue.confidential == false)
+        #expect(
+            result.nativeRoute
+                == .issue(issue.route)
+        )
     }
 
     @Test("Decodes a sparse merge request search result with defensive defaults")
@@ -112,6 +124,12 @@ struct GitLabSearchResultTests {
         #expect(mergeRequest.isDraft)
         #expect(mergeRequest.labels.isEmpty)
         #expect(mergeRequest.author == nil)
+        #expect(
+            result.nativeRoute
+                == .mergeRequest(
+                    mergeRequest.route
+                )
+        )
     }
 
     @Test("Includes the account in stable search result identity")
@@ -149,9 +167,77 @@ struct GitLabSearchResultTests {
         #expect(first != otherAccount)
         #expect(Set([first, duplicate, otherAccount]).count == 2)
     }
+
+    @Test("Builds a bounded single-line summary preview")
+    func buildsBoundedSummaryPreview() throws {
+        let longDescription =
+            "## Why\n\n"
+            + String(
+                repeating: "responsive search ",
+                count: 20
+            )
+        let result = try decodeResult(
+            """
+            {
+              "id": 101,
+              "iid": 7,
+              "project_id": 42,
+              "title": "Fix pagination",
+              "description": \(jsonString(longDescription)),
+              "state": "opened",
+              "updated_at": "2026-07-25T12:00:00Z",
+              "web_url": "https://gitlab.example.com/mobile/glab-ios/-/issues/7"
+            }
+            """
+        )
+
+        let preview = try #require(
+            result.summaryPreview
+        )
+        #expect(
+            preview.hasPrefix(
+                "## Why responsive search"
+            )
+        )
+        #expect(!preview.contains("\n"))
+        #expect(preview.count == 181)
+        #expect(preview.hasSuffix("…"))
+    }
+
+    @Test("Omits an empty summary preview")
+    func omitsEmptySummaryPreview() throws {
+        let result = try decodeResult(
+            """
+            {
+              "id": 101,
+              "iid": 7,
+              "project_id": 42,
+              "title": "Fix pagination",
+              "description": "  \\n\\t ",
+              "state": "opened",
+              "updated_at": "2026-07-25T12:00:00Z",
+              "web_url": "https://gitlab.example.com/mobile/glab-ios/-/issues/7"
+            }
+            """
+        )
+
+        #expect(result.summaryPreview == nil)
+    }
 }
 
 private extension GitLabSearchResultTests {
+    func jsonString(
+        _ value: String
+    ) throws -> String {
+        let data = try JSONEncoder().encode(value)
+        return try #require(
+            String(
+                data: data,
+                encoding: .utf8
+            )
+        )
+    }
+
     func decodeResult(
         _ json: String
     ) throws -> GitLabSearchResult {

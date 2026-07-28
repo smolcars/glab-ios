@@ -170,22 +170,19 @@ struct ProjectsView: View {
         )
     }
 
-    @ViewBuilder
     private func projectRow(
         _ project: GitLabProject
     ) -> some View {
-        if let destination = project.safeWebURL {
-            Link(destination: destination) {
-                GitLabProjectRow(
-                    project: project,
-                    showsExternalLink: true
+        NavigationLink(
+            value: GitLabNativeRoute.project(
+                GitLabProjectRoute(
+                    pathWithNamespace:
+                        project.pathWithNamespace
                 )
-            }
-            .buttonStyle(.plain)
-        } else {
+            )
+        ) {
             GitLabProjectRow(
-                project: project,
-                showsExternalLink: false
+                project: project
             )
         }
     }
@@ -210,7 +207,6 @@ struct ProjectsView: View {
 
 private struct GitLabProjectRow: View {
     let project: GitLabProject
-    let showsExternalLink: Bool
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -224,7 +220,6 @@ private struct GitLabProjectRow: View {
                         )
                         namespace
                         Spacer(minLength: 4)
-                        externalLinkIcon
                     }
 
                     name
@@ -245,7 +240,6 @@ private struct GitLabProjectRow: View {
                     }
 
                     Spacer(minLength: 4)
-                    externalLinkIcon
                 }
             }
         }
@@ -255,9 +249,7 @@ private struct GitLabProjectRow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(
-            showsExternalLink
-                ? "Opens in GitLab"
-                : "A safe GitLab link is unavailable"
+            "Opens project details"
         )
     }
 
@@ -304,19 +296,6 @@ private struct GitLabProjectRow: View {
                 horizontal: false,
                 vertical: dynamicTypeSize.isAccessibilitySize
             )
-    }
-
-    @ViewBuilder
-    private var externalLinkIcon: some View {
-        if showsExternalLink {
-            Image(
-                systemName: "arrow.up.right.square"
-            )
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.tertiary)
-            .padding(.top, 3)
-            .accessibilityHidden(true)
-        }
     }
 
     private var metadata: some View {

@@ -40,6 +40,8 @@ struct SignedInShellView: View {
     @State private var homeDashboardModel: HomeDashboardModel
     @State private var assignedIssuesModel: AssignedIssuesModel
     @State private var todosModel: TodosModel
+    @State private var globalSearchModel:
+        GitLabGlobalSearchModel
     private let issueLoader: any GitLabIssueLoading
     private let mergeRequestLoader:
         any GitLabMergeRequestLoading
@@ -52,7 +54,9 @@ struct SignedInShellView: View {
     private let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
-    private let projectLoader: any GitLabProjectLoading
+    private let projectLoader:
+        any GitLabProjectLoading
+            & GitLabProjectResolving
     private let markdownRenderer:
         any GitLabMarkdownRendering
     private let markdownImageLoader:
@@ -152,6 +156,16 @@ struct SignedInShellView: View {
                 apiAccess: session.apiAccess
             )
         )
+        _globalSearchModel = State(
+            initialValue:
+                GitLabGlobalSearchModel(
+                    accountID: accountID,
+                    loader:
+                        LiveGitLabSearchLoader(
+                            client: client
+                        )
+                )
+        )
     }
 
     var body: some View {
@@ -170,7 +184,9 @@ struct SignedInShellView: View {
                         discussionMutator,
                     reactionService:
                         reactionService,
-                    projectLoader: projectLoader
+                    projectLoader: projectLoader,
+                    searchModel:
+                        globalSearchModel
                 )
             } label: {
                 Label(

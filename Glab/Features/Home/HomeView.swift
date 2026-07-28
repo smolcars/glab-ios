@@ -1,5 +1,9 @@
 import SwiftUI
 
+private enum HomeNavigationRoute: Hashable {
+    case search
+}
+
 struct HomeView: View {
     let session: GitLabStoredSession
     let accountID: GitLabAccountID
@@ -18,7 +22,10 @@ struct HomeView: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
-    let projectLoader: any GitLabProjectLoading
+    let projectLoader:
+        any GitLabProjectLoading
+            & GitLabProjectResolving
+    let searchModel: GitLabGlobalSearchModel
 
     @State private var path = NavigationPath()
     @State private var showsAccount = false
@@ -78,6 +85,23 @@ struct HomeView: View {
                 section in
                 destination(for: section)
             }
+            .navigationDestination(
+                for: GitLabNativeRoute.self
+            ) {
+                nativeDestination(for: $0)
+            }
+            .navigationDestination(
+                for: HomeNavigationRoute.self
+            ) { route in
+                switch route {
+                case .search:
+                    GitLabGlobalSearchView(
+                        model: searchModel,
+                        accountID: accountID,
+                        appSession: appSession
+                    )
+                }
+            }
             .refreshable {
                 await refreshDashboard()
             }
@@ -102,6 +126,32 @@ struct HomeView: View {
                     .accessibilityHint("Opens account settings.")
                     .accessibilityIdentifier("home.accountButton")
                 }
+
+                ToolbarItem(
+                    placement: .topBarTrailing
+                ) {
+                    Button {
+                        path.append(
+                            HomeNavigationRoute
+                                .search
+                        )
+                    } label: {
+                        Image(
+                            systemName:
+                                "magnifyingglass"
+                        )
+                    }
+                    .accessibilityLabel(
+                        "Search GitLab"
+                    )
+                    .accessibilityHint(
+                        "Searches projects, issues, "
+                            + "and merge requests."
+                    )
+                    .accessibilityIdentifier(
+                        "home.searchButton"
+                    )
+                }
             }
             .sheet(isPresented: $showsAccount) {
                 AccountView(
@@ -110,6 +160,49 @@ struct HomeView: View {
                 )
                 .presentationDragIndicator(.visible)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func nativeDestination(
+        for route: GitLabNativeRoute
+    ) -> some View {
+        switch route {
+        case let .project(projectRoute):
+            GitLabProjectDetailView(
+                route: projectRoute,
+                loader: projectLoader,
+                accountID: accountID,
+                appSession: appSession
+            )
+        case let .issue(issueRoute):
+            GitLabIssueDetailView(
+                route: issueRoute,
+                loader: issueLoader,
+                discussionLoader:
+                    discussionLoader,
+                discussionMutator:
+                    discussionMutator,
+                reactionService:
+                    reactionService,
+                accountID: accountID,
+                appSession: appSession
+            )
+        case let .mergeRequest(
+            mergeRequestRoute
+        ):
+            GitLabMergeRequestDetailView(
+                route: mergeRequestRoute,
+                loader: mergeRequestLoader,
+                discussionLoader:
+                    discussionLoader,
+                discussionMutator:
+                    discussionMutator,
+                reactionService:
+                    reactionService,
+                accountID: accountID,
+                appSession: appSession
+            )
         }
     }
 

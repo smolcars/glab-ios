@@ -390,6 +390,95 @@ nonisolated enum GitLabSearchResult:
         }
     }
 
+    var nativeRoute: GitLabNativeRoute {
+        switch self {
+        case let .project(project):
+            .project(
+                GitLabProjectRoute(
+                    pathWithNamespace:
+                        project.pathWithNamespace
+                )
+            )
+        case let .issue(issue):
+            .issue(issue.route)
+        case let .mergeRequest(
+            mergeRequest
+        ):
+            .mergeRequest(
+                mergeRequest.route
+            )
+        }
+    }
+
+    var summaryPreview: String? {
+        let source: String? =
+            switch self {
+            case let .project(project):
+                project.description
+            case let .issue(issue):
+                issue.description
+            case let .mergeRequest(
+                mergeRequest
+            ):
+                mergeRequest.description
+            }
+
+        return Self.makeSummaryPreview(
+            from: source
+        )
+    }
+
+    private static func makeSummaryPreview(
+        from source: String?,
+        maximumLength: Int = 180
+    ) -> String? {
+        guard let source else {
+            return nil
+        }
+
+        var preview = ""
+        preview.reserveCapacity(
+            maximumLength + 1
+        )
+        var needsSpace = false
+        var wasTruncated = false
+
+        for character in source {
+            if character.isWhitespace {
+                needsSpace = !preview.isEmpty
+                continue
+            }
+
+            if needsSpace {
+                guard
+                    preview.count < maximumLength
+                else {
+                    wasTruncated = true
+                    break
+                }
+                preview.append(" ")
+                needsSpace = false
+            }
+
+            guard
+                preview.count < maximumLength
+            else {
+                wasTruncated = true
+                break
+            }
+            preview.append(character)
+        }
+
+        guard !preview.isEmpty else {
+            return nil
+        }
+
+        if wasTruncated {
+            preview.append("…")
+        }
+        return preview
+    }
+
     private enum DiscriminatorKeys:
         String,
         CodingKey
