@@ -5,10 +5,10 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Test implementation: pending
-- Production implementation: pending
+- Test implementation: complete
+- Production implementation: complete
 - Verification: pending
-- Deep review: pending
+- Deep review: in progress — one material finding has a committed repair plan
 
 This plan must be committed and pushed before any P3-04 test or production
 code is changed.
@@ -619,6 +619,45 @@ If anything material is found:
 P3-04 and its checklist in `docs/MVP_PHASE_3.md` may be marked complete only
 after exact verification evidence and the final review result are recorded
 here.
+
+## Deep-review findings and repair plan
+
+### DR-01 — HTTP 409 is incorrectly treated as delivery unknown
+
+Status: repair planned; production code not yet changed.
+
+The first deep-review pass found that `GitLabClient` maps only HTTP 400 and
+422 to `GitLabAPIError.validation`. A GitLab HTTP 409 response therefore
+becomes `.http(statusCode: 409)`, which the shared mutation-delivery policy
+classifies as `deliveryUnknown`.
+
+That violates this plan's definite-rejection contract for 409 responses. A
+discussion-resolution conflict would incorrectly:
+
+- retain the optimistic resolution state;
+- require an unnecessary exact `Check GitLab` read;
+- invalidate the affected discussion-list cache as though GitLab might have
+  accepted the write; and
+- prevent an immediate explicit retry after the conflict is addressed.
+
+GitLab's current official REST troubleshooting documentation defines
+`409 Conflict` as a server-reported resource conflict. Receipt of that
+response makes this write's rejection definite; it is not an ambiguous
+transport outcome.
+
+Repair plan, to be committed before production edits:
+
+1. Add a failing core client test proving HTTP 409 maps to a definite
+   validation/rejection error.
+2. Add discussion-resolution regression coverage proving a 409 rolls back the
+   optimistic state and does not refresh readiness.
+3. Add service coverage proving a 409 does not invalidate the discussion
+   cache.
+4. Update the shared HTTP mapping so 409 is a validation rejection. Do not
+   broaden the change to unrelated unclassified status codes.
+5. Rerun the focused client, discussion endpoint/service/model, cache, and
+   presentation suites, then the complete P3-04 gates.
+6. Repeat the deep review and record the final result here.
 
 ## Non-goals
 
