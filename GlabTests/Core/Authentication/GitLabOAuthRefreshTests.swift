@@ -244,7 +244,6 @@ struct GitLabOAuthRefreshTests {
             GitLabAPIRequest<
                 GitLabAuthenticatedUser
             >.put(
-                requires: .write,
                 path: [
                     "projects",
                     "42",

@@ -83,14 +83,13 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
     }
 
     static func put(
-        requires access: GitLabAPIRequestAccess,
         path: [String],
         query: [URLQueryItem] = []
     ) -> Self {
         Self(
             target: .restV4,
             method: .put,
-            requiredAccess: access,
+            requiredAccess: .write,
             pathComponents: path,
             queryItems: query,
             body: nil,
@@ -99,7 +98,6 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
     }
 
     static func put<Body: Encodable & Sendable>(
-        requires access: GitLabAPIRequestAccess,
         path: [String],
         query: [URLQueryItem] = [],
         body: Body
@@ -107,7 +105,7 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
         Self(
             target: .restV4,
             method: .put,
-            requiredAccess: access,
+            requiredAccess: .write,
             pathComponents: path,
             queryItems: query,
             body: try encodeJSONBody(body),

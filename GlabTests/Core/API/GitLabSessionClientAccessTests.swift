@@ -75,7 +75,6 @@ struct GitLabSessionClientAccessTests {
         ) {
             let _: TestResponse = try await client.send(
                 .put(
-                    requires: .write,
                     path: ["projects", "42", "issues", "7"],
                     query: [
                         URLQueryItem(
@@ -100,7 +99,6 @@ struct GitLabSessionClientAccessTests {
 
         let response: TestResponse = try await client.send(
             .put(
-                requires: .write,
                 path: ["projects", "42", "issues", "7"],
                 query: [
                     URLQueryItem(

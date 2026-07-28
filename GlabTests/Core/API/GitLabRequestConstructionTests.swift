@@ -154,7 +154,6 @@ struct GitLabRequestConstructionTests {
     @Test("Builds bodyless PUT requests with query values")
     func buildsBodylessPutRequest() throws {
         let endpoint = GitLabAPIRequest<TestResponse>.put(
-            requires: .write,
             path: [
                 "projects",
                 "42",
@@ -201,7 +200,6 @@ struct GitLabRequestConstructionTests {
         let bodySecret = "never-print-this-body"
         let endpoint =
             try GitLabAPIRequest<TestResponse>.put(
-                requires: .write,
                 path: ["projects", "42", "issues", "7"],
                 query: [
                     URLQueryItem(
@@ -402,7 +400,6 @@ struct GitLabRequestConstructionTests {
     func appliesAuthenticationHeaders() throws {
         let host = try GitLabHost("gitlab.com")
         let endpoint = GitLabAPIRequest<TestResponse>.put(
-            requires: .write,
             path: ["projects", "42", "issues", "7"],
             query: [
                 URLQueryItem(

@@ -80,13 +80,11 @@ struct GitLabClientTests {
 
         let project = try await objectClient.send(
             GitLabAPIRequest<TestProject>.put(
-                requires: .write,
                 path: ["projects", "7"]
             )
         )
         let empty = try await emptyClient.send(
             GitLabAPIRequest<GitLabEmptyResponse>.put(
-                requires: .write,
                 path: ["projects", "7"]
             )
         )
@@ -337,7 +335,6 @@ struct GitLabClientTests {
         await #expect(throws: expectedError) {
             try await client.send(
                 GitLabAPIRequest<TestProject>.put(
-                    requires: .write,
                     path: ["projects", "7"]
                 )
             )
@@ -732,7 +729,6 @@ struct GitLabClientTests {
                 let _: GitLabEmptyResponse =
                     try await client.send(
                         .put(
-                            requires: .write,
                             path: ["projects", "7"]
                         )
                     )
@@ -787,7 +783,6 @@ struct GitLabClientTests {
         ) {
             try await invalidResponseClient.send(
                 GitLabAPIRequest<TestProject>.put(
-                    requires: .write,
                     path: ["projects", "7"]
                 )
             )
@@ -797,7 +792,6 @@ struct GitLabClientTests {
         ) {
             try await decodingClient.send(
                 GitLabAPIRequest<TestProject>.put(
-                    requires: .write,
                     path: ["projects", "7"]
                 )
             )
@@ -807,7 +801,6 @@ struct GitLabClientTests {
         ) {
             try await transportClient.send(
                 GitLabAPIRequest<TestProject>.put(
-                    requires: .write,
                     path: ["projects", "7"]
                 )
             )
@@ -845,7 +838,6 @@ struct GitLabClientTests {
                 return .success(
                     try await client.send(
                         .put(
-                            requires: .write,
                             path: ["projects", "7"]
                         )
                     )
@@ -885,7 +877,6 @@ struct GitLabClientTests {
                 return .success(
                     try await client.send(
                         .put(
-                            requires: .write,
                             path: ["projects", "7"]
                         )
                     )
