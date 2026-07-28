@@ -72,4 +72,39 @@ enum GitLabMarkdownFixtures {
     Hidden in a raw HTML layout.
     </details>
     """
+
+    static let taskSourceComplex = """
+    - [ ] First task
+    * [x] Second task
+    + [X] Uppercase task
+    1. [~] Inapplicable task
+    2) [ ] Alternate ordered task
+    > - [x] Quoted task
+    - Parent
+      - [ ] Repeated label 🚀
+        - [x] Repeated label 🚀
+    """
+
+    static let taskSourceExcluded = #"""
+    Paragraph [ ] is not a task.
+        - [ ] Indented code is not a task.
+
+    ```markdown
+    - [ ] Fenced task is not a task.
+    ```
+
+    <!--
+    - [x] Commented task is not a task.
+    -->
+
+    \- [ ] Escaped marker is not a task.
+    | [ ] | Table-cell task is not a list task. |
+    - [yes] Malformed task is not a task.
+    - [ ] Visible task
+    """#
+
+    static let taskSourceMixedLineEndings =
+        "- [ ] Alpha\r\n"
+        + "- [x] Café 👩🏽‍💻\n"
+        + "> 1. [ ] Omega  \r\n"
 }

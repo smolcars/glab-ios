@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 import Observation
 
@@ -20,11 +19,10 @@ nonisolated struct GitLabMarkdownCacheKey:
     ) {
         accountID = request.accountID
         resource = request.resource
-        contentDigest = Data(
-            SHA256.hash(
-                data: Data(request.source.utf8)
+        contentDigest =
+            GitLabMarkdownSourceDigest.digest(
+                for: request.source
             )
-        )
         self.rendererVersion = rendererVersion
     }
 
