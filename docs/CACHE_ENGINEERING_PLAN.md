@@ -55,7 +55,11 @@ Each entry is identified by:
 - a cache format version;
 - canonical GitLab host;
 - authenticated GitLab user ID;
-- HTTP method, API path, normalized query, and first-page marker.
+- API path and normalized query.
+
+Only initial-page `GET` requests are eligible to produce a key, so the method
+and first-page boundary are enforced before key construction rather than stored
+as redundant key fields.
 
 The filename and account directory use SHA-256 digests so private hostnames and
 resource paths do not appear in filenames. Credentials are never key material.
@@ -67,7 +71,8 @@ Each binary property-list record contains:
 - raw response data;
 - trusted next-page URL and total count;
 - optional `ETag` and `Last-Modified`;
-- stored and last-accessed dates;
+- stored and last-accessed dates, with file modification time touched on reads
+  for LRU ordering without rewriting the payload;
 - a format version.
 
 Writes are atomic. Files use iOS data protection and live under
@@ -120,7 +125,7 @@ These values are injected policy, not scattered feature constants.
 - [x] Prove a stale Home entry survives GitLab HTTP 500.
 - [x] Cache the first recent/starred Projects page and preserve pagination
   metadata.
-- [ ] Inspect cached, stale, failed-refresh, and manual-refresh UI in Simulator.
+- [x] Inspect cached, stale, failed-refresh, and manual-refresh UI in Simulator.
 
 ### Generic paginated resources
 
@@ -150,14 +155,35 @@ These values are injected policy, not scattered feature constants.
 
 ### Final verification
 
-- [ ] Run focused tests after each slice and the complete signed suite at the
+- [x] Run focused tests after each slice and the complete signed suite at the
   end.
-- [ ] Run Xcode static analysis and source/cache privacy scans.
-- [ ] Verify cached first paint, fresh request suppression, stale fallback,
+- [x] Run Xcode static analysis and source/cache privacy scans.
+- [x] Verify cached first paint, fresh request suppression, stale fallback,
   manual refresh, relaunch, offline behavior, and sign-out purge.
-- [ ] Launch and tap through affected UI on iPhone 17 Pro Simulator, inspect
+- [x] Launch and tap through affected UI on iPhone 17 Pro Simulator, inspect
   light/dark appearance, and shut the Simulator down afterward.
-- [ ] Keep the work in small tested commits pushed to `master`.
+- [x] Keep the work in small tested commits pushed to `master`.
+
+## Implementation review
+
+The completed cache was reviewed after implementation and its material findings
+were fixed with regression coverage:
+
+- empty-list pull-to-refresh now always contacts GitLab;
+- successful mutation invalidation cancels an older exact-key read so it cannot
+  repopulate the removed cache entry;
+- disk hits update LRU file metadata without rewriting the response body;
+- an invalid non-refreshable OAuth session purges its account cache even if
+  credential deletion reports an error;
+- the duplicated API-response-to-page-event mapping is shared by every
+  paginated live loader.
+
+Final verification used the iPhone 17 Pro simulator on iOS 26.5. The complete
+test suite and Xcode static analysis passed. A live self-managed read-only
+session restored after relaunch and populated Home, Todos, and Recent Projects;
+navigation passed in light and dark appearance. Source and the eight live
+response-cache files contained no configured token, OAuth client secret, or
+authorization marker, and cache filenames exposed no host or request text.
 
 ## Success criteria
 
