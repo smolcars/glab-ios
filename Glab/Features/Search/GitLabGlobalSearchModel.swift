@@ -219,7 +219,7 @@ final class GitLabGlobalSearchModel {
         let generation = requestGeneration
         let query = normalizedQuery
 
-        do {
+        do throws(GitLabSessionClientError) {
             let page = try await loader.loadPage(
                 scope: scope,
                 query: query,
@@ -256,7 +256,7 @@ final class GitLabGlobalSearchModel {
             state.isLoadingNextPage = false
             state.nextPageError = nil
             states[scope] = state
-        } catch let error as GitLabSessionClientError {
+        } catch let error {
             guard
                 isCurrent(
                     generation: generation,
@@ -273,24 +273,6 @@ final class GitLabGlobalSearchModel {
             state = self.state(for: scope)
             state.isLoadingNextPage = false
             state.nextPageError = error
-            states[scope] = state
-        } catch {
-            guard
-                isCurrent(
-                    generation: generation,
-                    query: query
-                ),
-                !Task.isCancelled
-            else {
-                return
-            }
-
-            loadedNextPageURLs[scope]?
-                .remove(nextPageURL)
-            state = self.state(for: scope)
-            state.isLoadingNextPage = false
-            state.nextPageError =
-                .api(.transport)
             states[scope] = state
         }
     }
@@ -340,7 +322,9 @@ final class GitLabGlobalSearchModel {
                 GitLabSearchScope.allCases
             {
                 group.addTask {
-                    do {
+                    do throws(
+                        GitLabSessionClientError
+                    ) {
                         return .success(
                             scope,
                             try await self.loader
@@ -350,17 +334,10 @@ final class GitLabGlobalSearchModel {
                                     after: nil
                                 )
                         )
-                    } catch let error
-                        as GitLabSessionClientError
-                    {
+                    } catch let error {
                         return .failure(
                             scope,
                             error
-                        )
-                    } catch {
-                        return .failure(
-                            scope,
-                            .api(.transport)
                         )
                     }
                 }
@@ -405,7 +382,7 @@ final class GitLabGlobalSearchModel {
     ) async {
         let outcome: FirstPageOutcome
 
-        do {
+        do throws(GitLabSessionClientError) {
             outcome = .success(
                 scope,
                 try await loader.loadPage(
@@ -414,15 +391,10 @@ final class GitLabGlobalSearchModel {
                     after: nil
                 )
             )
-        } catch let error as GitLabSessionClientError {
+        } catch let error {
             outcome = .failure(
                 scope,
                 error
-            )
-        } catch {
-            outcome = .failure(
-                scope,
-                .api(.transport)
             )
         }
 

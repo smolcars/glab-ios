@@ -239,6 +239,55 @@ struct GitLabGlobalSearchModelTests {
         #expect(model.allScopesFailed)
     }
 
+    @Test("Retries every scope after a complete search failure")
+    func retriesAllFailedScopes() async throws {
+        let attempts = SearchAttemptRecorder()
+        let model = try makeModel(
+            loader: ScriptedSearchLoader {
+                (
+                    scope:
+                        GitLabSearchScope,
+                    _:
+                        String,
+                    _:
+                        URL?
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> GitLabSearchPage in
+                guard
+                    await attempts.record(scope)
+                        > 1
+                else {
+                    throw GitLabSessionClientError
+                        .api(
+                            .server(
+                                statusCode: 500
+                            )
+                        )
+                }
+                return page(for: scope)
+            }
+        )
+
+        await model.search("glab")
+        #expect(model.allScopesFailed)
+
+        await model.refresh()
+
+        #expect(!model.allScopesFailed)
+        for scope in GitLabSearchScope.allCases {
+            #expect(
+                model.state(for: scope).status
+                    == GitLabSearchScopeStatus
+                        .loaded
+            )
+            #expect(
+                await attempts.count(for: scope)
+                    == 2
+            )
+        }
+    }
+
     @Test("Paginates one scope, deduplicates resources, and retains other scopes")
     func paginatesOneScope() async throws {
         let nextPageURL = try #require(
@@ -427,6 +476,24 @@ private actor SearchRecorder {
                 nextPageURL: nextPageURL
             )
         )
+    }
+}
+
+private actor SearchAttemptRecorder {
+    private var counts:
+        [GitLabSearchScope: Int] = [:]
+
+    func record(
+        _ scope: GitLabSearchScope
+    ) -> Int {
+        counts[scope, default: 0] += 1
+        return counts[scope, default: 0]
+    }
+
+    func count(
+        for scope: GitLabSearchScope
+    ) -> Int {
+        counts[scope, default: 0]
     }
 }
 

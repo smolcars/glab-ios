@@ -94,6 +94,38 @@ nonisolated enum GitLabDeepLinkParser {
         )
     }
 
+    static func conflictsWithConfiguredOrigin(
+        _ url: URL,
+        gitLabHost: GitLabHost
+    ) -> Bool {
+        guard
+            let sourceComponents =
+                secureComponents(for: url),
+            let siteComponents =
+                secureComponents(
+                    for: gitLabHost.siteURL
+                ),
+            let sourceHost =
+                sourceComponents.host?
+                    .lowercased(),
+            let siteHost =
+                siteComponents.host?
+                    .lowercased()
+        else {
+            return false
+        }
+
+        if sourceHost == siteHost {
+            return effectiveHTTPSPort(
+                sourceComponents
+            ) != effectiveHTTPSPort(
+                siteComponents
+            )
+        }
+
+        return sourceHost.contains(siteHost)
+    }
+
     private static func parseRoute(
         _ segments: [String],
         sourceURL: URL
@@ -364,6 +396,20 @@ nonisolated enum GitLabDeepLinkAccountMatcher {
                     \.sitePathDepth
                 ).max()
         else {
+            let conflictsWithConfiguredOrigin =
+                accounts.contains {
+                    GitLabDeepLinkParser
+                        .conflictsWithConfiguredOrigin(
+                            sourceURL,
+                            gitLabHost: $0.host
+                        )
+                }
+            guard
+                !conflictsWithConfiguredOrigin
+            else {
+                return .rejected
+            }
+
             let hasMatchingOrigin =
                 accounts.contains {
                     GitLabDeepLinkParser

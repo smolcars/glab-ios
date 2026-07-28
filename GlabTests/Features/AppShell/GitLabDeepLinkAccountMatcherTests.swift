@@ -211,6 +211,52 @@ struct GitLabDeepLinkAccountMatcherTests {
                 ) == .rejected
         )
     }
+
+    @Test("Rejects configured-host lookalikes and port mismatches")
+    func rejectsConfiguredOriginConflicts() throws {
+        let account = try account(
+            host: "gitlab.example.com",
+            userID: 1
+        )
+        let conflictingURLs = try [
+            "https://gitlab.example.com.evil.test/group/project",
+            "https://evil-gitlab.example.com/group/project",
+            "https://gitlab.example.com:8443/group/project",
+        ].map {
+            try #require(URL(string: $0))
+        }
+
+        for url in conflictingURLs {
+            #expect(
+                GitLabDeepLinkAccountMatcher
+                    .decision(
+                        for: url,
+                        accounts: [account],
+                        activeAccountID: account
+                    ) == .rejected
+            )
+        }
+
+        let unrelatedURLs = try [
+            "https://code.example.net/group/project",
+            "https://example.com/group/project",
+        ].map {
+            try #require(URL(string: $0))
+        }
+
+        for url in unrelatedURLs {
+            #expect(
+                GitLabDeepLinkAccountMatcher
+                    .decision(
+                        for: url,
+                        accounts: [account],
+                        activeAccountID: account
+                    ) == .addAccount(
+                        sourceURL: url
+                    )
+            )
+        }
+    }
 }
 
 private extension GitLabDeepLinkAccountMatcherTests {

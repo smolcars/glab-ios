@@ -228,6 +228,33 @@ struct GitLabIncomingLinkModelTests {
         )
     }
 
+    @Test("Does not retain a configured-host lookalike")
+    func rejectsConfiguredHostLookalike() throws {
+        let model = GitLabIncomingLinkModel()
+        let account = try makeAccount(
+            host: "gitlab.example.com",
+            userID: 1
+        )
+        let lookalike = try #require(
+            URL(
+                string:
+                    "glab://open?url=https%3A%2F%2F"
+                    + "gitlab.example.com.evil.test"
+                    + "%2Fgroup%2Fproject"
+            )
+        )
+
+        #expect(
+            !model.receive(
+                lookalike,
+                accounts: [account],
+                activeAccountID: account
+            )
+        )
+        #expect(model.pendingURL == nil)
+        #expect(model.decision == nil)
+    }
+
     private func makeAccount(
         host: String,
         userID: Int

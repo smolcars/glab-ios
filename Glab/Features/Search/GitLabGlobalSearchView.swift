@@ -16,6 +16,10 @@ struct GitLabGlobalSearchView: View {
                 searchPrompt
                 recentQueries
             } else {
+                if model.allScopesFailed {
+                    globalRetry
+                }
+
                 if model.hasPartialResults {
                     partialResultsNotice
                 }
@@ -62,6 +66,56 @@ struct GitLabGlobalSearchView: View {
         )
         .accessibilityIdentifier(
             "search.screen"
+        )
+    }
+
+    private var globalRetry: some View {
+        Button {
+            Task {
+                await model.refresh()
+                await
+                    handleAuthenticationFailure()
+            }
+        } label: {
+            Label {
+                VStack(
+                    alignment: .leading,
+                    spacing: 3
+                ) {
+                    Text(
+                        "Couldn’t search GitLab"
+                    )
+                    .font(
+                        .callout.weight(
+                            .semibold
+                        )
+                    )
+                    Text(
+                        "Try all three categories again."
+                    )
+                    .font(.caption)
+                }
+                .frame(
+                    maxWidth: .infinity,
+                    alignment: .leading
+                )
+            } icon: {
+                Image(
+                    systemName:
+                        "arrow.clockwise"
+                )
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.red)
+        .listRowBackground(
+            Color.red.opacity(0.1)
+        )
+        .accessibilityHint(
+            "Retries projects, issues, and merge requests."
+        )
+        .accessibilityIdentifier(
+            "search.retry.all"
         )
     }
 
