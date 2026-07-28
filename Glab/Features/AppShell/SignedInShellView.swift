@@ -43,6 +43,7 @@ struct SignedInShellView: View {
     private let issueLoader: any GitLabIssueLoading
     private let mergeRequestLoader:
         any GitLabMergeRequestLoading
+            & GitLabMergeRequestDiffLoading
     private let discussionLoader:
         any GitLabDiscussionLoading
     private let discussionMutator:
@@ -55,6 +56,8 @@ struct SignedInShellView: View {
         any GitLabMarkdownRendering
     private let markdownImageLoader:
         any GitLabMarkdownImageLoading
+    private let diffRenderer:
+        any GitLabDiffRendering
 
     init(
         session: GitLabStoredSession,
@@ -110,6 +113,7 @@ struct SignedInShellView: View {
             reactionService
         self.projectLoader = projectLoader
         markdownRenderer = GitLabMarkdownRenderer()
+        diffRenderer = GitLabDiffRenderer()
         let imageRequestPolicy =
             GitLabMarkdownImageRequestPolicy(
                 host: session.host,
@@ -209,6 +213,10 @@ struct SignedInShellView: View {
         .environment(
             \.gitLabMarkdownImageLoader,
             markdownImageLoader
+        )
+        .environment(
+            \.gitLabDiffRenderer,
+            diffRenderer
         )
         .accessibilityIdentifier("signedIn.tabView")
         .alert(

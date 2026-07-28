@@ -2,7 +2,9 @@ import SwiftUI
 
 struct MergeRequestsView: View {
     let mode: GitLabMergeRequestListMode
-    let loader: any GitLabMergeRequestLoading
+    let loader:
+        any GitLabMergeRequestLoading
+            & GitLabMergeRequestDiffLoading
     let discussionLoader:
         any GitLabDiscussionLoading
     let discussionMutator:
@@ -17,7 +19,9 @@ struct MergeRequestsView: View {
 
     init(
         mode: GitLabMergeRequestListMode,
-        loader: any GitLabMergeRequestLoading,
+        loader:
+            any GitLabMergeRequestLoading
+                & GitLabMergeRequestDiffLoading,
         discussionLoader:
             any GitLabDiscussionLoading,
         discussionMutator:
@@ -553,6 +557,8 @@ struct GitLabMergeRequestDetailView: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let diffLoader:
+        any GitLabMergeRequestDiffLoading
 
     @State private var model:
         GitLabMergeRequestDetailModel
@@ -561,7 +567,9 @@ struct GitLabMergeRequestDetailView: View {
 
     init(
         route: GitLabMergeRequestRoute,
-        loader: any GitLabMergeRequestLoading,
+        loader:
+            any GitLabMergeRequestLoading
+                & GitLabMergeRequestDiffLoading,
         discussionLoader:
             any GitLabDiscussionLoading,
         discussionMutator:
@@ -578,6 +586,7 @@ struct GitLabMergeRequestDetailView: View {
             discussionMutator
         self.reactionService =
             reactionService
+        diffLoader = loader
         let discussionResource =
             GitLabDiscussionResource
                 .mergeRequest(route)
@@ -683,6 +692,8 @@ struct GitLabMergeRequestDetailView: View {
                         discussionMutator,
                     reactionService:
                         reactionService,
+                    diffLoader:
+                        diffLoader,
                     appSession: appSession
                 )
             }
@@ -724,6 +735,8 @@ private struct GitLabMergeRequestDetailContent: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let diffLoader:
+        any GitLabMergeRequestDiffLoading
     let appSession: AppSession
 
     @Environment(\.gitLabMarkdownRenderer)
@@ -750,6 +763,7 @@ private struct GitLabMergeRequestDetailContent: View {
                 )
                 descriptionSection
                 branchesSection
+                changesSection
 
                 if !mergeRequest.labels.isEmpty {
                     labelsSection
@@ -868,6 +882,64 @@ private struct GitLabMergeRequestDetailContent: View {
             }
             .textSelection(.enabled)
         }
+    }
+
+    private var changesSection: some View {
+        GitLabDetailSection(title: "Changes") {
+            if let headSHA = mergeRequest.diffHeadSHA {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(changesSummary)
+                        .foregroundStyle(.secondary)
+
+                    NavigationLink {
+                        GitLabMergeRequestDiffListView(
+                            route: mergeRequest.route,
+                            headSHA: headSHA,
+                            changesURL:
+                                mergeRequest.safeChangesURL,
+                            loader: diffLoader,
+                            accountID: accountID,
+                            appSession: appSession
+                        )
+                    } label: {
+                        Label(
+                            "View changed files",
+                            systemImage:
+                                "doc.text.magnifyingglass"
+                        )
+                    }
+                    .buttonStyle(.glass)
+                    .accessibilityIdentifier(
+                        "mergeRequests.changes"
+                    )
+                }
+            } else {
+                Label(
+                    "GitLab is still preparing this diff.",
+                    systemImage: "hourglass"
+                )
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier(
+                    "mergeRequests.changes.preparing"
+                )
+            }
+        }
+    }
+
+    private var changesSummary: String {
+        guard
+            let count = mergeRequest.changesCount?
+                .trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                ),
+            !count.isEmpty
+        else {
+            return "Browse the files changed by this merge request."
+        }
+
+        return count == "1"
+            ? "GitLab reports 1 changed file."
+            : "GitLab reports \(count) changed files."
     }
 
     private var labelsSection: some View {

@@ -36,6 +36,11 @@ final class GitLabDiffModel {
         return document
     }
 
+    func reset() {
+        generation &+= 1
+        state = .idle
+    }
+
     func load(
         _ request: GitLabDiffRequest
     ) async {

@@ -97,6 +97,20 @@ struct GitLabDiffModelTests {
         )
     }
 
+    @Test("Reset clears a previous document")
+    func reset() async throws {
+        let model = GitLabDiffModel(
+            renderer: ControlledDiffRenderer()
+        )
+
+        await model.load(
+            try makeRequest(source: "loaded")
+        )
+        model.reset()
+
+        #expect(model.state == .idle)
+    }
+
     private func makeRequest(
         source: String,
         newPath: String = "File.swift"

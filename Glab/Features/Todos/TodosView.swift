@@ -5,6 +5,7 @@ struct TodosView: View {
     let issueLoader: any GitLabIssueLoading
     let mergeRequestLoader:
         any GitLabMergeRequestLoading
+            & GitLabMergeRequestDiffLoading
     let discussionLoader:
         any GitLabDiscussionLoading
     let discussionMutator:
