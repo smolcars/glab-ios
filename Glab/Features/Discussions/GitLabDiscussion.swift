@@ -126,6 +126,10 @@ nonisolated struct GitLabDiscussionNote:
         updatedAt != createdAt
     }
 
+    var showsEditedStatus: Bool {
+        !isSystem && isEdited
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id
         case type

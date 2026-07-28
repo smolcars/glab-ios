@@ -240,6 +240,23 @@ struct GitLabDiscussionTests {
         #expect(!discussion.isSystemActivity)
     }
 
+    @Test("Only user notes surface the edited presentation status")
+    func editedPresentationStatus() {
+        let updatedAt = Date(
+            timeIntervalSince1970: 2_000
+        )
+        let userNote = makeTestDiscussionNote(
+            updatedAt: updatedAt
+        )
+        let systemActivity = makeTestDiscussionNote(
+            updatedAt: updatedAt,
+            system: true
+        )
+
+        #expect(userNote.showsEditedStatus)
+        #expect(!systemActivity.showsEditedStatus)
+    }
+
     @Test(
         "Rejects missing required discussion and note identity",
         arguments: [

@@ -278,7 +278,7 @@ private struct GitLabDiscussionNoteView: View {
 
             HStack(spacing: 5) {
                 Text("@\(note.author.username)")
-                if note.isEdited {
+                if note.showsEditedStatus {
                     Text("• Edited")
                 }
                 if note.isSystem {

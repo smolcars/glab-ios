@@ -582,8 +582,7 @@ struct GitLabMergeRequestDetailView: View {
             }
             .onChange(
                 of:
-                    discussionModel
-                        .authenticationFailure
+                    authenticationFailure
             ) { _, error in
                 guard let error else {
                     return
@@ -646,19 +645,11 @@ struct GitLabMergeRequestDetailView: View {
         }
     }
 
-    private func handleAuthenticationFailure() async {
-        guard
-            let error =
-                model.authenticationFailure
-                ?? discussionModel
-                    .authenticationFailure
-        else {
-            return
-        }
-        await appSession.handleAuthenticationFailure(
-            error,
-            for: accountID
-        )
+    private var authenticationFailure:
+        GitLabSessionClientError?
+    {
+        model.authenticationFailure
+            ?? discussionModel.authenticationFailure
     }
 
     private func load() async {
@@ -667,7 +658,6 @@ struct GitLabMergeRequestDetailView: View {
         async let discussion: Void =
             discussionModel.loadIfNeeded()
         _ = await (detail, discussion)
-        await handleAuthenticationFailure()
     }
 
     private func refresh() async {
@@ -675,7 +665,6 @@ struct GitLabMergeRequestDetailView: View {
         async let discussion: Void =
             discussionModel.refresh()
         _ = await (detail, discussion)
-        await handleAuthenticationFailure()
     }
 }
 

@@ -2,9 +2,9 @@
 
 Last updated: 2026-07-28
 
-Status: planned. No application code has been changed for this feature yet.
-Glab has never shipped, so breaking internal model, loader, cache-key, and view
-APIs are acceptable when they produce a simpler or safer implementation.
+Status: implemented; post-implementation deep-review repairs are in progress.
+Glab has never shipped, so breaking internal model, loader, cache-key, and
+view APIs are acceptable when they produce a simpler or safer implementation.
 
 ## Outcome
 
@@ -358,4 +358,37 @@ To be completed during implementation.
 
 ## Deep-review findings and repair plan
 
-To be completed after implementation and before feature completion.
+Review performed after the complete domain, loader, cache, pagination,
+Markdown, UI, and performance implementation.
+
+Material findings:
+
+1. Issue and merge-request detail screens observe discussion authentication
+   failures with `onChange`, then inspect the same failure again after initial
+   load and refresh. The duplicated routing can request account invalidation
+   twice for one failure and makes the two detail implementations easier to
+   drift.
+2. The note presentation derives `Edited` only from differing `created_at` and
+   `updated_at` values. GitLab system activity may have differing timestamps
+   without representing an edited user comment, so the current header can
+   misleadingly show `Edited • Activity`.
+
+Repair plan, recorded before editing:
+
+1. Give each detail view one combined authentication-failure value that
+   prefers its resource-detail failure and otherwise uses the discussion
+   failure. Observe that value once, covering initial load, refresh, and
+   pagination. Remove both redundant post-operation checks.
+2. Add a note-presentation regression assertion that an updated user note may
+   show the edited status while system activity never does. Implement the
+   smallest computed presentation property and use it in the shared note
+   header.
+3. Run the discussion, detail, Markdown, session, and performance suites;
+   repeat static analysis and the Simulator interaction checks; then review
+   the repaired diff once more.
+
+No material endpoint drift, unsafe next-page construction, lost reply
+identity, stale-cache overwrite, cross-account cache key, eager Markdown
+parsing, unbounded discussion-specific cache, or duplicated issue/MR service
+path was found. The existing shared pagination and Markdown components remain
+the appropriate abstractions.
