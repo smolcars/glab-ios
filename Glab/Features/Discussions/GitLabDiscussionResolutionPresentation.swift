@@ -20,6 +20,8 @@ nonisolated struct
     let statusTitle: String?
     let failureMessage: String?
     let showsProgress: Bool
+    let showsUnavailableAccessLabel:
+        Bool
     let isActionEnabled: Bool
     let accessibilityLabel: String
     let accessibilityValue: String
@@ -46,6 +48,8 @@ nonisolated struct
             failureMessage =
                 "This account has read-only API access."
             showsProgress = false
+            showsUnavailableAccessLabel =
+                true
             isActionEnabled = false
             accessibilityLabel =
                 "Thread resolution unavailable"
@@ -62,6 +66,8 @@ nonisolated struct
             Self.failureMessage(
                 status.failure
             )
+        showsUnavailableAccessLabel =
+            false
         switch status.phase {
         case .idle:
             action = .toggle

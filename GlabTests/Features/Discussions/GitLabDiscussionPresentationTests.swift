@@ -321,12 +321,20 @@ struct GitLabDiscussionResolutionPresentationTests {
             readOnly.failureMessage
                 == "This account has read-only API access."
         )
+        #expect(
+            readOnly
+                .showsUnavailableAccessLabel
+        )
         #expect(!readOnly.isActionEnabled)
 
         #expect(denied.action == .toggle)
         #expect(
             denied.failureMessage
                 == "GitLab did not allow this thread change."
+        )
+        #expect(
+            !denied
+                .showsUnavailableAccessLabel
         )
         #expect(denied.isActionEnabled)
     }

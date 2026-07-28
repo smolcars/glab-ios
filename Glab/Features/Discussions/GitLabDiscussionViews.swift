@@ -917,66 +917,99 @@ private struct GitLabDiscussionThreadFooter:
         some View
     {
         if let presentation {
-            Button {
-                perform(
-                    presentation.action
+            if
+                presentation
+                    .showsUnavailableAccessLabel
+            {
+                Label(
+                    presentation
+                        .actionTitle,
+                    systemImage: "lock.fill"
                 )
-            } label: {
-                HStack(spacing: 7) {
-                    if
-                        presentation
-                            .showsProgress
-                    {
-                        ProgressView()
-                            .controlSize(.small)
-                    } else {
-                        Image(
-                            systemName:
-                                presentation
-                                .action
-                                == .checkGitLab
-                                ? "arrow.triangle.2.circlepath"
-                                : status?
-                                    .isResolved
-                                    == true
-                                    ? "arrow.uturn.backward.circle"
-                                    : "checkmark.circle"
-                        )
-                    }
-
-                    Text(
-                        presentation
-                            .actionTitle
-                    )
-                }
                 .font(
-                    .subheadline
+                    .caption
                         .weight(.semibold)
                 )
+                .foregroundStyle(.secondary)
                 .frame(minHeight: 44)
+                .accessibilityLabel(
+                    presentation
+                        .accessibilityLabel
+                )
+                .accessibilityValue(
+                    presentation
+                        .accessibilityValue
+                )
+                .accessibilityHint(
+                    presentation
+                        .accessibilityHint
+                )
+                .accessibilityIdentifier(
+                    presentation
+                        .accessibilityIdentifier
+                )
+            } else {
+                Button {
+                    perform(
+                        presentation.action
+                    )
+                } label: {
+                    HStack(spacing: 7) {
+                        if
+                            presentation
+                                .showsProgress
+                        {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(
+                                systemName:
+                                    presentation
+                                    .action
+                                    == .checkGitLab
+                                    ? "arrow.triangle.2.circlepath"
+                                    : status?
+                                        .isResolved
+                                        == true
+                                        ? "arrow.uturn.backward.circle"
+                                        : "checkmark.circle"
+                            )
+                        }
+
+                        Text(
+                            presentation
+                                .actionTitle
+                        )
+                    }
+                    .font(
+                        .subheadline
+                            .weight(.semibold)
+                    )
+                    .frame(minHeight: 44)
+                }
+                .buttonStyle(.glass)
+                .tint(.orange)
+                .disabled(
+                    !presentation
+                        .isActionEnabled
+                )
+                .accessibilityLabel(
+                    presentation
+                        .accessibilityLabel
+                )
+                .accessibilityValue(
+                    presentation
+                        .accessibilityValue
+                )
+                .accessibilityHint(
+                    presentation
+                        .accessibilityHint
+                )
+                .accessibilityIdentifier(
+                    presentation
+                        .accessibilityIdentifier
+                )
             }
-            .buttonStyle(.glass)
-            .tint(.orange)
-            .disabled(
-                !presentation
-                    .isActionEnabled
-            )
-            .accessibilityLabel(
-                presentation
-                    .accessibilityLabel
-            )
-            .accessibilityValue(
-                presentation
-                    .accessibilityValue
-            )
-            .accessibilityHint(
-                presentation
-                    .accessibilityHint
-            )
-            .accessibilityIdentifier(
-                presentation
-                    .accessibilityIdentifier
-            )
         }
     }
 
@@ -1042,10 +1075,13 @@ private struct GitLabDiscussionThreadFooter:
                         .font(.caption)
                         .foregroundStyle(
                             presentation
-                                .action
-                                == .checkGitLab
-                                    ? Color.orange
-                                    : Color.red
+                                .showsUnavailableAccessLabel
+                                    ? Color.secondary
+                                    : presentation
+                                        .action
+                                        == .checkGitLab
+                                            ? Color.orange
+                                            : Color.red
                         )
                 }
             }
