@@ -11,54 +11,74 @@ nonisolated struct LiveHomeDashboardLoader:
     }
 
     @concurrent
-    func load()
-        async throws(HomeDashboardLoadingError)
-        -> HomeDashboardLoadResult
-    {
-        async let user = loadCurrentUser()
-        async let assignedIssues = loadWorkItems(
-            HomeDashboardEndpoints.assignedIssues
-        ) { $0.workItem }
-        async let assignedMergeRequests = loadWorkItems(
-            HomeDashboardEndpoints.assignedMergeRequests
-        ) { $0.workItem }
-        async let reviewRequests = loadWorkItems(
-            HomeDashboardEndpoints.reviewRequests
-        ) { $0.workItem }
-        async let recentProjects = loadWorkItems(
-            HomeDashboardEndpoints.recentProjects
-        ) { $0.workItem }
-        async let starredProjects = loadWorkItems(
-            HomeDashboardEndpoints.starredProjects
-        ) { $0.workItem }
+    func load(
+        onUpdate:
+            @escaping @Sendable (HomeDashboardLoadUpdate) async -> Void
+    ) async throws(HomeDashboardLoadingError) {
+        await withTaskGroup(
+            of: HomeDashboardLoadUpdate.self
+        ) { group in
+            group.addTask {
+                .user(await loadCurrentUser())
+            }
+            group.addTask {
+                .section(
+                    .assignedIssues,
+                    await loadWorkItems(
+                        HomeDashboardEndpoints.assignedIssues
+                    ) { $0.workItem }
+                )
+            }
+            group.addTask {
+                .section(
+                    .assignedMergeRequests,
+                    await loadWorkItems(
+                        HomeDashboardEndpoints.assignedMergeRequests
+                    ) { $0.workItem }
+                )
+            }
+            group.addTask {
+                .section(
+                    .reviewRequests,
+                    await loadWorkItems(
+                        HomeDashboardEndpoints.reviewRequests
+                    ) { $0.workItem }
+                )
+            }
+            group.addTask {
+                .section(
+                    .recentProjects,
+                    await loadWorkItems(
+                        HomeDashboardEndpoints.recentProjects
+                    ) { $0.workItem }
+                )
+            }
+            group.addTask {
+                .section(
+                    .starredProjects,
+                    await loadWorkItems(
+                        HomeDashboardEndpoints.starredProjects
+                    ) { $0.workItem }
+                )
+            }
 
-        let values = await (
-            user,
-            assignedIssues,
-            assignedMergeRequests,
-            reviewRequests,
-            recentProjects,
-            starredProjects
-        )
+            for await update in group {
+                guard !Task.isCancelled else {
+                    group.cancelAll()
+                    return
+                }
+
+                await onUpdate(update)
+            }
+        }
 
         guard !Task.isCancelled else {
             throw .cancelled
         }
-
-        return HomeDashboardLoadResult(
-            user: values.0,
-            sections: [
-                .assignedIssues: values.1,
-                .assignedMergeRequests: values.2,
-                .reviewRequests: values.3,
-                .recentProjects: values.4,
-                .starredProjects: values.5,
-            ]
-        )
     }
 
     private func loadCurrentUser() async
-        -> HomeDashboardLoadResult.UserResult
+        -> HomeDashboardLoadUpdate.UserResult
     {
         do {
             return .success(
@@ -75,7 +95,7 @@ nonisolated struct LiveHomeDashboardLoader:
         _ request: GitLabAPIRequest<[Item]>,
         transform: @Sendable (Item) -> GitLabHomeWorkItem
     ) async
-        -> HomeDashboardLoadResult.WorkResult
+        -> HomeDashboardLoadUpdate.WorkResult
     where Item: Decodable, Item: Sendable
     {
         do {

@@ -34,7 +34,39 @@ struct HomeDashboardModelTests {
             model.state(for: .assignedMergeRequests)
                 == .failed(failure)
         )
+        #expect(
+            model.presentation(for: .assignedMergeRequests).subtitle
+                == "GitLab is unavailable"
+        )
         #expect(!model.hasTotalWorkFailure)
+    }
+
+    @Test("Publishes completed sections while another request is pending")
+    func publishesCompletedSectionsIndependently() async {
+        let issue = workItem(id: "issue-1", title: "Loaded issue")
+        let loader = PausedDashboardLoader(
+            result: loadResult(
+                successes: allEmptySections(
+                    replacing: [.assignedIssues: [issue]]
+                )
+            )
+        )
+        let model = HomeDashboardModel(loader: loader)
+
+        let load = Task {
+            await model.loadIfNeeded()
+        }
+        await loader.waitUntilPending()
+
+        #expect(
+            model.state(for: .assignedIssues)
+                == .loaded([issue])
+        )
+        #expect(model.state(for: .starredProjects) == .loading)
+        #expect(model.isLoading)
+
+        await loader.finish()
+        await load.value
     }
 
     @Test("Derives a total failure only when every work section fails")
@@ -195,9 +227,16 @@ struct HomeDashboardModelTests {
 }
 
 private extension HomeDashboardModelTests {
+    struct DashboardSnapshot: Sendable {
+        let user: HomeDashboardLoadUpdate.UserResult
+        let sections: [
+            HomeDashboardSection: HomeDashboardLoadUpdate.WorkResult
+        ]
+    }
+
     actor QueueDashboardLoader: HomeDashboardLoading {
         enum Outcome: Sendable {
-            case success(HomeDashboardLoadResult)
+            case success(DashboardSnapshot)
             case cancelled
         }
 
@@ -208,26 +247,89 @@ private extension HomeDashboardModelTests {
             self.outcomes = outcomes
         }
 
-        func load()
-            async throws(HomeDashboardLoadingError)
-            -> HomeDashboardLoadResult
-        {
+        func load(
+            onUpdate:
+                @escaping @Sendable (HomeDashboardLoadUpdate) async -> Void
+        ) async throws(HomeDashboardLoadingError) {
             callCount += 1
             let outcome = outcomes.removeFirst()
 
             switch outcome {
             case let .success(result):
-                return result
+                await onUpdate(.user(result.user))
+                for section in HomeDashboardSection.allCases {
+                    guard let sectionResult = result.sections[section] else {
+                        continue
+                    }
+                    await onUpdate(.section(section, sectionResult))
+                }
             case .cancelled:
                 throw .cancelled
             }
         }
     }
 
+    actor PausedDashboardLoader: HomeDashboardLoading {
+        private let result: DashboardSnapshot
+        private var continuation: CheckedContinuation<Void, Never>?
+        private var isPending = false
+        private var pendingWaiters: [CheckedContinuation<Void, Never>] = []
+
+        init(result: DashboardSnapshot) {
+            self.result = result
+        }
+
+        func load(
+            onUpdate:
+                @escaping @Sendable (HomeDashboardLoadUpdate) async -> Void
+        ) async throws(HomeDashboardLoadingError) {
+            await onUpdate(.user(result.user))
+            if let assignedIssues = result.sections[.assignedIssues] {
+                await onUpdate(
+                    .section(.assignedIssues, assignedIssues)
+                )
+            }
+
+            isPending = true
+            let waiters = pendingWaiters
+            pendingWaiters.removeAll()
+            waiters.forEach {
+                $0.resume()
+            }
+
+            await withCheckedContinuation {
+                continuation = $0
+            }
+
+            for section in HomeDashboardSection.allCases
+            where section != .assignedIssues {
+                guard let sectionResult = result.sections[section] else {
+                    continue
+                }
+                await onUpdate(.section(section, sectionResult))
+            }
+        }
+
+        func waitUntilPending() async {
+            guard !isPending else {
+                return
+            }
+
+            await withCheckedContinuation {
+                pendingWaiters.append($0)
+            }
+        }
+
+        func finish() {
+            continuation?.resume()
+            continuation = nil
+        }
+    }
+
     func loadResult(
         successes: [HomeDashboardSection: [GitLabHomeWorkItem]],
         failure: GitLabSessionClientError = .api(.transport)
-    ) -> HomeDashboardLoadResult {
+    ) -> DashboardSnapshot {
         let user = GitLabAuthenticatedUser(
             id: 42,
             username: "octocat",
@@ -240,17 +342,17 @@ private extension HomeDashboardModelTests {
                 if let items = successes[section] {
                     return (
                         section,
-                        HomeDashboardLoadResult.WorkResult.success(items)
+                        HomeDashboardLoadUpdate.WorkResult.success(items)
                     )
                 }
                 return (
                     section,
-                    HomeDashboardLoadResult.WorkResult.failure(failure)
+                    HomeDashboardLoadUpdate.WorkResult.failure(failure)
                 )
             }
         )
 
-        return HomeDashboardLoadResult(
+        return DashboardSnapshot(
             user: .success(user),
             sections: sections
         )

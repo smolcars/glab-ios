@@ -8,27 +8,56 @@ struct HomeDashboardLoaderTests {
     func startsRequestsConcurrently() async throws {
         let client = GatedDashboardRequestSender()
         let loader = LiveHomeDashboardLoader(client: client)
+        let updates = DashboardUpdateCollector()
 
         let load = Task {
-            try await loader.load()
+            try await loader.load {
+                await updates.append($0)
+            }
         }
 
         await client.waitUntilRequestCount(6)
         #expect(await client.requestCount == 6)
 
         await client.releaseAll()
-        let result = try await load.value
+        try await load.value
 
-        #expect(result.user.isSuccess)
+        let receivedUpdates = await updates.updates
         #expect(
-            HomeDashboardSection.allCases.allSatisfy {
-                result.sections[$0]?.isSuccess == true
+            receivedUpdates.contains {
+                if case .user(.success) = $0 {
+                    true
+                } else {
+                    false
+                }
+            }
+        )
+        #expect(
+            HomeDashboardSection.allCases.allSatisfy { section in
+                receivedUpdates.contains {
+                    if case let .section(
+                        receivedSection,
+                        .success
+                    ) = $0 {
+                        receivedSection == section
+                    } else {
+                        false
+                    }
+                }
             }
         )
     }
 }
 
 private extension HomeDashboardLoaderTests {
+    actor DashboardUpdateCollector {
+        private(set) var updates: [HomeDashboardLoadUpdate] = []
+
+        func append(_ update: HomeDashboardLoadUpdate) {
+            updates.append(update)
+        }
+    }
+
     actor GatedDashboardRequestSender: GitLabSessionRequestSending {
         private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
         private var countWaiters:
@@ -96,16 +125,6 @@ private extension HomeDashboardLoaderTests {
             }
 
             preconditionFailure("Unexpected dashboard response type")
-        }
-    }
-}
-
-private extension Result {
-    var isSuccess: Bool {
-        if case .success = self {
-            true
-        } else {
-            false
         }
     }
 }

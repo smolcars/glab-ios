@@ -64,7 +64,7 @@ final class HomeDashboardModel {
         case let .failed(error):
             HomeDashboardRowPresentation(
                 status: .failed,
-                subtitle: "Couldn’t load",
+                subtitle: GitLabRecoveryPresentation(error: error).title,
                 accessibilityValue: error.description
             )
         }
@@ -91,6 +91,7 @@ final class HomeDashboardModel {
         let previousAuthenticationFailure = authenticationFailure
         let previousSections = sections
         isLoading = true
+        authenticationFailure = nil
 
         if isInitial {
             sections = Dictionary(
@@ -105,34 +106,14 @@ final class HomeDashboardModel {
         }
 
         do {
-            let result = try await loader.load()
+            try await loader.load { [weak self] update in
+                await self?.apply(update)
+            }
             guard !Task.isCancelled else {
                 user = previousUser
                 authenticationFailure = previousAuthenticationFailure
                 sections = previousSections
                 return
-            }
-
-            authenticationFailure = authenticationFailure(in: result)
-
-            if case let .success(user) = result.user {
-                self.user = user
-            }
-
-            for section in HomeDashboardSection.allCases {
-                guard let result = result.sections[section] else {
-                    sections[section] = .failed(
-                        .api(.invalidResponse)
-                    )
-                    continue
-                }
-
-                switch result {
-                case let .success(items):
-                    sections[section] = .loaded(items)
-                case let .failure(error):
-                    sections[section] = .failed(error)
-                }
             }
 
             hasLoaded = true
@@ -143,25 +124,23 @@ final class HomeDashboardModel {
         }
     }
 
-    private func authenticationFailure(
-        in result: HomeDashboardLoadResult
-    ) -> GitLabSessionClientError? {
-        if
-            case let .failure(error) = result.user,
-            error.requiresReauthentication
-        {
-            return error
-        }
-
-        for section in HomeDashboardSection.allCases {
-            if
-                case let .failure(error) = result.sections[section],
-                error.requiresReauthentication
-            {
-                return error
+    private func apply(
+        _ update: HomeDashboardLoadUpdate
+    ) {
+        switch update {
+        case let .user(.success(user)):
+            self.user = user
+        case let .user(.failure(error)):
+            if error.requiresReauthentication {
+                authenticationFailure = error
+            }
+        case let .section(section, .success(items)):
+            sections[section] = .loaded(items)
+        case let .section(section, .failure(error)):
+            sections[section] = .failed(error)
+            if error.requiresReauthentication {
+                authenticationFailure = error
             }
         }
-
-        return nil
     }
 }

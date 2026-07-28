@@ -100,7 +100,7 @@ nonisolated struct HomeDashboardRowPresentation:
     let accessibilityValue: String
 }
 
-nonisolated struct HomeDashboardLoadResult:
+nonisolated enum HomeDashboardLoadUpdate:
     Equatable,
     Sendable
 {
@@ -113,8 +113,8 @@ nonisolated struct HomeDashboardLoadResult:
         GitLabSessionClientError
     >
 
-    let user: UserResult
-    let sections: [HomeDashboardSection: WorkResult]
+    case user(UserResult)
+    case section(HomeDashboardSection, WorkResult)
 }
 
 nonisolated enum HomeDashboardLoadingError:
@@ -126,7 +126,9 @@ nonisolated enum HomeDashboardLoadingError:
 }
 
 nonisolated protocol HomeDashboardLoading: Sendable {
-    func load()
+    func load(
+        onUpdate:
+            @escaping @Sendable (HomeDashboardLoadUpdate) async -> Void
+    )
         async throws(HomeDashboardLoadingError)
-        -> HomeDashboardLoadResult
 }
