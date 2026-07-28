@@ -135,6 +135,7 @@ nonisolated struct GitLabResourceEditSnapshot:
     CustomDebugStringConvertible
 {
     let target: GitLabResourceEditTarget
+    let resourceID: Int
     let title: String
     let rawDescription: String
     let updatedAt: Date
@@ -144,6 +145,7 @@ nonisolated struct GitLabResourceEditSnapshot:
         CodingKey
     {
         case target
+        case resourceID
         case title
         case rawDescription = "description"
         case updatedAt
@@ -151,11 +153,13 @@ nonisolated struct GitLabResourceEditSnapshot:
 
     init(
         target: GitLabResourceEditTarget,
+        resourceID: Int,
         title: String,
         description: String,
         updatedAt: Date
     ) {
         self.target = target
+        self.resourceID = resourceID
         self.title = title
         rawDescription = description
         self.updatedAt = updatedAt
@@ -164,6 +168,7 @@ nonisolated struct GitLabResourceEditSnapshot:
     init(issue: GitLabIssue) {
         self.init(
             target: .issue(issue.route),
+            resourceID: issue.id,
             title: issue.title,
             description:
                 issue.description ?? "",
@@ -177,6 +182,7 @@ nonisolated struct GitLabResourceEditSnapshot:
                 .mergeRequest(
                     mergeRequest.route
                 ),
+            resourceID: mergeRequest.id,
             title: mergeRequest.title,
             description:
                 mergeRequest.description ?? "",

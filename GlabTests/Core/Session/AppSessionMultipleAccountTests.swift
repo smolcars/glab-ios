@@ -1063,6 +1063,7 @@ private extension AppSessionMultipleAccountTests {
                             issueIID: 7
                         )
                     ),
+                    resourceID: 101,
                     title: "Baseline",
                     description: "Original",
                     updatedAt: .distantPast

@@ -48,6 +48,7 @@ struct GitLabResourceEditValidationTests {
                 == GitLabResourceEditTarget
                 .issue(issue.route)
         )
+        #expect(issueSnapshot.resourceID == issue.id)
         #expect(
             issueSnapshot.title
                 == "  Issue title  "
@@ -66,6 +67,10 @@ struct GitLabResourceEditValidationTests {
                 .mergeRequest(
                     mergeRequest.route
                 )
+        )
+        #expect(
+            mergeRequestSnapshot.resourceID
+                == mergeRequest.id
         )
         #expect(
             mergeRequestSnapshot.title

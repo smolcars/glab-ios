@@ -100,6 +100,7 @@ struct GitLabResourceEditDraftStoreTests {
         let snapshot =
             GitLabResourceEditSnapshot(
                 target: target,
+                resourceID: 101,
                 title: privateTitle,
                 description: privateMarkdown,
                 updatedAt:
@@ -803,6 +804,7 @@ private extension GitLabResourceEditDraftStoreTests {
             baseline:
                 GitLabResourceEditSnapshot(
                     target: target,
+                    resourceID: 101,
                     title: "Baseline title",
                     description:
                         "# Baseline\n\nOriginal",
