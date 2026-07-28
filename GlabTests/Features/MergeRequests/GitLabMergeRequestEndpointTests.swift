@@ -128,6 +128,74 @@ struct GitLabMergeRequestEndpointTests {
                 .contains("private-head-sha")
         )
     }
+
+    @Test("Builds a write-scoped merge request update")
+    func buildsMergeRequestUpdate() throws {
+        let endpoint =
+            try GitLabMergeRequestEndpoints.update(
+                at: GitLabMergeRequestRoute(
+                    projectID: 42,
+                    mergeRequestIID: 7
+                ),
+                changes: GitLabResourceEditChanges(
+                    title: "Updated title",
+                    description:
+                        "# Exact Markdown\n\n- [ ] Keep this"
+                )
+            )
+        let request = try buildRequest(endpoint)
+
+        #expect(endpoint.method == .put)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(
+            request.url?.absoluteString
+                == "https://gitlab.example.com/api/v4/projects/42"
+                + "/merge_requests/7"
+        )
+        #expect(
+            request.value(
+                forHTTPHeaderField: "Content-Type"
+            ) == "application/json"
+        )
+        #expect(
+            try jsonObject(request)
+                == [
+                    "description":
+                        "# Exact Markdown\n\n- [ ] Keep this",
+                    "title": "Updated title",
+                ]
+        )
+    }
+
+    @Test("Omits an unchanged merge request description field")
+    func omitsMergeRequestDescription() throws {
+        let endpoint =
+            try GitLabMergeRequestEndpoints.update(
+                at: GitLabMergeRequestRoute(
+                    projectID: 42,
+                    mergeRequestIID: 7
+                ),
+                changes: GitLabResourceEditChanges(
+                    title: "Only the title"
+                )
+            )
+        let request = try buildRequest(endpoint)
+
+        #expect(
+            try jsonObject(request)
+                == ["title": "Only the title"]
+        )
+        let bodyData = try #require(
+            request.httpBody
+        )
+        let body = try #require(
+            String(
+                data: bodyData,
+                encoding: .utf8
+            )
+        )
+        #expect(!body.contains("description"))
+    }
 }
 
 private extension GitLabMergeRequestEndpointTests {
@@ -135,11 +203,28 @@ private extension GitLabMergeRequestEndpointTests {
         _ endpoint: GitLabAPIRequest<Response>
     ) throws -> URL {
         #expect(endpoint.requiredAccess == .read)
-        let request = try GitLabRequestBuilder(
+        let request = try buildRequest(endpoint)
+
+        return try #require(request.url)
+    }
+
+    nonisolated func buildRequest<Response>(
+        _ endpoint: GitLabAPIRequest<Response>
+    ) throws -> URLRequest {
+        try GitLabRequestBuilder(
             host: GitLabHost("gitlab.example.com"),
             authorization: .personalAccessToken("pat-secret")
         ).build(endpoint)
+    }
 
-        return try #require(request.url)
+    nonisolated func jsonObject(
+        _ request: URLRequest
+    ) throws -> [String: String] {
+        let body = try #require(request.httpBody)
+        return try #require(
+            JSONSerialization.jsonObject(
+                with: body
+            ) as? [String: String]
+        )
     }
 }

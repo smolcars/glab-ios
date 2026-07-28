@@ -34,6 +34,68 @@ struct GitLabIssueEndpointTests {
                 == "https://gitlab.example.com/api/v4/projects/42/issues/7"
         )
     }
+
+    @Test("Builds a write-scoped issue title update")
+    func buildsIssueTitleUpdate() throws {
+        let endpoint = try GitLabIssueEndpoints.update(
+            at: GitLabIssueRoute(
+                projectID: 42,
+                issueIID: 7
+            ),
+            changes: GitLabResourceEditChanges(
+                title: "Preserve 👩🏽‍💻 Unicode"
+            )
+        )
+        let request = try buildRequest(endpoint)
+
+        #expect(endpoint.method == .put)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(
+            request.url?.absoluteString
+                == "https://gitlab.example.com/api/v4/projects/42/issues/7"
+        )
+        #expect(
+            request.value(
+                forHTTPHeaderField: "Content-Type"
+            ) == "application/json"
+        )
+        #expect(
+            try jsonObject(request)
+                == [
+                    "title":
+                        "Preserve 👩🏽‍💻 Unicode",
+                ]
+        )
+    }
+
+    @Test("Builds an explicit empty issue description update")
+    func buildsEmptyIssueDescriptionUpdate() throws {
+        let endpoint = try GitLabIssueEndpoints.update(
+            at: GitLabIssueRoute(
+                projectID: 42,
+                issueIID: 7
+            ),
+            changes: GitLabResourceEditChanges(
+                description: ""
+            )
+        )
+        let request = try buildRequest(endpoint)
+
+        #expect(
+            try jsonObject(request)
+                == ["description": ""]
+        )
+        let bodyData = try #require(
+            request.httpBody
+        )
+        let body = try #require(
+            String(
+                data: bodyData,
+                encoding: .utf8
+            )
+        )
+        #expect(!body.contains("title"))
+    }
 }
 
 private extension GitLabIssueEndpointTests {
@@ -41,11 +103,28 @@ private extension GitLabIssueEndpointTests {
         _ endpoint: GitLabAPIRequest<Response>
     ) throws -> URL {
         #expect(endpoint.requiredAccess == .read)
-        let request = try GitLabRequestBuilder(
+        let request = try buildRequest(endpoint)
+
+        return try #require(request.url)
+    }
+
+    nonisolated func buildRequest<Response>(
+        _ endpoint: GitLabAPIRequest<Response>
+    ) throws -> URLRequest {
+        try GitLabRequestBuilder(
             host: GitLabHost("gitlab.example.com"),
             authorization: .personalAccessToken("pat-secret")
         ).build(endpoint)
+    }
 
-        return try #require(request.url)
+    nonisolated func jsonObject(
+        _ request: URLRequest
+    ) throws -> [String: String] {
+        let body = try #require(request.httpBody)
+        return try #require(
+            JSONSerialization.jsonObject(
+                with: body
+            ) as? [String: String]
+        )
     }
 }

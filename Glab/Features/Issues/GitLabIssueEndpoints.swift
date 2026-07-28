@@ -27,4 +27,30 @@ nonisolated enum GitLabIssueEndpoints {
             ]
         )
     }
+
+    static func update(
+        at route: GitLabIssueRoute,
+        changes: GitLabResourceEditChanges
+    ) throws -> GitLabAPIRequest<GitLabIssue> {
+        try .put(
+            path: [
+                "projects",
+                String(route.projectID),
+                "issues",
+                String(route.issueIID),
+            ],
+            body: GitLabIssueUpdateBody(
+                title: changes.title,
+                description: changes.description
+            )
+        )
+    }
+}
+
+private nonisolated struct GitLabIssueUpdateBody:
+    Encodable,
+    Sendable
+{
+    let title: String?
+    let description: String?
 }

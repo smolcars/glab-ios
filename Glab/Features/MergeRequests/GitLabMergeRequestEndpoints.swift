@@ -31,6 +31,26 @@ nonisolated enum GitLabMergeRequestEndpoints {
         )
     }
 
+    static func update(
+        at route: GitLabMergeRequestRoute,
+        changes: GitLabResourceEditChanges
+    ) throws -> GitLabAPIRequest<GitLabMergeRequest> {
+        try .put(
+            path: [
+                "projects",
+                String(route.projectID),
+                "merge_requests",
+                String(route.mergeRequestIID),
+            ],
+            body:
+                GitLabMergeRequestUpdateBody(
+                    title: changes.title,
+                    description:
+                        changes.description
+                )
+        )
+    }
+
     static func approvals(
         at route: GitLabMergeRequestRoute
     ) -> GitLabAPIRequest<
@@ -70,4 +90,12 @@ nonisolated enum GitLabMergeRequestEndpoints {
             ]
         )
     }
+}
+
+private nonisolated struct GitLabMergeRequestUpdateBody:
+    Encodable,
+    Sendable
+{
+    let title: String?
+    let description: String?
 }
