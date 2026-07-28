@@ -67,4 +67,46 @@ struct GitLabContentLinkTests {
             )
         }
     }
+
+    @Test("Intercepts only exact configured-site Markdown links")
+    func classifiesInAppMarkdownLinks() throws {
+        let host = try GitLabHost(
+            "https://gitlab.example.com/gitlab"
+        )
+        let handledURLs = try [
+            "https://gitlab.example.com/gitlab/group/project",
+            "https://gitlab.example.com/gitlab/group/project/-/issues/7",
+            "https://gitlab.example.com/gitlab/group/project/-/wiki/home",
+        ].map {
+            try #require(URL(string: $0))
+        }
+        let systemURLs = try [
+            "https://docs.gitlab.com/",
+            "https://gitlab.example.com/group/project",
+            "https://gitlab.example.com.evil.test/gitlab/group/project",
+            "http://gitlab.example.com/gitlab/group/project",
+        ].map {
+            try #require(URL(string: $0))
+        }
+
+        for url in handledURLs {
+            #expect(
+                GitLabInAppLinkRouting
+                    .shouldHandle(
+                        url,
+                        for: host
+                    )
+            )
+        }
+
+        for url in systemURLs {
+            #expect(
+                !GitLabInAppLinkRouting
+                    .shouldHandle(
+                        url,
+                        for: host
+                    )
+            )
+        }
+    }
 }

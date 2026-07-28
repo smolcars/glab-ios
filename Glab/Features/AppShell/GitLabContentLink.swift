@@ -48,3 +48,20 @@ nonisolated enum GitLabContentLink {
         )
     }
 }
+
+nonisolated enum GitLabInAppLinkRouting {
+    static func shouldHandle(
+        _ url: URL,
+        for gitLabHost: GitLabHost
+    ) -> Bool {
+        switch GitLabDeepLinkParser.parse(
+            url,
+            for: gitLabHost
+        ) {
+        case .supported, .unsupported:
+            true
+        case .untrusted:
+            false
+        }
+    }
+}
