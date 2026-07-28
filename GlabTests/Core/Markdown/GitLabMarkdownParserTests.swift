@@ -212,6 +212,32 @@ struct GitLabMarkdownParserTests {
         )
     }
 
+    @Test("Raw HTML cannot shift a visible task onto the wrong source marker")
+    func rawHTMLTaskIdentityAmbiguity() async throws {
+        let document =
+            try await GitLabMarkdownParser.parse(
+                makeRequest(
+                    source:
+                        GitLabMarkdownFixtures
+                        .taskSourceRawHTMLAmbiguity
+                )
+            )
+        let renderedTasks =
+            tasks(in: document.blocks)
+
+        #expect(
+            renderedTasks.map(\.state)
+                == [.incomplete]
+        )
+        #expect(
+            renderedTasks
+                .allSatisfy {
+                    $0.sourceID == nil
+                }
+        )
+        #expect(!document.hasMappedMutableTask)
+    }
+
     @Test("Preserves quote, code, table, image, and rule structure")
     func structuredBlocks() async throws {
         let request = try makeRequest(

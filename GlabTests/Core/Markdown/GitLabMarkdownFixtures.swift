@@ -108,6 +108,14 @@ enum GitLabMarkdownFixtures {
         + "- [x] Café 👩🏽‍💻\n"
         + "> 1. [ ] Omega  \r\n"
 
+    static let taskSourceRawHTMLAmbiguity = """
+    <pre>
+    - [ ] Scanner-only marker
+    </pre>
+    -
+      [ ] Rendered multiline task
+    """
+
     static let taskPerformanceHundredKB =
         repeatedTaskSource(
             minimumUTF8Count: 120_000

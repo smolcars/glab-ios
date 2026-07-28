@@ -335,16 +335,25 @@ nonisolated private enum GitLabMarkdownTaskASCII {
     static let lineFeed: UInt8 = 0x0A
     static let carriageReturn: UInt8 = 0x0D
     static let space: UInt8 = 0x20
+    static let exclamationMark: UInt8 = 0x21
     static let plus: UInt8 = 0x2B
     static let hyphen: UInt8 = 0x2D
     static let period: UInt8 = 0x2E
+    static let slash: UInt8 = 0x2F
     static let zero: UInt8 = 0x30
     static let nine: UInt8 = 0x39
+    static let lessThan: UInt8 = 0x3C
     static let greaterThan: UInt8 = 0x3E
+    static let questionMark: UInt8 = 0x3F
+    static let uppercaseA: UInt8 = 0x41
     static let uppercaseX: UInt8 = 0x58
+    static let uppercaseZ: UInt8 = 0x5A
     static let openBracket: UInt8 = 0x5B
+    static let backslash: UInt8 = 0x5C
     static let closeBracket: UInt8 = 0x5D
+    static let lowercaseA: UInt8 = 0x61
     static let lowercaseX: UInt8 = 0x78
+    static let lowercaseZ: UInt8 = 0x7A
     static let tilde: UInt8 = 0x7E
     static let asterisk: UInt8 = 0x2A
     static let backtick: UInt8 = 0x60
@@ -424,6 +433,7 @@ nonisolated private enum
         var fence: Fence?
         var lineStart = 0
         var lineNumber = 0
+        var hasRawHTMLAmbiguity = false
 
         while lineStart < bytes.count {
             if lineNumber.isMultiple(of: 128) {
@@ -447,6 +457,26 @@ nonisolated private enum
             )
             let contentStart =
                 prefix.contentStart
+            let detectedOpeningFence =
+                fence == nil
+                ? openingFence(
+                    in: bytes,
+                    start: contentStart,
+                    end: lineEnd
+                )
+                : nil
+
+            if
+                fence == nil,
+                detectedOpeningFence == nil,
+                containsPotentialRawHTMLTag(
+                    in: bytes,
+                    start: contentStart,
+                    end: lineEnd
+                )
+            {
+                hasRawHTMLAmbiguity = true
+            }
 
             if let activeFence = fence {
                 if
@@ -465,11 +495,7 @@ nonisolated private enum
                 }
             } else if
                 let openingFence =
-                    openingFence(
-                        in: bytes,
-                        start: contentStart,
-                        end: lineEnd
-                    )
+                    detectedOpeningFence
             {
                 fence = openingFence
             } else if
@@ -537,7 +563,149 @@ nonisolated private enum
         }
 
         try Task.checkCancellation()
-        return result
+        return hasRawHTMLAmbiguity
+            ? []
+            : result
+    }
+
+    private static func
+        containsPotentialRawHTMLTag(
+            in bytes: [UInt8],
+            start: Int,
+            end: Int
+        ) -> Bool
+    {
+        var cursor = start
+        while cursor < end {
+            guard
+                bytes[cursor]
+                    == GitLabMarkdownTaskASCII
+                        .lessThan,
+                !isEscaped(
+                    in: bytes,
+                    at: cursor,
+                    lowerBound: start
+                )
+            else {
+                cursor += 1
+                continue
+            }
+
+            var nameStart = cursor + 1
+            guard nameStart < end else {
+                return false
+            }
+            if
+                bytes[nameStart]
+                    == GitLabMarkdownTaskASCII
+                        .exclamationMark
+                    || bytes[nameStart]
+                        == GitLabMarkdownTaskASCII
+                            .questionMark
+            {
+                return true
+            }
+            if
+                bytes[nameStart]
+                    == GitLabMarkdownTaskASCII
+                        .slash
+            {
+                nameStart += 1
+            }
+            guard
+                nameStart < end,
+                isASCIILetter(
+                    bytes[nameStart]
+                )
+            else {
+                cursor += 1
+                continue
+            }
+
+            var probe = nameStart + 1
+            while
+                probe < end,
+                isHTMLTagNameByte(
+                    bytes[probe]
+                )
+            {
+                probe += 1
+            }
+            guard probe < end else {
+                return true
+            }
+            if
+                GitLabMarkdownTaskASCII
+                    .isHorizontalWhitespace(
+                        bytes[probe]
+                    )
+                    || bytes[probe]
+                        == GitLabMarkdownTaskASCII
+                            .slash
+                    || bytes[probe]
+                        == GitLabMarkdownTaskASCII
+                            .greaterThan
+            {
+                return true
+            }
+            cursor += 1
+        }
+        return false
+    }
+
+    private static func isASCIILetter(
+        _ byte: UInt8
+    ) -> Bool {
+        (
+            byte
+                >= GitLabMarkdownTaskASCII
+                    .uppercaseA
+                && byte
+                    <= GitLabMarkdownTaskASCII
+                        .uppercaseZ
+        )
+            || (
+                byte
+                    >= GitLabMarkdownTaskASCII
+                        .lowercaseA
+                    && byte
+                        <= GitLabMarkdownTaskASCII
+                            .lowercaseZ
+            )
+    }
+
+    private static func isHTMLTagNameByte(
+        _ byte: UInt8
+    ) -> Bool {
+        isASCIILetter(byte)
+            || (
+                byte
+                    >= GitLabMarkdownTaskASCII.zero
+                    && byte
+                        <= GitLabMarkdownTaskASCII
+                            .nine
+            )
+            || byte
+                == GitLabMarkdownTaskASCII.hyphen
+    }
+
+    private static func isEscaped(
+        in bytes: [UInt8],
+        at offset: Int,
+        lowerBound: Int
+    ) -> Bool {
+        var cursor = offset
+        var backslashCount = 0
+        while
+            cursor > lowerBound,
+            bytes[cursor - 1]
+                == GitLabMarkdownTaskASCII
+                    .backslash
+        {
+            cursor -= 1
+            backslashCount += 1
+        }
+        return !backslashCount.isMultiple(of: 2)
     }
 
     private static func linePrefix(

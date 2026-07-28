@@ -69,6 +69,105 @@ struct GitLabMarkdownTaskSourceTests {
         )
     }
 
+    @Test("Raw HTML ambiguity disables every task identity")
+    func rawHTMLFailsClosed() async throws {
+        let sources = [
+            GitLabMarkdownFixtures
+                .taskSourceRawHTMLAmbiguity,
+            """
+            - [ ] Before
+            <section>
+            Raw HTML
+            </section>
+            """,
+            """
+            <details><summary>Details</summary>
+            Raw HTML
+            </details>
+            - [x] After
+            """,
+        ]
+
+        for source in sources {
+            #expect(
+                try await
+                    GitLabMarkdownTaskSourceIndex
+                    .tasks(in: source)
+                    .isEmpty
+            )
+        }
+    }
+
+    @Test("Fenced HTML and comments do not disable visible task identities")
+    func excludedHTMLLikeSource() async throws {
+        let source = """
+        ```html
+        <section>
+        - [ ] Fenced code
+        </section>
+        ```
+
+        <!-- <div>- [ ] Commented task</div> -->
+        See <https://gitlab.example.com/help>.
+        - [ ] Visible task
+        """
+
+        let tasks =
+            try await
+                GitLabMarkdownTaskSourceIndex
+                .tasks(in: source)
+
+        #expect(tasks.count == 1)
+        #expect(tasks.first?.state == .incomplete)
+        #expect(
+            tasks.first?
+                .sourceID.markerUTF8Offset
+                == utf8Offset(
+                    of: "[ ] Visible",
+                    in: source
+                )
+        )
+    }
+
+    @Test("Raw HTML ambiguity cannot be bypassed by a fabricated identity")
+    func rawHTMLRewriteFailsClosed() async throws {
+        let source =
+            GitLabMarkdownFixtures
+                .taskSourceRawHTMLAmbiguity
+        let markerOffset = try #require(
+            utf8Offset(
+                of: "[ ] Scanner-only",
+                in: source
+            )
+        )
+        let fabricated =
+            GitLabMarkdownIndexedTask(
+                sourceID:
+                    GitLabMarkdownTaskSourceID(
+                        sourceDigest:
+                            GitLabMarkdownSourceDigest
+                            .digest(for: source),
+                        markerUTF8Offset:
+                            markerOffset
+                    ),
+                state: .incomplete
+            )
+
+        await #expect(
+            throws:
+                GitLabMarkdownTaskRewriteError
+                    .invalidTask
+        ) {
+            _ =
+                try await GitLabMarkdownTaskSourceRewriter
+                .rewrite(
+                    source,
+                    task: fabricated,
+                    to: .complete
+                )
+        }
+    }
+
     @Test("Toggles only the selected marker byte")
     func exactByteRewrite() async throws {
         let source =
