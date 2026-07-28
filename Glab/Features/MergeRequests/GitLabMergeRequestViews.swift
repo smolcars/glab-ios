@@ -612,6 +612,8 @@ struct GitLabMergeRequestDetailView: View {
     @State private var editorModel:
         GitLabResourceEditorModel?
     @State private var showsEditor = false
+    @State private var taskToggleModel:
+        GitLabDescriptionTaskToggleModel
 
     init(
         route: GitLabMergeRequestRoute,
@@ -652,11 +654,53 @@ struct GitLabMergeRequestDetailView: View {
                 .mergeRequest(route)
         self.discussionResource =
             discussionResource
+        let detailModel =
+            GitLabMergeRequestDetailModel(
+                route: route,
+                loader: loader
+            )
         _model = State(
+            initialValue: detailModel
+        )
+        let apiAccess =
+            appSession.accounts
+                .first {
+                    $0.id == accountID
+                }?
+                .apiAccess
+            ?? .readOnly
+        _taskToggleModel = State(
             initialValue:
-                GitLabMergeRequestDetailModel(
-                    route: route,
-                    loader: loader
+                GitLabDescriptionTaskToggleModel(
+                    accountID: accountID,
+                    apiAccess: apiAccess,
+                    service: editService,
+                    draftStore:
+                        appSession
+                            .resourceEditDraftStore,
+                    isAccountCurrent: {
+                        appSession
+                            .activeAccountID
+                            == accountID
+                    },
+                    onSuccess: {
+                        result in
+                        guard
+                            case let .mergeRequest(
+                                updatedMergeRequest
+                            ) = result,
+                            detailModel
+                                .reconcileAuthoritative(
+                                    updatedMergeRequest
+                                )
+                        else {
+                            return
+                        }
+                        onResourceEdited(result)
+                    },
+                    onStale: {
+                        await detailModel.retry()
+                    }
                 )
         )
         _approvalModel = State(
@@ -689,6 +733,9 @@ struct GitLabMergeRequestDetailView: View {
                             detailWebURL,
                         openInGitLabAccessibilityIdentifier:
                             "mergeRequests.openInGitLab",
+                        canEdit:
+                            !taskToggleModel
+                                .isBusy,
                         canComment:
                             apiAccess.canWrite,
                         edit: launchEditor,
@@ -705,6 +752,9 @@ struct GitLabMergeRequestDetailView: View {
             }
             .task {
                 await load()
+            }
+            .onDisappear {
+                taskToggleModel.cancel()
             }
             .onChange(
                 of:
@@ -843,7 +893,19 @@ struct GitLabMergeRequestDetailView: View {
                         diffSummaryLoader,
                     launchComposer:
                         launchComposer,
-                    appSession: appSession
+                    appSession: appSession,
+                    taskInteraction:
+                        GitLabMarkdownTaskInteraction(
+                            model:
+                                taskToggleModel,
+                            snapshot:
+                                GitLabResourceEditSnapshot(
+                                    mergeRequest:
+                                        mergeRequest
+                                ),
+                            openEditor:
+                                launchEditor
+                        )
                 )
             }
         }
@@ -856,6 +918,8 @@ struct GitLabMergeRequestDetailView: View {
             ?? approvalModel
                 .authenticationFailure
             ?? discussionModel.authenticationFailure
+            ?? taskToggleModel
+                .authenticationFailure
     }
 
     private var apiAccess:
@@ -905,6 +969,17 @@ struct GitLabMergeRequestDetailView: View {
     }
 
     private func launchEditor() {
+        guard !taskToggleModel.isBusy else {
+            return
+        }
+        if let recoveryEditor =
+            taskToggleModel
+                .takeRecoveryEditor()
+        {
+            editorModel = recoveryEditor
+            showsEditor = true
+            return
+        }
         guard
             case let .loaded(mergeRequest) =
                 model.state
@@ -946,6 +1021,7 @@ struct GitLabMergeRequestDetailView: View {
                     else {
                         return
                     }
+                    taskToggleModel.cancel()
                     onResourceEdited(result)
                 }
             )
@@ -1025,6 +1101,8 @@ private struct GitLabMergeRequestDetailContent: View {
     let launchComposer:
         (GitLabDiscussionComposerTarget) -> Void
     let appSession: AppSession
+    let taskInteraction:
+        GitLabMarkdownTaskInteraction
 
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
@@ -1134,28 +1212,21 @@ private struct GitLabMergeRequestDetailContent: View {
     private var descriptionSection: some View {
         GitLabDetailSection(title: "Description") {
             if
-                let description = mergeRequest.description?
-                    .trimmingCharacters(
-                        in: .whitespacesAndNewlines
-                    ),
-                !description.isEmpty
+                let request =
+                    GitLabDescriptionMarkdownRequest
+                    .mergeRequest(
+                        accountID: accountID,
+                        mergeRequest:
+                            mergeRequest
+                    )
             {
                 GitLabMarkdownContentView(
-                    request: GitLabMarkdownRequest(
-                        accountID: accountID,
-                        resource: .mergeRequest(
-                            projectID:
-                                mergeRequest.projectID,
-                            mergeRequestIID:
-                                mergeRequest.iid
-                        ),
-                        source: description,
-                        webURL:
-                            mergeRequest.safeWebURL
-                    ),
+                    request: request,
                     revision: mergeRequest.updatedAt,
                     kind: .description,
-                    renderer: markdownRenderer
+                    renderer: markdownRenderer,
+                    taskInteraction:
+                        taskInteraction
                 )
             } else {
                 Text("No description provided.")

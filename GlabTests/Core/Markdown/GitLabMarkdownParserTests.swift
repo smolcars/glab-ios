@@ -96,6 +96,9 @@ struct GitLabMarkdownParserTests {
                     "Inapplicable task, Inapplicable",
                 ]
         )
+        #expect(
+            document.hasMappedMutableTask
+        )
         let completeID = try #require(
             nested.items[0].taskSourceID
         )
@@ -104,6 +107,27 @@ struct GitLabMarkdownParserTests {
         )
         let inapplicableID = try #require(
             nested.items[2].taskSourceID
+        )
+        #expect(
+            nested.items[0].indexedTask
+                == GitLabMarkdownIndexedTask(
+                    sourceID: completeID,
+                    state: .complete
+                )
+        )
+        #expect(
+            nested.items[1].indexedTask
+                == GitLabMarkdownIndexedTask(
+                    sourceID: incompleteID,
+                    state: .incomplete
+                )
+        )
+        #expect(
+            nested.items[2].indexedTask
+                == GitLabMarkdownIndexedTask(
+                    sourceID: inapplicableID,
+                    state: .inapplicable
+                )
         )
         #expect(
             completeID.markerUTF8Offset
@@ -182,6 +206,9 @@ struct GitLabMarkdownParserTests {
                 .allSatisfy {
                     $0.sourceID == nil
                 }
+        )
+        #expect(
+            !remapped.hasMappedMutableTask
         )
     }
 

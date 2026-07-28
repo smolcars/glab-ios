@@ -125,6 +125,21 @@ nonisolated struct GitLabMarkdownListItem:
         }
         return "\(taskState.accessibilityTitle), \(plainText)"
     }
+
+    var indexedTask:
+        GitLabMarkdownIndexedTask?
+    {
+        guard
+            let taskState,
+            let taskSourceID
+        else {
+            return nil
+        }
+        return GitLabMarkdownIndexedTask(
+            sourceID: taskSourceID,
+            state: taskState
+        )
+    }
 }
 
 nonisolated struct GitLabMarkdownList:
@@ -345,6 +360,15 @@ nonisolated struct GitLabMarkdownDocument:
     Sendable
 {
     let blocks: [GitLabMarkdownBlock]
+    let hasMappedMutableTask: Bool
+
+    init(blocks: [GitLabMarkdownBlock]) {
+        self.blocks = blocks
+        hasMappedMutableTask =
+            blocks.contains {
+                $0.hasMappedMutableTask
+            }
+    }
 
     var plainText: String {
         blocks.map(\.plainText)
@@ -354,6 +378,46 @@ nonisolated struct GitLabMarkdownDocument:
 
     var allLinks: [URL] {
         blocks.flatMap(\.links)
+    }
+}
+
+private extension GitLabMarkdownBlock {
+    nonisolated
+    var hasMappedMutableTask: Bool {
+        switch self {
+        case let .list(list):
+            list.items.contains {
+                $0.hasMappedMutableTask
+            }
+        case let .quote(quote):
+            quote.blocks.contains {
+                $0.hasMappedMutableTask
+            }
+        case .heading,
+             .paragraph,
+             .code,
+             .table,
+             .image,
+             .thematicBreak,
+             .unsupported:
+            false
+        }
+    }
+}
+
+private extension GitLabMarkdownListItem {
+    nonisolated
+    var hasMappedMutableTask: Bool {
+        if
+            let indexedTask,
+            indexedTask.state
+                != .inapplicable
+        {
+            return true
+        }
+        return blocks.contains {
+            $0.hasMappedMutableTask
+        }
     }
 }
 

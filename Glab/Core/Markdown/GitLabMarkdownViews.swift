@@ -136,6 +136,15 @@ nonisolated enum GitLabMarkdownContentKind:
     }
 }
 
+@MainActor
+struct GitLabMarkdownTaskInteraction {
+    let model:
+        GitLabDescriptionTaskToggleModel
+    let snapshot:
+        GitLabResourceEditSnapshot
+    let openEditor: () -> Void
+}
+
 struct GitLabMarkdownContentView: View {
     private struct LoadIdentity: Hashable {
         let request: GitLabMarkdownRequest
@@ -145,6 +154,8 @@ struct GitLabMarkdownContentView: View {
     let request: GitLabMarkdownRequest
     let revision: Date
     let kind: GitLabMarkdownContentKind
+    let taskInteraction:
+        GitLabMarkdownTaskInteraction?
 
     @Environment(\.gitLabMarkdownLinkHandler)
     private var linkHandler
@@ -154,11 +165,15 @@ struct GitLabMarkdownContentView: View {
         request: GitLabMarkdownRequest,
         revision: Date,
         kind: GitLabMarkdownContentKind,
-        renderer: any GitLabMarkdownRendering
+        renderer: any GitLabMarkdownRendering,
+        taskInteraction:
+            GitLabMarkdownTaskInteraction? = nil
     ) {
         self.request = request
         self.revision = revision
         self.kind = kind
+        self.taskInteraction =
+            taskInteraction
         _model = State(
             initialValue:
                 GitLabMarkdownModel(
@@ -213,8 +228,21 @@ struct GitLabMarkdownContentView: View {
                 }
             }
 
+            if
+                let taskInteraction,
+                document
+                    .hasMappedMutableTask
+            {
+                GitLabMarkdownTaskStatusView(
+                    interaction:
+                        taskInteraction
+                )
+            }
+
             GitLabMarkdownDocumentView(
-                document: document
+                document: document,
+                taskInteraction:
+                    taskInteraction
             )
         case let .failed(message):
             GitLabMarkdownFailureNotice(
@@ -271,6 +299,8 @@ private struct GitLabMarkdownFailureNotice: View {
 
 private struct GitLabMarkdownDocumentView: View {
     let document: GitLabMarkdownDocument
+    let taskInteraction:
+        GitLabMarkdownTaskInteraction?
 
     var body: some View {
         LazyVStack(
@@ -282,7 +312,9 @@ private struct GitLabMarkdownDocumentView: View {
                 id: \.offset
             ) { _, block in
                 GitLabMarkdownBlockView(
-                    block: block
+                    block: block,
+                    taskInteraction:
+                        taskInteraction
                 )
             }
         }
@@ -295,6 +327,8 @@ private struct GitLabMarkdownDocumentView: View {
 
 private struct GitLabMarkdownBlockView: View {
     let block: GitLabMarkdownBlock
+    let taskInteraction:
+        GitLabMarkdownTaskInteraction?
 
     var body: some View {
         switch block {
@@ -311,9 +345,17 @@ private struct GitLabMarkdownBlockView: View {
                 .font(.body)
                 .textSelection(.enabled)
         case let .list(list):
-            GitLabMarkdownListView(list: list)
+            GitLabMarkdownListView(
+                list: list,
+                taskInteraction:
+                    taskInteraction
+            )
         case let .quote(quote):
-            GitLabMarkdownQuoteView(quote: quote)
+            GitLabMarkdownQuoteView(
+                quote: quote,
+                taskInteraction:
+                    taskInteraction
+            )
         case let .code(code):
             GitLabMarkdownCodeView(code: code)
         case let .table(table):
@@ -354,6 +396,8 @@ private struct GitLabMarkdownBlockView: View {
 
 private struct GitLabMarkdownListView: View {
     let list: GitLabMarkdownList
+    let taskInteraction:
+        GitLabMarkdownTaskInteraction?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
@@ -383,7 +427,9 @@ private struct GitLabMarkdownListView: View {
                             id: \.offset
                         ) { _, block in
                             GitLabMarkdownBlockView(
-                                block: block
+                                block: block,
+                                taskInteraction:
+                                    taskInteraction
                             )
                         }
                     }
@@ -392,9 +438,6 @@ private struct GitLabMarkdownListView: View {
                         alignment: .leading
                     )
                 }
-                .accessibilityLabel(
-                    item.accessibilityLabel
-                )
             }
         }
     }
@@ -403,7 +446,20 @@ private struct GitLabMarkdownListView: View {
     private func marker(
         for item: GitLabMarkdownListItem
     ) -> some View {
-        if let taskState = item.taskState {
+        if
+            let task = item.indexedTask,
+            task.state != .inapplicable,
+            let taskInteraction
+        {
+            GitLabMarkdownTaskButton(
+                task: task,
+                itemText: item.plainText,
+                interaction:
+                    taskInteraction
+            )
+        } else if
+            let taskState = item.taskState
+        {
             Image(
                 systemName:
                     systemImage(for: taskState)
@@ -414,7 +470,9 @@ private struct GitLabMarkdownListView: View {
                     ? Color.secondary
                     : Color.orange
             )
-            .accessibilityHidden(true)
+            .accessibilityLabel(
+                taskState.accessibilityTitle
+            )
         } else {
             Text(
                 list.kind == .ordered
@@ -441,8 +499,386 @@ private struct GitLabMarkdownListView: View {
     }
 }
 
+private struct
+    GitLabMarkdownTaskButton:
+    View
+{
+    let task: GitLabMarkdownIndexedTask
+    let itemText: String
+    let interaction:
+        GitLabMarkdownTaskInteraction
+
+    private var displayedState:
+        GitLabMarkdownTaskState
+    {
+        interaction.model.displayedState(
+            for: task
+        )
+    }
+
+    private var isActive: Bool {
+        interaction.model
+            .activeTaskSourceID
+            == task.sourceID
+    }
+
+    private var isEnabled: Bool {
+        interaction.model.apiAccess.canWrite
+            && interaction.model.phase == .idle
+    }
+
+    var body: some View {
+        Button {
+            Task {
+                await interaction.model.toggle(
+                    task,
+                    in: interaction.snapshot
+                )
+            }
+        } label: {
+            Group {
+                if
+                    isActive,
+                    interaction.model.isBusy
+                {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(
+                        systemName:
+                            systemImage(
+                                for:
+                                    displayedState
+                            )
+                    )
+                    .font(
+                        .body.weight(.semibold)
+                    )
+                    .foregroundStyle(
+                        displayedState
+                            == .incomplete
+                            ? Color.secondary
+                            : Color.orange
+                    )
+                }
+            }
+            .frame(width: 44, height: 44)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, -10)
+        .disabled(!isEnabled)
+        .accessibilityLabel(
+            itemText.isEmpty
+                ? "Task checkbox"
+                : "Task checkbox for \(itemText)"
+        )
+        .accessibilityValue(
+            accessibilityValue
+        )
+        .accessibilityHint(
+            accessibilityHint
+        )
+    }
+
+    private var accessibilityValue: String {
+        switch displayedState {
+        case .complete:
+            "Checked"
+        case .incomplete:
+            "Unchecked"
+        case .inapplicable:
+            "Inapplicable"
+        }
+    }
+
+    private var accessibilityHint: String {
+        if !interaction.model.apiAccess.canWrite {
+            return "This account has read-only API access."
+        }
+        if interaction.model.phase != .idle {
+            return "Another task update must finish first."
+        }
+        return displayedState == .complete
+            ? "Marks this task incomplete."
+            : "Marks this task complete."
+    }
+
+    private func systemImage(
+        for state: GitLabMarkdownTaskState
+    ) -> String {
+        switch state {
+        case .complete:
+            "checkmark.square.fill"
+        case .incomplete:
+            "square"
+        case .inapplicable:
+            "minus.square.fill"
+        }
+    }
+}
+
+private struct
+    GitLabMarkdownTaskStatusView:
+    View
+{
+    private enum Action {
+        case checkGitLab
+        case retry
+        case openEditor
+    }
+
+    private struct Presentation {
+        let message: String
+        let systemImage: String
+        let action: Action?
+    }
+
+    let interaction:
+        GitLabMarkdownTaskInteraction
+
+    @ViewBuilder
+    var body: some View {
+        if let presentation {
+            HStack(
+                alignment: .center,
+                spacing: 10
+            ) {
+                if interaction.model.isBusy {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(
+                        systemName:
+                            presentation
+                                .systemImage
+                    )
+                    .foregroundStyle(.orange)
+                }
+
+                Text(presentation.message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
+
+                if let action =
+                    presentation.action
+                {
+                    Button(
+                        actionTitle(action)
+                    ) {
+                        perform(action)
+                    }
+                    .font(
+                        .caption.weight(
+                            .semibold
+                        )
+                    )
+                }
+            }
+            .padding(10)
+            .background(
+                Color.orange.opacity(0.08),
+                in: .rect(cornerRadius: 12)
+            )
+            .accessibilityIdentifier(
+                "markdown.taskStatus"
+            )
+        }
+    }
+
+    private var presentation:
+        Presentation?
+    {
+        switch interaction.model.phase {
+        case .rewriting:
+            return Presentation(
+                message:
+                    "Checking this task…",
+                systemImage: "checkmark.square",
+                action: nil
+            )
+        case .restoringDraft:
+            return Presentation(
+                message:
+                    "Checking saved edits…",
+                systemImage: "checkmark.square",
+                action: nil
+            )
+        case .saving:
+            return Presentation(
+                message:
+                    "Updating this task…",
+                systemImage: "checkmark.square",
+                action: nil
+            )
+        case .checkingGitLab:
+            return Presentation(
+                message:
+                    "Checking GitLab…",
+                systemImage: "arrow.triangle.2.circlepath",
+                action: nil
+            )
+        case .deliveryUnknown:
+            if
+                case .editor(.conflict) =
+                    interaction.model.failure
+            {
+                return Presentation(
+                    message:
+                        "The description changed on GitLab. Review the saved task update before continuing.",
+                    systemImage:
+                        "exclamationmark.triangle.fill",
+                    action: .openEditor
+                )
+            }
+            return Presentation(
+                message:
+                    "GitLab may have received this task update. Check before retrying.",
+                systemImage:
+                    "questionmark.circle.fill",
+                action: .checkGitLab
+            )
+        case .retryAvailable:
+            return Presentation(
+                message:
+                    "GitLab did not apply this task update.",
+                systemImage:
+                    "arrow.clockwise.circle.fill",
+                action: .retry
+            )
+        case .idle:
+            break
+        }
+
+        guard
+            let failure =
+                interaction.model.failure
+        else {
+            if
+                !interaction.model
+                    .apiAccess.canWrite
+            {
+                return Presentation(
+                    message:
+                        "Task lists are read-only for this account.",
+                    systemImage: "lock.fill",
+                    action: nil
+                )
+            }
+            return nil
+        }
+
+        switch failure {
+        case .readOnly:
+            return Presentation(
+                message:
+                    "Task lists are read-only for this account.",
+                systemImage: "lock.fill",
+                action: nil
+            )
+        case .inapplicable:
+            return Presentation(
+                message:
+                    "Inapplicable tasks cannot be changed.",
+                systemImage: "minus.square.fill",
+                action: nil
+            )
+        case .staleDescription:
+            return Presentation(
+                message:
+                    "The description changed. It was refreshed without changing the task.",
+                systemImage:
+                    "arrow.clockwise.circle.fill",
+                action: nil
+            )
+        case .existingDraft:
+            return Presentation(
+                message:
+                    "Finish or discard the saved description edit before changing a task.",
+                systemImage: "doc.text.fill",
+                action: .openEditor
+            )
+        case .rewrite:
+            return Presentation(
+                message:
+                    "This task could not be matched safely to the current description.",
+                systemImage:
+                    "exclamationmark.triangle.fill",
+                action: nil
+            )
+        case let .editor(failure):
+            return Presentation(
+                message:
+                    editorMessage(failure),
+                systemImage:
+                    "exclamationmark.triangle.fill",
+                action: nil
+            )
+        }
+    }
+
+    private func editorMessage(
+        _ failure:
+            GitLabResourceEditorFailure
+    ) -> String {
+        switch failure {
+        case .validation:
+            "GitLab could not accept this description."
+        case .readOnly:
+            "Task lists are read-only for this account."
+        case .draftStorage:
+            "The task update could not be saved safely on this device."
+        case .freshness:
+            "The latest description could not be checked."
+        case .conflict:
+            "The description changed on GitLab."
+        case .mutation:
+            "GitLab could not update this task."
+        case .reconciliation:
+            "GitLab could not confirm this task update."
+        }
+    }
+
+    private func actionTitle(
+        _ action: Action
+    ) -> String {
+        switch action {
+        case .checkGitLab:
+            "Check"
+        case .retry:
+            "Try Again"
+        case .openEditor:
+            "Review"
+        }
+    }
+
+    private func perform(
+        _ action: Action
+    ) {
+        switch action {
+        case .checkGitLab:
+            Task {
+                await interaction.model
+                    .checkGitLab()
+            }
+        case .retry:
+            Task {
+                await interaction.model.retry()
+            }
+        case .openEditor:
+            interaction.openEditor()
+        }
+    }
+}
+
 private struct GitLabMarkdownQuoteView: View {
     let quote: GitLabMarkdownQuote
+    let taskInteraction:
+        GitLabMarkdownTaskInteraction?
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -460,7 +896,9 @@ private struct GitLabMarkdownQuoteView: View {
                     id: \.offset
                 ) { _, block in
                     GitLabMarkdownBlockView(
-                        block: block
+                        block: block,
+                        taskInteraction:
+                            taskInteraction
                     )
                 }
             }

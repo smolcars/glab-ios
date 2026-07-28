@@ -174,6 +174,7 @@ struct GitLabResourceDetailToolbarActions:
     let destination: URL?
     let openInGitLabAccessibilityIdentifier:
         String
+    let canEdit: Bool
     let canComment: Bool
     let edit: () -> Void
     let addComment: () -> Void
@@ -205,11 +206,14 @@ struct GitLabResourceDetailToolbarActions:
                     systemImage: "pencil"
                 )
             }
+            .disabled(!canEdit)
             .accessibilityIdentifier(
                 "resource.edit"
             )
             .accessibilityHint(
-                "Opens title and Markdown description editing. Read-only accounts can keep a local draft but cannot save to GitLab."
+                canEdit
+                    ? "Opens title and Markdown description editing. Read-only accounts can keep a local draft but cannot save to GitLab."
+                    : "Wait for the current task update to finish."
             )
 
             Button {

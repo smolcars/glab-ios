@@ -423,6 +423,8 @@ struct GitLabIssueDetailView: View {
     @State private var editorModel:
         GitLabResourceEditorModel?
     @State private var showsEditor = false
+    @State private var taskToggleModel:
+        GitLabDescriptionTaskToggleModel
 
     init(
         route: GitLabIssueRoute,
@@ -456,11 +458,54 @@ struct GitLabIssueDetailView: View {
             GitLabDiscussionResource.issue(route)
         self.discussionResource =
             discussionResource
-        _model = State(
-            initialValue: GitLabIssueDetailModel(
+        let detailModel =
+            GitLabIssueDetailModel(
                 route: route,
                 loader: loader
             )
+        _model = State(
+            initialValue: detailModel
+        )
+        let apiAccess =
+            appSession.accounts
+                .first {
+                    $0.id == accountID
+                }?
+                .apiAccess
+            ?? .readOnly
+        _taskToggleModel = State(
+            initialValue:
+                GitLabDescriptionTaskToggleModel(
+                    accountID: accountID,
+                    apiAccess: apiAccess,
+                    service: editService,
+                    draftStore:
+                        appSession
+                            .resourceEditDraftStore,
+                    isAccountCurrent: {
+                        appSession
+                            .activeAccountID
+                            == accountID
+                    },
+                    onSuccess: {
+                        result in
+                        guard
+                            case let .issue(
+                                updatedIssue
+                            ) = result,
+                            detailModel
+                                .reconcileAuthoritative(
+                                    updatedIssue
+                                )
+                        else {
+                            return
+                        }
+                        onResourceEdited(result)
+                    },
+                    onStale: {
+                        await detailModel.retry()
+                    }
+                )
         )
         _discussionModel = State(
             initialValue:
@@ -483,6 +528,9 @@ struct GitLabIssueDetailView: View {
                             detailWebURL,
                         openInGitLabAccessibilityIdentifier:
                             "issues.openInGitLab",
+                        canEdit:
+                            !taskToggleModel
+                                .isBusy,
                         canComment:
                             apiAccess.canWrite,
                         edit: launchEditor,
@@ -499,6 +547,9 @@ struct GitLabIssueDetailView: View {
             }
             .task {
                 await load()
+            }
+            .onDisappear {
+                taskToggleModel.cancel()
             }
             .onChange(
                 of:
@@ -614,7 +665,18 @@ struct GitLabIssueDetailView: View {
                         reactionService,
                     launchComposer:
                         launchComposer,
-                    appSession: appSession
+                    appSession: appSession,
+                    taskInteraction:
+                        GitLabMarkdownTaskInteraction(
+                            model:
+                                taskToggleModel,
+                            snapshot:
+                                GitLabResourceEditSnapshot(
+                                    issue: issue
+                                ),
+                            openEditor:
+                                launchEditor
+                        )
                 )
             }
         }
@@ -625,6 +687,8 @@ struct GitLabIssueDetailView: View {
     {
         model.authenticationFailure
             ?? discussionModel.authenticationFailure
+            ?? taskToggleModel
+                .authenticationFailure
     }
 
     private var apiAccess:
@@ -674,6 +738,17 @@ struct GitLabIssueDetailView: View {
     }
 
     private func launchEditor() {
+        guard !taskToggleModel.isBusy else {
+            return
+        }
+        if let recoveryEditor =
+            taskToggleModel
+                .takeRecoveryEditor()
+        {
+            editorModel = recoveryEditor
+            showsEditor = true
+            return
+        }
         guard
             case let .loaded(issue) =
                 model.state
@@ -714,6 +789,7 @@ struct GitLabIssueDetailView: View {
                     else {
                         return
                     }
+                    taskToggleModel.cancel()
                     onResourceEdited(result)
                 }
             )
@@ -749,6 +825,8 @@ private struct GitLabIssueDetailContent: View {
     let launchComposer:
         (GitLabDiscussionComposerTarget) -> Void
     let appSession: AppSession
+    let taskInteraction:
+        GitLabMarkdownTaskInteraction
 
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
@@ -840,25 +918,20 @@ private struct GitLabIssueDetailContent: View {
     private var descriptionSection: some View {
         GitLabDetailSection(title: "Description") {
             if
-                let description = issue.description?
-                    .trimmingCharacters(
-                        in: .whitespacesAndNewlines
-                    ),
-                !description.isEmpty
+                let request =
+                    GitLabDescriptionMarkdownRequest
+                    .issue(
+                        accountID: accountID,
+                        issue: issue
+                    )
             {
                 GitLabMarkdownContentView(
-                    request: GitLabMarkdownRequest(
-                        accountID: accountID,
-                        resource: .issue(
-                            projectID: issue.projectID,
-                            issueIID: issue.iid
-                        ),
-                        source: description,
-                        webURL: issue.safeWebURL
-                    ),
+                    request: request,
                     revision: issue.updatedAt,
                     kind: .description,
-                    renderer: markdownRenderer
+                    renderer: markdownRenderer,
+                    taskInteraction:
+                        taskInteraction
                 )
             } else {
                 Text("No description provided.")
