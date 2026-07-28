@@ -127,6 +127,58 @@ struct GitLabResourceEditorModelTests {
         #expect(await store.storedDraft == nil)
     }
 
+    @Test("A clean dismissal removes a redundant baseline draft")
+    @MainActor
+    func cleanDismissalRemovesDraft() async throws {
+        let context = try ResourceEditorTestContext()
+        let store = RecordingResourceEditDraftStore(
+            draft: GitLabResourceEditDraft(
+                baseline: context.baseline,
+                title: context.baseline.title,
+                description:
+                    context.baseline.rawDescription,
+                revision: 1
+            )
+        )
+        let model = context.makeModel(
+            draftStore: store
+        )
+        await model.restoreDraft()
+
+        let didPersist =
+            await model.persistForDismissal()
+
+        #expect(didPersist)
+        #expect(await store.storedDraft == nil)
+    }
+
+    @Test("Discard restores the baseline and removes the local draft")
+    @MainActor
+    func discardsLocalChanges() async throws {
+        let context = try ResourceEditorTestContext()
+        let store =
+            RecordingResourceEditDraftStore()
+        let model = context.makeModel(
+            draftStore: store
+        )
+        await model.restoreDraft()
+        model.title = "Draft title"
+        model.rawDescription = "Draft body"
+        _ = await model.persistForDismissal()
+
+        let didDiscard =
+            await model.discardDraft()
+
+        #expect(didDiscard)
+        #expect(model.title == context.baseline.title)
+        #expect(
+            model.rawDescription
+                == context.baseline.rawDescription
+        )
+        #expect(!model.isDirty)
+        #expect(await store.storedDraft == nil)
+    }
+
     @Test("A draft storage failure blocks every network request")
     @MainActor
     func storageFailureBlocksSave() async throws {

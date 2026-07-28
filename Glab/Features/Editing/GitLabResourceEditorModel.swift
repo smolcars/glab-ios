@@ -208,6 +208,18 @@ final class GitLabResourceEditorModel {
             && !hasBlockingFailure
     }
 
+    var canCheckGitLab: Bool {
+        hasRestoredDraft
+            && operation == nil
+            && pendingMutation != nil
+    }
+
+    var canDiscardDraft: Bool {
+        hasRestoredDraft
+            && operation == nil
+            && pendingMutation == nil
+    }
+
     var authenticationFailure:
         GitLabSessionClientError?
     {
@@ -392,7 +404,36 @@ final class GitLabResourceEditorModel {
         guard operation == nil else {
             return false
         }
+        guard isDirty else {
+            persistenceTask?.cancel()
+            persistenceTask = nil
+            await draftStore.remove(
+                for: draftKey
+            )
+            return true
+        }
         return await persistCurrentDraft()
+    }
+
+    @discardableResult
+    func discardDraft() async -> Bool {
+        guard canDiscardDraft else {
+            return false
+        }
+
+        persistenceTask?.cancel()
+        persistenceTask = nil
+        apply(
+            baseline: baseline,
+            title: baseline.title,
+            description:
+                baseline.rawDescription
+        )
+        failure = nil
+        await draftStore.remove(
+            for: draftKey
+        )
+        return true
     }
 
     private func performSave(
