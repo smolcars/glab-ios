@@ -128,7 +128,7 @@ struct AppSessionMultipleAccountTests {
         )
     }
 
-    @Test("Removing an inactive account preserves the active account and its cache")
+    @Test("Removing an inactive account purges only its cache and edit drafts")
     func removesInactiveAccount() async throws {
         let first = try makeSession(
             host: "gitlab.example.com",
@@ -158,10 +158,30 @@ struct AppSessionMultipleAccountTests {
             makeCachedResponse(body: "second"),
             for: secondKey
         )
+        let editDraftStore =
+            InMemoryGitLabResourceEditDraftStore()
+        let firstDraftKey =
+            makeEditDraftKey(for: first)
+        let secondDraftKey =
+            makeEditDraftKey(for: second)
+        let firstDraft =
+            makeEditDraft(title: "First")
+        let secondDraft =
+            makeEditDraft(title: "Second")
+        try await editDraftStore.store(
+            firstDraft,
+            for: firstDraftKey
+        )
+        try await editDraftStore.store(
+            secondDraft,
+            for: secondDraftKey
+        )
         let appSession = AppSession(
             credentialStore: credentialStore,
             accountIndexStore: indexStore,
-            responseCache: cache
+            responseCache: cache,
+            resourceEditDraftStore:
+                editDraftStore
         )
         await appSession.restore()
 
@@ -182,6 +202,16 @@ struct AppSessionMultipleAccountTests {
         )
         #expect(await cache.response(for: firstKey) != nil)
         #expect(await cache.response(for: secondKey) == nil)
+        #expect(
+            await editDraftStore.draft(
+                for: firstDraftKey
+            ) == firstDraft
+        )
+        #expect(
+            await editDraftStore.draft(
+                for: secondDraftKey
+            ) == nil
+        )
     }
 
     @Test("Removing the active account activates the next account")
@@ -1001,6 +1031,45 @@ private extension AppSessionMultipleAccountTests {
             lastModified: nil,
             storedAt: .distantPast,
             lastAccessedAt: .distantPast
+        )
+    }
+
+    nonisolated func makeEditDraftKey(
+        for session: GitLabStoredSession
+    ) -> GitLabResourceEditDraftKey {
+        GitLabResourceEditDraftKey(
+            accountID:
+                GitLabAccountID(
+                    session: session
+                ),
+            target: .issue(
+                GitLabIssueRoute(
+                    projectID: 42,
+                    issueIID: 7
+                )
+            )
+        )
+    }
+
+    nonisolated func makeEditDraft(
+        title: String
+    ) -> GitLabResourceEditDraft {
+        GitLabResourceEditDraft(
+            baseline:
+                GitLabResourceEditSnapshot(
+                    target: .issue(
+                        GitLabIssueRoute(
+                            projectID: 42,
+                            issueIID: 7
+                        )
+                    ),
+                    title: "Baseline",
+                    description: "Original",
+                    updatedAt: .distantPast
+                ),
+            title: title,
+            description: "Changed",
+            revision: 1
         )
     }
 }

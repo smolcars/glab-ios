@@ -61,6 +61,8 @@ final class AppSession {
     let responseCache: any GitLabResponseCaching
     let discussionDraftStore:
         any GitLabDiscussionDraftStoring
+    let resourceEditDraftStore:
+        any GitLabResourceEditDraftStoring
 
     private let accountIndexStore:
         any GitLabAccountIndexStoring
@@ -85,6 +87,9 @@ final class AppSession {
         discussionDraftStore:
             any GitLabDiscussionDraftStoring =
                 InMemoryGitLabDiscussionDraftStore(),
+        resourceEditDraftStore:
+            any GitLabResourceEditDraftStoring =
+                InMemoryGitLabResourceEditDraftStore(),
         currentDate: @escaping () -> Date = Date.init
     ) {
         self.credentialStore = credentialStore
@@ -92,6 +97,8 @@ final class AppSession {
         self.responseCache = responseCache
         self.discussionDraftStore =
             discussionDraftStore
+        self.resourceEditDraftStore =
+            resourceEditDraftStore
         self.currentDate = currentDate
     }
 
@@ -333,6 +340,8 @@ final class AppSession {
             )
             if removesDrafts {
                 await discussionDraftStore
+                    .removeAll(for: accountID)
+                await resourceEditDraftStore
                     .removeAll(for: accountID)
             }
         }

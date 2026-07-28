@@ -147,12 +147,22 @@ struct AppSessionTests {
         let draftKey = draftKey(
             for: storedSession
         )
+        let editDraftStore =
+            InMemoryGitLabResourceEditDraftStore()
+        let editDraftKey = editDraftKey(
+            for: storedSession
+        )
+        let editDraft = makeEditDraft()
         try await draftStore.store(
             GitLabDiscussionDraft(
                 body: "Unfinished comment",
                 revision: 1
             ),
             for: draftKey
+        )
+        try await editDraftStore.store(
+            editDraft,
+            for: editDraftKey
         )
         let cache = InMemoryGitLabResponseCache()
         let cacheKey = try makeCacheKey(for: storedSession)
@@ -167,7 +177,9 @@ struct AppSessionTests {
             ),
             responseCache: cache,
             discussionDraftStore:
-                draftStore
+                draftStore,
+            resourceEditDraftStore:
+                editDraftStore
         )
         await appSession.restore()
 
@@ -186,6 +198,11 @@ struct AppSessionTests {
                 for: draftKey
             ) == nil
         )
+        #expect(
+            await editDraftStore.draft(
+                for: editDraftKey
+            ) == nil
+        )
     }
 
     @Test("A rejected API session clears stored and in-memory user data")
@@ -197,6 +214,12 @@ struct AppSessionTests {
         let draftKey = draftKey(
             for: storedSession
         )
+        let editDraftStore =
+            InMemoryGitLabResourceEditDraftStore()
+        let editDraftKey = editDraftKey(
+            for: storedSession
+        )
+        let editDraft = makeEditDraft()
         let draft = GitLabDiscussionDraft(
             body: "Recover after signing in again",
             revision: 1
@@ -204,6 +227,10 @@ struct AppSessionTests {
         try await draftStore.store(
             draft,
             for: draftKey
+        )
+        try await editDraftStore.store(
+            editDraft,
+            for: editDraftKey
         )
         let cache = InMemoryGitLabResponseCache()
         let cacheKey = try makeCacheKey(for: storedSession)
@@ -218,7 +245,9 @@ struct AppSessionTests {
             ),
             responseCache: cache,
             discussionDraftStore:
-                draftStore
+                draftStore,
+            resourceEditDraftStore:
+                editDraftStore
         )
         await appSession.restore()
 
@@ -241,6 +270,11 @@ struct AppSessionTests {
             await draftStore.draft(
                 for: draftKey
             ) == draft
+        )
+        #expect(
+            await editDraftStore.draft(
+                for: editDraftKey
+            ) == editDraft
         )
     }
 
@@ -448,6 +482,45 @@ private extension AppSessionTests {
                     issueIID: 7
                 )
             )
+        )
+    }
+
+    nonisolated func editDraftKey(
+        for session: GitLabStoredSession
+    ) -> GitLabResourceEditDraftKey {
+        GitLabResourceEditDraftKey(
+            accountID:
+                GitLabAccountID(
+                    session: session
+                ),
+            target: .issue(
+                GitLabIssueRoute(
+                    projectID: 42,
+                    issueIID: 7
+                )
+            )
+        )
+    }
+
+    nonisolated func makeEditDraft()
+        -> GitLabResourceEditDraft
+    {
+        GitLabResourceEditDraft(
+            baseline:
+                GitLabResourceEditSnapshot(
+                    target: .issue(
+                        GitLabIssueRoute(
+                            projectID: 42,
+                            issueIID: 7
+                        )
+                    ),
+                    title: "Baseline",
+                    description: "Original",
+                    updatedAt: .distantPast
+                ),
+            title: "Edited",
+            description: "Changed",
+            revision: 1
         )
     }
 

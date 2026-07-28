@@ -8,7 +8,9 @@ struct GlabApp: App {
             UserDefaultsGitLabAccountIndexStore(),
         responseCache: FileGitLabResponseCache(),
         discussionDraftStore:
-            FileGitLabDiscussionDraftStore()
+            FileGitLabDiscussionDraftStore(),
+        resourceEditDraftStore:
+            FileGitLabResourceEditDraftStore()
     )
     @State private var incomingLinkModel =
         GitLabIncomingLinkModel()
