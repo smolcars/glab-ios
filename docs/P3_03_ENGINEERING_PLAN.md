@@ -677,6 +677,36 @@ order.
 6. Repeat the full deep review and record the final result before live
    demo-project mutation verification.
 
+## Deep review pass 3 — material finding and repair plan
+
+Date: 2026-07-28
+
+The spacing and nested-accessibility repairs passed their focused and
+performance suites. The final syntax audit found that the source scanner
+accepts a marker immediately followed by content, such as `- [ ]text`, and a
+link-definition-like form such as `- [x]: URL`.
+
+GitLab's documented task-list form always separates `[ ]`, `[x]`, or `[~]`
+from following task content with whitespace. Foundation's presentation text
+can still begin with the bracket sequence for some malformed forms, but that
+does not make the source a proven GitLab task marker. Making those forms
+interactive violates P3-03's fail-closed syntax requirement and can introduce
+another scanner/parser divergence.
+
+### Committed repair plan
+
+1. Add source and parser regressions for markers followed by ordinary text,
+   punctuation, and link-definition syntax without separating whitespace.
+   Retain support for a marker at end of line and for one or more whitespace
+   characters before task text.
+2. Require the source marker's closing bracket to be followed by a line end
+   or horizontal whitespace before indexing it.
+3. Keep the immutable renderer's existing readable/static fallback for
+   malformed task-like list items; do not broaden this repair into a Markdown
+   parser rewrite.
+4. Rerun the complete source/parser/rewrite/performance matrix and all final
+   P3-03 verification and review gates.
+
 ## Deep-review checklist
 
 Review every P3-03 change for:
