@@ -207,7 +207,7 @@ Todo:
   editing code, add regression tests where applicable, implement every fix,
   and repeat the feature verification and review.
 
-### [ ] P2-04 — Post comments and threaded replies
+### [x] P2-04 — Post comments and threaded replies
 
 Outcome:
 
@@ -217,37 +217,37 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect credential capability handling, existing Todo mutation patterns,
+- [x] Inspect credential capability handling, existing Todo mutation patterns,
   API error mapping, discussion refresh behavior, and account-scoped storage.
-- [ ] Before writing code, create `docs/P2_04_ENGINEERING_PLAN.md`. Document
+- [x] Before writing code, create `docs/P2_04_ENGINEERING_PLAN.md`. Document
   create/reply endpoints, draft ownership, request state, duplicate-prevention
   policy, reconciliation, cache invalidation, read-only UX, tests, Simulator
   strategy, and non-goals.
-- [ ] Write failing tests for new discussions, replies, empty/invalid bodies,
+- [x] Write failing tests for new discussions, replies, empty/invalid bodies,
   read-only capability, successful reconciliation, server validation errors,
   cancellation, ambiguous connectivity failures, and cache invalidation.
-- [ ] Persist unfinished drafts by account, resource, and optional discussion.
+- [x] Persist unfinished drafts by account, resource, and optional discussion.
   Clear a draft only after the server confirms creation.
-- [ ] Add an accessible composer for new comments and replies with explicit
+- [x] Add an accessible composer for new comments and replies with explicit
   sending, failure, retry, and dismissal states.
-- [ ] Do not automatically retry an ambiguous failed comment POST. Preserve
+- [x] Do not automatically retry an ambiguous failed comment POST. Preserve
   the draft and require an intentional user retry to avoid duplicates.
-- [ ] Reconcile the returned server discussion/note instead of inventing a
+- [x] Reconcile the returned server discussion/note instead of inventing a
   permanent local ID, then refresh or invalidate only the affected discussion
   cache.
-- [ ] Disable posting for `read_api` sessions and explain the required
+- [x] Disable posting for `read_api` sessions and explain the required
   capability without pressuring the user to broaden access.
-- [ ] Verify the complete composer and read-only experience with deterministic
+- [x] Verify the complete composer and read-only experience with deterministic
   services in the iPhone 17 Pro Simulator. Do not perform a live mutation with
   the configured read-only token.
-- [ ] Run the focused tests, complete test suite, static analysis, and draft
+- [x] Run the focused tests, complete test suite, static analysis, and draft
   storage/privacy scan.
-- [ ] Perform a deep code review of all code added or changed for this feature.
+- [x] Perform a deep code review of all code added or changed for this feature.
   Look for bugs, bad code, duplicated mutation paths, duplicate-post risks,
   draft loss or cross-account leakage, unsafe retry behavior, stale-cache
   races, and code that needs refactoring. Record the findings in the
   engineering plan.
-- [ ] If the review finds anything material, write a repair plan before
+- [x] If the review finds anything material, write a repair plan before
   editing code, add regression tests where applicable, implement every fix,
   and repeat the feature verification and review.
 

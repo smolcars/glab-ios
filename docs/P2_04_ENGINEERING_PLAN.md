@@ -2,8 +2,7 @@
 
 Last updated: 2026-07-28
 
-Status: implementation and Simulator inspection complete; final verification
-and deep-review repairs are in progress.
+Status: complete.
 
 Glab has never shipped. Breaking internal APIs and local draft formats are
 acceptable when they make this feature smaller, safer, or easier to test. No
@@ -520,8 +519,47 @@ Repair plan:
 Resolution: implementation and focused model coverage are complete. The
 ordinary toolbar action is disabled only for delivery-unknown failures; the
 warning's `Try Again` remains available, and rejected or local draft-storage
-failures retain their intended recovery paths. Deterministic failure-state UI
-inspection remains part of final verification.
+failures retain their intended recovery paths. A temporary deterministic
+`503` Simulator harness confirmed that `Post` is visibly disabled while the
+warning and `Try Again` remain enabled. The harness was then removed.
+
+### Final review result
+
+The repaired code was reviewed again. No material endpoint duplication,
+automatic POST replay, cross-account draft leakage, premature draft removal,
+unstable identity, reconciliation duplication, broad cache invalidation,
+system-activity reply control, hidden authentication failure, confidential
+logging, retained task, actor-isolation violation, or unnecessary abstraction
+remains.
+
+## Verification record
+
+- Endpoint, domain, draft-store, mutation-service, pagination reconciliation,
+  composer, OAuth refresh, session access, and `AppSession` regression suites
+  pass.
+- The complete signed functional suite passes on the dedicated Simulator with
+  test parallelization disabled. The contention-sensitive timing suites were
+  excluded from that invocation and run alone.
+- Both Markdown and discussion performance suites pass in isolation with
+  `-O` optimization. Xcode's Release test action compiled after
+  `ENABLE_TESTABILITY=YES` but stalled while launching/finalizing its test
+  session; the equivalent optimized Debug test action completed successfully.
+- `xcodebuild analyze` completes without findings, and a fresh signed
+  production build succeeds for the iPhone 17 Pro Simulator.
+- Deterministic Simulator checks covered new comments, threaded replies,
+  exact draft restoration, empty action state, sending and cancellation,
+  decoded success reconciliation, rejected and delivery-unknown failures,
+  explicit retry, no reply on system activity, dark/light appearance, large
+  Dynamic Type, and Reduce Transparency. The final `503` check confirmed the
+  ordinary `Post` action is disabled while `Try Again` remains enabled.
+- The configured self-managed read-only account loaded a real issue and its
+  discussion in the production build. The capability notice was visible,
+  `Add comment` was absent, and no live comment, reply, reaction, or other
+  mutation was sent.
+- The privacy scan found no production logging, `UserDefaults` draft storage,
+  readable draft filenames, raw authorization values, configured tokens,
+  private hosts, or fixture/harness code in tracked source. Draft files remain
+  account scoped, hashed, atomic, and completely protected.
 
 ## Non-goals
 
