@@ -167,6 +167,7 @@ nonisolated struct GitLabMarkdownImage:
     Equatable,
     Sendable
 {
+    let accountID: GitLabAccountID
     let url: URL
     let altText: String
 
@@ -673,6 +674,8 @@ nonisolated private enum GitLabMarkdownTreeConverter {
                     result.append(
                         .image(
                             GitLabMarkdownImage(
+                                accountID:
+                                    context.accountID,
                                 url: url,
                                 altText: altText
                             )

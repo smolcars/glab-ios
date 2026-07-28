@@ -46,6 +46,8 @@ struct SignedInShellView: View {
     private let projectLoader: any GitLabProjectLoading
     private let markdownRenderer:
         any GitLabMarkdownRendering
+    private let markdownImageLoader:
+        any GitLabMarkdownImageLoading
 
     init(
         session: GitLabStoredSession,
@@ -89,6 +91,24 @@ struct SignedInShellView: View {
         self.mergeRequestLoader = mergeRequestLoader
         self.projectLoader = projectLoader
         markdownRenderer = GitLabMarkdownRenderer()
+        let imageRequestPolicy =
+            GitLabMarkdownImageRequestPolicy(
+                host: session.host,
+                authorization:
+                    session.credential
+                        .authorization
+            )
+        markdownImageLoader =
+            GitLabMarkdownImageLoader(
+                accountID: accountID,
+                requestPolicy:
+                    imageRequestPolicy,
+                transport:
+                    URLSessionGitLabMarkdownImageTransport(
+                        requestPolicy:
+                            imageRequestPolicy
+                    )
+            )
         _homeDashboardModel = State(
             initialValue: HomeDashboardModel(
                 loader: LiveHomeDashboardLoader(
@@ -155,6 +175,10 @@ struct SignedInShellView: View {
         .environment(
             \.gitLabMarkdownRenderer,
             markdownRenderer
+        )
+        .environment(
+            \.gitLabMarkdownImageLoader,
+            markdownImageLoader
         )
         .accessibilityIdentifier("signedIn.tabView")
         .alert(

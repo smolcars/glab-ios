@@ -25,6 +25,34 @@ extension EnvironmentValues {
     }
 }
 
+private struct
+    GitLabMarkdownImageLoaderEnvironmentKey:
+    EnvironmentKey
+{
+    static let defaultValue:
+        any GitLabMarkdownImageLoading =
+            UnavailableGitLabMarkdownImageLoader()
+}
+
+extension EnvironmentValues {
+    var gitLabMarkdownImageLoader:
+        any GitLabMarkdownImageLoading
+    {
+        get {
+            self[
+                GitLabMarkdownImageLoaderEnvironmentKey
+                    .self
+            ]
+        }
+        set {
+            self[
+                GitLabMarkdownImageLoaderEnvironmentKey
+                    .self
+            ] = newValue
+        }
+    }
+}
+
 struct GitLabMarkdownDescriptionView: View {
     let request: GitLabMarkdownRequest
     let revision: Date
@@ -181,7 +209,7 @@ private struct GitLabMarkdownBlockView: View {
         case let .table(table):
             GitLabMarkdownTableView(table: table)
         case let .image(image):
-            GitLabMarkdownImagePlaceholder(
+            GitLabMarkdownImageView(
                 image: image
             )
         case .thematicBreak:
@@ -527,27 +555,199 @@ private struct GitLabMarkdownTableView: View {
     }
 }
 
-private struct GitLabMarkdownImagePlaceholder: View {
+private struct GitLabMarkdownImageView: View {
+    private enum Phase {
+        case idle
+        case loading
+        case loaded(GitLabMarkdownDecodedImage)
+        case failed(String)
+    }
+
+    private struct LoadIdentity: Hashable {
+        let url: URL
+        let targetPixelWidth: Int
+        let retry: UInt64
+    }
+
     let image: GitLabMarkdownImage
 
+    @Environment(\.displayScale)
+    private var displayScale
+    @Environment(\.gitLabMarkdownImageLoader)
+    private var imageLoader
+    @State private var phase = Phase.idle
+    @State private var targetPixelWidth = 0
+    @State private var retry: UInt64 = 0
+
     var body: some View {
-        Label(
-            image.altText.isEmpty
-                ? "Markdown image"
-                : image.altText,
-            systemImage: "photo"
+        let currentDisplayScale = displayScale
+
+        content
+            .frame(
+                maxWidth: .infinity,
+                alignment: .leading
+            )
+            .onGeometryChange(
+                for: Int.self
+            ) { proxy in
+                max(
+                    1,
+                    Int(
+                        (
+                            proxy.size.width
+                                * currentDisplayScale
+                        ).rounded(.up)
+                    )
+                )
+            } action: { newValue in
+                targetPixelWidth = newValue
+            }
+            .task(id: loadIdentity) {
+                await load()
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch phase {
+        case .idle, .loading:
+            placeholder
+        case let .loaded(decodedImage):
+            Image(
+                decodedImage.cgImage,
+                scale: displayScale,
+                label: Text(
+                    image.accessibilityLabel
+                )
+            )
+            .resizable()
+            .scaledToFit()
+            .frame(
+                maxWidth: .infinity,
+                maxHeight: 420
+            )
+            .clipShape(
+                .rect(cornerRadius: 12)
+            )
+        case let .failed(message):
+            failureView(message: message)
+        }
+    }
+
+    private var placeholder: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+
+            Text(image.accessibilityLabel)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(16)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: 140
         )
-        .font(.callout)
-        .foregroundStyle(.secondary)
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             Color.secondary.opacity(0.08),
             in: .rect(cornerRadius: 12)
         )
+        .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            image.accessibilityLabel
+            "Loading image, "
+                + image.accessibilityLabel
         )
+    }
+
+    private func failureView(
+        message: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(
+                image.accessibilityLabel,
+                systemImage:
+                    "photo.badge.exclamationmark"
+            )
+            .font(.callout.weight(.semibold))
+
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button("Try Again") {
+                retry &+= 1
+            }
+            .font(.callout.weight(.semibold))
+        }
+        .padding(12)
+        .frame(
+            maxWidth: .infinity,
+            alignment: .leading
+        )
+        .background(
+            Color.secondary.opacity(0.08),
+            in: .rect(cornerRadius: 12)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(
+            "Image failed to load, "
+                + image.accessibilityLabel
+        )
+    }
+
+    private var loadIdentity: LoadIdentity {
+        LoadIdentity(
+            url: image.url,
+            targetPixelWidth:
+                targetPixelWidth,
+            retry: retry
+        )
+    }
+
+    private func load() async {
+        guard targetPixelWidth > 0 else {
+            return
+        }
+        let previousPhase = phase
+        if case .loaded = previousPhase {
+            // Preserve a visible image while a size change is
+            // resolved from the memory cache.
+        } else {
+            phase = .loading
+        }
+
+        do {
+            let decodedImage =
+                try await imageLoader.image(
+                    GitLabMarkdownImageLoadRequest(
+                        accountID:
+                            image.accountID,
+                        url: image.url,
+                        targetPixelWidth:
+                            targetPixelWidth
+                    )
+                )
+            guard !Task.isCancelled else {
+                return
+            }
+            phase = .loaded(decodedImage)
+        } catch is CancellationError {
+            guard !Task.isCancelled else {
+                return
+            }
+            phase = previousPhase
+        } catch {
+            guard !Task.isCancelled else {
+                return
+            }
+            if case .loaded = previousPhase {
+                phase = previousPhase
+            } else {
+                phase = .failed(
+                    error.localizedDescription
+                )
+            }
+        }
     }
 }
 

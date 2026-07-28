@@ -100,8 +100,13 @@ struct GitLabMarkdownParserTests {
 
     @Test("Preserves quote, code, table, image, and rule structure")
     func structuredBlocks() async throws {
+        let request = try makeRequest(
+            source:
+                GitLabMarkdownFixtures
+                    .mixedSection
+        )
         let document = try await GitLabMarkdownParser.parse(
-            makeRequest(source: GitLabMarkdownFixtures.mixedSection)
+            request
         )
 
         let quote = try #require(
@@ -130,6 +135,7 @@ struct GitLabMarkdownParserTests {
         let image = try #require(
             document.blocks.compactMap(\.image).first
         )
+        #expect(image.accountID == request.accountID)
         #expect(image.altText == "GitLab mark")
         #expect(
             image.url.absoluteString
