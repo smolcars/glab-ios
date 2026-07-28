@@ -5,6 +5,8 @@ struct MergeRequestsView: View {
     let loader: any GitLabMergeRequestLoading
     let discussionLoader:
         any GitLabDiscussionLoading
+    let discussionMutator:
+        any GitLabDiscussionMutating
     let accountID: GitLabAccountID
     let appSession: AppSession
 
@@ -15,6 +17,8 @@ struct MergeRequestsView: View {
         loader: any GitLabMergeRequestLoading,
         discussionLoader:
             any GitLabDiscussionLoading,
+        discussionMutator:
+            any GitLabDiscussionMutating,
         accountID: GitLabAccountID,
         appSession: AppSession
     ) {
@@ -22,6 +26,8 @@ struct MergeRequestsView: View {
         self.loader = loader
         self.discussionLoader =
             discussionLoader
+        self.discussionMutator =
+            discussionMutator
         self.accountID = accountID
         self.appSession = appSession
         _model = State(
@@ -57,6 +63,8 @@ struct MergeRequestsView: View {
                     loader: loader,
                     discussionLoader:
                         discussionLoader,
+                    discussionMutator:
+                        discussionMutator,
                     accountID: accountID,
                     appSession: appSession
                 )
@@ -530,6 +538,8 @@ struct GitLabMergeRequestDetailView: View {
     let appSession: AppSession
     let discussionResource:
         GitLabDiscussionResource
+    let discussionMutator:
+        any GitLabDiscussionMutating
 
     @State private var model:
         GitLabMergeRequestDetailModel
@@ -541,11 +551,15 @@ struct GitLabMergeRequestDetailView: View {
         loader: any GitLabMergeRequestLoading,
         discussionLoader:
             any GitLabDiscussionLoading,
+        discussionMutator:
+            any GitLabDiscussionMutating,
         accountID: GitLabAccountID,
         appSession: AppSession
     ) {
         self.accountID = accountID
         self.appSession = appSession
+        self.discussionMutator =
+            discussionMutator
         let discussionResource =
             GitLabDiscussionResource
                 .mergeRequest(route)
@@ -639,7 +653,17 @@ struct GitLabMergeRequestDetailView: View {
                         discussionModel,
                     discussionResource:
                         discussionResource,
-                    accountID: accountID
+                    accountID: accountID,
+                    apiAccess:
+                        appSession.accounts
+                            .first {
+                                $0.id == accountID
+                            }?
+                            .apiAccess
+                            ?? .readOnly,
+                    discussionMutator:
+                        discussionMutator,
+                    appSession: appSession
                 )
             }
         }
@@ -674,6 +698,10 @@ private struct GitLabMergeRequestDetailContent: View {
     let discussionResource:
         GitLabDiscussionResource
     let accountID: GitLabAccountID
+    let apiAccess: GitLabAPIAccess
+    let discussionMutator:
+        any GitLabDiscussionMutating
+    let appSession: AppSession
 
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
@@ -697,7 +725,10 @@ private struct GitLabMergeRequestDetailContent: View {
                     resource: discussionResource,
                     accountID: accountID,
                     webURL:
-                        mergeRequest.safeWebURL
+                        mergeRequest.safeWebURL,
+                    apiAccess: apiAccess,
+                    mutator: discussionMutator,
+                    appSession: appSession
                 )
             }
             .padding(20)

@@ -5,6 +5,8 @@ struct AssignedIssuesView: View {
     let loader: any GitLabIssueLoading
     let discussionLoader:
         any GitLabDiscussionLoading
+    let discussionMutator:
+        any GitLabDiscussionMutating
     let accountID: GitLabAccountID
     let appSession: AppSession
 
@@ -32,6 +34,8 @@ struct AssignedIssuesView: View {
                     loader: loader,
                     discussionLoader:
                         discussionLoader,
+                    discussionMutator:
+                        discussionMutator,
                     accountID: accountID,
                     appSession: appSession
                 )
@@ -386,6 +390,8 @@ struct GitLabIssueDetailView: View {
     let appSession: AppSession
     let discussionResource:
         GitLabDiscussionResource
+    let discussionMutator:
+        any GitLabDiscussionMutating
 
     @State private var model: GitLabIssueDetailModel
     @State private var discussionModel:
@@ -396,11 +402,15 @@ struct GitLabIssueDetailView: View {
         loader: any GitLabIssueLoading,
         discussionLoader:
             any GitLabDiscussionLoading,
+        discussionMutator:
+            any GitLabDiscussionMutating,
         accountID: GitLabAccountID,
         appSession: AppSession
     ) {
         self.accountID = accountID
         self.appSession = appSession
+        self.discussionMutator =
+            discussionMutator
         let discussionResource =
             GitLabDiscussionResource.issue(route)
         self.discussionResource =
@@ -488,7 +498,17 @@ struct GitLabIssueDetailView: View {
                         discussionModel,
                     discussionResource:
                         discussionResource,
-                    accountID: accountID
+                    accountID: accountID,
+                    apiAccess:
+                        appSession.accounts
+                            .first {
+                                $0.id == accountID
+                            }?
+                            .apiAccess
+                            ?? .readOnly,
+                    discussionMutator:
+                        discussionMutator,
+                    appSession: appSession
                 )
             }
         }
@@ -523,6 +543,10 @@ private struct GitLabIssueDetailContent: View {
     let discussionResource:
         GitLabDiscussionResource
     let accountID: GitLabAccountID
+    let apiAccess: GitLabAPIAccess
+    let discussionMutator:
+        any GitLabDiscussionMutating
+    let appSession: AppSession
 
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
@@ -559,7 +583,10 @@ private struct GitLabIssueDetailContent: View {
                     model: discussionModel,
                     resource: discussionResource,
                     accountID: accountID,
-                    webURL: issue.safeWebURL
+                    webURL: issue.safeWebURL,
+                    apiAccess: apiAccess,
+                    mutator: discussionMutator,
+                    appSession: appSession
                 )
             }
             .padding(20)

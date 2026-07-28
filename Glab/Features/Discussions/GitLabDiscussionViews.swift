@@ -5,17 +5,90 @@ struct GitLabDiscussionSection: View {
     let resource: GitLabDiscussionResource
     let accountID: GitLabAccountID
     let webURL: URL?
+    let apiAccess: GitLabAPIAccess
+    let mutator: any GitLabDiscussionMutating
+    let appSession: AppSession
+
+    @State private var composerTarget:
+        GitLabDiscussionComposerTarget?
 
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
 
     var body: some View {
         GitLabDetailSection(title: "Discussion") {
-            content
+            VStack(
+                alignment: .leading,
+                spacing: 14
+            ) {
+                mutationControl
+                content
+            }
         }
-        .accessibilityIdentifier(
-            "discussion.section"
-        )
+        .sheet(item: $composerTarget) {
+            target in
+            GitLabDiscussionComposerView(
+                accountID: accountID,
+                resource: resource,
+                target: target,
+                apiAccess: apiAccess,
+                mutator: mutator,
+                draftStore:
+                    appSession
+                        .discussionDraftStore,
+                appSession: appSession,
+                onSuccess: reconcile
+            )
+            .presentationDragIndicator(
+                .visible
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var mutationControl: some View {
+        if apiAccess.canWrite {
+            Button {
+                composerTarget =
+                    .newDiscussion
+            } label: {
+                Label(
+                    "Add comment",
+                    systemImage:
+                        "bubble.left.and.text.bubble.right"
+                )
+            }
+            .buttonStyle(.glassProminent)
+            .tint(.orange)
+            .accessibilityIdentifier(
+                "discussion.addComment"
+            )
+            .accessibilityHint(
+                "Opens a Markdown comment editor."
+            )
+        } else {
+            Label {
+                Text(
+                    "Read-only access. The api scope is required to comment."
+                )
+                .font(.footnote)
+            } icon: {
+                Image(systemName: "lock.fill")
+            }
+            .foregroundStyle(.orange)
+            .padding(12)
+            .frame(
+                maxWidth: .infinity,
+                alignment: .leading
+            )
+            .background(
+                Color.orange.opacity(0.1),
+                in: .rect(cornerRadius: 12)
+            )
+            .accessibilityIdentifier(
+                "discussion.readOnlyMessage"
+            )
+        }
     }
 
     @ViewBuilder
@@ -91,7 +164,10 @@ struct GitLabDiscussionSection: View {
                     accountID: accountID,
                     webURL: webURL,
                     markdownRenderer:
-                        markdownRenderer
+                        markdownRenderer,
+                    reply: replyAction(
+                        for: discussion
+                    )
                 )
                 .task(id: model.contentRevision) {
                     guard
@@ -135,6 +211,46 @@ struct GitLabDiscussionSection: View {
             }
         }
     }
+
+    private func replyAction(
+        for discussion: GitLabDiscussion
+    ) -> (() -> Void)? {
+        guard
+            apiAccess.canWrite,
+            !discussion.notes.isEmpty,
+            !discussion.isSystemActivity
+        else {
+            return nil
+        }
+
+        return {
+            composerTarget = .reply(
+                discussionID:
+                    discussion.id
+            )
+        }
+    }
+
+    private func reconcile(
+        _ result:
+            GitLabDiscussionComposerResult
+    ) {
+        switch result {
+        case let .discussion(discussion):
+            model.reconcileCreatedDiscussion(
+                discussion
+            )
+        case let .reply(
+            note,
+            discussionID
+        ):
+            model.reconcileCreatedReply(
+                note,
+                discussionID:
+                    discussionID
+            )
+        }
+    }
 }
 
 private struct GitLabDiscussionCard: View {
@@ -144,6 +260,7 @@ private struct GitLabDiscussionCard: View {
     let webURL: URL?
     let markdownRenderer:
         any GitLabMarkdownRendering
+    let reply: (() -> Void)?
 
     var body: some View {
         LazyVStack(
@@ -183,6 +300,27 @@ private struct GitLabDiscussionCard: View {
                     )
                 }
             }
+
+            if let reply {
+                Divider()
+                    .padding(.leading, 46)
+
+                Button(
+                    "Reply",
+                    systemImage:
+                        "arrowshape.turn.up.left"
+                ) {
+                    reply()
+                }
+                .buttonStyle(.glass)
+                .padding(12)
+                .accessibilityIdentifier(
+                    "discussion.reply.\(discussion.id)"
+                )
+                .accessibilityHint(
+                    "Opens a Markdown reply editor."
+                )
+            }
         }
         .background(
             Color(uiColor: .secondarySystemGroupedBackground),
@@ -198,6 +336,449 @@ private struct GitLabDiscussionCard: View {
         .accessibilityIdentifier(
             "discussion.card.\(discussion.id)"
         )
+    }
+}
+
+private struct GitLabDiscussionComposerView: View {
+    @State private var model:
+        GitLabDiscussionComposerModel
+    @State private var sendTask:
+        Task<Void, Never>?
+    @FocusState private var editorIsFocused:
+        Bool
+
+    private let accountID: GitLabAccountID
+    private let appSession: AppSession
+
+    @Environment(\.dismiss) private var dismiss
+
+    init(
+        accountID: GitLabAccountID,
+        resource: GitLabDiscussionResource,
+        target:
+            GitLabDiscussionComposerTarget,
+        apiAccess: GitLabAPIAccess,
+        mutator: any GitLabDiscussionMutating,
+        draftStore:
+            any GitLabDiscussionDraftStoring,
+        appSession: AppSession,
+        onSuccess:
+            @escaping @MainActor (
+                GitLabDiscussionComposerResult
+            ) -> Void
+    ) {
+        self.accountID = accountID
+        self.appSession = appSession
+        _model = State(
+            initialValue:
+                GitLabDiscussionComposerModel(
+                    accountID: accountID,
+                    resource: resource,
+                    target: target,
+                    apiAccess: apiAccess,
+                    mutator: mutator,
+                    draftStore: draftStore,
+                    onSuccess: onSuccess
+                )
+        )
+    }
+
+    var body: some View {
+        @Bindable var model = model
+
+        NavigationStack {
+            ScrollView {
+                VStack(
+                    alignment: .leading,
+                    spacing: 18
+                ) {
+                    editor(model: $model)
+
+                    if model.isSending {
+                        Label(
+                            "Sending to GitLab…",
+                            systemImage:
+                                "arrow.up.circle"
+                        )
+                        .font(.callout)
+                        .foregroundStyle(
+                            .secondary
+                        )
+                        .accessibilityIdentifier(
+                            "discussion.composer.sending"
+                        )
+                    }
+
+                    if let failure = model.failure {
+                        GitLabDiscussionComposerFailureView(
+                            failure: failure,
+                            retry: startSending
+                        )
+                    }
+                }
+                .padding(20)
+            }
+            .scrollDismissesKeyboard(
+                .interactively
+            )
+            .background(
+                Color(
+                    uiColor:
+                        .systemGroupedBackground
+                )
+            )
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(
+                .inline
+            )
+            .toolbar {
+                ToolbarItem(
+                    placement:
+                        .cancellationAction
+                ) {
+                    cancellationButton
+                }
+
+                ToolbarItem(
+                    placement:
+                        .confirmationAction
+                ) {
+                    Button(actionTitle) {
+                        startSending()
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(!model.canSend)
+                    .accessibilityIdentifier(
+                        "discussion.composer.send"
+                    )
+                }
+            }
+            .task {
+                await model.restoreDraft()
+                if !model.isSending {
+                    editorIsFocused = true
+                }
+            }
+            .onChange(
+                of: model.didSucceed
+            ) { _, didSucceed in
+                if didSucceed {
+                    dismiss()
+                }
+            }
+            .onChange(
+                of:
+                    model
+                        .authenticationFailure
+            ) { _, error in
+                guard let error else {
+                    return
+                }
+                Task {
+                    await appSession
+                        .handleAuthenticationFailure(
+                            error,
+                            for: accountID
+                        )
+                }
+            }
+        }
+        .interactiveDismissDisabled(
+            model.isSending
+        )
+        .onDisappear {
+            sendTask?.cancel()
+            guard !model.didSucceed else {
+                return
+            }
+            Task {
+                _ = await model
+                    .persistForDismissal()
+            }
+        }
+        .accessibilityIdentifier(
+            "discussion.composer"
+        )
+    }
+
+    private func editor(
+        model:
+            Bindable<
+                GitLabDiscussionComposerModel
+            >
+    ) -> some View {
+        VStack(
+            alignment: .leading,
+            spacing: 8
+        ) {
+            Text("Comment")
+                .font(
+                    .headline
+                )
+
+            ZStack(alignment: .topLeading) {
+                if model.body.wrappedValue
+                    .isEmpty
+                {
+                    Text(
+                        "Write a comment using Markdown…"
+                    )
+                    .foregroundStyle(
+                        .tertiary
+                    )
+                    .padding(.horizontal, 13)
+                    .padding(.vertical, 15)
+                    .accessibilityHidden(true)
+                }
+
+                TextEditor(
+                    text: model.body
+                )
+                .focused(
+                    $editorIsFocused
+                )
+                .scrollContentBackground(
+                    .hidden
+                )
+                .padding(8)
+                .frame(minHeight: 220)
+                .disabled(
+                    self.model.isSending
+                )
+                .accessibilityLabel(
+                    "Comment"
+                )
+                .accessibilityIdentifier(
+                    "discussion.composer.editor"
+                )
+            }
+            .background(
+                Color(
+                    uiColor:
+                        .secondarySystemGroupedBackground
+                ),
+                in: .rect(cornerRadius: 16)
+            )
+            .overlay {
+                RoundedRectangle(
+                    cornerRadius: 16
+                )
+                .stroke(
+                    Color.primary
+                        .opacity(0.08),
+                    lineWidth: 1
+                )
+            }
+
+            Text(
+                "Markdown is supported. Your draft is saved on this device."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var cancellationButton: some View {
+        if model.isSending {
+            Button(
+                "Cancel Sending",
+                role: .destructive
+            ) {
+                sendTask?.cancel()
+            }
+            .accessibilityIdentifier(
+                "discussion.composer.cancelSending"
+            )
+        } else {
+            Button("Cancel") {
+                Task {
+                    guard
+                        await model
+                            .persistForDismissal()
+                    else {
+                        return
+                    }
+                    dismiss()
+                }
+            }
+            .accessibilityIdentifier(
+                "discussion.composer.cancel"
+            )
+        }
+    }
+
+    private var title: String {
+        switch model.target {
+        case .newDiscussion:
+            "New comment"
+        case .reply:
+            "Reply"
+        }
+    }
+
+    private var actionTitle: String {
+        switch model.target {
+        case .newDiscussion:
+            "Post"
+        case .reply:
+            "Reply"
+        }
+    }
+
+    private func startSending() {
+        guard
+            sendTask == nil,
+            !model.isSending
+        else {
+            return
+        }
+
+        editorIsFocused = false
+        sendTask = Task {
+            await model.send()
+            sendTask = nil
+        }
+    }
+}
+
+private struct GitLabDiscussionComposerFailureView:
+    View
+{
+    let failure:
+        GitLabDiscussionComposerFailure
+    let retry: () -> Void
+
+    var body: some View {
+        VStack(
+            alignment: .leading,
+            spacing: 10
+        ) {
+            Label {
+                VStack(
+                    alignment: .leading,
+                    spacing: 4
+                ) {
+                    Text(title)
+                        .font(
+                            .callout
+                                .weight(
+                                    .semibold
+                                )
+                        )
+                    Text(message)
+                        .font(.caption)
+                }
+            } icon: {
+                Image(systemName: systemImage)
+            }
+
+            if canRetry {
+                Button("Try Again") {
+                    retry()
+                }
+                .buttonStyle(.glass)
+                .accessibilityIdentifier(
+                    "discussion.composer.retry"
+                )
+            }
+        }
+        .foregroundStyle(color)
+        .padding(14)
+        .frame(
+            maxWidth: .infinity,
+            alignment: .leading
+        )
+        .background(
+            color.opacity(0.1),
+            in: .rect(cornerRadius: 14)
+        )
+        .accessibilityElement(
+            children: .contain
+        )
+        .accessibilityIdentifier(
+            "discussion.composer.failure"
+        )
+    }
+
+    private var title: String {
+        switch failure {
+        case .emptyBody:
+            "Write a comment"
+        case .readOnly:
+            "Read-only access"
+        case .draftStorage:
+            "Draft not saved"
+        case let .mutation(
+            _,
+            certainty
+        ):
+            certainty
+                == .deliveryUnknown
+                ? "Delivery may be unknown"
+                : "Comment wasn’t posted"
+        }
+    }
+
+    private var message: String {
+        switch failure {
+        case .emptyBody:
+            "Enter some text before posting."
+        case .readOnly:
+            "The GitLab api scope is required to post comments."
+        case .draftStorage:
+            "Glab couldn’t protect this draft locally, so it did not post it. Try again to save and post."
+        case let .mutation(
+            error,
+            certainty
+        ):
+            if
+                certainty
+                    == .deliveryUnknown
+            {
+                error.description
+                    + " GitLab may have received the comment. "
+                    + "Check the discussion before retrying to avoid a duplicate."
+            } else {
+                error.description
+            }
+        }
+    }
+
+    private var systemImage: String {
+        failure.certainty
+            == .deliveryUnknown
+            ? "questionmark.circle"
+            : "exclamationmark.triangle"
+    }
+
+    private var color: Color {
+        failure.certainty
+            == .deliveryUnknown
+            ? .orange
+            : .red
+    }
+
+    private var canRetry: Bool {
+        guard
+            case let .mutation(
+                error,
+                _
+            ) = failure
+        else {
+            return false
+        }
+
+        if
+            case let .request(
+                sessionError
+            ) = error,
+            sessionError
+                .requiresReauthentication
+        {
+            return false
+        }
+        return true
     }
 }
 

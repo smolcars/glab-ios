@@ -4,10 +4,20 @@ import Observation
 nonisolated enum GitLabDiscussionComposerTarget:
     Equatable,
     Hashable,
+    Identifiable,
     Sendable
 {
     case newDiscussion
     case reply(discussionID: String)
+
+    var id: String {
+        switch self {
+        case .newDiscussion:
+            "new-discussion"
+        case let .reply(discussionID):
+            "reply:\(discussionID)"
+        }
+    }
 
     var discussionID: String? {
         switch self {

@@ -45,6 +45,8 @@ struct SignedInShellView: View {
         any GitLabMergeRequestLoading
     private let discussionLoader:
         any GitLabDiscussionLoading
+    private let discussionMutator:
+        any GitLabDiscussionMutating
     private let projectLoader: any GitLabProjectLoading
     private let markdownRenderer:
         any GitLabMarkdownRendering
@@ -96,6 +98,7 @@ struct SignedInShellView: View {
         self.issueLoader = issueLoader
         self.mergeRequestLoader = mergeRequestLoader
         self.discussionLoader = discussionLoader
+        discussionMutator = discussionLoader
         self.projectLoader = projectLoader
         markdownRenderer = GitLabMarkdownRenderer()
         let imageRequestPolicy =
@@ -149,6 +152,8 @@ struct SignedInShellView: View {
                     issueLoader: issueLoader,
                     mergeRequestLoader: mergeRequestLoader,
                     discussionLoader: discussionLoader,
+                    discussionMutator:
+                        discussionMutator,
                     projectLoader: projectLoader
                 )
             } label: {
@@ -168,6 +173,8 @@ struct SignedInShellView: View {
                         mergeRequestLoader,
                     discussionLoader:
                         discussionLoader,
+                    discussionMutator:
+                        discussionMutator,
                     accountID: accountID,
                     appSession: appSession
                 )

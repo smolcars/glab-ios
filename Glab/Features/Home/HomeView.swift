@@ -11,6 +11,8 @@ struct HomeView: View {
         any GitLabMergeRequestLoading
     let discussionLoader:
         any GitLabDiscussionLoading
+    let discussionMutator:
+        any GitLabDiscussionMutating
     let projectLoader: any GitLabProjectLoading
 
     @State private var path = NavigationPath()
@@ -144,6 +146,8 @@ struct HomeView: View {
                 model: assignedIssuesModel,
                 loader: issueLoader,
                 discussionLoader: discussionLoader,
+                discussionMutator:
+                    discussionMutator,
                 accountID: accountID,
                 appSession: appSession
             )
@@ -152,6 +156,8 @@ struct HomeView: View {
                 mode: .assigned,
                 loader: mergeRequestLoader,
                 discussionLoader: discussionLoader,
+                discussionMutator:
+                    discussionMutator,
                 accountID: accountID,
                 appSession: appSession
             )
@@ -160,6 +166,8 @@ struct HomeView: View {
                 mode: .reviewRequested,
                 loader: mergeRequestLoader,
                 discussionLoader: discussionLoader,
+                discussionMutator:
+                    discussionMutator,
                 accountID: accountID,
                 appSession: appSession
             )
