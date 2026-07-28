@@ -105,12 +105,12 @@ These values are injected policy, not scattered feature constants.
 
 ### Cache foundation
 
-- [ ] Write behavior tests for account isolation, fresh/stale/expired
+- [x] Write behavior tests for account isolation, fresh/stale/expired
   classification, atomic replacement, corruption recovery, purge, and LRU
   pruning.
-- [ ] Add immutable cache keys/records and an actor-isolated cache protocol.
-- [ ] Implement an in-memory cache double and protected file-backed store.
-- [ ] Verify no cache file or diagnostic contains a token or authorization
+- [x] Add immutable cache keys/records and an actor-isolated cache protocol.
+- [x] Implement an in-memory cache double and protected file-backed store.
+- [x] Verify no cache file or diagnostic contains a token or authorization
   header.
 
 ### Home and Projects vertical slice
