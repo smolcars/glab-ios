@@ -101,6 +101,39 @@ final class HomeDashboardModel {
         await load(isInitial: false)
     }
 
+    func reconcileEditedResource(
+        _ result: GitLabResourceEditResult
+    ) {
+        switch result {
+        case let .issue(issue):
+            reconcileLoadedPreview(
+                GitLabHomeWorkItem(
+                    id:
+                        "issue:\(issue.projectID):\(issue.iid)",
+                    title: issue.title,
+                    detail: issue.references.full,
+                    webURL: issue.webURL
+                ),
+                in: [.assignedIssues]
+            )
+        case let .mergeRequest(mergeRequest):
+            reconcileLoadedPreview(
+                GitLabHomeWorkItem(
+                    id:
+                        "merge-request:\(mergeRequest.projectID):\(mergeRequest.iid)",
+                    title: mergeRequest.title,
+                    detail:
+                        mergeRequest.references.full,
+                    webURL: mergeRequest.webURL
+                ),
+                in: [
+                    .assignedMergeRequests,
+                    .reviewRequests,
+                ]
+            )
+        }
+    }
+
     private func load(isInitial: Bool) async {
         guard !isLoading else {
             return
@@ -181,5 +214,25 @@ final class HomeDashboardModel {
         }
 
         return "\(content). Could not refresh; showing saved data."
+    }
+
+    private func reconcileLoadedPreview(
+        _ item: GitLabHomeWorkItem,
+        in candidateSections: [HomeDashboardSection]
+    ) {
+        for section in candidateSections {
+            guard
+                case var .loaded(items) =
+                    sections[section],
+                let index = items.firstIndex(
+                    where: { $0.id == item.id }
+                )
+            else {
+                continue
+            }
+
+            items[index] = item
+            sections[section] = .loaded(items)
+        }
     }
 }

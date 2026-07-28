@@ -401,6 +401,78 @@ struct GitLabGlobalSearchModelTests {
                 ]
         )
     }
+
+    @Test("Reconciles an edited resource only for the exact loaded account row")
+    func reconcilesLoadedEditedResource() async throws {
+        let model = try makeModel(
+            loader: ScriptedSearchLoader {
+                scope,
+                _,
+                _ in
+                page(for: scope)
+            }
+        )
+        await model.search("glab")
+
+        model.reconcileEditedResource(
+            .issue(
+                makeTestIssue(
+                    title: "Edited issue"
+                )
+            ),
+            for: model.accountID
+        )
+        model.reconcileEditedResource(
+            .mergeRequest(
+                makeTestMergeRequest(
+                    id: 201,
+                    iid: 8,
+                    title: "Edited merge request"
+                )
+            ),
+            for: model.accountID
+        )
+
+        #expect(
+            titles(in: model.state(for: .issues).results)
+                == ["Edited issue"]
+        )
+        #expect(
+            titles(in: model.state(for: .mergeRequests).results)
+                == ["Edited merge request"]
+        )
+
+        let otherAccount = GitLabAccountID(
+            host: try GitLabHost("gitlab.example.com"),
+            userID: 2
+        )
+        model.reconcileEditedResource(
+            .issue(
+                makeTestIssue(
+                    title: "Wrong account"
+                )
+            ),
+            for: otherAccount
+        )
+        model.reconcileEditedResource(
+            .issue(
+                makeTestIssue(
+                    id: 999,
+                    iid: 99,
+                    title: "Missing"
+                )
+            ),
+            for: model.accountID
+        )
+
+        #expect(
+            titles(in: model.state(for: .issues).results)
+                == ["Edited issue"]
+        )
+        #expect(
+            model.state(for: .issues).results.count == 1
+        )
+    }
 }
 
 private extension GitLabGlobalSearchModelTests {

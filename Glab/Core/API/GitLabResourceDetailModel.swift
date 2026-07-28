@@ -85,6 +85,21 @@ where
         await load()
     }
 
+    @discardableResult
+    func reconcileAuthoritative(
+        _ resource: Resource
+    ) -> Bool {
+        guard case .loaded = state else {
+            return false
+        }
+
+        state = .loaded(resource)
+        refreshError = nil
+        resourceSource = .network
+        cacheStoredAt = nil
+        return true
+    }
+
     private func load() async {
         guard state != .loading else {
             return

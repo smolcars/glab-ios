@@ -262,6 +262,82 @@ struct HomeDashboardModelTests {
 
         #expect(model.authenticationFailure == failure)
     }
+
+    @Test("Reconciles edited resources only into matching loaded previews")
+    func reconcilesLoadedEditedResourcePreviews() async {
+        let issueItem = workItem(
+            id: "issue:42:7",
+            title: "Original issue"
+        )
+        let mergeRequestItem = workItem(
+            id: "merge-request:42:8",
+            title: "Original merge request"
+        )
+        let model = HomeDashboardModel(
+            loader: QueueDashboardLoader(
+                outcomes: [
+                    .success(
+                        loadResult(
+                            successes: allEmptySections(
+                                replacing: [
+                                    .assignedIssues: [issueItem],
+                                    .assignedMergeRequests: [
+                                        mergeRequestItem,
+                                    ],
+                                    .reviewRequests: [
+                                        mergeRequestItem,
+                                    ],
+                                ]
+                            )
+                        )
+                    ),
+                ]
+            )
+        )
+        await model.loadIfNeeded()
+
+        model.reconcileEditedResource(
+            .issue(
+                makeTestIssue(
+                    title: "Edited issue"
+                )
+            )
+        )
+        model.reconcileEditedResource(
+            .mergeRequest(
+                makeTestMergeRequest(
+                    id: 201,
+                    iid: 8,
+                    title: "Edited merge request"
+                )
+            )
+        )
+        model.reconcileEditedResource(
+            .issue(
+                makeTestIssue(
+                    id: 999,
+                    iid: 99,
+                    title: "Missing issue"
+                )
+            )
+        )
+
+        #expect(
+            model.presentation(for: .assignedIssues).subtitle
+                == "Edited issue"
+        )
+        #expect(
+            model.presentation(for: .assignedMergeRequests).subtitle
+                == "Edited merge request"
+        )
+        #expect(
+            model.presentation(for: .reviewRequests).subtitle
+                == "Edited merge request"
+        )
+        #expect(
+            model.state(for: .recentProjects) == .loaded([])
+        )
+    }
 }
 
 private extension HomeDashboardModelTests {

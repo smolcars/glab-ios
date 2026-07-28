@@ -147,6 +147,41 @@ struct AssignedIssuesModelTests {
         #expect(model.displayedIssues.map(\.id) == [1, 2])
     }
 
+    @Test("Reconciles an edited issue only when its row is loaded")
+    func reconcilesLoadedEditedIssue() async {
+        let original = makeTestIssue(
+            title: "Original"
+        )
+        let edited = makeTestIssue(
+            title: "Edited"
+        )
+        let missing = makeTestIssue(
+            id: 202,
+            iid: 8,
+            title: "Missing"
+        )
+        let model = AssignedIssuesModel(
+            loader: StubIssueLoader(
+                pageResults: [
+                    .success(
+                        GitLabIssuePage(
+                            issues: [original],
+                            nextPageURL: nil
+                        )
+                    ),
+                ]
+            )
+        )
+
+        #expect(!model.reconcileItemIfPresent(edited))
+        await model.loadIfNeeded()
+
+        #expect(model.reconcileItemIfPresent(edited))
+        #expect(model.issues == [edited])
+        #expect(!model.reconcileItemIfPresent(missing))
+        #expect(model.issues == [edited])
+    }
+
     @Test("Refresh replaces loaded rows")
     func refreshesRows() async {
         let original = makeTestIssue(id: 1, iid: 1)
@@ -408,6 +443,7 @@ struct GitLabIssueDetailModelTests {
     @Test("Keeps a cached detail when revalidation fails")
     func preservesCachedDetailAfterFailure() async {
         let issue = makeTestIssue()
+        let edited = makeTestIssue(title: "Edited")
         let failure = GitLabSessionClientError.api(
             .server(statusCode: 500)
         )
@@ -436,6 +472,24 @@ struct GitLabIssueDetailModelTests {
             await loader.refreshBehaviors
                 == [.ifStale]
         )
+
+        #expect(model.reconcileAuthoritative(edited))
+        #expect(model.state == .loaded(edited))
+        #expect(model.refreshError == nil)
+        #expect(model.resourceSource == .network)
+        #expect(model.cacheStoredAt == nil)
+    }
+
+    @Test("Does not insert an edited issue into an idle detail")
+    func doesNotReconcileIdleDetail() {
+        let issue = makeTestIssue()
+        let model = GitLabIssueDetailModel(
+            route: issue.route,
+            loader: StubIssueLoader()
+        )
+
+        #expect(!model.reconcileAuthoritative(issue))
+        #expect(model.state == .idle)
     }
 }
 

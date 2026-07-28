@@ -308,6 +308,39 @@ final class TodosModel {
         )
     }
 
+    func reconcileEditedResource(
+        _ result: GitLabResourceEditResult
+    ) {
+        for model in cachedModels.values
+        where model.hasLoaded {
+            for todo in model.items {
+                guard
+                    let replacement =
+                        todo.replacingEditedTarget(
+                            with: result
+                        )
+                else {
+                    continue
+                }
+                _ = model.reconcileItemIfPresent(
+                    replacement
+                )
+            }
+        }
+
+        for (id, todo) in completedTodosByID {
+            guard
+                let replacement =
+                    todo.replacingEditedTarget(
+                        with: result
+                    )
+            else {
+                continue
+            }
+            completedTodosByID[id] = replacement
+        }
+    }
+
     private func refresh(
         query refreshedQuery: GitLabTodoQuery,
         model refreshedModel: GitLabTodosPageModel

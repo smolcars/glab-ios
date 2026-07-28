@@ -271,6 +271,25 @@ where
         return true
     }
 
+    @discardableResult
+    func reconcileItemIfPresent(
+        _ item: Item
+    ) -> Bool {
+        guard
+            hasLoaded,
+            items.contains(
+                where: {
+                    identity($0) == identity(item)
+                }
+            )
+        else {
+            return false
+        }
+
+        _ = reconcileItem(item)
+        return true
+    }
+
     private func replaceItems(
         showsInitialLoading: Bool,
         refreshBehavior: GitLabCacheRefreshBehavior

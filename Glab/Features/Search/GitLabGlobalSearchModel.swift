@@ -154,6 +154,68 @@ final class GitLabGlobalSearchModel {
         self.query = query
     }
 
+    func reconcileEditedResource(
+        _ result: GitLabResourceEditResult,
+        for accountID: GitLabAccountID
+    ) {
+        guard self.accountID == accountID else {
+            return
+        }
+
+        let scope: GitLabSearchScope
+        let replacement: GitLabSearchResult
+        let matches: (GitLabSearchResult) -> Bool
+
+        switch result {
+        case let .issue(issue):
+            scope = .issues
+            replacement = .issue(
+                GitLabIssueSearchResult(
+                    issue: issue
+                )
+            )
+            matches = {
+                guard
+                    case let .issue(existing) = $0
+                else {
+                    return false
+                }
+                return existing.route == issue.route
+                    && existing.id == issue.id
+            }
+        case let .mergeRequest(mergeRequest):
+            scope = .mergeRequests
+            replacement = .mergeRequest(
+                GitLabMergeRequestSearchResult(
+                    mergeRequest: mergeRequest
+                )
+            )
+            matches = {
+                guard
+                    case let .mergeRequest(existing) = $0
+                else {
+                    return false
+                }
+                return existing.route
+                    == mergeRequest.route
+                    && existing.id
+                        == mergeRequest.id
+            }
+        }
+
+        var state = state(for: scope)
+        guard
+            state.status == .loaded,
+            let index = state.results.firstIndex(
+                where: matches
+            )
+        else {
+            return
+        }
+        state.results[index] = replacement
+        states[scope] = state
+    }
+
     func search(_ query: String) async {
         self.query = query
         await runSearch(

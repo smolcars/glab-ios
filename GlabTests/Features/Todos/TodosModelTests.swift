@@ -424,6 +424,76 @@ struct TodosModelTests {
                 == .api(.unauthenticated)
         )
     }
+
+    @Test("Reconciles an edited resource across loaded Todo queries")
+    func reconcilesEditedResourceAcrossLoadedQueries() async {
+        let pending = makeTestTodo(
+            id: 1,
+            title: "Original",
+            state: .pending,
+            targetType: .issue
+        )
+        let done = makeTestTodo(
+            id: 2,
+            title: "Original",
+            state: .done,
+            targetType: .issue
+        )
+        let loader = StubTodoLoader(
+            pageResults: [
+                .success(
+                    GitLabTodoPage(
+                        todos: [pending],
+                        nextPageURL: nil,
+                        totalCount: 1
+                    )
+                ),
+                .success(
+                    GitLabTodoPage(
+                        todos: [done],
+                        nextPageURL: nil,
+                        totalCount: 1
+                    )
+                ),
+                .success(
+                    GitLabTodoPage(
+                        todos: [],
+                        nextPageURL: nil,
+                        totalCount: 0
+                    )
+                ),
+            ]
+        )
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite
+        )
+
+        await model.loadIfNeeded()
+        model.selectedState = .done
+        await model.loadIfNeeded()
+        model.selectedState = .pending
+        model.selectedTargetFilter = .issues
+        await model.loadIfNeeded()
+
+        model.reconcileEditedResource(
+            .issue(
+                makeTestIssue(
+                    id: 34,
+                    iid: 7,
+                    projectID: 2,
+                    title: "Edited"
+                )
+            )
+        )
+
+        #expect(model.todos.isEmpty)
+        model.selectedTargetFilter = .all
+        #expect(model.todos.map(\.title) == ["Edited"])
+        model.selectedState = .done
+        #expect(model.todos.map(\.title) == ["Edited"])
+    }
 }
 
 private actor StubTodoLoader:

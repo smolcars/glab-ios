@@ -390,6 +390,73 @@ nonisolated struct GitLabTodo:
     }
 }
 
+nonisolated extension GitLabTodo {
+    func replacingEditedTarget(
+        with result: GitLabResourceEditResult
+    ) -> GitLabTodo? {
+        let replacement: GitLabTodoTarget
+
+        switch result {
+        case let .issue(issue):
+            guard
+                targetType == .issue,
+                nativeRoute == .issue(issue.route),
+                target?.id == nil
+                    || target?.id == issue.id
+            else {
+                return nil
+            }
+            replacement = GitLabTodoTarget(
+                id: issue.id,
+                iid: issue.iid,
+                projectID: issue.projectID,
+                title: issue.title,
+                name: target?.name,
+                description: issue.description,
+                state: issue.state
+            )
+        case let .mergeRequest(mergeRequest):
+            guard
+                targetType == .mergeRequest,
+                nativeRoute
+                    == .mergeRequest(
+                        mergeRequest.route
+                    ),
+                target?.id == nil
+                    || target?.id
+                        == mergeRequest.id
+            else {
+                return nil
+            }
+            replacement = GitLabTodoTarget(
+                id: mergeRequest.id,
+                iid: mergeRequest.iid,
+                projectID:
+                    mergeRequest.projectID,
+                title: mergeRequest.title,
+                name: target?.name,
+                description:
+                    mergeRequest.description,
+                state: mergeRequest.state
+            )
+        }
+
+        return GitLabTodo(
+            id: id,
+            project: project,
+            author: author,
+            action: action,
+            targetType: targetType,
+            target: replacement,
+            targetURL: targetURL,
+            body: body,
+            state: state,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+    }
+}
+
 private nonisolated extension String {
     var todoTrimmedNonempty: String? {
         let value = trimmingCharacters(

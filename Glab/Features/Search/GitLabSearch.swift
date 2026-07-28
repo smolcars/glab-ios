@@ -126,6 +126,22 @@ nonisolated struct GitLabIssueSearchResult:
         self.webURL = webURL
     }
 
+    init(issue: GitLabIssue) {
+        self.init(
+            id: issue.id,
+            iid: issue.iid,
+            projectID: issue.projectID,
+            title: issue.title,
+            description: issue.description,
+            state: issue.state,
+            confidential: issue.confidential,
+            labels: issue.labels,
+            author: issue.author,
+            updatedAt: issue.updatedAt,
+            webURL: issue.webURL
+        )
+    }
+
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(
             keyedBy: CodingKeys.self
@@ -242,6 +258,28 @@ nonisolated struct GitLabMergeRequestSearchResult:
         self.author = author
         self.updatedAt = updatedAt
         self.webURL = webURL
+    }
+
+    init(
+        mergeRequest: GitLabMergeRequest
+    ) {
+        self.init(
+            id: mergeRequest.id,
+            iid: mergeRequest.iid,
+            projectID: mergeRequest.projectID,
+            title: mergeRequest.title,
+            description:
+                mergeRequest.description,
+            state: mergeRequest.state,
+            draft: mergeRequest.draft,
+            legacyWorkInProgress:
+                mergeRequest
+                    .legacyWorkInProgress,
+            labels: mergeRequest.labels,
+            author: mergeRequest.author,
+            updatedAt: mergeRequest.updatedAt,
+            webURL: mergeRequest.webURL
+        )
     }
 
     init(from decoder: any Decoder) throws {

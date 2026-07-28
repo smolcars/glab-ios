@@ -160,6 +160,42 @@ struct MergeRequestsModelTests {
         )
     }
 
+    @Test("Reconciles an edited merge request only when its row is loaded")
+    func reconcilesLoadedEditedMergeRequest() async {
+        let original = makeTestMergeRequest(
+            title: "Original"
+        )
+        let edited = makeTestMergeRequest(
+            title: "Edited"
+        )
+        let missing = makeTestMergeRequest(
+            id: 202,
+            iid: 8,
+            title: "Missing"
+        )
+        let model = MergeRequestsModel(
+            mode: .assigned,
+            loader: StubMergeRequestLoader(
+                pageResults: [
+                    .success(
+                        GitLabMergeRequestPage(
+                            mergeRequests: [original],
+                            nextPageURL: nil
+                        )
+                    ),
+                ]
+            )
+        )
+
+        #expect(!model.reconcileItemIfPresent(edited))
+        await model.loadIfNeeded()
+
+        #expect(model.reconcileItemIfPresent(edited))
+        #expect(model.mergeRequests == [edited])
+        #expect(!model.reconcileItemIfPresent(missing))
+        #expect(model.mergeRequests == [edited])
+    }
+
     @Test("Preserves rows and reports a failed refresh")
     func preservesRowsAfterRefreshFailure() async throws {
         let original = makeTestMergeRequest(id: 1, iid: 1)
@@ -383,6 +419,32 @@ struct GitLabMergeRequestDetailModelTests {
             model.authenticationFailure
                 == .api(.unauthenticated)
         )
+    }
+
+    @Test("Reconciles an authoritative edit only into a loaded detail")
+    func reconcilesLoadedDetail() async {
+        let original = makeTestMergeRequest(
+            title: "Original"
+        )
+        let edited = makeTestMergeRequest(
+            title: "Edited"
+        )
+        let model = GitLabMergeRequestDetailModel(
+            route: original.route,
+            loader: StubMergeRequestLoader(
+                detailResults: [
+                    .success(original),
+                ]
+            )
+        )
+
+        #expect(!model.reconcileAuthoritative(edited))
+        await model.loadIfNeeded()
+
+        #expect(model.reconcileAuthoritative(edited))
+        #expect(model.state == .loaded(edited))
+        #expect(model.resourceSource == .network)
+        #expect(model.cacheStoredAt == nil)
     }
 }
 
