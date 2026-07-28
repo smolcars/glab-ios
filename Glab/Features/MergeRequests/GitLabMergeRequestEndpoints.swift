@@ -31,6 +31,23 @@ nonisolated enum GitLabMergeRequestEndpoints {
         )
     }
 
+    static func approvals(
+        at route: GitLabMergeRequestRoute
+    ) -> GitLabAPIRequest<
+        GitLabMergeRequestApprovalSummary
+    > {
+        .get(
+            requires: .read,
+            path: [
+                "projects",
+                String(route.projectID),
+                "merge_requests",
+                String(route.mergeRequestIID),
+                "approvals",
+            ]
+        )
+    }
+
     static func diffVersions(
         at route: GitLabMergeRequestRoute
     ) -> GitLabAPIRequest<

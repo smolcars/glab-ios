@@ -53,6 +53,35 @@ struct GitLabMergeRequestEndpointTests {
         )
     }
 
+    @Test("Builds the all-tier merge request approvals route")
+    func buildsApprovalsRoute() throws {
+        let endpoint =
+            GitLabMergeRequestEndpoints.approvals(
+                at: GitLabMergeRequestRoute(
+                    projectID: 42,
+                    mergeRequestIID: 7
+                )
+            )
+        let url = try requestURL(endpoint)
+
+        #expect(endpoint.method == .get)
+        #expect(
+            endpoint.pathComponents
+                == [
+                    "projects",
+                    "42",
+                    "merge_requests",
+                    "7",
+                    "approvals",
+                ]
+        )
+        #expect(
+            url.absoluteString
+                == "https://gitlab.example.com/api/v4/projects/42"
+                + "/merge_requests/7/approvals"
+        )
+    }
+
     @Test("Builds a head-aware paginated diff route")
     func buildsDiffRoute() throws {
         let endpoint =

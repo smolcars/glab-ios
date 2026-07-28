@@ -131,6 +131,26 @@ nonisolated struct GitLabMergeRequestDiffVersion:
     }
 }
 
+nonisolated struct GitLabMergeRequestHeadPipeline:
+    Decodable,
+    Equatable,
+    Sendable
+{
+    let id: Int
+    let status: String
+    let webURL: URL?
+
+    var safeWebURL: URL? {
+        GitLabWebURL.validated(webURL)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case status
+        case webURL = "web_url"
+    }
+}
+
 nonisolated struct GitLabMergeRequest:
     Decodable,
     Equatable,
@@ -161,6 +181,11 @@ nonisolated struct GitLabMergeRequest:
     let sha: String?
     let diffRefs: GitLabMergeRequestDiffRefs?
     let changesCount: String?
+    let detailedMergeStatus: String?
+    let hasConflicts: Bool?
+    let blockingDiscussionsResolved: Bool?
+    let headPipeline:
+        GitLabMergeRequestHeadPipeline?
 
     var route: GitLabMergeRequestRoute {
         GitLabMergeRequestRoute(
@@ -251,6 +276,12 @@ nonisolated struct GitLabMergeRequest:
         case sha
         case diffRefs = "diff_refs"
         case changesCount = "changes_count"
+        case detailedMergeStatus =
+            "detailed_merge_status"
+        case hasConflicts = "has_conflicts"
+        case blockingDiscussionsResolved =
+            "blocking_discussions_resolved"
+        case headPipeline = "head_pipeline"
     }
 }
 

@@ -28,7 +28,12 @@ nonisolated func makeTestMergeRequest(
     reference: String = "group/project!7",
     sha: String? = "head-sha",
     diffRefs: GitLabMergeRequestDiffRefs? = nil,
-    changesCount: String? = nil
+    changesCount: String? = nil,
+    detailedMergeStatus: String? = nil,
+    hasConflicts: Bool? = nil,
+    blockingDiscussionsResolved: Bool? = nil,
+    headPipeline:
+        GitLabMergeRequestHeadPipeline? = nil
 ) -> GitLabMergeRequest {
     GitLabMergeRequest(
         id: id,
@@ -58,7 +63,13 @@ nonisolated func makeTestMergeRequest(
         ),
         sha: sha,
         diffRefs: diffRefs,
-        changesCount: changesCount
+        changesCount: changesCount,
+        detailedMergeStatus:
+            detailedMergeStatus,
+        hasConflicts: hasConflicts,
+        blockingDiscussionsResolved:
+            blockingDiscussionsResolved,
+        headPipeline: headPipeline
     )
 }
 

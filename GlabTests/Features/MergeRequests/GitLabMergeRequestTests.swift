@@ -117,6 +117,91 @@ struct GitLabMergeRequestTests {
         #expect(preparing.changesCount == nil)
     }
 
+    @Test("Decodes defensive merge readiness fields")
+    func decodesReadinessFields() throws {
+        let mergeRequest = try decodeMergeRequest(
+            draftFields: #""draft": false,"#,
+            revisionFields:
+                """
+                "detailed_merge_status": "ci_still_running",
+                "has_conflicts": false,
+                "blocking_discussions_resolved": true,
+                "head_pipeline": {
+                  "id": 501,
+                  "status": "running",
+                  "web_url": "https://gitlab.example.com/group/project/-/pipelines/501"
+                },
+                """
+        )
+
+        #expect(
+            mergeRequest.detailedMergeStatus
+                == "ci_still_running"
+        )
+        #expect(mergeRequest.hasConflicts == false)
+        #expect(
+            mergeRequest
+                .blockingDiscussionsResolved
+                == true
+        )
+        #expect(
+            mergeRequest.headPipeline
+                == GitLabMergeRequestHeadPipeline(
+                    id: 501,
+                    status: "running",
+                    webURL: URL(
+                        string:
+                            "https://gitlab.example.com/group/project/-/pipelines/501"
+                    )
+                )
+        )
+        #expect(
+            mergeRequest.headPipeline?
+                .safeWebURL != nil
+        )
+    }
+
+    @Test("Keeps missing and future readiness fields decodable")
+    func decodesMissingReadinessFields() throws {
+        let missing = try decodeMergeRequest(
+            draftFields: ""
+        )
+        let future = try decodeMergeRequest(
+            draftFields: #""draft": false,"#,
+            revisionFields:
+                """
+                "detailed_merge_status": "future_status",
+                "has_conflicts": null,
+                "blocking_discussions_resolved": null,
+                "head_pipeline": {
+                  "id": 502,
+                  "status": "future_pipeline",
+                  "web_url": "http://gitlab.example.com/unsafe"
+                },
+                """
+        )
+
+        #expect(missing.detailedMergeStatus == nil)
+        #expect(missing.hasConflicts == nil)
+        #expect(
+            missing.blockingDiscussionsResolved
+                == nil
+        )
+        #expect(missing.headPipeline == nil)
+        #expect(
+            future.detailedMergeStatus
+                == "future_status"
+        )
+        #expect(
+            future.headPipeline?.status
+                == "future_pipeline"
+        )
+        #expect(
+            future.headPipeline?
+                .safeWebURL == nil
+        )
+    }
+
     @Test("Uses project ID and IID for route identity")
     func identifiesRoutes() {
         let first = makeTestMergeRequest(
