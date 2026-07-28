@@ -3,8 +3,8 @@
 ## Status
 
 - Planning: complete
-- Implementation: not started
-- Verification: not started
+- Implementation: in progress
+- Verification: in progress
 - Deep review: not started
 
 This document is the required plan for P2-10. Production code must not be
@@ -239,6 +239,42 @@ discussion changes must preserve that behavior.
   rely on color alone in accessibility labels.
 - Layout must fit narrow iPhone widths and accessibility Dynamic Type without
   covering the Home/Todos tab bar or discussion content.
+
+## Follow-up plan — compact horizontal reaction picker
+
+Screenshot review of the first P2-10 build found that the existing reaction
+picker trigger and system `Menu` consume too much space. This follow-up is a
+presentation-only refinement; it does not change the Phase 2 reaction API,
+cache, optimistic mutation, delivery-certainty, or account-isolation
+contracts.
+
+Implementation:
+
+1. Keep `GitLabEmojiReactionsModel` as the single owner of loading, selection,
+   pending mutation, failure, and reconciliation state.
+2. Replace the padded glass face-symbol trigger with one plain emoji trigger.
+   Its visible content has no bubble or label, while its invisible tap target
+   remains at least 44 points.
+3. Replace the vertical labeled `Menu` with an anchored popover containing one
+   horizontal row of the existing bounded common emoji set.
+4. Anchor the popover to the trigger's bottom-leading point and prefer a top
+   arrow edge, placing it below and toward the left of the comment. Allow the
+   system to reposition it only when required to keep the popover on-screen.
+5. Render picker choices as emoji only. Preserve accessible names, selected
+   and updating values, add/remove hints, stable identifiers, disabled
+   pending/uncertain states, and dismiss-before-mutation behavior.
+6. Use the native popover material as the only picker surface. Do not add
+   nested glass effects around each emoji.
+
+Verification:
+
+- Existing reaction domain/model/endpoint tests must remain green.
+- Simulator interaction must prove the trigger opens a horizontal picker,
+  every emoji has a stable accessibility action, a selection dismisses the
+  popover, and the existing optimistic/error path remains unchanged.
+- Inspect dark/light appearance, standard/accessibility Dynamic Type, Reduce
+  Transparency, and overlap with the compact activity and bottom controls.
+- Include the trigger and popover in the P2-10 deep-review gate.
 
 ## Failure and compatibility behavior
 
