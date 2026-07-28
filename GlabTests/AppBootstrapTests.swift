@@ -7,7 +7,10 @@ struct AppBootstrapTests {
     @Test("Root view can be constructed")
     @MainActor
     func rootViewCanBeConstructed() {
-        _ = AppRootView()
+        _ = AppRootView(
+            incomingLinkModel:
+                GitLabIncomingLinkModel()
+        )
     }
 
     @Test("Bundles the app privacy manifest")

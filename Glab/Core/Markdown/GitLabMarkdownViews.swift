@@ -53,6 +53,55 @@ extension EnvironmentValues {
     }
 }
 
+struct GitLabMarkdownLinkHandler: Sendable {
+    private let action:
+        @MainActor @Sendable (URL) -> Bool
+
+    init(
+        _ action:
+            @escaping @MainActor @Sendable
+            (URL) -> Bool
+    ) {
+        self.action = action
+    }
+
+    @MainActor
+    func handle(_ url: URL) -> Bool {
+        action(url)
+    }
+
+    static let system = Self { _ in
+        false
+    }
+}
+
+private struct
+    GitLabMarkdownLinkHandlerEnvironmentKey:
+    EnvironmentKey
+{
+    static let defaultValue =
+        GitLabMarkdownLinkHandler.system
+}
+
+extension EnvironmentValues {
+    var gitLabMarkdownLinkHandler:
+        GitLabMarkdownLinkHandler
+    {
+        get {
+            self[
+                GitLabMarkdownLinkHandlerEnvironmentKey
+                    .self
+            ]
+        }
+        set {
+            self[
+                GitLabMarkdownLinkHandlerEnvironmentKey
+                    .self
+            ] = newValue
+        }
+    }
+}
+
 nonisolated enum GitLabMarkdownContentKind:
     Sendable
 {
@@ -97,6 +146,8 @@ struct GitLabMarkdownContentView: View {
     let revision: Date
     let kind: GitLabMarkdownContentKind
 
+    @Environment(\.gitLabMarkdownLinkHandler)
+    private var linkHandler
     @State private var model: GitLabMarkdownModel
 
     init(
@@ -118,6 +169,14 @@ struct GitLabMarkdownContentView: View {
 
     var body: some View {
         content
+            .environment(
+                \.openURL,
+                OpenURLAction { url in
+                    linkHandler.handle(url)
+                        ? .handled
+                        : .systemAction
+                }
+            )
             .task(
                 id: LoadIdentity(
                     request: request,

@@ -26,6 +26,8 @@ struct HomeView: View {
         any GitLabProjectLoading
             & GitLabProjectResolving
     let searchModel: GitLabGlobalSearchModel
+    let incomingRoute: GitLabNativeRoute?
+    let didOpenIncomingRoute: () -> Void
 
     @State private var path = NavigationPath()
     @State private var showsAccount = false
@@ -107,6 +109,14 @@ struct HomeView: View {
             }
             .task {
                 await loadDashboard()
+            }
+            .task(id: incomingRoute) {
+                guard let incomingRoute else {
+                    return
+                }
+
+                path.append(incomingRoute)
+                didOpenIncomingRoute()
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

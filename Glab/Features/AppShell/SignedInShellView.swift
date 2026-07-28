@@ -34,6 +34,8 @@ nonisolated enum GitLabAppTab:
 struct SignedInShellView: View {
     let session: GitLabStoredSession
     let appSession: AppSession
+    let incomingLinkModel:
+        GitLabIncomingLinkModel
 
     private let accountID: GitLabAccountID
     @State private var selectedTab = GitLabAppTab.defaultTab
@@ -42,6 +44,10 @@ struct SignedInShellView: View {
     @State private var todosModel: TodosModel
     @State private var globalSearchModel:
         GitLabGlobalSearchModel
+    @State private var deepLinkResolutionModel:
+        GitLabDeepLinkResolutionModel
+    @State private var incomingRoute:
+        GitLabNativeRoute?
     private let issueLoader: any GitLabIssueLoading
     private let mergeRequestLoader:
         any GitLabMergeRequestLoading
@@ -66,10 +72,14 @@ struct SignedInShellView: View {
 
     init(
         session: GitLabStoredSession,
-        appSession: AppSession
+        appSession: AppSession,
+        incomingLinkModel:
+            GitLabIncomingLinkModel
     ) {
         self.session = session
         self.appSession = appSession
+        self.incomingLinkModel =
+            incomingLinkModel
         let accountID = GitLabAccountID(session: session)
         self.accountID = accountID
 
@@ -166,6 +176,17 @@ struct SignedInShellView: View {
                         )
                 )
         )
+        _deepLinkResolutionModel = State(
+            initialValue:
+                GitLabDeepLinkResolutionModel(
+                    accountID: accountID,
+                    resolver:
+                        GitLabDeepLinkRouteResolver(
+                            projectLoader:
+                                projectLoader
+                        )
+                )
+        )
     }
 
     var body: some View {
@@ -186,8 +207,13 @@ struct SignedInShellView: View {
                         reactionService,
                     projectLoader: projectLoader,
                     searchModel:
-                        globalSearchModel
-                )
+                        globalSearchModel,
+                    incomingRoute:
+                        incomingRoute
+                ) {
+                    incomingRoute = nil
+                    incomingLinkModel.clear()
+                }
             } label: {
                 Label(
                     GitLabAppTab.home.title,
@@ -232,10 +258,44 @@ struct SignedInShellView: View {
             markdownImageLoader
         )
         .environment(
+            \.gitLabMarkdownLinkHandler,
+            GitLabMarkdownLinkHandler {
+                url in
+                guard
+                    appSession.accounts
+                        .contains(where: {
+                            GitLabInAppLinkRouting
+                                .shouldHandle(
+                                    url,
+                                    for: $0.host
+                                )
+                        })
+                else {
+                    return false
+                }
+
+                return incomingLinkModel
+                    .receive(
+                        url,
+                        accounts:
+                            appSession.accounts
+                                .map(\.id),
+                        activeAccountID:
+                            appSession
+                                .activeAccountID
+                    )
+            }
+        )
+        .environment(
             \.gitLabDiffRenderer,
             diffRenderer
         )
         .accessibilityIdentifier("signedIn.tabView")
+        .task(
+            id: incomingLinkModel.decision
+        ) {
+            await handleIncomingLink()
+        }
         .alert(
             "GitLab Session Ended",
             isPresented:
@@ -251,6 +311,75 @@ struct SignedInShellView: View {
                     .description
                     ?? ""
             )
+        }
+    }
+
+    private func handleIncomingLink() async {
+        guard
+            case let .open(
+                expectedAccountID,
+                target,
+                sourceURL
+            ) = incomingLinkModel.decision,
+            expectedAccountID == accountID
+        else {
+            deepLinkResolutionModel.cancel()
+            return
+        }
+
+        await deepLinkResolutionModel.resolve(
+            target,
+            for: expectedAccountID,
+            sourceURL: sourceURL
+        )
+        guard !Task.isCancelled else {
+            return
+        }
+
+        switch deepLinkResolutionModel.state {
+        case let .resolved(
+            route,
+            resolvedSourceURL
+        ):
+            guard
+                incomingLinkModel.pendingURL
+                    == resolvedSourceURL,
+                case let .open(
+                    currentAccountID,
+                    _,
+                    currentSourceURL
+                ) = incomingLinkModel
+                    .decision,
+                currentAccountID == accountID,
+                currentSourceURL
+                    == resolvedSourceURL
+            else {
+                return
+            }
+
+            selectedTab = .home
+            await Task.yield()
+            incomingRoute = route
+        case let .failed(
+            failedSourceURL,
+            error
+        ):
+            if error.requiresReauthentication {
+                incomingLinkModel
+                    .preserveForAccountTransition()
+                await appSession
+                    .handleAuthenticationFailure(
+                        error,
+                        for: accountID
+                    )
+            } else {
+                incomingLinkModel
+                    .offerBrowserFallback(
+                        for: failedSourceURL
+                    )
+            }
+        case .idle, .resolving:
+            break
         }
     }
 
