@@ -255,9 +255,10 @@ client/model gates or the already completed fresh-install session proof.
   covered deterministically by the signed test suite. Live timeout/retry and
   empty-retry loading behavior were also exercised without mutating GitLab
   data.
-- The default Home Screen app icon is visually legible. Dark/tinted Home
-  Screen variants remain pending because the host Mac was locked and Simulator
-  command-line automation cannot change the system icon treatment.
+- The Glab icon is visually legible and distinct in both default and automatic
+  dark Home Screen appearances on iPhone 17 Pro. The tinted treatment remains
+  pending: transient SpringBoard customization automation did not produce
+  reliable visual evidence, and no result from that attempt is counted.
 - A signed-in large-device walkthrough and a repeated live server-version
   query remain pending until the configured self-managed host is reachable.
 
