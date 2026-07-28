@@ -145,6 +145,9 @@ struct GitLabOpenInGitLabLink: View {
             }
             .buttonStyle(.glass)
             .controlSize(.regular)
+            .dynamicTypeSize(
+                ...DynamicTypeSize.accessibility1
+            )
             .accessibilityLabel("Open in GitLab")
             .accessibilityIdentifier(
                 accessibilityIdentifier

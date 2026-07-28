@@ -45,9 +45,6 @@ struct GitLabMergeRequestReadinessView: View {
                 .padding(.top, 10)
             }
         }
-        .accessibilityIdentifier(
-            "mergeRequests.readiness"
-        )
     }
 
     private var overallRow: some View {
