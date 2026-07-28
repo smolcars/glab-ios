@@ -233,12 +233,21 @@ nonisolated enum GitLabResourceEditValidationError:
 
 nonisolated struct GitLabResourceEditChanges:
     Equatable,
-    Sendable
+    Sendable,
+    CustomReflectable
 {
     static let maximumDescriptionLength = 1_048_576
 
     let title: String?
     let description: String?
+
+    var customMirror: Mirror {
+        Mirror(
+            self,
+            children: ["redacted": true],
+            displayStyle: .struct
+        )
+    }
 
     init(
         title: String? = nil,

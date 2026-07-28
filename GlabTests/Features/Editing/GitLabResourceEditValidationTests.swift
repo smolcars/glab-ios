@@ -206,7 +206,7 @@ struct GitLabResourceEditValidationTests {
     }
 
     @Test("Validation descriptions do not expose content")
-    func redactsDescriptions() {
+    func redactsDescriptions() throws {
         for error in [
             GitLabResourceEditValidationError
                 .emptyTitle,
@@ -227,5 +227,19 @@ struct GitLabResourceEditValidationTests {
                     == error.description
             )
         }
+
+        let secret = "private-content"
+        let changes = try GitLabResourceEditChanges(
+            title: secret,
+            description: secret
+        )
+        #expect(
+            !String(describing: changes)
+                .contains(secret)
+        )
+        #expect(
+            !String(reflecting: changes)
+                .contains(secret)
+        )
     }
 }
