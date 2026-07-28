@@ -14,8 +14,12 @@ struct MergeRequestsView: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let editService:
+        any GitLabResourceEditing
     let accountID: GitLabAccountID
     let appSession: AppSession
+    let onResourceEdited:
+        (GitLabResourceEditResult) -> Void
 
     @State private var model: MergeRequestsModel
 
@@ -33,8 +37,14 @@ struct MergeRequestsView: View {
         reactionService:
             any GitLabEmojiReactionLoading
                 & GitLabEmojiReactionMutating,
+        editService:
+            any GitLabResourceEditing,
         accountID: GitLabAccountID,
-        appSession: AppSession
+        appSession: AppSession,
+        onResourceEdited:
+            @escaping (
+                GitLabResourceEditResult
+            ) -> Void
     ) {
         self.mode = mode
         self.loader = loader
@@ -44,8 +54,11 @@ struct MergeRequestsView: View {
             discussionMutator
         self.reactionService =
             reactionService
+        self.editService = editService
         self.accountID = accountID
         self.appSession = appSession
+        self.onResourceEdited =
+            onResourceEdited
         _model = State(
             initialValue: MergeRequestsModel(
                 mode: mode,
@@ -83,8 +96,24 @@ struct MergeRequestsView: View {
                         discussionMutator,
                     reactionService:
                         reactionService,
+                    editService:
+                        editService,
                     accountID: accountID,
-                    appSession: appSession
+                    appSession: appSession,
+                    onResourceEdited: {
+                        result in
+                        if
+                            case let .mergeRequest(
+                                mergeRequest
+                            ) = result
+                        {
+                            _ = model
+                                .reconcileItemIfPresent(
+                                    mergeRequest
+                                )
+                        }
+                        onResourceEdited(result)
+                    }
                 )
             }
             .refreshable {
@@ -561,6 +590,10 @@ struct GitLabMergeRequestDetailView: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let editService:
+        any GitLabResourceEditing
+    let onResourceEdited:
+        (GitLabResourceEditResult) -> Void
     let diffLoader:
         any GitLabMergeRequestDiffLoading
     let diffSummaryLoader:
@@ -576,6 +609,9 @@ struct GitLabMergeRequestDetailView: View {
         GitLabDiscussionComposerTarget?
     @State private var
         showsReadOnlyCommentAlert = false
+    @State private var editorModel:
+        GitLabResourceEditorModel?
+    @State private var showsEditor = false
 
     init(
         route: GitLabMergeRequestRoute,
@@ -591,8 +627,14 @@ struct GitLabMergeRequestDetailView: View {
         reactionService:
             any GitLabEmojiReactionLoading
                 & GitLabEmojiReactionMutating,
+        editService:
+            any GitLabResourceEditing,
         accountID: GitLabAccountID,
-        appSession: AppSession
+        appSession: AppSession,
+        onResourceEdited:
+            @escaping (
+                GitLabResourceEditResult
+            ) -> Void
     ) {
         self.accountID = accountID
         self.appSession = appSession
@@ -600,6 +642,9 @@ struct GitLabMergeRequestDetailView: View {
             discussionMutator
         self.reactionService =
             reactionService
+        self.editService = editService
+        self.onResourceEdited =
+            onResourceEdited
         diffLoader = loader
         diffSummaryLoader = loader
         let discussionResource =
@@ -645,12 +690,14 @@ struct GitLabMergeRequestDetailView: View {
                         openInGitLabAccessibilityIdentifier:
                             "mergeRequests.openInGitLab",
                         canComment:
-                            apiAccess.canWrite
-                    ) {
-                        launchComposer(
-                            .newDiscussion
-                        )
-                    }
+                            apiAccess.canWrite,
+                        edit: launchEditor,
+                        addComment: {
+                            launchComposer(
+                                .newDiscussion
+                            )
+                        }
+                    )
                 }
             }
             .refreshable {
@@ -695,6 +742,24 @@ struct GitLabMergeRequestDetailView: View {
                 .presentationDragIndicator(
                     .visible
                 )
+            }
+            .sheet(
+                isPresented: $showsEditor,
+                onDismiss: {
+                    editorModel = nil
+                }
+            ) {
+                if let editorModel {
+                    GitLabResourceEditorView(
+                        model: editorModel,
+                        accountID: accountID,
+                        appSession: appSession,
+                        webURL: detailWebURL
+                    )
+                    .presentationDragIndicator(
+                        .visible
+                    )
+                }
             }
             .alert(
                 "Commenting unavailable",
@@ -837,6 +902,54 @@ struct GitLabMergeRequestDetailView: View {
         case .explainReadOnly:
             showsReadOnlyCommentAlert = true
         }
+    }
+
+    private func launchEditor() {
+        guard
+            case let .loaded(mergeRequest) =
+                model.state
+        else {
+            return
+        }
+
+        editorModel =
+            GitLabResourceEditorModel(
+                accountID: accountID,
+                baseline:
+                    GitLabResourceEditSnapshot(
+                        mergeRequest:
+                            mergeRequest
+                    ),
+                apiAccess: apiAccess,
+                service: editService,
+                draftStore:
+                    appSession
+                        .resourceEditDraftStore,
+                isAccountCurrent: {
+                    appSession.activeAccountID
+                        == accountID
+                },
+                onSuccess: {
+                    result in
+                    guard
+                        case let .mergeRequest(
+                            updatedMergeRequest
+                        ) = result
+                    else {
+                        return
+                    }
+                    guard
+                        model
+                            .reconcileAuthoritative(
+                                updatedMergeRequest
+                            )
+                    else {
+                        return
+                    }
+                    onResourceEdited(result)
+                }
+            )
+        showsEditor = true
     }
 
     private var approvalError:

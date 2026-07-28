@@ -23,11 +23,15 @@ struct HomeView: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let editService:
+        any GitLabResourceEditing
     let projectLoader:
         any GitLabProjectLoading
             & GitLabProjectResolving
     let searchModel: GitLabGlobalSearchModel
     let incomingRoute: GitLabNativeRoute?
+    let onResourceEdited:
+        (GitLabResourceEditResult) -> Void
     let didOpenIncomingRoute: () -> Void
 
     @State private var path = NavigationPath()
@@ -196,8 +200,12 @@ struct HomeView: View {
                     discussionMutator,
                 reactionService:
                     reactionService,
+                editService:
+                    editService,
                 accountID: accountID,
-                appSession: appSession
+                appSession: appSession,
+                onResourceEdited:
+                    onResourceEdited
             )
         case let .mergeRequest(
             mergeRequestRoute
@@ -211,8 +219,12 @@ struct HomeView: View {
                     discussionMutator,
                 reactionService:
                     reactionService,
+                editService:
+                    editService,
                 accountID: accountID,
-                appSession: appSession
+                appSession: appSession,
+                onResourceEdited:
+                    onResourceEdited
             )
         }
     }
@@ -259,8 +271,12 @@ struct HomeView: View {
                     discussionMutator,
                 reactionService:
                     reactionService,
+                editService:
+                    editService,
                 accountID: accountID,
-                appSession: appSession
+                appSession: appSession,
+                onResourceEdited:
+                    onResourceEdited
             )
         case .assignedMergeRequests:
             MergeRequestsView(
@@ -271,8 +287,12 @@ struct HomeView: View {
                     discussionMutator,
                 reactionService:
                     reactionService,
+                editService:
+                    editService,
                 accountID: accountID,
-                appSession: appSession
+                appSession: appSession,
+                onResourceEdited:
+                    onResourceEdited
             )
         case .reviewRequests:
             MergeRequestsView(
@@ -283,8 +303,12 @@ struct HomeView: View {
                     discussionMutator,
                 reactionService:
                     reactionService,
+                editService:
+                    editService,
                 accountID: accountID,
-                appSession: appSession
+                appSession: appSession,
+                onResourceEdited:
+                    onResourceEdited
             )
         case .recentProjects:
             ProjectsView(

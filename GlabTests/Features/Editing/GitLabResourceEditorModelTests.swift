@@ -264,8 +264,13 @@ struct GitLabResourceEditorModelTests {
             model.failure
                 == .validation(.emptyTitle)
         )
+        #expect(!model.canSave)
         #expect(await service.loadCount == 0)
         #expect(await service.updateCount == 0)
+
+        model.title = "Fixed title"
+
+        #expect(model.canSave)
     }
 
     @Test("A description over GitLab's limit fails before any request")
@@ -298,8 +303,13 @@ struct GitLabResourceEditorModelTests {
                     )
                 )
         )
+        #expect(!model.canSave)
         #expect(await service.loadCount == 0)
         #expect(await service.updateCount == 0)
+
+        model.rawDescription = "Valid body"
+
+        #expect(model.canSave)
     }
 
     @Test("The maximum description length is accepted without normalization")

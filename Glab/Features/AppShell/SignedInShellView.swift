@@ -61,6 +61,8 @@ struct SignedInShellView: View {
     private let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    private let resourceEditService:
+        any GitLabResourceEditing
     private let projectLoader:
         any GitLabProjectLoading
             & GitLabProjectResolving
@@ -118,6 +120,10 @@ struct SignedInShellView: View {
             LiveGitLabEmojiReactionService(
                 client: client
             )
+        let resourceEditService =
+            LiveGitLabResourceEditService(
+                client: client
+            )
         let todoService = LiveGitLabTodoLoader(
             client: client
         )
@@ -127,6 +133,8 @@ struct SignedInShellView: View {
         discussionMutator = discussionLoader
         self.reactionService =
             reactionService
+        self.resourceEditService =
+            resourceEditService
         self.projectLoader = projectLoader
         markdownRenderer = GitLabMarkdownRenderer()
         diffRenderer = GitLabDiffRenderer()
@@ -206,11 +214,15 @@ struct SignedInShellView: View {
                         discussionMutator,
                     reactionService:
                         reactionService,
+                    editService:
+                        resourceEditService,
                     projectLoader: projectLoader,
                     searchModel:
                         globalSearchModel,
                     incomingRoute:
-                        incomingRoute
+                        incomingRoute,
+                    onResourceEdited:
+                        reconcileEditedResource
                 ) {
                     incomingRoute = nil
                     incomingLinkModel.clear()
@@ -236,8 +248,12 @@ struct SignedInShellView: View {
                         discussionMutator,
                     reactionService:
                         reactionService,
+                    editService:
+                        resourceEditService,
                     accountID: accountID,
-                    appSession: appSession
+                    appSession: appSession,
+                    onResourceEdited:
+                        reconcileEditedResource
                 )
             } label: {
                 Label(
@@ -381,6 +397,25 @@ struct SignedInShellView: View {
             }
         case .idle, .resolving:
             break
+        }
+    }
+
+    private func reconcileEditedResource(
+        _ result: GitLabResourceEditResult
+    ) {
+        homeDashboardModel
+            .reconcileEditedResource(result)
+        todosModel
+            .reconcileEditedResource(result)
+        globalSearchModel
+            .reconcileEditedResource(
+                result,
+                for: accountID
+            )
+
+        if case let .issue(issue) = result {
+            _ = assignedIssuesModel
+                .reconcileItemIfPresent(issue)
         }
     }
 

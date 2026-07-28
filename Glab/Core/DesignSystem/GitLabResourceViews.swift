@@ -175,6 +175,7 @@ struct GitLabResourceDetailToolbarActions:
     let openInGitLabAccessibilityIdentifier:
         String
     let canComment: Bool
+    let edit: () -> Void
     let addComment: () -> Void
 
     var body: some ToolbarContent {
@@ -195,6 +196,21 @@ struct GitLabResourceDetailToolbarActions:
                     openInGitLabAccessibilityIdentifier
                 )
             }
+
+            Button {
+                edit()
+            } label: {
+                Label(
+                    "Edit",
+                    systemImage: "pencil"
+                )
+            }
+            .accessibilityIdentifier(
+                "resource.edit"
+            )
+            .accessibilityHint(
+                "Opens title and Markdown description editing. Read-only accounts can keep a local draft but cannot save to GitLab."
+            )
 
             Button {
                 addComment()

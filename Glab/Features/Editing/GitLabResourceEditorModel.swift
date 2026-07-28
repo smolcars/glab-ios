@@ -961,13 +961,13 @@ final class GitLabResourceEditorModel {
 
     private var hasBlockingFailure: Bool {
         switch failure {
-        case .conflict,
+        case .validation,
+             .conflict,
              .draftStorage,
              .mutation(_, .deliveryUnknown),
              .reconciliation:
             true
-        case .validation,
-             .readOnly,
+        case .readOnly,
              .freshness,
              .mutation(_, .rejected),
              nil:

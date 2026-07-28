@@ -15,8 +15,12 @@ struct TodosView: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let editService:
+        any GitLabResourceEditing
     let accountID: GitLabAccountID
     let appSession: AppSession
+    let onResourceEdited:
+        (GitLabResourceEditResult) -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var isConfirmingMarkAllDone =
         false
@@ -390,8 +394,12 @@ struct TodosView: View {
                     discussionMutator,
                 reactionService:
                     reactionService,
+                editService:
+                    editService,
                 accountID: accountID,
-                appSession: appSession
+                appSession: appSession,
+                onResourceEdited:
+                    onResourceEdited
             )
         case let .mergeRequest(mergeRequestRoute):
             GitLabMergeRequestDetailView(
@@ -402,8 +410,12 @@ struct TodosView: View {
                     discussionMutator,
                 reactionService:
                     reactionService,
+                editService:
+                    editService,
                 accountID: accountID,
-                appSession: appSession
+                appSession: appSession,
+                onResourceEdited:
+                    onResourceEdited
             )
         }
     }

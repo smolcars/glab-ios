@@ -10,8 +10,12 @@ struct AssignedIssuesView: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let editService:
+        any GitLabResourceEditing
     let accountID: GitLabAccountID
     let appSession: AppSession
+    let onResourceEdited:
+        (GitLabResourceEditResult) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -41,8 +45,12 @@ struct AssignedIssuesView: View {
                         discussionMutator,
                     reactionService:
                         reactionService,
+                    editService:
+                        editService,
                     accountID: accountID,
-                    appSession: appSession
+                    appSession: appSession,
+                    onResourceEdited:
+                        onResourceEdited
                 )
             }
             .refreshable {
@@ -400,6 +408,10 @@ struct GitLabIssueDetailView: View {
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
+    let editService:
+        any GitLabResourceEditing
+    let onResourceEdited:
+        (GitLabResourceEditResult) -> Void
 
     @State private var model: GitLabIssueDetailModel
     @State private var discussionModel:
@@ -408,6 +420,9 @@ struct GitLabIssueDetailView: View {
         GitLabDiscussionComposerTarget?
     @State private var
         showsReadOnlyCommentAlert = false
+    @State private var editorModel:
+        GitLabResourceEditorModel?
+    @State private var showsEditor = false
 
     init(
         route: GitLabIssueRoute,
@@ -419,8 +434,14 @@ struct GitLabIssueDetailView: View {
         reactionService:
             any GitLabEmojiReactionLoading
                 & GitLabEmojiReactionMutating,
+        editService:
+            any GitLabResourceEditing,
         accountID: GitLabAccountID,
-        appSession: AppSession
+        appSession: AppSession,
+        onResourceEdited:
+            @escaping (
+                GitLabResourceEditResult
+            ) -> Void
     ) {
         self.accountID = accountID
         self.appSession = appSession
@@ -428,6 +449,9 @@ struct GitLabIssueDetailView: View {
             discussionMutator
         self.reactionService =
             reactionService
+        self.editService = editService
+        self.onResourceEdited =
+            onResourceEdited
         let discussionResource =
             GitLabDiscussionResource.issue(route)
         self.discussionResource =
@@ -460,12 +484,14 @@ struct GitLabIssueDetailView: View {
                         openInGitLabAccessibilityIdentifier:
                             "issues.openInGitLab",
                         canComment:
-                            apiAccess.canWrite
-                    ) {
-                        launchComposer(
-                            .newDiscussion
-                        )
-                    }
+                            apiAccess.canWrite,
+                        edit: launchEditor,
+                        addComment: {
+                            launchComposer(
+                                .newDiscussion
+                            )
+                        }
+                    )
                 }
             }
             .refreshable {
@@ -510,6 +536,24 @@ struct GitLabIssueDetailView: View {
                 .presentationDragIndicator(
                     .visible
                 )
+            }
+            .sheet(
+                isPresented: $showsEditor,
+                onDismiss: {
+                    editorModel = nil
+                }
+            ) {
+                if let editorModel {
+                    GitLabResourceEditorView(
+                        model: editorModel,
+                        accountID: accountID,
+                        appSession: appSession,
+                        webURL: detailWebURL
+                    )
+                    .presentationDragIndicator(
+                        .visible
+                    )
+                }
             }
             .alert(
                 "Commenting unavailable",
@@ -627,6 +671,53 @@ struct GitLabIssueDetailView: View {
         case .explainReadOnly:
             showsReadOnlyCommentAlert = true
         }
+    }
+
+    private func launchEditor() {
+        guard
+            case let .loaded(issue) =
+                model.state
+        else {
+            return
+        }
+
+        editorModel =
+            GitLabResourceEditorModel(
+                accountID: accountID,
+                baseline:
+                    GitLabResourceEditSnapshot(
+                        issue: issue
+                    ),
+                apiAccess: apiAccess,
+                service: editService,
+                draftStore:
+                    appSession
+                        .resourceEditDraftStore,
+                isAccountCurrent: {
+                    appSession.activeAccountID
+                        == accountID
+                },
+                onSuccess: {
+                    result in
+                    guard
+                        case let .issue(
+                            updatedIssue
+                        ) = result
+                    else {
+                        return
+                    }
+                    guard
+                        model
+                            .reconcileAuthoritative(
+                                updatedIssue
+                            )
+                    else {
+                        return
+                    }
+                    onResourceEdited(result)
+                }
+            )
+        showsEditor = true
     }
 
     private func load() async {
