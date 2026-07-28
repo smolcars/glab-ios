@@ -6,7 +6,9 @@ struct GlabApp: App {
         credentialStore: KeychainGitLabCredentialStore(),
         accountIndexStore:
             UserDefaultsGitLabAccountIndexStore(),
-        responseCache: FileGitLabResponseCache()
+        responseCache: FileGitLabResponseCache(),
+        discussionDraftStore:
+            FileGitLabDiscussionDraftStore()
     )
 
     var body: some Scene {

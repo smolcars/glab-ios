@@ -59,6 +59,8 @@ final class AppSession {
 
     let credentialStore: any GitLabCredentialStore
     let responseCache: any GitLabResponseCaching
+    let discussionDraftStore:
+        any GitLabDiscussionDraftStoring
 
     private let accountIndexStore:
         any GitLabAccountIndexStoring
@@ -80,11 +82,16 @@ final class AppSession {
                 InMemoryGitLabAccountIndexStore(),
         responseCache: any GitLabResponseCaching =
             InMemoryGitLabResponseCache(),
+        discussionDraftStore:
+            any GitLabDiscussionDraftStoring =
+                InMemoryGitLabDiscussionDraftStore(),
         currentDate: @escaping () -> Date = Date.init
     ) {
         self.credentialStore = credentialStore
         self.accountIndexStore = accountIndexStore
         self.responseCache = responseCache
+        self.discussionDraftStore =
+            discussionDraftStore
         self.currentDate = currentDate
     }
 
@@ -246,6 +253,16 @@ final class AppSession {
     func removeAccount(
         _ accountID: GitLabAccountID
     ) async throws(GitLabCredentialStoreError) {
+        try await removeAccount(
+            accountID,
+            removesDrafts: true
+        )
+    }
+
+    private func removeAccount(
+        _ accountID: GitLabAccountID,
+        removesDrafts: Bool
+    ) async throws(GitLabCredentialStoreError) {
         guard
             accounts.contains(where: { $0.id == accountID })
         else {
@@ -314,6 +331,10 @@ final class AppSession {
                     userID: accountID.userID
                 )
             )
+            if removesDrafts {
+                await discussionDraftStore
+                    .removeAll(for: accountID)
+            }
         }
 
         guard isCurrent(transition) else {
@@ -384,7 +405,10 @@ final class AppSession {
         authenticationNotice = notice
 
         do {
-            try await removeAccount(accountID)
+            try await removeAccount(
+                accountID,
+                removesDrafts: false
+            )
         } catch {
             state = .failed(error)
         }

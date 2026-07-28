@@ -142,6 +142,18 @@ struct AppSessionTests {
     func signsOut() async throws {
         let storedSession = try makeSession(token: "delete-secret")
         let store = InMemoryGitLabCredentialStore(session: storedSession)
+        let draftStore =
+            InMemoryGitLabDiscussionDraftStore()
+        let draftKey = draftKey(
+            for: storedSession
+        )
+        try await draftStore.store(
+            GitLabDiscussionDraft(
+                body: "Unfinished comment",
+                revision: 1
+            ),
+            for: draftKey
+        )
         let cache = InMemoryGitLabResponseCache()
         let cacheKey = try makeCacheKey(for: storedSession)
         try await cache.store(
@@ -153,7 +165,9 @@ struct AppSessionTests {
             accountIndexStore: try makeIndexStore(
                 for: storedSession
             ),
-            responseCache: cache
+            responseCache: cache,
+            discussionDraftStore:
+                draftStore
         )
         await appSession.restore()
 
@@ -167,12 +181,30 @@ struct AppSessionTests {
         #expect(appSession.storedSession == nil)
         #expect(appSession.authenticationNotice == nil)
         #expect(await cache.response(for: cacheKey) == nil)
+        #expect(
+            await draftStore.draft(
+                for: draftKey
+            ) == nil
+        )
     }
 
     @Test("A rejected API session clears stored and in-memory user data")
     func handlesRejectedAPIAuthentication() async throws {
         let storedSession = try makeSession(token: "revoked-secret")
         let store = InMemoryGitLabCredentialStore(session: storedSession)
+        let draftStore =
+            InMemoryGitLabDiscussionDraftStore()
+        let draftKey = draftKey(
+            for: storedSession
+        )
+        let draft = GitLabDiscussionDraft(
+            body: "Recover after signing in again",
+            revision: 1
+        )
+        try await draftStore.store(
+            draft,
+            for: draftKey
+        )
         let cache = InMemoryGitLabResponseCache()
         let cacheKey = try makeCacheKey(for: storedSession)
         try await cache.store(
@@ -184,7 +216,9 @@ struct AppSessionTests {
             accountIndexStore: try makeIndexStore(
                 for: storedSession
             ),
-            responseCache: cache
+            responseCache: cache,
+            discussionDraftStore:
+                draftStore
         )
         await appSession.restore()
 
@@ -203,6 +237,11 @@ struct AppSessionTests {
         #expect(appSession.storedSession == nil)
         #expect(appSession.authenticationNotice == .expiredOrRevoked)
         #expect(await cache.response(for: cacheKey) == nil)
+        #expect(
+            await draftStore.draft(
+                for: draftKey
+            ) == draft
+        )
     }
 
     @Test("A recoverable API failure keeps the current session")
@@ -390,6 +429,23 @@ private extension AppSessionTests {
                 URL(
                     string:
                         "\(session.host.apiBaseURL.absoluteString)/projects"
+                )
+            )
+        )
+    }
+
+    nonisolated func draftKey(
+        for session: GitLabStoredSession
+    ) -> GitLabDiscussionDraftKey {
+        GitLabDiscussionDraftKey(
+            accountID:
+                GitLabAccountID(
+                    session: session
+                ),
+            resource: .issue(
+                GitLabIssueRoute(
+                    projectID: 42,
+                    issueIID: 7
                 )
             )
         )
