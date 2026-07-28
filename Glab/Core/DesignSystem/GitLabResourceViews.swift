@@ -136,8 +136,8 @@ struct GitLabOpenInGitLabLink: View {
                     Image("GitLabLogo")
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 24, height: 24)
-                        .scaleEffect(2)
+                        .frame(width: 26, height: 26)
+                        .scaleEffect(2.5)
                         .clipped()
                         .accessibilityHidden(true)
                 }
