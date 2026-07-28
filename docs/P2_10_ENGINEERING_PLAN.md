@@ -19,8 +19,9 @@ Merge-request details use three compact review affordances:
 2. One Activity strip summarizes system-only discussion events. The strip and
    its individual events can be expanded without turning every event into a
    large card.
-3. A compact top-trailing comment control opens the existing Markdown
-   composer. Read-only accounts can inspect why commenting is unavailable.
+3. Compact top-trailing comment controls on merge-request and issue details
+   open the existing Markdown composer. Read-only accounts can inspect why
+   commenting is unavailable.
 
 These controls must reduce occupied space without hiding user comments or
 making loading of one optional summary block the merge-request screen.
@@ -76,9 +77,12 @@ making loading of one optional summary block the merge-request screen.
   unfiltered discussion so all-activity pages can still paginate.
 - The section currently owns composer presentation, including new-comment
   and reply targets, reconciliation, drafts, and read-only messaging. P2-10
-  will move presentation ownership to the MR detail boundary and reuse the
-  same composer and model reconciliation path. Issue behavior is not being
-  redesigned.
+  moves presentation ownership to each resource-detail boundary and reuses
+  the same composer and model reconciliation path.
+- Merge-request detail already uses the compact top-trailing action after the
+  initial P2-10 implementation. Issue detail still shows the older large
+  inline control, so the follow-up must make their presentation consistent
+  without introducing a second posting path.
 
 ## Official GitLab contracts
 
@@ -208,12 +212,13 @@ so grouping cannot prevent next-page loading.
 
 ### Comment presentation
 
-The MR detail boundary owns `GitLabDiscussionComposerTarget?` and presents the
-existing `GitLabDiscussionComposerView`.
+The MR and issue detail boundaries each own
+`GitLabDiscussionComposerTarget?` and present the existing
+`GitLabDiscussionComposerView`.
 
-- A native top-trailing toolbar button with a compose symbol is the new
-  new-comment control. iOS 26 supplies the floating toolbar Liquid Glass
-  treatment.
+- A native top-trailing toolbar button with a compose symbol is the
+  new-comment control on both details. iOS 26 supplies the floating toolbar
+  Liquid Glass treatment.
 - A write-enabled tap selects `.newDiscussion`.
 - A read-only tap presents a concise capability explanation; it never opens a
   send-capable composer.
@@ -223,8 +228,9 @@ existing `GitLabDiscussionComposerView`.
 - Draft storage, explicit sending, ambiguous-failure handling, cache
   invalidation, and mutation endpoints remain exactly those from P2-04.
 
-The issue detail keeps its existing inline control in P2-10. Shared
-discussion changes must preserve that behavior.
+The shared discussion section no longer renders a resource-level add-comment
+control. It still owns discussion content and invokes the injected reply
+closure, while each detail screen owns new-comment presentation.
 
 ## Liquid Glass and layout
 
@@ -239,6 +245,33 @@ discussion changes must preserve that behavior.
   rely on color alone in accessibility labels.
 - Layout must fit narrow iPhone widths and accessibility Dynamic Type without
   covering the Home/Todos tab bar or discussion content.
+
+## Follow-up plan — consistent issue comment control
+
+Screenshot review found that issue detail retained the older large inline
+comment control after merge-request detail adopted the compact toolbar action.
+This follow-up is presentation-only.
+
+Implementation:
+
+1. Move issue composer-target state and sheet presentation from issue detail
+   content to the issue detail boundary, matching merge-request ownership.
+2. Add the same native top-trailing compose action after issue detail loads.
+3. Reuse `GitLabDiscussionComposerLaunchPolicy`: writable accounts open the
+   existing composer and read-only accounts receive the same concise
+   capability explanation without creating a composer target.
+4. Pass one composer-launch closure into discussion content for replies and
+   remove the issue-only inline mutation surface.
+5. Preserve draft storage, server-ID reconciliation, authentication handling,
+   comment endpoints, mutation certainty, and cache invalidation unchanged.
+
+Verification:
+
+- Existing launch-policy and composer tests remain green.
+- Simulator inspection proves issue and merge-request details expose the same
+  top-trailing action, no inline add-comment button remains, replies still
+  target the correct discussion, and read-only taps issue no mutation.
+- Include both resource-detail composer paths in the P2-10 deep-review gate.
 
 ## Follow-up plan — compact horizontal reaction picker
 
@@ -315,7 +348,8 @@ No optional summary error becomes a full-screen MR failure.
    - Pagination asks with the final unfiltered discussion.
 5. Composer ownership tests:
    - Shared reconciliation for returned new discussions and replies.
-   - Read-only control cannot create a composer target.
+   - Read-only issue and merge-request controls cannot create a composer
+     target.
    - Reply identity remains exact.
 6. Implement the smallest vertical slices in the same order and run focused
    tests after each.
@@ -357,7 +391,10 @@ Use only the configured iPhone 17 Pro Simulator:
 - Diff capsule tap, file list, file diff, and back navigation.
 - Write-enabled deterministic comment and reply composer presentation without
   a live POST.
-- Read-only live self-managed account: comment explanation and zero mutation.
+- Issue and merge-request toolbar action consistency with no inline
+  add-comment control.
+- Read-only live self-managed account: comment explanation and zero mutation
+  on both resource details.
 - VoiceOver labels/actions for the three refined controls.
 - Rotation and bottom-control/tab-bar nonoverlap.
 
