@@ -75,6 +75,22 @@ nonisolated struct GitLabMergeRequestReferences:
     let full: String
 }
 
+nonisolated struct GitLabMergeRequestDiffRefs:
+    Decodable,
+    Equatable,
+    Sendable
+{
+    let baseSHA: String
+    let startSHA: String
+    let headSHA: String
+
+    private enum CodingKeys: String, CodingKey {
+        case baseSHA = "base_sha"
+        case startSHA = "start_sha"
+        case headSHA = "head_sha"
+    }
+}
+
 nonisolated struct GitLabMergeRequest:
     Decodable,
     Equatable,
@@ -102,6 +118,9 @@ nonisolated struct GitLabMergeRequest:
     let mergedAt: Date?
     let webURL: URL?
     let references: GitLabMergeRequestReferences
+    let sha: String?
+    let diffRefs: GitLabMergeRequestDiffRefs?
+    let changesCount: String?
 
     var route: GitLabMergeRequestRoute {
         GitLabMergeRequestRoute(
@@ -139,11 +158,27 @@ nonisolated struct GitLabMergeRequest:
         GitLabWebURL.validated(webURL)
     }
 
+    var diffHeadSHA: String? {
+        Self.nonemptyTrimmed(diffRefs?.headSHA)
+            ?? Self.nonemptyTrimmed(sha)
+    }
+
     private var normalizedState: String {
         state.trimmingCharacters(
             in: .whitespacesAndNewlines
         )
         .lowercased()
+    }
+
+    private static func nonemptyTrimmed(
+        _ value: String?
+    ) -> String? {
+        let normalized = value?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        return normalized?.isEmpty == false
+            ? normalized
+            : nil
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -168,6 +203,9 @@ nonisolated struct GitLabMergeRequest:
         case mergedAt = "merged_at"
         case webURL = "web_url"
         case references
+        case sha
+        case diffRefs = "diff_refs"
+        case changesCount = "changes_count"
     }
 }
 

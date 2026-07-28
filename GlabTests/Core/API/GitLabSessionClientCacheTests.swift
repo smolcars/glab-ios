@@ -577,6 +577,50 @@ struct GitLabSessionClientCacheTests {
         )
     }
 
+    @Test("Different local variants do not share a fresh response")
+    func separatesCacheVariants() async throws {
+        let now = Date(
+            timeIntervalSince1970: 10_000
+        )
+        let cache =
+            InMemoryGitLabResponseCache(
+                currentDate: { now }
+            )
+        let fixture = try makeFixture(
+            cache: cache,
+            currentDate: { now }
+        )
+        let first =
+            GitLabAPIRequest<TestResponse>.get(
+                requires: .read,
+                path: ["projects"],
+                cacheVariant: "head-a"
+            )
+        let second =
+            GitLabAPIRequest<TestResponse>.get(
+                requires: .read,
+                path: ["projects"],
+                cacheVariant: "head-b"
+            )
+
+        try await fixture.client.loadResponse(
+            first,
+            cachePolicy: cachePolicy,
+            refreshBehavior: .ifStale
+        ) { _ in }
+        try await fixture.client.loadResponse(
+            second,
+            cachePolicy: cachePolicy,
+            refreshBehavior: .ifStale
+        ) { _ in }
+
+        #expect(
+            await fixture.transport
+                .requestCount == 2
+        )
+        #expect(await cache.responseCount() == 2)
+    }
+
     @Test(
         "Cancelling one coalesced reader leaves the shared request available"
     )

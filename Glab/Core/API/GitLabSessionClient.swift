@@ -543,7 +543,8 @@ where
             account: GitLabCacheAccount(
                 session: session
             ),
-            requestURL: requestURL
+            requestURL: requestURL,
+            variant: endpoint.cacheVariant
         )
     }
 

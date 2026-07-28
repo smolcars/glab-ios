@@ -158,6 +158,49 @@ struct GitLabRequestConstructionTests {
         #expect(write.requiredAccess == .write)
     }
 
+    @Test("Keeps a cache variant out of the HTTP request")
+    func keepsCacheVariantLocal() throws {
+        let endpoint =
+            GitLabAPIRequest<TestResponse>.get(
+                requires: .read,
+                path: [
+                    "projects",
+                    "42",
+                    "merge_requests",
+                    "7",
+                    "diffs",
+                ],
+                cacheVariant:
+                    "private-head-sha"
+            )
+        let request = try GitLabRequestBuilder(
+            host: GitLabHost(
+                "gitlab.example.com"
+            ),
+            authorization:
+                .personalAccessToken(
+                    "pat-secret"
+                )
+        ).build(endpoint)
+
+        #expect(
+            endpoint.cacheVariant
+                == "private-head-sha"
+        )
+        #expect(
+            request.url?.absoluteString
+                == "https://gitlab.example.com/api/v4/"
+                    + "projects/42/merge_requests/7/diffs"
+        )
+        #expect(
+            request.allHTTPHeaderFields?
+                .values
+                .contains("private-head-sha")
+                == false
+        )
+        #expect(request.httpBody == nil)
+    }
+
     @Test("Follows an exact trusted GitLab pagination link")
     func buildsPaginationRequest() throws {
         let nextPageURL = try #require(

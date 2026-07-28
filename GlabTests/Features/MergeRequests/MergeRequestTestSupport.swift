@@ -25,7 +25,10 @@ nonisolated func makeTestMergeRequest(
         string:
             "https://gitlab.example.com/group/project/-/merge_requests/7"
     ),
-    reference: String = "group/project!7"
+    reference: String = "group/project!7",
+    sha: String? = "head-sha",
+    diffRefs: GitLabMergeRequestDiffRefs? = nil,
+    changesCount: String? = nil
 ) -> GitLabMergeRequest {
     GitLabMergeRequest(
         id: id,
@@ -52,7 +55,10 @@ nonisolated func makeTestMergeRequest(
             short: "!\(iid)",
             relative: reference,
             full: reference
-        )
+        ),
+        sha: sha,
+        diffRefs: diffRefs,
+        changesCount: changesCount
     )
 }
 

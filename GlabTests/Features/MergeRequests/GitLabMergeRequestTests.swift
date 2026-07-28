@@ -7,7 +7,17 @@ struct GitLabMergeRequestTests {
     @Test("Decodes merge request list and detail fields")
     func decodesMergeRequest() throws {
         let mergeRequest = try decodeMergeRequest(
-            draftFields: #""draft": true,"#
+            draftFields: #""draft": true,"#,
+            revisionFields:
+                """
+                "sha": "fallback-head",
+                "diff_refs": {
+                  "base_sha": "base-sha",
+                  "start_sha": "start-sha",
+                  "head_sha": "head-sha"
+                },
+                "changes_count": "1000+",
+                """
         )
 
         #expect(
@@ -25,6 +35,16 @@ struct GitLabMergeRequestTests {
         #expect(mergeRequest.closedAt == nil)
         #expect(mergeRequest.mergedAt == nil)
         #expect(mergeRequest.safeWebURL?.scheme == "https")
+        #expect(
+            mergeRequest.diffRefs
+                == GitLabMergeRequestDiffRefs(
+                    baseSHA: "base-sha",
+                    startSHA: "start-sha",
+                    headSHA: "head-sha"
+                )
+        )
+        #expect(mergeRequest.diffHeadSHA == "head-sha")
+        #expect(mergeRequest.changesCount == "1000+")
     }
 
     @Test("Uses legacy work-in-progress only when draft is absent")
@@ -41,6 +61,54 @@ struct GitLabMergeRequestTests {
         #expect(!current.isDraft)
         #expect(legacy.isDraft)
         #expect(!missing.isDraft)
+    }
+
+    @Test("Normalizes and falls back across diff head fields")
+    func normalizesDiffHead() throws {
+        let preferred = try decodeMergeRequest(
+            draftFields: "",
+            revisionFields:
+                """
+                "sha": " fallback-head ",
+                "diff_refs": {
+                  "base_sha": "base",
+                  "start_sha": "start",
+                  "head_sha": " preferred-head "
+                },
+                """
+        )
+        let fallback = try decodeMergeRequest(
+            draftFields: "",
+            revisionFields:
+                """
+                "sha": " fallback-head ",
+                "diff_refs": {
+                  "base_sha": "base",
+                  "start_sha": "start",
+                  "head_sha": "   "
+                },
+                """
+        )
+        let preparing = try decodeMergeRequest(
+            draftFields: "",
+            revisionFields:
+                """
+                "sha": " ",
+                "diff_refs": null,
+                "changes_count": null,
+                """
+        )
+
+        #expect(
+            preferred.diffHeadSHA
+                == "preferred-head"
+        )
+        #expect(
+            fallback.diffHeadSHA
+                == "fallback-head"
+        )
+        #expect(preparing.diffHeadSHA == nil)
+        #expect(preparing.changesCount == nil)
     }
 
     @Test("Uses project ID and IID for route identity")
@@ -110,7 +178,8 @@ struct GitLabMergeRequestTests {
 
 private extension GitLabMergeRequestTests {
     func decodeMergeRequest(
-        draftFields: String
+        draftFields: String,
+        revisionFields: String = ""
     ) throws -> GitLabMergeRequest {
         let data = Data(
             """
@@ -122,6 +191,7 @@ private extension GitLabMergeRequestTests {
               "description": null,
               "state": "opened",
               \(draftFields)
+              \(revisionFields)
               "labels": [],
               "author": {
                 "id": 1,

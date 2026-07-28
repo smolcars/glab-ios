@@ -55,12 +55,18 @@ nonisolated struct GitLabResponseCacheKey:
 
     init(
         account: GitLabCacheAccount,
-        requestURL: URL
+        requestURL: URL,
+        variant: String? = nil
     ) {
         self.account = account
-        requestIdentifier = Self.normalizedIdentifier(
+        let normalizedURL = Self.normalizedIdentifier(
             for: requestURL
         )
+        requestIdentifier = if let variant {
+            "\(normalizedURL)\ncache-variant:\(variant)"
+        } else {
+            normalizedURL
+        }
     }
 
     var description: String {

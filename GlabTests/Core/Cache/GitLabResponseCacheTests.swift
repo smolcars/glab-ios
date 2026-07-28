@@ -36,6 +36,42 @@ struct GitLabResponseCacheTests {
         #expect(!first.description.contains("issues"))
     }
 
+    @Test("Separates local variants without exposing them")
+    func separatesVariants() throws {
+        let account = try account(
+            host:
+                "https://gitlab.example.com",
+            userID: 42
+        )
+        let requestURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.example.com/api/v4/"
+                    + "projects/42/merge_requests/7/diffs"
+            )
+        )
+        let first = GitLabResponseCacheKey(
+            account: account,
+            requestURL: requestURL,
+            variant: "head-a"
+        )
+        let same = GitLabResponseCacheKey(
+            account: account,
+            requestURL: requestURL,
+            variant: "head-a"
+        )
+        let second = GitLabResponseCacheKey(
+            account: account,
+            requestURL: requestURL,
+            variant: "head-b"
+        )
+
+        #expect(first == same)
+        #expect(first != second)
+        #expect(!first.description.contains("head-a"))
+        #expect(!second.description.contains("head-b"))
+    }
+
     @Test(
         "Classifies fresh, stale, and expired entries",
         arguments: [

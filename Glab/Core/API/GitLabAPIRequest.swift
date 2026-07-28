@@ -20,18 +20,21 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
     let pathComponents: [String]
     let queryItems: [URLQueryItem]
     let body: Data?
+    let cacheVariant: String?
 
     static func get(
         requires access: GitLabAPIRequestAccess,
         path: [String],
-        query: [URLQueryItem] = []
+        query: [URLQueryItem] = [],
+        cacheVariant: String? = nil
     ) -> Self {
         Self(
             method: .get,
             requiredAccess: access,
             pathComponents: path,
             queryItems: query,
-            body: nil
+            body: nil,
+            cacheVariant: cacheVariant
         )
     }
 
@@ -45,7 +48,8 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
             requiredAccess: access,
             pathComponents: path,
             queryItems: query,
-            body: nil
+            body: nil,
+            cacheVariant: nil
         )
     }
 
@@ -64,7 +68,8 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
             requiredAccess: access,
             pathComponents: path,
             queryItems: query,
-            body: try encoder.encode(body)
+            body: try encoder.encode(body),
+            cacheVariant: nil
         )
     }
 
@@ -78,7 +83,8 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
             requiredAccess: access,
             pathComponents: path,
             queryItems: query,
-            body: nil
+            body: nil,
+            cacheVariant: nil
         )
     }
 }
