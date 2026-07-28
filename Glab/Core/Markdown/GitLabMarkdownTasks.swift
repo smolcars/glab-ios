@@ -410,6 +410,7 @@ nonisolated private enum
     private struct ListMarker {
         let contentStart: Int
         let contentIndent: Int
+        let canContainTask: Bool
     }
 
     static func tasks(
@@ -523,6 +524,7 @@ nonisolated private enum
                 )
 
                 if
+                    marker.canContainTask,
                     let state =
                         taskState(
                             in: bytes,
@@ -832,10 +834,12 @@ nonisolated private enum
             return nil
         }
 
-        var contentIndent =
+        let markerEndIndent =
             prefix.indentation
                 + cursor
                 - markerStart
+        var contentIndent =
+            markerEndIndent
         while
             cursor < end,
             GitLabMarkdownTaskASCII
@@ -850,10 +854,20 @@ nonisolated private enum
                 )
             cursor += 1
         }
+        let canContainTask =
+            contentIndent
+                - markerEndIndent
+                <= 4
+        if !canContainTask {
+            contentIndent =
+                markerEndIndent + 1
+        }
 
         return ListMarker(
             contentStart: cursor,
-            contentIndent: contentIndent
+            contentIndent: contentIndent,
+            canContainTask:
+                canContainTask
         )
     }
 

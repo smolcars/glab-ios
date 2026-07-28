@@ -116,6 +116,12 @@ enum GitLabMarkdownFixtures {
       [ ] Rendered multiline task
     """
 
+    static let taskSourceIndentedCodeAmbiguity = """
+    -     [ ] Scanner-only code
+    -
+      [ ] Rendered multiline task
+    """
+
     static let taskPerformanceHundredKB =
         repeatedTaskSource(
             minimumUTF8Count: 120_000

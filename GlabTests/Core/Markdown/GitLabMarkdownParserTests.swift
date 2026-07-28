@@ -238,6 +238,54 @@ struct GitLabMarkdownParserTests {
         #expect(!document.hasMappedMutableTask)
     }
 
+    @Test("Indented code cannot shift a visible task source identity")
+    func indentedCodeTaskIdentityAmbiguity() async throws {
+        let document =
+            try await GitLabMarkdownParser.parse(
+                makeRequest(
+                    source:
+                        GitLabMarkdownFixtures
+                        .taskSourceIndentedCodeAmbiguity
+                )
+            )
+        let renderedTasks =
+            tasks(in: document.blocks)
+
+        #expect(
+            renderedTasks.map(\.state)
+                == [.incomplete]
+        )
+        #expect(
+            renderedTasks
+                .allSatisfy {
+                    $0.sourceID == nil
+                }
+        )
+        #expect(!document.hasMappedMutableTask)
+    }
+
+    @Test("Parent task control text excludes nested child tasks")
+    func nestedTaskControlText() async throws {
+        let document =
+            try await GitLabMarkdownParser.parse(
+                makeRequest(
+                    source: """
+                    - [ ] Parent task
+                      - [x] Child task
+                    """
+                )
+            )
+
+        #expect(
+            taskControlTexts(
+                in: document.blocks
+            ) == [
+                "Parent task",
+                "Child task",
+            ]
+        )
+    }
+
     @Test("Preserves quote, code, table, image, and rule structure")
     func structuredBlocks() async throws {
         let request = try makeRequest(
@@ -473,6 +521,48 @@ struct GitLabMarkdownParserTests {
                 result.append(
                     contentsOf:
                         tasks(
+                            in: quote.blocks
+                        )
+                )
+            case .heading,
+                 .paragraph,
+                 .code,
+                 .table,
+                 .image,
+                 .thematicBreak,
+                 .unsupported:
+                break
+            }
+        }
+
+        return result
+    }
+
+    private func taskControlTexts(
+        in blocks: [GitLabMarkdownBlock]
+    ) -> [String] {
+        var result: [String] = []
+
+        for block in blocks {
+            switch block {
+            case let .list(list):
+                for item in list.items {
+                    if item.taskState != nil {
+                        result.append(
+                            item.taskControlText
+                        )
+                    }
+                    result.append(
+                        contentsOf:
+                            taskControlTexts(
+                                in: item.blocks
+                            )
+                    )
+                }
+            case let .quote(quote):
+                result.append(
+                    contentsOf:
+                        taskControlTexts(
                             in: quote.blocks
                         )
                 )

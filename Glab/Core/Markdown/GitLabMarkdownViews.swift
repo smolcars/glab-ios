@@ -453,7 +453,8 @@ private struct GitLabMarkdownListView: View {
         {
             GitLabMarkdownTaskButton(
                 task: task,
-                itemText: item.plainText,
+                itemText:
+                    item.taskControlText,
                 interaction:
                     taskInteraction
             )

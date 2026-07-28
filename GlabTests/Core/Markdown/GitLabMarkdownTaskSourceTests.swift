@@ -168,6 +168,53 @@ struct GitLabMarkdownTaskSourceTests {
         }
     }
 
+    @Test("Indexes tasks only after one to four marker-spacing columns")
+    func listMarkerSpacing() async throws {
+        let source = """
+        - [ ] One
+        -  [ ] Two
+        -   [ ] Three
+        -    [ ] Four
+        -     [ ] Indented code
+        -      [ ] More indented code
+        """
+        let tasks =
+            try await
+                GitLabMarkdownTaskSourceIndex
+                .tasks(in: source)
+
+        #expect(tasks.count == 4)
+        #expect(
+            tasks.map(
+                \.sourceID.markerUTF8Offset
+            ) == [
+                "[ ] One",
+                "[ ] Two",
+                "[ ] Three",
+                "[ ] Four",
+            ].compactMap {
+                utf8Offset(
+                    of: $0,
+                    in: source
+                )
+            }
+        )
+    }
+
+    @Test("Indented task-like code cannot balance a multiline rendered task")
+    func indentedCodeFailsClosed() async throws {
+        let tasks =
+            try await
+                GitLabMarkdownTaskSourceIndex
+                .tasks(
+                    in:
+                        GitLabMarkdownFixtures
+                        .taskSourceIndentedCodeAmbiguity
+                )
+
+        #expect(tasks.isEmpty)
+    }
+
     @Test("Toggles only the selected marker byte")
     func exactByteRewrite() async throws {
         let source =

@@ -126,6 +126,14 @@ nonisolated struct GitLabMarkdownListItem:
         return "\(taskState.accessibilityTitle), \(plainText)"
     }
 
+    var taskControlText: String {
+        blocks.lazy
+            .compactMap(\.paragraph)
+            .first?
+            .plainText
+            ?? ""
+    }
+
     var indexedTask:
         GitLabMarkdownIndexedTask?
     {
