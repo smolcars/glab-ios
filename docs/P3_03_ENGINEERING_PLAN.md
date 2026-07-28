@@ -625,6 +625,58 @@ state mismatches already remain static.
 7. Perform and record another full P3-03 review before marking the feature
    complete.
 
+## Deep review pass 2 — material findings and repair plan
+
+Date: 2026-07-28
+
+The raw-HTML repair and its regression/performance suites passed, but the
+continued review found two additional issues.
+
+### Finding 2A — excess list-marker spacing can shift a task identity
+
+Foundation treats five or more spaces between a list marker and its content
+as an indented code block:
+
+```markdown
+-     [ ] scanner-only code
+-
+  [ ] rendered multiline task
+```
+
+The scanner currently consumes all marker whitespace and indexes the first
+`[ ]`, while the renderer exposes only the second `[ ]` as a task. Equal
+one-item state sequences can therefore attach the code-block offset to the
+visible task. This is another wrong-byte mutation risk.
+
+### Finding 2B — nested task accessibility labels duplicate child content
+
+The checkbox label currently receives `GitLabMarkdownListItem.plainText`.
+That value intentionally includes nested list blocks, so a parent checkbox
+announces every child task before VoiceOver reaches those child controls
+again. The result is duplicated content and incorrect nested-list reading
+order.
+
+### Committed repair plan
+
+1. Add source-index and parser regressions for four valid marker-spacing
+   widths, five-or-more-space code content, and the counterbalanced
+   code-plus-multiline case above. Prove no visible task receives the code
+   marker's identity.
+2. Track the whitespace width after a list marker. Permit a same-line task
+   candidate only when the separation is within CommonMark's one-to-four
+   column content range. Keep the surrounding list context conservative so
+   unsupported spacing can only remove interactivity, never create it.
+3. Add a model-level regression proving a parent task's control text contains
+   only its own paragraph while child tasks retain their own text.
+4. Derive task-control accessibility text from the task item's direct
+   paragraph rather than recursive `plainText`. Keep visible Markdown,
+   immutable document state, and nested rendering unchanged.
+5. Rerun all source, rewrite, parser, renderer, task-toggle, editor,
+   accessibility, performance, complete-suite, Release, Analyze, privacy, and
+   Simulator gates from the first repair plan.
+6. Repeat the full deep review and record the final result before live
+   demo-project mutation verification.
+
 ## Deep-review checklist
 
 Review every P3-03 change for:
