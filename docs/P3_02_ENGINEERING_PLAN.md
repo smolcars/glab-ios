@@ -6,8 +6,8 @@
 - Official API research: complete
 - Planning: complete
 - Production implementation: complete
-- Verification: in progress
-- Deep review: in progress
+- Verification: complete
+- Deep review: complete
 
 This is the required implementation plan for P3-02. It must be committed and
 pushed before any P3-02 test or production code is changed.
@@ -731,6 +731,96 @@ presentation defect at
    inspection. Repeat the regular dark issue/MR entry checks, focused editor
    tests, complete suite, Release build, analysis, and safety scans before
    closing P3-02.
+
+## Verification evidence
+
+Date: 2026-07-28
+
+### Automated
+
+- The initial focused P3-02 matrix passed 191 tests in 20 suites, covering
+  endpoints, validation, protected drafts, the editor and live service,
+  issue/MR detail reconciliation, Home, Todos, search, cache, accounts,
+  mutation certainty, and Markdown parsing/rendering.
+- After the accessibility repair, the final focused editing gate passed 64
+  tests in 4 suites.
+- The final normally signed, serialized complete suite passed 656 tests in
+  100 suites in 25.882 seconds on the iOS 26.5 iPhone 17 Pro Simulator.
+- The standalone Markdown performance gate passed:
+  - small-document parse p95: 0.686 ms;
+  - medium-document parse p95: 24.421 ms;
+  - large-document parse p95: 196.603 ms;
+  - warm-cache p95: 0.037 ms.
+- The complete suite's existing diff performance gate also passed:
+  - 1,000-line p95: 1.933 ms;
+  - 10,000-line p95: 18.504 ms;
+  - 50,000-line p95: 93.884 ms;
+  - warm-cache p95: 0.124 ms.
+- The final Release build for the iOS 26.5 iPhone 17 Pro Simulator succeeded.
+- Xcode Analyze for the Debug iOS 26.5 iPhone 17 Pro destination succeeded.
+- Every build and test reused
+  `/Volumes/hulk/dev/projects/glab/.deriveddata/Glab`.
+
+### Simulator
+
+- With the configured self-managed read-only account, both issue and
+  merge-request details exposed Edit in the shared trailing Liquid Glass
+  toolbar group and opened the shared editor with the exact loaded title and
+  raw description.
+- The regular dark issue flow covered Edit, Preview, protected local draft
+  preservation, Cancel, and return to detail. The regular dark merge-request
+  flow covered entry, all stable editor accessibility identifiers, the
+  read-only state, and Cancel.
+- At `accessibility-extra-extra-extra-large` in light appearance, the repaired
+  editor retained a useful content viewport. The adaptive Edit/Preview menu
+  was opened by its stable identifier, Preview was selected and rendered, and
+  Cancel returned to the detail. Title, description, mode, notice, Save, and
+  Cancel remained discoverable in a logical accessibility order.
+- Reduce Motion and Reduce Transparency were enabled together and the regular
+  dark issue detail/editor/preview flow remained usable and visually intact.
+  The settings were restored afterward.
+- Home, assigned issue and merge-request navigation, detail entry, editor
+  presentation, preview, and return navigation were tapped through without an
+  integration regression.
+- Screenshots from every final state were visually inspected. The repaired
+  accessibility layout no longer lets the read-only notice dominate the
+  editor.
+- Only the Simulator and the self-managed read-only account were used. No
+  Save action, live GitLab mutation, or physical-device installation/test was
+  performed.
+
+### Safety and privacy
+
+- `git diff --check` passed and the worktree was clean at the final safety
+  gate.
+- `.env` remained ignored and untracked.
+- Source and built Release `Info.plist` and privacy manifests passed
+  `plutil -lint`.
+- The Release app bundle contained no `.env` file, environment file, or
+  `DEVOPS_DEMO_TOKEN`/`GITLAB_API_TOKEN` identifier.
+- The P3-02 diff contained no credential material, new forced cast, forced
+  try, fatal/precondition trap, or ad-hoc logging call.
+- The Simulator was restored to dark appearance, medium content size,
+  disabled Increased Contrast, and disabled Reduce Motion/Transparency.
+
+## Deep review pass 3 — final result
+
+Date: 2026-07-28
+
+The final review covered the accessibility repair and repeated the complete
+P3-02 review across endpoint construction, validation, stable resource
+identity, protected draft lifecycle, durable unknown-delivery recovery,
+best-effort conflict detection, authoritative reconciliation, exact cache
+invalidation, loaded projections, account switching, cancellation and late
+results, Markdown preview performance, read-only safety, privacy, and the
+issue/MR presentation.
+
+No material bugs, bad code, duplicate edit or mutation paths, incorrect state
+ownership, concurrency/cancellation races, security or privacy defects, or
+remaining refactoring needs were found. The first two review findings were
+repaired only after their committed repair plans, their regression tests and
+verification gates passed, and the final Simulator matrix confirmed the
+presentation repair. P3-02 is complete.
 
 ## Non-goals
 

@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-28
 
-Status: in progress. P3-01 is complete.
+Status: in progress. P3-01 and P3-02 are complete.
 
 ## Product goal
 
@@ -158,7 +158,7 @@ Todo:
   P3-01 verification, and repeat the deep code review until no material finding
   remains.
 
-### [ ] P3-02 — Edit issue and merge-request titles and descriptions
+### [x] P3-02 — Edit issue and merge-request titles and descriptions
 
 Outcome:
 
@@ -170,50 +170,50 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect issue and merge-request detail ownership, REST models,
+- [x] Inspect issue and merge-request detail ownership, REST models,
   `updated_at`, response cache behavior, Markdown rendering, account-scoped
   discussion drafts, link handling, and current detail refresh semantics.
-- [ ] Before writing production code, create
+- [x] Before writing production code, create
   `docs/P3_02_ENGINEERING_PLAN.md`. Document issue and merge-request update
   endpoints, edit-session identity, draft schema, stale-content detection,
   authoritative reconciliation, cache invalidation, permissions, UI states,
   tests, accessibility, and non-goals.
-- [ ] Write failing endpoint and decoding tests for issue and merge-request
+- [x] Write failing endpoint and decoding tests for issue and merge-request
   title/description updates, empty descriptions, maximum accepted content
   boundaries, Unicode, Markdown, malformed responses, `403`, `404`, `409`,
   validation failures, cancellation, and ambiguous delivery.
-- [ ] Write failing model tests for draft restoration, account and resource
+- [x] Write failing model tests for draft restoration, account and resource
   isolation, edit cancellation, unchanged submissions, stale server content,
   late responses, failed saves, successful reconciliation, and switching
   accounts during an edit.
-- [ ] Add an account- and resource-scoped edit draft store. Never put
+- [x] Add an account- and resource-scoped edit draft store. Never put
   credentials, authorization headers, or unrelated response data in a draft.
-- [ ] Before saving, perform a documented best-effort freshness check and
+- [x] Before saving, perform a documented best-effort freshness check and
   compare the authoritative title, description, and update identity with the
   edit baseline. Present a conflict instead of silently overwriting a known
   newer value.
-- [ ] Build one native editor flow shared at the presentation level where that
+- [x] Build one native editor flow shared at the presentation level where that
   reduces duplication, while keeping issue and merge-request endpoint and
   reconciliation rules explicit.
-- [ ] Reuse the existing Markdown renderer for preview and preserve raw
+- [x] Reuse the existing Markdown renderer for preview and preserve raw
   Markdown exactly when the user has not changed it.
-- [ ] Reconcile the returned issue or merge request into its detail owner,
+- [x] Reconcile the returned issue or merge request into its detail owner,
   invalidate only affected cache entries, and discard the draft only after an
   authoritative success.
-- [ ] Verify issue and MR editing, preview, draft recovery, conflict handling,
+- [x] Verify issue and MR editing, preview, draft recovery, conflict handling,
   read-only access, permission denial, network failure, account switching,
   long Markdown, keyboard behavior, Dynamic Type, and VoiceOver in the iPhone
   17 Pro Simulator.
-- [ ] Run focused edit and cache tests, Markdown performance fixtures, the
+- [x] Run focused edit and cache tests, Markdown performance fixtures, the
   complete test suite, a Release Simulator build, Xcode static analysis, and
   credential/privacy scans.
-- [ ] Perform a deep code review of all code added or changed for P3-02. Look
+- [x] Perform a deep code review of all code added or changed for P3-02. Look
   for bugs, bad code, duplicated issue/MR editor logic, lost drafts, false or
   missed conflicts, stale cache state, ambiguous-write mistakes, main-actor
   parsing, account leakage, concurrency or cancellation races, and code that
   needs refactoring. Record every finding in
   `docs/P3_02_ENGINEERING_PLAN.md`.
-- [ ] If the P3-02 review finds anything material, write a repair plan before
+- [x] If the P3-02 review finds anything material, write a repair plan before
   editing code, add regression and performance tests where applicable,
   implement every fix, rerun the complete P3-02 verification, and repeat the
   deep code review until no material finding remains.
