@@ -30,4 +30,27 @@ nonisolated enum GitLabMergeRequestEndpoints {
             ]
         )
     }
+
+    static func diffVersions(
+        at route: GitLabMergeRequestRoute
+    ) -> GitLabAPIRequest<
+        [GitLabMergeRequestDiffVersion]
+    > {
+        .get(
+            requires: .read,
+            path: [
+                "projects",
+                String(route.projectID),
+                "merge_requests",
+                String(route.mergeRequestIID),
+                "versions",
+            ],
+            query: [
+                URLQueryItem(
+                    name: "per_page",
+                    value: "1"
+                ),
+            ]
+        )
+    }
 }

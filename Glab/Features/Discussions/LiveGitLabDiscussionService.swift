@@ -8,12 +8,23 @@ nonisolated enum GitLabDiscussionMutationError:
     CustomStringConvertible
 {
     case encoding
+    case invalidDiffResource
+    case latestDiffVersionUnavailable
+    case staleDiffVersion
     case request(GitLabSessionClientError)
 
     var description: String {
         switch self {
         case .encoding:
             "Glab could not prepare this comment."
+        case .invalidDiffResource:
+            "A line comment requires a merge request."
+        case .latestDiffVersionUnavailable:
+            "GitLab did not return a current diff version. "
+                + "Refresh the merge request and try again."
+        case .staleDiffVersion:
+            "This diff changed before the comment was sent. "
+                + "Refresh the changed files and review the line again."
         case let .request(error):
             error.description
         }
@@ -52,6 +63,13 @@ nonisolated protocol GitLabDiscussionMutating:
     func createDiscussion(
         for resource: GitLabDiscussionResource,
         body: GitLabDiscussionCommentBody
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+
+    func createDiffDiscussion(
+        for route: GitLabMergeRequestRoute,
+        body: GitLabDiscussionCommentBody,
+        position: GitLabDiffLinePosition
     ) async throws(GitLabDiscussionMutationError)
         -> GitLabDiscussion
 
@@ -195,6 +213,66 @@ nonisolated struct LiveGitLabDiscussionService:
         }
         await invalidateDiscussions(
             for: resource
+        )
+        return discussion
+    }
+
+    @concurrent
+    func createDiffDiscussion(
+        for route: GitLabMergeRequestRoute,
+        body: GitLabDiscussionCommentBody,
+        position: GitLabDiffLinePosition
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        let versions:
+            [GitLabMergeRequestDiffVersion]
+        do {
+            versions = try await client.send(
+                GitLabMergeRequestEndpoints
+                    .diffVersions(at: route)
+            )
+        } catch {
+            throw .request(error)
+        }
+
+        guard !Task.isCancelled else {
+            throw .request(.api(.cancelled))
+        }
+        guard
+            let latestVersion =
+                versions.first?.identity
+        else {
+            throw .latestDiffVersionUnavailable
+        }
+        guard latestVersion == position.version else {
+            throw .staleDiffVersion
+        }
+
+        let endpoint:
+            GitLabAPIRequest<GitLabDiscussion>
+        do {
+            endpoint =
+                try GitLabDiscussionEndpoints
+                    .createDiffDiscussion(
+                        for: route,
+                        body: body,
+                        position: position
+                    )
+        } catch {
+            throw .encoding
+        }
+
+        let discussion: GitLabDiscussion
+        do {
+            discussion = try await client.send(
+                endpoint
+            )
+        } catch {
+            throw .request(error)
+        }
+        await invalidateDiscussions(
+            for: .mergeRequest(route)
         )
         return discussion
     }

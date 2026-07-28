@@ -84,10 +84,50 @@ nonisolated struct GitLabMergeRequestDiffRefs:
     let startSHA: String
     let headSHA: String
 
+    var identity:
+        GitLabMergeRequestDiffVersionIdentity?
+    {
+        GitLabMergeRequestDiffVersionIdentity(
+            baseSHA: baseSHA,
+            startSHA: startSHA,
+            headSHA: headSHA
+        )
+    }
+
     private enum CodingKeys: String, CodingKey {
         case baseSHA = "base_sha"
         case startSHA = "start_sha"
         case headSHA = "head_sha"
+    }
+}
+
+nonisolated struct GitLabMergeRequestDiffVersion:
+    Decodable,
+    Equatable,
+    Sendable
+{
+    let id: Int
+    let baseCommitSHA: String
+    let startCommitSHA: String
+    let headCommitSHA: String
+    let state: String?
+
+    var identity:
+        GitLabMergeRequestDiffVersionIdentity?
+    {
+        GitLabMergeRequestDiffVersionIdentity(
+            baseSHA: baseCommitSHA,
+            startSHA: startCommitSHA,
+            headSHA: headCommitSHA
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case baseCommitSHA = "base_commit_sha"
+        case startCommitSHA = "start_commit_sha"
+        case headCommitSHA = "head_commit_sha"
+        case state
     }
 }
 

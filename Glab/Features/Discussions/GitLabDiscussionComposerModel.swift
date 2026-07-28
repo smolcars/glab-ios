@@ -8,20 +8,19 @@ nonisolated enum GitLabDiscussionComposerTarget:
     Sendable
 {
     case newDiscussion
+    case newDiffDiscussion(
+        position: GitLabDiffLinePosition
+    )
     case reply(discussionID: String)
 
-    var id: String {
-        switch self {
-        case .newDiscussion:
-            "new-discussion"
-        case let .reply(discussionID):
-            "reply:\(discussionID)"
-        }
+    var id: Self {
+        self
     }
 
     var discussionID: String? {
         switch self {
-        case .newDiscussion:
+        case .newDiscussion,
+             .newDiffDiscussion:
             nil
         case let .reply(discussionID):
             discussionID
@@ -88,7 +87,10 @@ extension GitLabDiscussionMutationError {
         GitLabMutationDeliveryCertainty
     {
         switch self {
-        case .encoding:
+        case .encoding,
+             .invalidDiffResource,
+             .latestDiffVersionUnavailable,
+             .staleDiffVersion:
             .rejected
         case let .request(error):
             error.mutationDeliveryCertainty
@@ -153,7 +155,7 @@ final class GitLabDiscussionComposerModel {
         draftKey = GitLabDiscussionDraftKey(
             accountID: accountID,
             resource: resource,
-            discussionID: target.discussionID
+            target: target
         )
         self.target = target
         self.apiAccess = apiAccess
@@ -266,28 +268,9 @@ final class GitLabDiscussionComposerModel {
         }
 
         do {
-            let result:
-                GitLabDiscussionComposerResult
-            switch target {
-            case .newDiscussion:
-                result = .discussion(
-                    try await mutator
-                        .createDiscussion(
-                            for: draftKey.resource,
-                            body: commentBody
-                        )
-                )
-            case let .reply(discussionID):
-                result = .reply(
-                    try await mutator.reply(
-                        to: discussionID,
-                        in: draftKey.resource,
-                        body: commentBody
-                    ),
-                    discussionID:
-                        discussionID
-                )
-            }
+            let result = try await post(
+                commentBody
+            )
 
             onSuccess(result)
             await draftStore.remove(
@@ -302,6 +285,48 @@ final class GitLabDiscussionComposerModel {
                 error,
                 certainty:
                     error.deliveryCertainty
+            )
+        }
+    }
+
+    private func post(
+        _ body: GitLabDiscussionCommentBody
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussionComposerResult
+    {
+        switch target {
+        case .newDiscussion:
+            .discussion(
+                try await mutator
+                    .createDiscussion(
+                        for: draftKey.resource,
+                        body: body
+                    )
+            )
+        case let .newDiffDiscussion(position):
+            if
+                case let .mergeRequest(route) =
+                    draftKey.resource
+            {
+                .discussion(
+                    try await mutator
+                        .createDiffDiscussion(
+                            for: route,
+                            body: body,
+                            position: position
+                        )
+                )
+            } else {
+                throw .invalidDiffResource
+            }
+        case let .reply(discussionID):
+            .reply(
+                try await mutator.reply(
+                    to: discussionID,
+                    in: draftKey.resource,
+                    body: body
+                ),
+                discussionID: discussionID
             )
         }
     }

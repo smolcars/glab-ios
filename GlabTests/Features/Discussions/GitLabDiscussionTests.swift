@@ -185,6 +185,9 @@ struct GitLabDiscussionTests {
                         "resolved": false,
                         "position": {
                           "position_type": "text",
+                          "base_sha": "base-secret",
+                          "start_sha": "start-secret",
+                          "head_sha": "head-secret",
                           "old_path": "Sources/Old.swift",
                           "new_path": "Sources/New.swift",
                           "old_line": 18,
@@ -208,6 +211,10 @@ struct GitLabDiscussionTests {
         #expect(
             note.position
                 == GitLabDiscussionPosition(
+                    baseSHA: "base-secret",
+                    startSHA: "start-secret",
+                    headSHA: "head-secret",
+                    positionType: "text",
                     oldPath: "Sources/Old.swift",
                     newPath: "Sources/New.swift",
                     oldLine: 18,
@@ -216,6 +223,14 @@ struct GitLabDiscussionTests {
         )
         #expect(note.position?.displayPath == "Sources/New.swift")
         #expect(note.position?.displayLine == 21)
+        #expect(
+            note.position?.versionIdentity
+                == GitLabMergeRequestDiffVersionIdentity(
+                    baseSHA: "base-secret",
+                    startSHA: "start-secret",
+                    headSHA: "head-secret"
+                )
+        )
     }
 
     @Test("Decodes empty collections and empty discussion notes")

@@ -12,6 +12,11 @@ struct LiveGitLabDiscussionMutationTests {
                     issueIID: 7
                 )
             )
+    private let mergeRequestRoute =
+        GitLabMergeRequestRoute(
+            projectID: 42,
+            mergeRequestIID: 9
+        )
 
     @Test("Creates a discussion and invalidates only its discussion cache")
     func createsDiscussion() async throws {
@@ -96,6 +101,195 @@ struct LiveGitLabDiscussionMutationTests {
         )
     }
 
+    @Test("Validates the latest version before a positional POST")
+    func createsDiffDiscussion() async throws {
+        let version = try diffVersionIdentity()
+        let created = makeTestDiscussion(
+            id: "diff-created"
+        )
+        let client =
+            RecordingDiscussionMutationClient(
+                discussionResult:
+                    .success(created),
+                versionResult:
+                    .success([
+                        diffVersion(
+                            identity: version
+                        ),
+                    ])
+            )
+        let service =
+            LiveGitLabDiscussionService(
+                client: client
+            )
+        let position = try #require(
+            GitLabDiffLinePosition(
+                version: version,
+                oldPath: "Sources/File.swift",
+                newPath: "Sources/File.swift",
+                oldLine: nil,
+                newLine: 21
+            )
+        )
+
+        let result = try await service
+            .createDiffDiscussion(
+                for: mergeRequestRoute,
+                body:
+                    GitLabDiscussionCommentBody(
+                        "Review this line"
+                    ),
+                position: position
+            )
+
+        #expect(result == created)
+        #expect(
+            await client.sentPaths
+                == [
+                    "projects/42/merge_requests/9/versions",
+                    "projects/42/merge_requests/9/discussions",
+                ]
+        )
+        #expect(
+            await client.invalidatedPaths
+                == [
+                    "projects/42/merge_requests/9/discussions",
+                ]
+        )
+    }
+
+    @Test(
+        "Rejects changed version identities before a positional POST",
+        arguments: [
+            (
+                baseSHA: "different-base",
+                startSHA: "start",
+                headSHA: "head"
+            ),
+            (
+                baseSHA: "base",
+                startSHA: "different-start",
+                headSHA: "head"
+            ),
+            (
+                baseSHA: "base",
+                startSHA: "start",
+                headSHA: "different-head"
+            ),
+        ]
+    )
+    func rejectsStaleDiffVersion(
+        baseSHA: String,
+        startSHA: String,
+        headSHA: String
+    ) async throws {
+        let positionVersion =
+            try diffVersionIdentity()
+        let latestVersion = try #require(
+            GitLabMergeRequestDiffVersionIdentity(
+                baseSHA: baseSHA,
+                startSHA: startSHA,
+                headSHA: headSHA
+            )
+        )
+        let client =
+            RecordingDiscussionMutationClient(
+                versionResult:
+                    .success([
+                        diffVersion(
+                            identity:
+                                latestVersion
+                        ),
+                    ])
+            )
+        let service =
+            LiveGitLabDiscussionService(
+                client: client
+            )
+        let position = try #require(
+            GitLabDiffLinePosition(
+                version: positionVersion,
+                oldPath: "Sources/File.swift",
+                newPath: "Sources/File.swift",
+                oldLine: 20,
+                newLine: 21
+            )
+        )
+
+        await #expect(
+            throws:
+                GitLabDiscussionMutationError
+                    .staleDiffVersion
+        ) {
+            try await service
+                .createDiffDiscussion(
+                    for: mergeRequestRoute,
+                    body:
+                        GitLabDiscussionCommentBody(
+                            "Do not post"
+                        ),
+                    position: position
+                )
+        }
+
+        #expect(
+            await client.sentPaths
+                == [
+                    "projects/42/merge_requests/9/versions",
+                ]
+        )
+        #expect(
+            await client.invalidatedPaths
+                .isEmpty
+        )
+    }
+
+    @Test("Rejects a missing latest diff version without posting")
+    func rejectsMissingDiffVersion() async throws {
+        let client =
+            RecordingDiscussionMutationClient(
+                versionResult: .success([])
+            )
+        let service =
+            LiveGitLabDiscussionService(
+                client: client
+            )
+        let position = try #require(
+            GitLabDiffLinePosition(
+                version:
+                    diffVersionIdentity(),
+                oldPath: "Sources/File.swift",
+                newPath: "Sources/File.swift",
+                oldLine: 20,
+                newLine: 21
+            )
+        )
+
+        await #expect(
+            throws:
+                GitLabDiscussionMutationError
+                    .latestDiffVersionUnavailable
+        ) {
+            try await service
+                .createDiffDiscussion(
+                    for: mergeRequestRoute,
+                    body:
+                        GitLabDiscussionCommentBody(
+                            "Do not post"
+                        ),
+                    position: position
+                )
+        }
+
+        #expect(
+            await client.sentPaths.count == 1
+        )
+        #expect(
+            await client.invalidatedPaths
+                .isEmpty
+        )
+    }
+
     @Test(
         "Does not invalidate after a failed or cancelled POST",
         arguments: [
@@ -143,6 +337,32 @@ struct LiveGitLabDiscussionMutationTests {
                 .isEmpty
         )
     }
+
+    private func diffVersionIdentity()
+        throws
+        -> GitLabMergeRequestDiffVersionIdentity
+    {
+        try #require(
+            GitLabMergeRequestDiffVersionIdentity(
+                baseSHA: "base",
+                startSHA: "start",
+                headSHA: "head"
+            )
+        )
+    }
+
+    private func diffVersion(
+        identity:
+            GitLabMergeRequestDiffVersionIdentity
+    ) -> GitLabMergeRequestDiffVersion {
+        GitLabMergeRequestDiffVersion(
+            id: 81,
+            baseCommitSHA: identity.baseSHA,
+            startCommitSHA: identity.startSHA,
+            headCommitSHA: identity.headSHA,
+            state: "collected"
+        )
+    }
 }
 
 private actor RecordingDiscussionMutationClient:
@@ -156,6 +376,11 @@ private actor RecordingDiscussionMutationClient:
     let noteResult:
         Result<
             GitLabDiscussionNote,
+            GitLabSessionClientError
+        >
+    let versionResult:
+        Result<
+            [GitLabMergeRequestDiffVersion],
             GitLabSessionClientError
         >
 
@@ -177,11 +402,19 @@ private actor RecordingDiscussionMutationClient:
                 GitLabSessionClientError
             > = .success(
                 makeTestDiscussionNote()
+            ),
+        versionResult:
+            Result<
+                [GitLabMergeRequestDiffVersion],
+                GitLabSessionClientError
+            > = .success(
+                []
             )
     ) {
         self.discussionResult =
             discussionResult
         self.noteResult = noteResult
+        self.versionResult = versionResult
     }
 
     func send<Response>(
@@ -204,6 +437,13 @@ private actor RecordingDiscussionMutationClient:
             == GitLabDiscussionNote.self
         {
             return try noteResult
+                .get() as! Response
+        }
+        if Response.self
+            == [GitLabMergeRequestDiffVersion]
+            .self
+        {
+            return try versionResult
                 .get() as! Response
         }
         throw .api(.invalidResponse)

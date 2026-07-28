@@ -276,6 +276,8 @@ struct GitLabDiscussionComposerView: View {
         switch model.target {
         case .newDiscussion:
             "New comment"
+        case .newDiffDiscussion:
+            "New line comment"
         case .reply:
             "Reply"
         }
@@ -283,7 +285,8 @@ struct GitLabDiscussionComposerView: View {
 
     private var actionTitle: String {
         switch model.target {
-        case .newDiscussion:
+        case .newDiscussion,
+             .newDiffDiscussion:
             "Post"
         case .reply:
             "Reply"

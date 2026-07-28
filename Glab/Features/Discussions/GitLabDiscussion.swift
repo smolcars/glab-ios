@@ -83,10 +83,34 @@ nonisolated struct GitLabDiscussionPosition:
     Equatable,
     Sendable
 {
+    let baseSHA: String?
+    let startSHA: String?
+    let headSHA: String?
+    let positionType: String?
     let oldPath: String?
     let newPath: String?
     let oldLine: Int?
     let newLine: Int?
+
+    init(
+        baseSHA: String? = nil,
+        startSHA: String? = nil,
+        headSHA: String? = nil,
+        positionType: String? = nil,
+        oldPath: String? = nil,
+        newPath: String? = nil,
+        oldLine: Int? = nil,
+        newLine: Int? = nil
+    ) {
+        self.baseSHA = baseSHA
+        self.startSHA = startSHA
+        self.headSHA = headSHA
+        self.positionType = positionType
+        self.oldPath = oldPath
+        self.newPath = newPath
+        self.oldLine = oldLine
+        self.newLine = newLine
+    }
 
     var displayPath: String? {
         newPath ?? oldPath
@@ -96,7 +120,47 @@ nonisolated struct GitLabDiscussionPosition:
         newLine ?? oldLine
     }
 
+    var versionIdentity:
+        GitLabMergeRequestDiffVersionIdentity?
+    {
+        guard
+            let baseSHA,
+            let startSHA,
+            let headSHA
+        else {
+            return nil
+        }
+        return GitLabMergeRequestDiffVersionIdentity(
+            baseSHA: baseSHA,
+            startSHA: startSHA,
+            headSHA: headSHA
+        )
+    }
+
+    var linePosition: GitLabDiffLinePosition? {
+        guard
+            positionType?
+                .lowercased() == "text",
+            let version = versionIdentity,
+            let oldPath,
+            let newPath
+        else {
+            return nil
+        }
+        return GitLabDiffLinePosition(
+            version: version,
+            oldPath: oldPath,
+            newPath: newPath,
+            oldLine: oldLine,
+            newLine: newLine
+        )
+    }
+
     private enum CodingKeys: String, CodingKey {
+        case baseSHA = "base_sha"
+        case startSHA = "start_sha"
+        case headSHA = "head_sha"
+        case positionType = "position_type"
         case oldPath = "old_path"
         case newPath = "new_path"
         case oldLine = "old_line"

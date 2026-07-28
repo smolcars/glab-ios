@@ -581,8 +581,7 @@ private struct ComposerTestContext {
         GitLabDiscussionDraftKey(
             accountID: accountID,
             resource: resource,
-            discussionID:
-                target.discussionID
+            target: target
         )
     }
 }
@@ -774,6 +773,20 @@ private actor RecordingComposerMutator:
         return try discussionResult.get()
     }
 
+    func createDiffDiscussion(
+        for route: GitLabMergeRequestRoute,
+        body: GitLabDiscussionCommentBody,
+        position: GitLabDiffLinePosition
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        postCount += 1
+        await events?.record(
+            "post:\(body.body)"
+        )
+        return try discussionResult.get()
+    }
+
     func reply(
         to discussionID: String,
         in resource: GitLabDiscussionResource,
@@ -830,6 +843,19 @@ private actor GatedComposerMutator:
         }
         return makeTestDiscussion(
             id: "gated"
+        )
+    }
+
+    func createDiffDiscussion(
+        for route: GitLabMergeRequestRoute,
+        body: GitLabDiscussionCommentBody,
+        position: GitLabDiffLinePosition
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        try await createDiscussion(
+            for: .mergeRequest(route),
+            body: body
         )
     }
 
@@ -896,6 +922,19 @@ private actor SequencedComposerMutator:
             )
         }
         return try results.removeFirst().get()
+    }
+
+    func createDiffDiscussion(
+        for route: GitLabMergeRequestRoute,
+        body: GitLabDiscussionCommentBody,
+        position: GitLabDiffLinePosition
+    ) throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussion
+    {
+        try createDiscussion(
+            for: .mergeRequest(route),
+            body: body
+        )
     }
 
     func reply(

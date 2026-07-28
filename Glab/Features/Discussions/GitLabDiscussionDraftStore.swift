@@ -1,16 +1,26 @@
 import Foundation
 
 nonisolated struct GitLabDiscussionDraftKey:
-    Codable,
     Equatable,
     Hashable,
     Sendable,
     CustomStringConvertible,
     CustomDebugStringConvertible
 {
+    private enum Target:
+        Equatable,
+        Hashable,
+        Sendable
+    {
+        case newDiscussion
+        case newDiffDiscussion(
+            GitLabDiffLinePosition
+        )
+        case reply(String)
+    }
+
     private enum ResourceKind:
         String,
-        Codable,
         Sendable
     {
         case issue
@@ -18,19 +28,31 @@ nonisolated struct GitLabDiscussionDraftKey:
     }
 
     let accountID: GitLabAccountID
-    let discussionID: String?
 
     private let resourceKind: ResourceKind
     private let projectID: Int
     private let resourceIID: Int
+    private let target: Target
 
     init(
         accountID: GitLabAccountID,
         resource: GitLabDiscussionResource,
-        discussionID: String? = nil
+        target:
+            GitLabDiscussionComposerTarget =
+                .newDiscussion
     ) {
         self.accountID = accountID
-        self.discussionID = discussionID
+        self.target =
+            switch target {
+            case .newDiscussion:
+                .newDiscussion
+            case let .newDiffDiscussion(
+                position
+            ):
+                .newDiffDiscussion(position)
+            case let .reply(discussionID):
+                .reply(discussionID)
+            }
 
         switch resource {
         case let .issue(route):
@@ -78,12 +100,23 @@ nonisolated struct GitLabDiscussionDraftKey:
             resourceKind.rawValue,
             "\(projectID)",
             "\(resourceIID)",
-            discussionID.map {
-                "reply:\($0)"
-            } ?? "comment",
+            targetStorageIdentifier,
         ]
         .map(Self.lengthPrefixed)
         .joined()
+    }
+
+    private var targetStorageIdentifier:
+        String
+    {
+        switch target {
+        case .newDiscussion:
+            "comment"
+        case let .newDiffDiscussion(position):
+            "diff:\(position.storageIdentifier)"
+        case let .reply(discussionID):
+            "reply:\(discussionID)"
+        }
     }
 
     private static func lengthPrefixed(

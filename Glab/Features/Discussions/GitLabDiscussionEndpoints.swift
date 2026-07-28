@@ -1,6 +1,40 @@
 import Foundation
 
 nonisolated enum GitLabDiscussionEndpoints {
+    private struct DiffDiscussionBody:
+        Encodable
+    {
+        let body: String
+        let position: DiffPositionBody
+    }
+
+    private struct DiffPositionBody:
+        Encodable
+    {
+        let baseSHA: String
+        let startSHA: String
+        let headSHA: String
+        let oldPath: String
+        let newPath: String
+        let oldLine: Int?
+        let newLine: Int?
+        let positionType = "text"
+
+        private enum CodingKeys:
+            String,
+            CodingKey
+        {
+            case baseSHA = "base_sha"
+            case startSHA = "start_sha"
+            case headSHA = "head_sha"
+            case oldPath = "old_path"
+            case newPath = "new_path"
+            case oldLine = "old_line"
+            case newLine = "new_line"
+            case positionType = "position_type"
+        }
+    }
+
     static func discussions(
         for resource: GitLabDiscussionResource
     ) -> GitLabAPIRequest<[GitLabDiscussion]> {
@@ -24,6 +58,36 @@ nonisolated enum GitLabDiscussionEndpoints {
             requires: .write,
             path: path(for: resource),
             body: body
+        )
+    }
+
+    static func createDiffDiscussion(
+        for route: GitLabMergeRequestRoute,
+        body: GitLabDiscussionCommentBody,
+        position: GitLabDiffLinePosition
+    ) throws -> GitLabAPIRequest<GitLabDiscussion> {
+        try .post(
+            requires: .write,
+            path:
+                path(
+                    for:
+                        .mergeRequest(route)
+                ),
+            body: DiffDiscussionBody(
+                body: body.body,
+                position: DiffPositionBody(
+                    baseSHA:
+                        position.version.baseSHA,
+                    startSHA:
+                        position.version.startSHA,
+                    headSHA:
+                        position.version.headSHA,
+                    oldPath: position.oldPath,
+                    newPath: position.newPath,
+                    oldLine: position.oldLine,
+                    newLine: position.newLine
+                )
+            )
         )
     }
 

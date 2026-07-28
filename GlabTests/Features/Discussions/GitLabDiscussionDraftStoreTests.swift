@@ -38,13 +38,17 @@ struct GitLabDiscussionDraftStoreTests {
             GitLabDiscussionDraftKey(
                 accountID: firstAccount,
                 resource: issue,
-                discussionID: "thread-a"
+                target: .reply(
+                    discussionID: "thread-a"
+                )
             )
         let otherReply =
             GitLabDiscussionDraftKey(
                 accountID: firstAccount,
                 resource: issue,
-                discussionID: "thread-b"
+                target: .reply(
+                    discussionID: "thread-b"
+                )
             )
 
         #expect(
@@ -185,7 +189,9 @@ struct GitLabDiscussionDraftStoreTests {
         let reply = GitLabDiscussionDraftKey(
             accountID: comment.accountID,
             resource: comment.resource,
-            discussionID: "thread-a"
+            target: .reply(
+                discussionID: "thread-a"
+            )
         )
         try await store.store(
             GitLabDiscussionDraft(
@@ -268,8 +274,10 @@ struct GitLabDiscussionDraftStoreTests {
             store,
             rootDirectory in
             let key = try draftKey(
-                discussionID:
-                    "private-thread-name"
+                target: .reply(
+                    discussionID:
+                        "private-thread-name"
+                )
             )
             let privateBody =
                 "Confidential release detail"
@@ -476,7 +484,9 @@ struct GitLabDiscussionDraftStoreTests {
     }
 
     private func draftKey(
-        discussionID: String? = nil
+        target:
+            GitLabDiscussionComposerTarget =
+                .newDiscussion
     ) throws -> GitLabDiscussionDraftKey {
         GitLabDiscussionDraftKey(
             accountID: try account(
@@ -490,7 +500,7 @@ struct GitLabDiscussionDraftStoreTests {
                     issueIID: 3
                 )
             ),
-            discussionID: discussionID
+            target: target
         )
     }
 
