@@ -692,6 +692,10 @@ struct GitLabMergeRequestDetailView: View {
                         approvalModel.state,
                     approvalError:
                         approvalError,
+                    hasReadinessRefreshFailure:
+                        model.refreshError != nil
+                        || approvalModel
+                            .refreshError != nil,
                     retryApproval: {
                         Task {
                             await approvalModel
@@ -784,6 +788,8 @@ private struct GitLabMergeRequestDetailContent: View {
         >
     let approvalError:
         GitLabSessionClientError?
+    let hasReadinessRefreshFailure:
+        Bool
     let retryApproval: () -> Void
     let discussionModel: GitLabDiscussionsModel
     let discussionResource:
@@ -813,7 +819,9 @@ private struct GitLabMergeRequestDetailContent: View {
                             mergeRequest:
                                 mergeRequest,
                             approvalState:
-                                approvalState
+                                approvalState,
+                            hasRefreshFailure:
+                                hasReadinessRefreshFailure
                         ),
                     approvalError:
                         approvalError,

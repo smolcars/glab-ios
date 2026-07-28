@@ -355,6 +355,37 @@ struct GitLabMergeRequestReadinessTests {
         )
     }
 
+    @Test("Refresh uncertainty prevents an optimistic ready verdict")
+    func preventsReadyAfterRefreshFailure() {
+        let staleReady = makeReadiness(
+            hasRefreshFailure: true
+        )
+        let staleBlocked = makeReadiness(
+            detailedStatus: "not_approved",
+            approvals:
+                .available(
+                    GitLabMergeRequestApprovalSummary(
+                        approved: false,
+                        approvalsRequired: 1,
+                        approvalsLeft: 1,
+                        approvedBy: []
+                    )
+                ),
+            hasRefreshFailure: true
+        )
+
+        #expect(staleReady.overall == .unknown)
+        #expect(
+            staleReady.approvals.state
+                == .satisfied
+        )
+        #expect(
+            staleReady.pipeline.state
+                == .satisfied
+        )
+        #expect(staleBlocked.overall == .blocked)
+    }
+
     @Test("Unknown and absent fields remain unknown")
     func preservesUnknownState() {
         let future = makeReadiness(
@@ -455,7 +486,8 @@ struct GitLabMergeRequestReadinessTests {
         approvalState:
             GitLabResourceDetailState<
                 GitLabMergeRequestApprovalAvailability
-            >? = nil
+            >? = nil,
+        hasRefreshFailure: Bool = false
     ) -> GitLabMergeRequestReadiness {
         GitLabMergeRequestReadiness(
             mergeRequest:
@@ -484,7 +516,9 @@ struct GitLabMergeRequestReadinessTests {
                         ?? .available(
                             approvedSummary
                         )
-                )
+                ),
+            hasRefreshFailure:
+                hasRefreshFailure
         )
     }
 

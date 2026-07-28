@@ -188,7 +188,8 @@ nonisolated struct GitLabMergeRequestReadiness:
         approvalState:
             GitLabResourceDetailState<
                 GitLabMergeRequestApprovalAvailability
-            >
+            >,
+        hasRefreshFailure: Bool = false
     ) {
         let status =
             Self.normalized(
@@ -217,18 +218,27 @@ nonisolated struct GitLabMergeRequestReadiness:
                 .legacyWorkInProgress
         )
 
-        overall = Self.overallState(
-            mergeRequestState:
-                mergeRequest.stateKind,
-            detailedStatus: status,
-            checks: [
-                pipeline,
-                approvals,
-                conflicts,
-                discussions,
-                reviewState,
-            ]
-        )
+        let derivedOverall =
+            Self.overallState(
+                mergeRequestState:
+                    mergeRequest.stateKind,
+                detailedStatus: status,
+                checks: [
+                    pipeline,
+                    approvals,
+                    conflicts,
+                    discussions,
+                    reviewState,
+                ]
+            )
+        if
+            hasRefreshFailure,
+            derivedOverall == .ready
+        {
+            overall = .unknown
+        } else {
+            overall = derivedOverall
+        }
     }
 
     var checks:
