@@ -439,7 +439,10 @@ where
                 page,
                 validators: validators
             )
-        } catch .unauthenticated where attemptedSession.credentialKind == .oauth {
+        } catch .unauthenticated
+            where attemptedSession.credentialKind == .oauth
+                && allowsReactiveOAuthRefreshRetry(for: page)
+        {
             let retrySession: GitLabStoredSession
 
             if session.credential != attemptedSession.credential {
@@ -460,6 +463,17 @@ where
             }
         } catch {
             throw .api(error)
+        }
+    }
+
+    private func allowsReactiveOAuthRefreshRetry<Response>(
+        for page: GitLabAPIPageRequest<Response>
+    ) -> Bool {
+        switch page {
+        case let .initial(request):
+            request.method == .get
+        case .next:
+            true
         }
     }
 

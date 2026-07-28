@@ -2,7 +2,8 @@
 
 Last updated: 2026-07-28
 
-Status: planned; implementation has not started.
+Status: implementation and Simulator inspection complete; final verification
+and deep-review repairs are in progress.
 
 Glab has never shipped. Breaking internal APIs and local draft formats are
 acceptable when they make this feature smaller, safer, or easier to test. No
@@ -440,6 +441,35 @@ Before marking P2-04 complete, review every added or changed line for:
 Record findings in this document. If anything material is found, write a
 repair plan here before editing, add regression tests, implement every fix,
 repeat focused and full verification, and review the repaired code again.
+
+### Review findings and repair plans
+
+#### Finding 1 — OAuth `401` handling could replay a comment POST
+
+**Severity:** material duplicate-post risk.
+
+The transport-level retry policy correctly allows automatic retries only for
+GET requests. However, `GitLabSessionClient.sendRawPage` independently
+refreshes an OAuth credential after any `401` and replays the request once.
+That includes POST requests. A comment mutation must never be replayed
+automatically after a response because delivery can be ambiguous and a second
+POST can create a duplicate.
+
+Repair plan:
+
+1. Add a regression test that sends a write POST through an OAuth session,
+   returns `401`, and proves there is one transport request, no reactive token
+   refresh, and an unauthenticated error.
+2. Restrict reactive `401` refresh-and-retry to GET requests. Keep the existing
+   proactive refresh for credentials that are already known to be expired, so
+   an expired token is refreshed before the first mutation attempt.
+3. Rerun OAuth refresh, session access, discussion mutation, and composer
+   tests, then repeat the full verification matrix.
+
+Resolution: completed. A focused regression failed before the change and now
+passes with the full OAuth refresh, session access, discussion mutation, and
+composer suites. Reactive refresh-and-retry remains available for GET and
+pagination requests only.
 
 ## Non-goals
 

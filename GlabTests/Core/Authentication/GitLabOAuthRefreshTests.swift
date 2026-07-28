@@ -100,6 +100,62 @@ struct GitLabOAuthRefreshTests {
         )
     }
 
+    @Test("Does not replay a write after an unauthorized response")
+    func doesNotRetryUnauthorizedWrite() async throws {
+        let session = try makeOAuthSession(expiresAt: .distantFuture)
+        let exchanger = StubTokenExchanger(
+            outcome: .success(
+                try makeOAuthCredential(
+                    accessToken: "rotated-access",
+                    refreshToken: "rotated-refresh"
+                )
+            )
+        )
+        let transport = RecordingAPITransport(
+            outcomes: [.unauthenticated, .success]
+        )
+        let client = GitLabSessionClient(
+            session: session,
+            transport: transport,
+            tokenExchanger: exchanger,
+            credentialStore:
+                InMemoryGitLabCredentialStore(
+                    session: session
+                )
+        )
+        let writeRequest =
+            GitLabAPIRequest<
+                GitLabAuthenticatedUser
+            >.post(
+                requires: .write,
+                path: [
+                    "projects",
+                    "42",
+                    "issues",
+                    "7",
+                    "discussions",
+                ]
+            )
+
+        await #expect(
+            throws:
+                GitLabSessionClientError
+                    .api(.unauthenticated)
+        ) {
+            let _: GitLabAuthenticatedUser =
+                try await client.send(
+                    writeRequest
+                )
+        }
+
+        #expect(await transport.requestCount == 1)
+        #expect(await exchanger.refreshCount == 0)
+        #expect(
+            await transport.authorizationHeaders
+                == ["Bearer original-access"]
+        )
+    }
+
     @Test("Retries the exact pagination link after OAuth refresh")
     func retriesPaginationLinkAfterUnauthorizedResponse() async throws {
         let session = try makeOAuthSession(expiresAt: .distantFuture)
