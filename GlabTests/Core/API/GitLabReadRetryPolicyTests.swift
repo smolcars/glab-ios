@@ -34,7 +34,7 @@ struct GitLabReadRetryPolicyTests {
         arguments: [
             (GitLabAPIError.server(statusCode: 500), true),
             (GitLabAPIError.transport, true),
-            (GitLabAPIError.connectivity(.timedOut), true),
+            (GitLabAPIError.connectivity(.timedOut), false),
             (GitLabAPIError.connectivity(.networkConnectionLost), true),
             (GitLabAPIError.connectivity(.cannotConnectToHost), true),
             (GitLabAPIError.connectivity(.cannotFindHost), true),

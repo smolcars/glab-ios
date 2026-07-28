@@ -38,8 +38,7 @@ nonisolated struct GitLabReadRetryPolicy: Sendable {
             true
         case let .connectivity(code):
             switch code {
-            case .timedOut,
-                 .networkConnectionLost,
+            case .networkConnectionLost,
                  .cannotConnectToHost,
                  .cannotFindHost,
                  .dnsLookupFailed:
