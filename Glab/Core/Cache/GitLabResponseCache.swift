@@ -148,6 +148,11 @@ extension GitLabResponseCachePolicy {
         maximumAge: 24 * 60 * 60
     )
 
+    static let mergeRequestReadiness = Self(
+        freshFor: 60,
+        maximumAge: 24 * 60 * 60
+    )
+
     static let discussions = Self(
         freshFor: 60,
         maximumAge: 24 * 60 * 60

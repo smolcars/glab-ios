@@ -84,6 +84,53 @@ extension GitLabMergeRequestLoading {
     }
 }
 
+nonisolated protocol
+    GitLabMergeRequestApprovalLoading:
+    Sendable
+{
+    func loadMergeRequestApproval(
+        at route: GitLabMergeRequestRoute
+    ) async throws(GitLabSessionClientError)
+        -> GitLabMergeRequestApprovalAvailability
+
+    func loadMergeRequestApproval(
+        at route: GitLabMergeRequestRoute,
+        refreshBehavior:
+            GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<
+                    GitLabMergeRequestApprovalAvailability
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError)
+}
+
+extension GitLabMergeRequestApprovalLoading {
+    func loadMergeRequestApproval(
+        at route: GitLabMergeRequestRoute,
+        refreshBehavior:
+            GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<
+                    GitLabMergeRequestApprovalAvailability
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        await onResponse(
+            GitLabAPIResponseEvent(
+                value:
+                    try await loadMergeRequestApproval(
+                        at: route
+                    ),
+                metadata: GitLabResponseMetadata(),
+                source: .network
+            )
+        )
+    }
+}
+
 nonisolated struct GitLabMergeRequestDiffPage:
     Equatable,
     Sendable
@@ -148,6 +195,7 @@ extension GitLabMergeRequestDiffLoading {
 
 nonisolated struct LiveGitLabMergeRequestLoader:
     GitLabMergeRequestLoading,
+    GitLabMergeRequestApprovalLoading,
     GitLabMergeRequestDiffLoading,
     Sendable
 {
@@ -244,6 +292,79 @@ nonisolated struct LiveGitLabMergeRequestLoader:
             refreshBehavior: refreshBehavior,
             onResponse: onResponse
         )
+    }
+
+    @concurrent
+    func loadMergeRequestApproval(
+        at route: GitLabMergeRequestRoute
+    ) async throws(GitLabSessionClientError)
+        -> GitLabMergeRequestApprovalAvailability
+    {
+        do {
+            return .available(
+                try await client.send(
+                    GitLabMergeRequestEndpoints
+                        .approvals(at: route)
+                )
+            )
+        } catch .api(.forbidden),
+                .api(.notFound)
+        {
+            return .unavailable
+        } catch {
+            throw error
+        }
+    }
+
+    @concurrent
+    func loadMergeRequestApproval(
+        at route: GitLabMergeRequestRoute,
+        refreshBehavior:
+            GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<
+                    GitLabMergeRequestApprovalAvailability
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        do {
+            try await client.loadResponse(
+                GitLabMergeRequestEndpoints
+                    .approvals(at: route),
+                cachePolicy:
+                    .mergeRequestReadiness,
+                refreshBehavior:
+                    refreshBehavior
+            ) { event in
+                await onResponse(
+                    GitLabAPIResponseEvent(
+                        value:
+                            .available(
+                                event.value
+                            ),
+                        metadata:
+                            event.metadata,
+                        source: event.source,
+                        cacheStoredAt:
+                            event.cacheStoredAt
+                    )
+                )
+            }
+        } catch .api(.forbidden),
+                .api(.notFound)
+        {
+            await onResponse(
+                GitLabAPIResponseEvent(
+                    value: .unavailable,
+                    metadata:
+                        GitLabResponseMetadata(),
+                    source: .network
+                )
+            )
+        } catch {
+            throw error
+        }
     }
 
     @concurrent
