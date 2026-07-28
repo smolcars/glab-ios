@@ -16,6 +16,34 @@ nonisolated enum GitLabDiscussionEndpoints {
         )
     }
 
+    static func createDiscussion(
+        for resource: GitLabDiscussionResource,
+        body: GitLabDiscussionCommentBody
+    ) throws -> GitLabAPIRequest<GitLabDiscussion> {
+        try .post(
+            requires: .write,
+            path: path(for: resource),
+            body: body
+        )
+    }
+
+    static func reply(
+        to discussionID: String,
+        in resource: GitLabDiscussionResource,
+        body: GitLabDiscussionCommentBody
+    ) throws -> GitLabAPIRequest<GitLabDiscussionNote> {
+        try .post(
+            requires: .write,
+            path:
+                path(for: resource)
+                + [
+                    discussionID,
+                    "notes",
+                ],
+            body: body
+        )
+    }
+
     private static func path(
         for resource: GitLabDiscussionResource
     ) -> [String] {

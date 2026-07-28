@@ -1,5 +1,44 @@
 import Foundation
 
+nonisolated enum GitLabDiscussionCommentBodyError:
+    Error,
+    Equatable,
+    Sendable
+{
+    case empty
+}
+
+nonisolated struct GitLabDiscussionCommentBody:
+    Encodable,
+    Equatable,
+    Sendable,
+    CustomStringConvertible,
+    CustomDebugStringConvertible
+{
+    let body: String
+
+    init(
+        _ body: String
+    ) throws(GitLabDiscussionCommentBodyError) {
+        guard
+            !body.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            ).isEmpty
+        else {
+            throw .empty
+        }
+        self.body = body
+    }
+
+    var description: String {
+        "GitLabDiscussionCommentBody(<redacted>)"
+    }
+
+    var debugDescription: String {
+        description
+    }
+}
+
 nonisolated enum GitLabDiscussionResource:
     Equatable,
     Hashable,
