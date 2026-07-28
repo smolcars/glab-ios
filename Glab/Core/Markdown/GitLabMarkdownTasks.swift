@@ -408,10 +408,15 @@ nonisolated private enum
         sourceDigest: Data
     ) throws -> [GitLabMarkdownIndexedTask] {
         let originalBytes = Array(source.utf8)
-        let bytes =
-            bytesMaskingHTMLComments(
-                originalBytes
-            )
+        let bytes: [UInt8]
+        if source.range(of: "<!--") == nil {
+            bytes = originalBytes
+        } else {
+            bytes =
+                bytesMaskingHTMLComments(
+                    originalBytes
+                )
+        }
         var result:
             [GitLabMarkdownIndexedTask] = []
         var listContexts:

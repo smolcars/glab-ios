@@ -107,4 +107,38 @@ enum GitLabMarkdownFixtures {
         "- [ ] Alpha\r\n"
         + "- [x] Café 👩🏽‍💻\n"
         + "> 1. [ ] Omega  \r\n"
+
+    static let taskPerformanceHundredKB =
+        repeatedTaskSource(
+            minimumUTF8Count: 120_000
+        )
+
+    static let taskPerformanceNearLimit =
+        repeatedTaskSource(
+            minimumUTF8Count: 980_000
+        )
+
+    private static func repeatedTaskSource(
+        minimumUTF8Count: Int
+    ) -> String {
+        let section = """
+        ## Delivery checklist
+
+        - [ ] Validate the API contract
+          - [x] Preserve exact Markdown bytes
+        > 1. [ ] Verify the simulator path
+        2) [~] Physical-device verification is out of scope
+
+        Keep this paragraph unchanged between repeated task sections.
+        """
+        let count =
+            minimumUTF8Count
+                / section.utf8.count
+                + 1
+        return Array(
+            repeating: section,
+            count: count
+        )
+        .joined(separator: "\r\n")
+    }
 }
