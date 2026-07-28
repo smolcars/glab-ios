@@ -30,7 +30,9 @@ struct GitLabOAuthRefreshTests {
         )
 
         let user: GitLabAuthenticatedUser = try await client.send(userRequest)
-        let storedSession = try await store.load()
+        let storedSession = try await store.load(
+            for: GitLabAccountID(session: original)
+        )
 
         #expect(user.username == "octocat")
         #expect(await exchanger.refreshTokens == ["original-refresh"])
@@ -212,7 +214,10 @@ struct GitLabOAuthRefreshTests {
             return user
         }
         await exchanger.waitUntilRefreshStarts()
-        try await store.delete()
+        let accountID = GitLabAccountID(
+            session: session
+        )
+        try await store.delete(accountID)
         await exchanger.releaseRefresh()
 
         await #expect(
@@ -220,7 +225,11 @@ struct GitLabOAuthRefreshTests {
         ) {
             try await request.value
         }
-        #expect(try await store.load() == nil)
+        #expect(
+            try await store.load(
+                for: accountID
+            ) == nil
+        )
         #expect(await transport.requestCount == 0)
     }
 }

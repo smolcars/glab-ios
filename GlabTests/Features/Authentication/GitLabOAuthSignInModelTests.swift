@@ -23,7 +23,11 @@ struct GitLabOAuthSignInModelTests {
         await model.signIn()
 
         #expect(appSession.state == .signedIn(session))
-        #expect(try await store.load() == session)
+        #expect(
+            try await store.load(
+                for: GitLabAccountID(session: session)
+            ) == session
+        )
         #expect(
             authenticator.configurations
                 == [
@@ -169,7 +173,16 @@ struct GitLabOAuthSignInModelTests {
         await submission.value
 
         #expect(appSession.state == .signedOut)
-        #expect(try await store.load() == nil)
+        #expect(
+            try await store.load(
+                for: GitLabAccountID(
+                    host: GitLabHost(
+                        "gitlab.example.com"
+                    ),
+                    userID: 42
+                )
+            ) == nil
+        )
         #expect(applicationIDStore.applicationIDs.isEmpty)
         #expect(model.failure == nil)
         #expect(!model.isSubmitting)
@@ -344,7 +357,9 @@ private extension GitLabOAuthSignInModelTests {
     nonisolated struct SaveFailingCredentialStore: GitLabCredentialStore {
         let error: GitLabCredentialStoreError
 
-        func load() async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
+        func load(
+            for accountID: GitLabAccountID
+        ) async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
             nil
         }
 
@@ -354,7 +369,9 @@ private extension GitLabOAuthSignInModelTests {
             throw error
         }
 
-        func delete() async throws(GitLabCredentialStoreError) {}
+        func delete(
+            _ accountID: GitLabAccountID
+        ) async throws(GitLabCredentialStoreError) {}
     }
 
     func makeModel(

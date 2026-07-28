@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import Security
 
@@ -7,14 +8,11 @@ actor KeychainGitLabCredentialStore:
     CustomDebugStringConvertible
 {
     nonisolated let service: String
-    nonisolated let account: String
 
     init(
-        service: String = "com.glab.ios.session",
-        account: String = "current-session"
+        service: String = "com.glab.ios.accounts"
     ) {
         self.service = service
-        self.account = account
     }
 
     nonisolated var description: String {
@@ -25,8 +23,10 @@ actor KeychainGitLabCredentialStore:
         description
     }
 
-    func load() async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
-        try loadSession()
+    func load(
+        for accountID: GitLabAccountID
+    ) async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
+        try loadSession(for: accountID)
     }
 
     func save(
@@ -39,7 +39,14 @@ actor KeychainGitLabCredentialStore:
         _ session: GitLabStoredSession,
         ifCurrentSessionIs expectedSession: GitLabStoredSession
     ) async throws(GitLabCredentialStoreError) -> Bool {
-        guard try loadSession() == expectedSession else {
+        let accountID = GitLabAccountID(
+            session: expectedSession
+        )
+        guard
+            GitLabAccountID(session: session) == accountID,
+            try loadSession(for: accountID)
+                == expectedSession
+        else {
             return false
         }
 
@@ -47,12 +54,43 @@ actor KeychainGitLabCredentialStore:
         return true
     }
 
-    func delete() async throws(GitLabCredentialStoreError) {
-        try deleteSession()
+    func delete(
+        _ accountID: GitLabAccountID
+    ) async throws(GitLabCredentialStoreError) {
+        try deleteSession(for: accountID)
     }
 
-    private func loadSession() throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
-        var query = baseQuery
+    nonisolated func accountName(
+        for accountID: GitLabAccountID
+    ) -> String {
+        let digest = SHA256.hash(
+            data: Data(
+                accountID.storageIdentifier.utf8
+            )
+        )
+        .map {
+            String(format: "%02x", $0)
+        }
+        .joined()
+        return "account-\(digest)"
+    }
+
+    func deleteAll() throws(GitLabCredentialStoreError) {
+        let status = SecItemDelete(
+            serviceQuery as CFDictionary
+        )
+        guard
+            status == errSecSuccess
+                || status == errSecItemNotFound
+        else {
+            throw .keychain(status: status)
+        }
+    }
+
+    private func loadSession(
+        for accountID: GitLabAccountID
+    ) throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
+        var query = baseQuery(for: accountID)
         query[kSecReturnData as String] = kCFBooleanTrue
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
@@ -94,6 +132,10 @@ actor KeychainGitLabCredentialStore:
             throw .encoding
         }
 
+        let accountID = GitLabAccountID(
+            session: session
+        )
+        let baseQuery = baseQuery(for: accountID)
         var addQuery = baseQuery
         addQuery[kSecAttrAccessible as String] =
             kSecAttrAccessibleWhenUnlockedThisDeviceOnly
@@ -121,19 +163,31 @@ actor KeychainGitLabCredentialStore:
         }
     }
 
-    private func deleteSession() throws(GitLabCredentialStoreError) {
-        let status = SecItemDelete(baseQuery as CFDictionary)
+    private func deleteSession(
+        for accountID: GitLabAccountID
+    ) throws(GitLabCredentialStoreError) {
+        let status = SecItemDelete(
+            baseQuery(for: accountID) as CFDictionary
+        )
 
         guard status == errSecSuccess || status == errSecItemNotFound else {
             throw .keychain(status: status)
         }
     }
 
-    private var baseQuery: [String: Any] {
+    private func baseQuery(
+        for accountID: GitLabAccountID
+    ) -> [String: Any] {
+        var query = serviceQuery
+        query[kSecAttrAccount as String] =
+            accountName(for: accountID)
+        return query
+    }
+
+    private var serviceQuery: [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
             kSecAttrSynchronizable as String: kCFBooleanFalse as Any,
             kSecUseDataProtectionKeychain as String: kCFBooleanTrue as Any,
         ]

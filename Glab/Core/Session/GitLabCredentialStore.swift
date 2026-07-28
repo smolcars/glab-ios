@@ -33,13 +33,17 @@ nonisolated enum GitLabCredentialStoreError:
 }
 
 nonisolated protocol GitLabCredentialStore: Sendable {
-    func load() async throws(GitLabCredentialStoreError) -> GitLabStoredSession?
+    func load(
+        for accountID: GitLabAccountID
+    ) async throws(GitLabCredentialStoreError) -> GitLabStoredSession?
     func save(_ session: GitLabStoredSession) async throws(GitLabCredentialStoreError)
     func replace(
         _ session: GitLabStoredSession,
         ifCurrentSessionIs expectedSession: GitLabStoredSession
     ) async throws(GitLabCredentialStoreError) -> Bool
-    func delete() async throws(GitLabCredentialStoreError)
+    func delete(
+        _ accountID: GitLabAccountID
+    ) async throws(GitLabCredentialStoreError)
 }
 
 extension GitLabCredentialStore {
@@ -47,7 +51,14 @@ extension GitLabCredentialStore {
         _ session: GitLabStoredSession,
         ifCurrentSessionIs expectedSession: GitLabStoredSession
     ) async throws(GitLabCredentialStoreError) -> Bool {
-        guard try await load() == expectedSession else {
+        let accountID = GitLabAccountID(
+            session: expectedSession
+        )
+        guard
+            GitLabAccountID(session: session) == accountID,
+            try await load(for: accountID)
+                == expectedSession
+        else {
             return false
         }
 
@@ -61,10 +72,33 @@ actor InMemoryGitLabCredentialStore:
     CustomStringConvertible,
     CustomDebugStringConvertible
 {
-    private var session: GitLabStoredSession?
+    private var sessions:
+        [GitLabAccountID: GitLabStoredSession]
 
-    init(session: GitLabStoredSession? = nil) {
-        self.session = session
+    init(
+        sessions: [GitLabStoredSession] = []
+    ) {
+        self.sessions = Dictionary(
+            uniqueKeysWithValues: sessions.map {
+                (GitLabAccountID(session: $0), $0)
+            }
+        )
+    }
+
+    init(
+        session: GitLabStoredSession?
+    ) {
+        sessions = Dictionary(
+            uniqueKeysWithValues:
+                session.map {
+                    [
+                        (
+                            GitLabAccountID(session: $0),
+                            $0
+                        ),
+                    ]
+                } ?? []
+        )
     }
 
     nonisolated var description: String {
@@ -75,29 +109,40 @@ actor InMemoryGitLabCredentialStore:
         description
     }
 
-    func load() async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
-        session
+    func load(
+        for accountID: GitLabAccountID
+    ) async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
+        sessions[accountID]
     }
 
     func save(
         _ session: GitLabStoredSession
     ) async throws(GitLabCredentialStoreError) {
-        self.session = session
+        sessions[GitLabAccountID(session: session)] =
+            session
     }
 
     func replace(
         _ session: GitLabStoredSession,
         ifCurrentSessionIs expectedSession: GitLabStoredSession
     ) async throws(GitLabCredentialStoreError) -> Bool {
-        guard self.session == expectedSession else {
+        let accountID = GitLabAccountID(
+            session: expectedSession
+        )
+        guard
+            GitLabAccountID(session: session) == accountID,
+            sessions[accountID] == expectedSession
+        else {
             return false
         }
 
-        self.session = session
+        sessions[accountID] = session
         return true
     }
 
-    func delete() async throws(GitLabCredentialStoreError) {
-        session = nil
+    func delete(
+        _ accountID: GitLabAccountID
+    ) async throws(GitLabCredentialStoreError) {
+        sessions[accountID] = nil
     }
 }

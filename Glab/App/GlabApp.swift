@@ -4,6 +4,8 @@ import SwiftUI
 struct GlabApp: App {
     @State private var appSession = AppSession(
         credentialStore: KeychainGitLabCredentialStore(),
+        accountIndexStore:
+            UserDefaultsGitLabAccountIndexStore(),
         responseCache: FileGitLabResponseCache()
     )
 

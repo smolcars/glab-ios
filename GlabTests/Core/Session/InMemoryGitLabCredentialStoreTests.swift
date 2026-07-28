@@ -7,8 +7,15 @@ struct InMemoryGitLabCredentialStoreTests {
     @Test("Starts without a stored session")
     func startsEmpty() async throws {
         let store = InMemoryGitLabCredentialStore()
+        let accountID = GitLabAccountID(
+            host: try GitLabHost("gitlab.example.com"),
+            userID: 42
+        )
 
-        let session = try await load(from: store)
+        let session = try await load(
+            from: store,
+            accountID: accountID
+        )
 
         #expect(session == nil)
     }
@@ -19,7 +26,12 @@ struct InMemoryGitLabCredentialStoreTests {
         let expected = try makeSession(username: "octocat", token: "first-secret")
 
         try await store.save(expected)
-        let restored = try await load(from: store)
+        let restored = try await load(
+            from: store,
+            accountID: GitLabAccountID(
+                session: expected
+            )
+        )
 
         #expect(restored == expected)
     }
@@ -34,7 +46,9 @@ struct InMemoryGitLabCredentialStoreTests {
         let store = InMemoryGitLabCredentialStore(session: first)
 
         try await store.save(replacement)
-        let restored = try await store.load()
+        let restored = try await store.load(
+            for: GitLabAccountID(session: first)
+        )
 
         #expect(restored == replacement)
     }
@@ -66,7 +80,11 @@ struct InMemoryGitLabCredentialStoreTests {
 
         #expect(!rejected)
         #expect(accepted)
-        #expect(try await store.load() == replacement)
+        #expect(
+            try await store.load(
+                for: GitLabAccountID(session: original)
+            ) == replacement
+        )
     }
 
     @Test("Deletes the stored session")
@@ -74,9 +92,15 @@ struct InMemoryGitLabCredentialStoreTests {
         let store = InMemoryGitLabCredentialStore(
             session: try makeSession(username: "octocat", token: "pat-secret")
         )
+        let accountID = GitLabAccountID(
+            host: try GitLabHost("gitlab.example.com"),
+            userID: 42
+        )
 
-        try await store.delete()
-        let restored = try await store.load()
+        try await store.delete(accountID)
+        let restored = try await store.load(
+            for: accountID
+        )
 
         #expect(restored == nil)
     }
@@ -95,9 +119,10 @@ struct InMemoryGitLabCredentialStoreTests {
 
 private extension InMemoryGitLabCredentialStoreTests {
     nonisolated func load(
-        from store: any GitLabCredentialStore
+        from store: any GitLabCredentialStore,
+        accountID: GitLabAccountID
     ) async throws -> GitLabStoredSession? {
-        try await store.load()
+        try await store.load(for: accountID)
     }
 
     nonisolated func makeSession(

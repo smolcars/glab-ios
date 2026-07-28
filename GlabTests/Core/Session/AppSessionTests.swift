@@ -23,6 +23,9 @@ struct AppSessionTests {
         let appSession = AppSession(
             credentialStore: InMemoryGitLabCredentialStore(
                 session: storedSession
+            ),
+            accountIndexStore: try makeIndexStore(
+                for: storedSession
             )
         )
 
@@ -43,6 +46,9 @@ struct AppSessionTests {
             credentialStore: InMemoryGitLabCredentialStore(
                 session: storedSession
             ),
+            accountIndexStore: try makeIndexStore(
+                for: storedSession
+            ),
             currentDate: { now }
         )
 
@@ -62,11 +68,16 @@ struct AppSessionTests {
         let store = InMemoryGitLabCredentialStore(session: storedSession)
         let appSession = AppSession(
             credentialStore: store,
+            accountIndexStore: try makeIndexStore(
+                for: storedSession
+            ),
             currentDate: { now }
         )
 
         await appSession.restore()
-        let persisted = try await store.load()
+        let persisted = try await store.load(
+            for: GitLabAccountID(session: storedSession)
+        )
 
         #expect(persisted == nil)
         #expect(appSession.state == .signedOut)
@@ -95,6 +106,9 @@ struct AppSessionTests {
                 session: storedSession,
                 error: error
             ),
+            accountIndexStore: try makeIndexStore(
+                for: storedSession
+            ),
             responseCache: cache,
             currentDate: { now }
         )
@@ -116,7 +130,9 @@ struct AppSessionTests {
         let storedSession = try makeSession(token: "new-secret")
 
         try await appSession.establish(storedSession)
-        let persisted = try await store.load()
+        let persisted = try await store.load(
+            for: GitLabAccountID(session: storedSession)
+        )
 
         #expect(persisted == storedSession)
         #expect(appSession.state == .signedIn(storedSession))
@@ -134,12 +150,17 @@ struct AppSessionTests {
         )
         let appSession = AppSession(
             credentialStore: store,
+            accountIndexStore: try makeIndexStore(
+                for: storedSession
+            ),
             responseCache: cache
         )
         await appSession.restore()
 
         try await appSession.signOut()
-        let persisted = try await store.load()
+        let persisted = try await store.load(
+            for: GitLabAccountID(session: storedSession)
+        )
 
         #expect(persisted == nil)
         #expect(appSession.state == .signedOut)
@@ -160,6 +181,9 @@ struct AppSessionTests {
         )
         let appSession = AppSession(
             credentialStore: store,
+            accountIndexStore: try makeIndexStore(
+                for: storedSession
+            ),
             responseCache: cache
         )
         await appSession.restore()
@@ -167,7 +191,9 @@ struct AppSessionTests {
         await appSession.handleAuthenticationFailure(
             .api(.unauthenticated)
         )
-        let persisted = try await store.load()
+        let persisted = try await store.load(
+            for: GitLabAccountID(session: storedSession)
+        )
 
         #expect(persisted == nil)
         #expect(appSession.state == .signedOut)
@@ -180,7 +206,12 @@ struct AppSessionTests {
     func ignoresRecoverableAPIFailure() async throws {
         let storedSession = try makeSession(token: "offline-secret")
         let store = InMemoryGitLabCredentialStore(session: storedSession)
-        let appSession = AppSession(credentialStore: store)
+        let appSession = AppSession(
+            credentialStore: store,
+            accountIndexStore: try makeIndexStore(
+                for: storedSession
+            )
+        )
         await appSession.restore()
 
         await appSession.handleAuthenticationFailure(
@@ -188,7 +219,11 @@ struct AppSessionTests {
         )
 
         #expect(appSession.state == .signedIn(storedSession))
-        #expect(try await store.load() == storedSession)
+        #expect(
+            try await store.load(
+                for: GitLabAccountID(session: storedSession)
+            ) == storedSession
+        )
         #expect(appSession.authenticationNotice == nil)
     }
 
@@ -205,6 +240,9 @@ struct AppSessionTests {
         let appSession = AppSession(
             credentialStore: InMemoryGitLabCredentialStore(
                 session: original
+            ),
+            accountIndexStore: try makeIndexStore(
+                for: original
             )
         )
         await appSession.restore()
@@ -225,14 +263,23 @@ struct AppSessionTests {
             expiresAt: .distantFuture
         )
         let store = InMemoryGitLabCredentialStore(session: original)
-        let appSession = AppSession(credentialStore: store)
+        let appSession = AppSession(
+            credentialStore: store,
+            accountIndexStore: try makeIndexStore(
+                for: original
+            )
+        )
         await appSession.restore()
         try await appSession.signOut()
 
         appSession.synchronizeRefreshedSession(refreshed)
 
         #expect(appSession.state == .signedOut)
-        #expect(try await store.load() == nil)
+        #expect(
+            try await store.load(
+                for: GitLabAccountID(session: original)
+            ) == nil
+        )
     }
 
     @Test("Classifies only expired or rejected credentials for reauthentication")
@@ -264,10 +311,14 @@ struct AppSessionTests {
     }
 
     @Test("Surfaces restore failures")
-    func handlesRestoreFailure() async {
+    func handlesRestoreFailure() async throws {
         let error = GitLabCredentialStoreError.corruptData
+        let storedSession = try makeSession(token: "unreadable-secret")
         let appSession = AppSession(
-            credentialStore: FailingCredentialStore(error: error)
+            credentialStore: FailingCredentialStore(error: error),
+            accountIndexStore: try makeIndexStore(
+                for: storedSession
+            )
         )
 
         await appSession.restore()
@@ -289,6 +340,9 @@ struct AppSessionTests {
             credentialStore: DeleteFailingCredentialStore(
                 session: storedSession,
                 error: error
+            ),
+            accountIndexStore: try makeIndexStore(
+                for: storedSession
             ),
             responseCache: cache
         )
@@ -344,7 +398,9 @@ private extension AppSessionTests {
     nonisolated struct FailingCredentialStore: GitLabCredentialStore {
         let error: GitLabCredentialStoreError
 
-        func load() async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
+        func load(
+            for accountID: GitLabAccountID
+        ) async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
             throw error
         }
 
@@ -354,7 +410,9 @@ private extension AppSessionTests {
             throw error
         }
 
-        func delete() async throws(GitLabCredentialStoreError) {
+        func delete(
+            _ accountID: GitLabAccountID
+        ) async throws(GitLabCredentialStoreError) {
             throw error
         }
     }
@@ -363,17 +421,40 @@ private extension AppSessionTests {
         let session: GitLabStoredSession
         let error: GitLabCredentialStoreError
 
-        func load() async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
-            session
+        func load(
+            for accountID: GitLabAccountID
+        ) async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
+            accountID == GitLabAccountID(session: session)
+                ? session
+                : nil
         }
 
         func save(
             _ session: GitLabStoredSession
         ) async throws(GitLabCredentialStoreError) {}
 
-        func delete() async throws(GitLabCredentialStoreError) {
+        func delete(
+            _ accountID: GitLabAccountID
+        ) async throws(GitLabCredentialStoreError) {
             throw error
         }
+    }
+
+    func makeIndexStore(
+        for session: GitLabStoredSession
+    ) throws -> InMemoryGitLabAccountIndexStore {
+        InMemoryGitLabAccountIndexStore(
+            index: try GitLabAccountIndex(
+                accounts: [
+                    GitLabAccountSummary(
+                        session: session
+                    ),
+                ],
+                activeAccountID: GitLabAccountID(
+                    session: session
+                )
+            )
+        )
     }
 
     nonisolated func makeSession(token: String) throws -> GitLabStoredSession {

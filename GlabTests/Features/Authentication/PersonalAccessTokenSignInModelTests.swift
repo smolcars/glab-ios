@@ -26,7 +26,11 @@ struct PersonalAccessTokenSignInModelTests {
         await model.signIn()
 
         #expect(appSession.state == .signedIn(session))
-        #expect(try await store.load() == session)
+        #expect(
+            try await store.load(
+                for: GitLabAccountID(session: session)
+            ) == session
+        )
         #expect(model.token.isEmpty)
         #expect(model.failure == nil)
         #expect(!model.isSubmitting)
@@ -83,7 +87,14 @@ struct PersonalAccessTokenSignInModelTests {
         await model.signIn()
 
         #expect(appSession.state == .signedOut)
-        #expect(try await store.load() == nil)
+        #expect(
+            try await store.load(
+                for: GitLabAccountID(
+                    host: GitLabHost("gitlab.com"),
+                    userID: 42
+                )
+            ) == nil
+        )
         #expect(model.token == "rejected-secret")
         #expect(model.failure == .authentication(.invalidToken))
         #expect(
@@ -246,7 +257,11 @@ struct PersonalAccessTokenSignInModelTests {
         await submission.value
 
         #expect(appSession.state == .signedOut)
-        #expect(try await store.load() == nil)
+        #expect(
+            try await store.load(
+                for: GitLabAccountID(session: session)
+            ) == nil
+        )
         #expect(model.token == "validated-secret")
         #expect(model.failure == nil)
         #expect(!model.isSubmitting)
@@ -335,7 +350,9 @@ private extension PersonalAccessTokenSignInModelTests {
     nonisolated struct SaveFailingCredentialStore: GitLabCredentialStore {
         let error: GitLabCredentialStoreError
 
-        func load() async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
+        func load(
+            for accountID: GitLabAccountID
+        ) async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
             nil
         }
 
@@ -345,7 +362,9 @@ private extension PersonalAccessTokenSignInModelTests {
             throw error
         }
 
-        func delete() async throws(GitLabCredentialStoreError) {}
+        func delete(
+            _ accountID: GitLabAccountID
+        ) async throws(GitLabCredentialStoreError) {}
     }
 
     nonisolated func makeSession(
