@@ -311,6 +311,132 @@ struct GitLabEmojiReactionsModelTests {
         )
     }
 
+    @Test("Keeps delivery-unknown recovery visible across other failures")
+    func preservesUncertainRecovery() async {
+        let uncertainFailure =
+            GitLabSessionClientError
+                .api(
+                    .connectivity(
+                        .networkConnectionLost
+                    )
+                )
+        let rejectedFailure =
+            GitLabSessionClientError
+                .api(
+                    .validation(statusCode: 422)
+                )
+        let loader = SequencedReactionLoader(
+            pages: [
+                .success(page([])),
+                .success(page([])),
+            ]
+        )
+        let mutator =
+            ImmediateReactionMutator(
+                addResults: [
+                    .failure(
+                        uncertainFailure
+                    ),
+                    .failure(
+                        rejectedFailure
+                    ),
+                ]
+            )
+        let model = makeModel(
+            loader: loader,
+            mutator: mutator
+        )
+        await model.loadIfNeeded()
+
+        await model.toggleReaction(
+            named: "thumbsup"
+        )
+        await model.toggleReaction(
+            named: "heart"
+        )
+
+        #expect(
+            model.mutationFailure?
+                .operation.name
+                == "thumbsup"
+        )
+        #expect(
+            model.mutationFailure?
+                .certainty
+                == .deliveryUnknown
+        )
+        #expect(
+            model.requiresRefresh(
+                name: "thumbsup"
+            )
+        )
+        #expect(
+            await mutator.addCalls
+                == [
+                    "thumbsup",
+                    "heart",
+                ]
+        )
+
+        await model.refresh()
+
+        #expect(model.mutationFailure == nil)
+        #expect(
+            !model.requiresRefresh(
+                name: "thumbsup"
+            )
+        )
+    }
+
+    @Test("Never mutates after incomplete pagination")
+    func preventsMutationAfterPaginationFailure()
+        async throws
+    {
+        let nextURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.example.com/api/v4/"
+                    + "projects/42/issues/7/award_emoji"
+                    + "?page=2"
+            )
+        )
+        let failure =
+            GitLabSessionClientError
+                .api(
+                    .server(statusCode: 500)
+                )
+        let loader = SequencedReactionLoader(
+            pages: [
+                .success(
+                    page(
+                        [
+                            makeTestEmojiAward(
+                                userID: 8
+                            ),
+                        ],
+                        nextPageURL: nextURL
+                    )
+                ),
+                .failure(failure),
+            ]
+        )
+        let mutator =
+            ImmediateReactionMutator()
+        let model = makeModel(
+            loader: loader,
+            mutator: mutator
+        )
+
+        await model.loadIfNeeded()
+        await model.toggleReaction(
+            named: "heart"
+        )
+
+        #expect(!model.canMutate)
+        #expect(model.loadError == failure)
+        #expect(await mutator.addCalls.isEmpty)
+    }
+
     private func makeModel(
         apiAccess:
             GitLabAPIAccess = .readWrite,

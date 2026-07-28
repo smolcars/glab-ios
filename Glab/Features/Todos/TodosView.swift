@@ -9,6 +9,9 @@ struct TodosView: View {
         any GitLabDiscussionLoading
     let discussionMutator:
         any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
     let accountID: GitLabAccountID
     let appSession: AppSession
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -382,6 +385,8 @@ struct TodosView: View {
                 discussionLoader: discussionLoader,
                 discussionMutator:
                     discussionMutator,
+                reactionService:
+                    reactionService,
                 accountID: accountID,
                 appSession: appSession
             )
@@ -392,6 +397,8 @@ struct TodosView: View {
                 discussionLoader: discussionLoader,
                 discussionMutator:
                     discussionMutator,
+                reactionService:
+                    reactionService,
                 accountID: accountID,
                 appSession: appSession
             )

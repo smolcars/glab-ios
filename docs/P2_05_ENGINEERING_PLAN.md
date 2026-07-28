@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-28
 
-Status: planned; implementation has not started.
+Status: implementation and deep review in progress.
 
 Glab has not shipped. Breaking internal APIs, model initializers, and local
 cache formats are acceptable when they make this feature smaller, safer, or
@@ -400,12 +400,36 @@ Complete after implementation:
 
 ### Findings
 
-Pending implementation.
+- **F1 — Delivery-unknown recovery can be hidden by another reaction.**
+  Starting a mutation for a different emoji currently clears the single
+  mutation failure. If the previous failure had unknown delivery, its emoji
+  remains correctly blocked but the inline Refresh action disappears. A later
+  rejected mutation can also overwrite that recovery UI.
+- **F2 — Custom-name fallback accepts layout-breaking whitespace.**
+  The fallback strips colons and bounds length, but an unexpected server name
+  can still contain an internal newline or control character and distort a
+  compact reaction chip.
+- **F3 — Complete-pagination mutation gating lacks a regression test.**
+  The model disables mutation until every reaction page is loaded, which is
+  necessary to avoid adding a duplicate reaction when the current user's award
+  is on a later page. The failure path needs direct coverage so this invariant
+  cannot regress silently.
 
 ### Repair plan
 
-Pending review findings. If any material issue is found, write its concrete
-repair steps and regression test here before editing production code.
+1. Add a model test that produces a delivery-unknown failure, performs a
+   different-name rejected mutation, and proves the original recovery failure
+   remains visible until a successful refresh.
+2. Preserve a delivery-unknown failure while other names begin or fail. A
+   successful complete refresh remains the only action that clears it.
+3. Add domain tests for leading/trailing colons, internal whitespace/control
+   characters, an empty fallback, and the 32-character display bound.
+4. Normalize fallback display to a single safe, bounded token while preserving
+   GitLab's documented hyphenated and underscored names.
+5. Add a model test whose first reaction page points to a failing second page;
+   assert mutation remains disabled and the mutator receives no request.
+6. Re-run focused reaction tests, the complete functional suite, static
+   analysis, and the simulator interaction matrix before closing the findings.
 
 ## Non-goals
 

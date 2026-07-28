@@ -7,6 +7,9 @@ struct AssignedIssuesView: View {
         any GitLabDiscussionLoading
     let discussionMutator:
         any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
     let accountID: GitLabAccountID
     let appSession: AppSession
 
@@ -36,6 +39,8 @@ struct AssignedIssuesView: View {
                         discussionLoader,
                     discussionMutator:
                         discussionMutator,
+                    reactionService:
+                        reactionService,
                     accountID: accountID,
                     appSession: appSession
                 )
@@ -392,6 +397,9 @@ struct GitLabIssueDetailView: View {
         GitLabDiscussionResource
     let discussionMutator:
         any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
 
     @State private var model: GitLabIssueDetailModel
     @State private var discussionModel:
@@ -404,6 +412,9 @@ struct GitLabIssueDetailView: View {
             any GitLabDiscussionLoading,
         discussionMutator:
             any GitLabDiscussionMutating,
+        reactionService:
+            any GitLabEmojiReactionLoading
+                & GitLabEmojiReactionMutating,
         accountID: GitLabAccountID,
         appSession: AppSession
     ) {
@@ -411,6 +422,8 @@ struct GitLabIssueDetailView: View {
         self.appSession = appSession
         self.discussionMutator =
             discussionMutator
+        self.reactionService =
+            reactionService
         let discussionResource =
             GitLabDiscussionResource.issue(route)
         self.discussionResource =
@@ -508,6 +521,8 @@ struct GitLabIssueDetailView: View {
                             ?? .readOnly,
                     discussionMutator:
                         discussionMutator,
+                    reactionService:
+                        reactionService,
                     appSession: appSession
                 )
             }
@@ -546,6 +561,9 @@ private struct GitLabIssueDetailContent: View {
     let apiAccess: GitLabAPIAccess
     let discussionMutator:
         any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
     let appSession: AppSession
 
     @Environment(\.gitLabMarkdownRenderer)
@@ -555,6 +573,21 @@ private struct GitLabIssueDetailContent: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 22) {
                 header
+
+                GitLabEmojiReactionView(
+                    awardable:
+                        .resource(
+                            discussionResource
+                        ),
+                    currentUserID:
+                        accountID.userID,
+                    apiAccess: apiAccess,
+                    loader: reactionService,
+                    mutator:
+                        reactionService,
+                    accountID: accountID,
+                    appSession: appSession
+                )
 
                 if issue.confidential {
                     Label(
@@ -586,6 +619,8 @@ private struct GitLabIssueDetailContent: View {
                     webURL: issue.safeWebURL,
                     apiAccess: apiAccess,
                     mutator: discussionMutator,
+                    reactionService:
+                        reactionService,
                     appSession: appSession
                 )
             }

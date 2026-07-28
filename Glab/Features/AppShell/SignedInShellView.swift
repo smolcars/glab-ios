@@ -47,6 +47,9 @@ struct SignedInShellView: View {
         any GitLabDiscussionLoading
     private let discussionMutator:
         any GitLabDiscussionMutating
+    private let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
     private let projectLoader: any GitLabProjectLoading
     private let markdownRenderer:
         any GitLabMarkdownRendering
@@ -92,6 +95,10 @@ struct SignedInShellView: View {
             LiveGitLabDiscussionService(
                 client: client
             )
+        let reactionService =
+            LiveGitLabEmojiReactionService(
+                client: client
+            )
         let todoService = LiveGitLabTodoLoader(
             client: client
         )
@@ -99,6 +106,8 @@ struct SignedInShellView: View {
         self.mergeRequestLoader = mergeRequestLoader
         self.discussionLoader = discussionLoader
         discussionMutator = discussionLoader
+        self.reactionService =
+            reactionService
         self.projectLoader = projectLoader
         markdownRenderer = GitLabMarkdownRenderer()
         let imageRequestPolicy =
@@ -154,6 +163,8 @@ struct SignedInShellView: View {
                     discussionLoader: discussionLoader,
                     discussionMutator:
                         discussionMutator,
+                    reactionService:
+                        reactionService,
                     projectLoader: projectLoader
                 )
             } label: {
@@ -175,6 +186,8 @@ struct SignedInShellView: View {
                         discussionLoader,
                     discussionMutator:
                         discussionMutator,
+                    reactionService:
+                        reactionService,
                     accountID: accountID,
                     appSession: appSession
                 )

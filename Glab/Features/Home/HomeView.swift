@@ -13,6 +13,9 @@ struct HomeView: View {
         any GitLabDiscussionLoading
     let discussionMutator:
         any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
     let projectLoader: any GitLabProjectLoading
 
     @State private var path = NavigationPath()
@@ -148,6 +151,8 @@ struct HomeView: View {
                 discussionLoader: discussionLoader,
                 discussionMutator:
                     discussionMutator,
+                reactionService:
+                    reactionService,
                 accountID: accountID,
                 appSession: appSession
             )
@@ -158,6 +163,8 @@ struct HomeView: View {
                 discussionLoader: discussionLoader,
                 discussionMutator:
                     discussionMutator,
+                reactionService:
+                    reactionService,
                 accountID: accountID,
                 appSession: appSession
             )
@@ -168,6 +175,8 @@ struct HomeView: View {
                 discussionLoader: discussionLoader,
                 discussionMutator:
                     discussionMutator,
+                reactionService:
+                    reactionService,
                 accountID: accountID,
                 appSession: appSession
             )

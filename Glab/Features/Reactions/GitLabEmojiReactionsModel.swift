@@ -162,9 +162,36 @@ final class GitLabEmojiReactionsModel {
                     currentUserID
             )
 
-        for (name, mutation)
-            in pendingMutations
-        {
+        let pendingNames =
+            pendingMutations.keys.sorted {
+                lhs,
+                rhs in
+                let names =
+                    GitLabEmojiPickerItem
+                    .common.map(\.name)
+                let leftIndex =
+                    names.firstIndex(of: lhs)
+                let rightIndex =
+                    names.firstIndex(of: rhs)
+                switch (leftIndex, rightIndex) {
+                case let (left?, right?):
+                    return left < right
+                case (.some, nil):
+                    return true
+                case (nil, .some):
+                    return false
+                case (nil, nil):
+                    return lhs < rhs
+                }
+            }
+
+        for name in pendingNames {
+            guard
+                let mutation =
+                    pendingMutations[name]
+            else {
+                continue
+            }
             switch mutation {
             case .add:
                 if
@@ -194,9 +221,7 @@ final class GitLabEmojiReactionsModel {
                             name: name,
                             display:
                                 GitLabEmojiPickerItem
-                                .item(named: name)?
-                                .display
-                                ?? ":\(name):",
+                                .display(for: name),
                             count: 1,
                             currentUserAwardIDs: [],
                             isPending: true,
@@ -234,6 +259,14 @@ final class GitLabEmojiReactionsModel {
     }
 
     var canMutate: Bool {
+        apiAccess.canWrite
+            && pageModel.hasLoaded
+            && !isLoading
+            && pageModel.nextPageURL == nil
+            && pageModel.loadError == nil
+    }
+
+    var hasWriteAccess: Bool {
         apiAccess.canWrite
     }
 
@@ -317,7 +350,7 @@ final class GitLabEmojiReactionsModel {
     func toggleReaction(
         named name: String
     ) async {
-        guard canMutate else {
+        guard hasWriteAccess else {
             let error =
                 GitLabSessionClientError
                     .insufficientAccess(
@@ -333,6 +366,9 @@ final class GitLabEmojiReactionsModel {
                         error
                         .mutationDeliveryCertainty
                 )
+            return
+        }
+        guard canMutate else {
             return
         }
         guard
@@ -373,7 +409,7 @@ final class GitLabEmojiReactionsModel {
         named name: String
     ) async {
         pendingMutations[name] = .add
-        mutationFailure = nil
+        clearRejectedMutationFailure()
         defer {
             pendingMutations[name] = nil
         }
@@ -403,7 +439,7 @@ final class GitLabEmojiReactionsModel {
     ) async {
         pendingMutations[name] =
             .remove(awardID: awardID)
-        mutationFailure = nil
+        clearRejectedMutationFailure()
         defer {
             pendingMutations[name] = nil
         }
@@ -438,12 +474,28 @@ final class GitLabEmojiReactionsModel {
                 operation.name
             )
         }
+        guard
+            mutationFailure?.certainty
+                != .deliveryUnknown
+        else {
+            return
+        }
         mutationFailure =
             GitLabEmojiReactionMutationFailure(
                 operation: operation,
                 error: error,
                 certainty: certainty
             )
+    }
+
+    private func clearRejectedMutationFailure() {
+        guard
+            mutationFailure?.certainty
+                != .deliveryUnknown
+        else {
+            return
+        }
+        mutationFailure = nil
     }
 
     private func loadRemainingPages() async {

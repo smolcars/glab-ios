@@ -7,6 +7,9 @@ struct MergeRequestsView: View {
         any GitLabDiscussionLoading
     let discussionMutator:
         any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
     let accountID: GitLabAccountID
     let appSession: AppSession
 
@@ -19,6 +22,9 @@ struct MergeRequestsView: View {
             any GitLabDiscussionLoading,
         discussionMutator:
             any GitLabDiscussionMutating,
+        reactionService:
+            any GitLabEmojiReactionLoading
+                & GitLabEmojiReactionMutating,
         accountID: GitLabAccountID,
         appSession: AppSession
     ) {
@@ -28,6 +34,8 @@ struct MergeRequestsView: View {
             discussionLoader
         self.discussionMutator =
             discussionMutator
+        self.reactionService =
+            reactionService
         self.accountID = accountID
         self.appSession = appSession
         _model = State(
@@ -65,6 +73,8 @@ struct MergeRequestsView: View {
                         discussionLoader,
                     discussionMutator:
                         discussionMutator,
+                    reactionService:
+                        reactionService,
                     accountID: accountID,
                     appSession: appSession
                 )
@@ -540,6 +550,9 @@ struct GitLabMergeRequestDetailView: View {
         GitLabDiscussionResource
     let discussionMutator:
         any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
 
     @State private var model:
         GitLabMergeRequestDetailModel
@@ -553,6 +566,9 @@ struct GitLabMergeRequestDetailView: View {
             any GitLabDiscussionLoading,
         discussionMutator:
             any GitLabDiscussionMutating,
+        reactionService:
+            any GitLabEmojiReactionLoading
+                & GitLabEmojiReactionMutating,
         accountID: GitLabAccountID,
         appSession: AppSession
     ) {
@@ -560,6 +576,8 @@ struct GitLabMergeRequestDetailView: View {
         self.appSession = appSession
         self.discussionMutator =
             discussionMutator
+        self.reactionService =
+            reactionService
         let discussionResource =
             GitLabDiscussionResource
                 .mergeRequest(route)
@@ -663,6 +681,8 @@ struct GitLabMergeRequestDetailView: View {
                             ?? .readOnly,
                     discussionMutator:
                         discussionMutator,
+                    reactionService:
+                        reactionService,
                     appSession: appSession
                 )
             }
@@ -701,6 +721,9 @@ private struct GitLabMergeRequestDetailContent: View {
     let apiAccess: GitLabAPIAccess
     let discussionMutator:
         any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
     let appSession: AppSession
 
     @Environment(\.gitLabMarkdownRenderer)
@@ -710,6 +733,21 @@ private struct GitLabMergeRequestDetailContent: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 22) {
                 header
+
+                GitLabEmojiReactionView(
+                    awardable:
+                        .resource(
+                            discussionResource
+                        ),
+                    currentUserID:
+                        accountID.userID,
+                    apiAccess: apiAccess,
+                    loader: reactionService,
+                    mutator:
+                        reactionService,
+                    accountID: accountID,
+                    appSession: appSession
+                )
                 descriptionSection
                 branchesSection
 
@@ -728,6 +766,8 @@ private struct GitLabMergeRequestDetailContent: View {
                         mergeRequest.safeWebURL,
                     apiAccess: apiAccess,
                     mutator: discussionMutator,
+                    reactionService:
+                        reactionService,
                     appSession: appSession
                 )
             }

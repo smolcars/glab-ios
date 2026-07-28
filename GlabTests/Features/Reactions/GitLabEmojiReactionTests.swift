@@ -139,4 +139,37 @@ struct GitLabEmojiReactionTests {
             ).count == 6
         )
     }
+
+    @Test("Safely bounds custom emoji fallback labels")
+    func customFallbackLabels() {
+        #expect(
+            GitLabEmojiPickerItem.display(
+                for:
+                    "  :party\n\tparrot:\u{0000}  "
+            ) == ":party-parrot:"
+        )
+        #expect(
+            GitLabEmojiPickerItem.display(
+                for: "mood_bubble_lightning"
+            ) == ":mood_bubble_lightning:"
+        )
+        #expect(
+            GitLabEmojiPickerItem.display(
+                for: "thank-you"
+            ) == ":thank-you:"
+        )
+        #expect(
+            GitLabEmojiPickerItem.display(
+                for: ":\n:"
+            ) == "Emoji"
+        )
+        #expect(
+            GitLabEmojiPickerItem.display(
+                for: String(
+                    repeating: "a",
+                    count: 40
+                )
+            ) == ":\(String(repeating: "a", count: 32)):"
+        )
+    }
 }

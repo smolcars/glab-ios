@@ -106,6 +106,34 @@ nonisolated struct GitLabEmojiPickerItem:
             $0.name == name
         }
     }
+
+    static func display(
+        for name: String
+    ) -> String {
+        if let item = item(named: name) {
+            return item.display
+        }
+
+        let separators =
+            CharacterSet
+            .whitespacesAndNewlines
+            .union(.controlCharacters)
+        let normalized = name
+            .replacingOccurrences(
+                of: ":",
+                with: ""
+            )
+            .components(
+                separatedBy: separators
+            )
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+            .prefix(32)
+        guard !normalized.isEmpty else {
+            return "Emoji"
+        }
+        return ":\(normalized):"
+    }
 }
 
 nonisolated struct GitLabEmojiReactionGroup:
@@ -155,9 +183,7 @@ nonisolated struct GitLabEmojiReactionGroup:
                 name: name,
                 display:
                     GitLabEmojiPickerItem
-                    .item(named: name)?
-                    .display
-                    ?? ":\(name):",
+                    .display(for: name),
                 count: groupedAwards.count,
                 currentUserAwardIDs:
                     groupedAwards

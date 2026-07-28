@@ -7,6 +7,9 @@ struct GitLabDiscussionSection: View {
     let webURL: URL?
     let apiAccess: GitLabAPIAccess
     let mutator: any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
     let appSession: AppSession
 
     @State private var composerTarget:
@@ -165,6 +168,10 @@ struct GitLabDiscussionSection: View {
                     webURL: webURL,
                     markdownRenderer:
                         markdownRenderer,
+                    apiAccess: apiAccess,
+                    reactionService:
+                        reactionService,
+                    appSession: appSession,
                     reply: replyAction(
                         for: discussion
                     )
@@ -260,6 +267,11 @@ private struct GitLabDiscussionCard: View {
     let webURL: URL?
     let markdownRenderer:
         any GitLabMarkdownRendering
+    let apiAccess: GitLabAPIAccess
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
+    let appSession: AppSession
     let reply: (() -> Void)?
 
     var body: some View {
@@ -296,7 +308,12 @@ private struct GitLabDiscussionCard: View {
                         accountID: accountID,
                         webURL: webURL,
                         markdownRenderer:
-                            markdownRenderer
+                            markdownRenderer,
+                        apiAccess: apiAccess,
+                        reactionService:
+                            reactionService,
+                        appSession:
+                            appSession
                     )
                 }
             }
@@ -348,6 +365,11 @@ private struct GitLabDiscussionNoteView: View {
     let webURL: URL?
     let markdownRenderer:
         any GitLabMarkdownRendering
+    let apiAccess: GitLabAPIAccess
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
+    let appSession: AppSession
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -358,6 +380,23 @@ private struct GitLabDiscussionNoteView: View {
                 statusBadges
                 diffContext
                 bodyContent
+
+                GitLabEmojiReactionView(
+                    awardable: .note(
+                        id: note.id,
+                        in: resource
+                    ),
+                    currentUserID:
+                        accountID.userID,
+                    apiAccess: apiAccess,
+                    loader: reactionService,
+                    mutator:
+                        reactionService,
+                    allowsMutation:
+                        !note.isSystem,
+                    accountID: accountID,
+                    appSession: appSession
+                )
             }
             .frame(
                 maxWidth: .infinity,
