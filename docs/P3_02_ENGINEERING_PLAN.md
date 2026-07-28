@@ -5,9 +5,9 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Production implementation: in progress
-- Verification: not started
-- Deep review: not started
+- Production implementation: complete
+- Verification: in progress
+- Deep review: in progress
 
 This is the required implementation plan for P3-02. It must be committed and
 pushed before any P3-02 test or production code is changed.
@@ -636,6 +636,70 @@ If anything material is found:
 
 P3-02 and its checklist in `docs/MVP_PHASE_3.md` may be marked complete only
 after the review record and exact verification evidence are recorded here.
+
+## Deep review pass 1 and repair plan
+
+Date: 2026-07-28
+
+The first post-implementation review covered every P3-02 production change,
+the new tests, issue and merge-request entry wiring, draft/account lifecycle,
+freshness and delivery-certainty transitions, exact cache invalidation,
+loaded projection reconciliation, Markdown preview, accessibility state, and
+the simulator UI. It found the following material issues:
+
+1. **Ambiguous-delivery recovery is not durable.** `pendingMutation` exists
+   only in the live editor model. Closing or terminating the editor after an
+   unknown-delivery result preserves the text but loses the requirement to
+   check GitLab, so reopening can enable a second `PUT`. The editor also
+   remains text-editable while that result is unresolved; a successful check
+   can replace those later edits with the earlier authoritative result. The
+   same state makes the conflict copy incorrectly claim the draft was not sent
+   even when an earlier request may have reached GitLab.
+2. **Authoritative cache invalidation occurs at the wrong boundary.** A
+   normal `PUT` response invalidates caches inside the live service before the
+   editor verifies the returned resource identity. Conversely, a
+   delivery-unknown result later proven successful by `Check GitLab`
+   reconciles loaded UI state but never invalidates the affected response
+   caches.
+3. **Closing during draft restoration can delete the stored draft.** Before
+   `hasRestoredDraft` becomes true, the model appears clean.
+   `persistForDismissal()` therefore removes the draft while the store read is
+   still in flight. A swipe or Cancel during that interval can lose an
+   existing protected draft.
+4. **The new live-service test double uses forced casts.** The casts are
+   confined to tests and type-controlled today, but they can crash the test
+   process instead of reporting an invalid response and violate the planned
+   forced-cast quality scan.
+
+### Repair plan — committed before production repair
+
+1. Add failing editor-model and draft-store tests proving an unresolved
+   mutation marker is written before transport, survives model destruction
+   and restoration, keeps Save and editing disabled, exposes `Check GitLab`,
+   cannot be discarded, and is cleared durably after a definite rejection or
+   authoritative success.
+2. Extend the versioned edit-draft record with the minimum Boolean
+   unknown-delivery marker. Keep the pending baseline and intended values in
+   the existing redacted/protected fields, reject inconsistent records, bump
+   the development-only file format, restore the pending state, and disable
+   title/description editing until reconciliation.
+3. Add failing tests that a normal identity-verified success and an ambiguous
+   success both invalidate the exact affected reads, while identity mismatch,
+   failure, cancellation, and unresolved delivery do not. Move invalidation
+   behind one explicit service seam invoked only from the model's
+   identity-validated authoritative-success path.
+4. Add failing delayed-restore tests proving dismissal neither removes nor
+   rewrites a draft before restoration completes, and that a canceled restore
+   cannot apply late values. Make pre-restore dismissal preservation-only.
+5. Update conflict and recovery presentation so unresolved delivery never
+   claims the request was not sent and always retains an accessible
+   `Check GitLab` action.
+6. Replace the forced casts in the test client with checked casts that throw
+   the existing redacted invalid-response error.
+7. Run all focused P3-02 tests, the complete suite, Markdown performance
+   fixtures, Release Simulator build, static analysis, credential/privacy and
+   forced-operation scans, then repeat the full relevant simulator matrix and
+   deep review. Record exact evidence before checking off P3-02.
 
 ## Non-goals
 
