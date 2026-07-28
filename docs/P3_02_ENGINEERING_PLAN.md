@@ -5,7 +5,7 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Production implementation: not started
+- Production implementation: in progress
 - Verification: not started
 - Deep review: not started
 
@@ -191,8 +191,9 @@ documentation must not claim transactional compare-and-swap protection.
 Add focused, value-semantic edit types:
 
 - `GitLabResourceEditTarget`: issue route or merge-request route.
-- `GitLabResourceEditSnapshot`: target, exact title, exact description
-  normalized only from API `nil` to editor `""`, and `updatedAt`.
+- `GitLabResourceEditSnapshot`: target, stable numeric GitLab resource ID,
+  exact title, exact description normalized only from API `nil` to editor
+  `""`, and `updatedAt`.
 - `GitLabResourceEditChanges`: optional changed title and optional changed
   description. `nil` means omit that field; `""` means explicitly clear the
   description.
@@ -263,7 +264,8 @@ length-prefixed before hashing, following the established draft-store pattern.
 The versioned draft record contains only:
 
 - target identity;
-- baseline title, description, and `updatedAt`;
+- baseline stable numeric GitLab resource ID, title, description, and
+  `updatedAt`;
 - current title and description;
 - monotonic local revision.
 
@@ -288,6 +290,10 @@ comments, diff, or unrelated response data.
   preserves them for sign-in recovery, matching discussion drafts.
 - Corrupt, wrong-version, wrong-key, oversized, or unreadable records are not
   treated as valid drafts and never expose their content in errors or logs.
+- Glab has not shipped, so the first development-only draft schema is not a
+  compatibility contract. Adding the stable resource ID intentionally makes
+  an older local development draft fail decoding and be discarded instead of
+  adding speculative migration code.
 
 ## Validation and freshness algorithm
 
