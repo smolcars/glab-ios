@@ -413,6 +413,29 @@ nonisolated struct GitLabMarkdownImageLoadRequest:
     let accountID: GitLabAccountID
     let url: URL
     let targetPixelWidth: Int
+
+    init(
+        accountID: GitLabAccountID,
+        url: URL,
+        targetPixelWidth: Int
+    ) {
+        self.accountID = accountID
+        self.url = url
+        self.targetPixelWidth =
+            Self.normalizedTargetPixelWidth(
+                targetPixelWidth
+            )
+    }
+
+    static func normalizedTargetPixelWidth(
+        _ value: Int
+    ) -> Int {
+        let bounded = min(
+            2_048,
+            max(128, value)
+        )
+        return ((bounded + 63) / 64) * 64
+    }
 }
 
 nonisolated protocol GitLabMarkdownImageLoading:
@@ -534,9 +557,7 @@ actor GitLabMarkdownImageLoader:
             accountID: request.accountID,
             url: request.url,
             targetPixelWidth:
-                Self.bucketedPixelWidth(
-                    request.targetPixelWidth
-                )
+                request.targetPixelWidth
         )
 
         if var cached = cache[key] {
@@ -780,13 +801,4 @@ actor GitLabMarkdownImageLoader:
         return accessCounter
     }
 
-    private static func bucketedPixelWidth(
-        _ value: Int
-    ) -> Int {
-        let bounded = min(
-            2_048,
-            max(128, value)
-        )
-        return ((bounded + 63) / 64) * 64
-    }
 }

@@ -440,6 +440,22 @@ struct GitLabMarkdownImageLoaderTests {
         #expect(await transport.callCount == 0)
     }
 
+    @Test("Normalizes render widths into bounded cache buckets")
+    func targetWidthNormalization() {
+        #expect(
+            request(targetPixelWidth: 1)
+                .targetPixelWidth == 128
+        )
+        #expect(
+            request(targetPixelWidth: 129)
+                .targetPixelWidth == 192
+        )
+        #expect(
+            request(targetPixelWidth: 2_049)
+                .targetPixelWidth == 2_048
+        )
+    }
+
     private var pngData: Data {
         Data(
             base64Encoded:
@@ -485,7 +501,8 @@ struct GitLabMarkdownImageLoaderTests {
 
     private func request(
         url: String =
-            "https://gitlab.example.com/uploads/image.png"
+            "https://gitlab.example.com/uploads/image.png",
+        targetPixelWidth: Int = 300
     ) -> GitLabMarkdownImageLoadRequest {
         let host = try! GitLabHost(
             "https://gitlab.example.com"
@@ -496,7 +513,7 @@ struct GitLabMarkdownImageLoaderTests {
                 userID: 1
             ),
             url: URL(string: url)!,
-            targetPixelWidth: 300
+            targetPixelWidth: targetPixelWidth
         )
     }
 

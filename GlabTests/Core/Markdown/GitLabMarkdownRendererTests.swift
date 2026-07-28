@@ -214,6 +214,35 @@ struct GitLabMarkdownRendererTests {
         #expect(await renderer.cacheEntryCount == 0)
     }
 
+    @Test("An older completion cannot replace newer cached content")
+    func outOfOrderContentCompletion() async throws {
+        let parser = OutOfOrderMarkdownParser()
+        let renderer = GitLabMarkdownRenderer(
+            parser: parser.parse
+        )
+        let initial = try makeRequest(source: "Initial")
+        let updated = try makeRequest(source: "Updated")
+
+        let initialTask = Task {
+            try await renderer.render(initial)
+        }
+        await parser.waitUntilStarted("Initial")
+
+        let updatedTask = Task {
+            try await renderer.render(updated)
+        }
+        await parser.waitUntilStarted("Updated")
+
+        await parser.finish("Updated")
+        _ = try await updatedTask.value
+        await parser.finish("Initial")
+        _ = try await initialTask.value
+        _ = try await renderer.render(updated)
+
+        #expect(await parser.callCount == 2)
+        #expect(await renderer.cacheEntryCount == 1)
+    }
+
     private func makeRequest(
         source: String,
         userID: Int = 1,
@@ -326,6 +355,35 @@ struct GitLabMarkdownModelTests {
         #expect(model.failureMessage == nil)
     }
 
+    @Test("A different resource never retains the prior document")
+    func resourceChangeClearsPriorContent() async throws {
+        let renderer = ControlledMarkdownRenderer(
+            gatedSource: "Second"
+        )
+        let model = GitLabMarkdownModel(renderer: renderer)
+        let first = try makeRequest(
+            source: "First",
+            issueIID: 1
+        )
+        let second = try makeRequest(
+            source: "Second",
+            issueIID: 2
+        )
+        await model.load(first)
+
+        let task = Task {
+            await model.load(second)
+        }
+        await renderer.waitUntilGatedRequestStarts()
+
+        #expect(model.state == .loading)
+        #expect(model.document == nil)
+
+        await renderer.finishGatedRequest()
+        await task.value
+        #expect(model.document?.plainText == "Second")
+    }
+
     private func makeRequest(
         source: String,
         issueIID: Int
@@ -427,6 +485,66 @@ private actor GatedMarkdownParser {
         cancellationWaiters.removeAll()
         waiters.forEach { $0.resume() }
         finish()
+    }
+}
+
+private actor OutOfOrderMarkdownParser {
+    private(set) var callCount = 0
+    private var callsBySource: [String: Int] = [:]
+    private var startedSources: Set<String> = []
+    private var startWaiters:
+        [
+            String:
+                [CheckedContinuation<Void, Never>]
+        ] = [:]
+    private var finishContinuations:
+        [
+            String:
+                CheckedContinuation<Void, Never>
+        ] = [:]
+
+    func parse(
+        _ request: GitLabMarkdownRequest
+    ) async throws -> GitLabMarkdownDocument {
+        callCount += 1
+        callsBySource[request.source, default: 0] += 1
+        guard callsBySource[request.source] == 1 else {
+            return document(request.source)
+        }
+
+        startedSources.insert(request.source)
+        let waiters =
+            startWaiters.removeValue(
+                forKey: request.source
+            )
+            ?? []
+        waiters.forEach { $0.resume() }
+        await withCheckedContinuation {
+            finishContinuations[
+                request.source
+            ] = $0
+        }
+        return document(request.source)
+    }
+
+    func waitUntilStarted(
+        _ source: String
+    ) async {
+        guard !startedSources.contains(source) else {
+            return
+        }
+        await withCheckedContinuation {
+            startWaiters[source, default: []]
+                .append($0)
+        }
+    }
+
+    func finish(
+        _ source: String
+    ) {
+        finishContinuations
+            .removeValue(forKey: source)?
+            .resume()
     }
 }
 

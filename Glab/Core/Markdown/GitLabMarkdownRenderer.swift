@@ -56,6 +56,7 @@ actor GitLabMarkdownRenderer:
     private struct CacheEntry {
         let document: GitLabMarkdownDocument
         let sourceCost: Int
+        let renderID: UInt64
         var lastAccess: UInt64
     }
 
@@ -203,6 +204,14 @@ actor GitLabMarkdownRenderer:
         }
 
         inFlight[key] = nil
+        guard
+            !hasNewerCachedVariant(
+                than: renderID,
+                for: key
+            )
+        else {
+            return
+        }
         removeStaleEntries(for: key)
         guard sourceCost <= maximumSourceCost else {
             return
@@ -211,6 +220,7 @@ actor GitLabMarkdownRenderer:
         cache[key] = CacheEntry(
             document: document,
             sourceCost: sourceCost,
+            renderID: renderID,
             lastAccess: nextAccess()
         )
         evictIfNeeded()
@@ -245,6 +255,17 @@ actor GitLabMarkdownRenderer:
             $0.key == key
                 || $0.key.accountID != key.accountID
                 || $0.key.resource != key.resource
+        }
+    }
+
+    private func hasNewerCachedVariant(
+        than renderID: UInt64,
+        for key: GitLabMarkdownCacheKey
+    ) -> Bool {
+        cache.contains {
+            $0.key.accountID == key.accountID
+                && $0.key.resource == key.resource
+                && $0.value.renderID > renderID
         }
     }
 
@@ -286,6 +307,13 @@ nonisolated enum GitLabMarkdownModelState:
 @MainActor
 @Observable
 final class GitLabMarkdownModel {
+    private struct RequestContext:
+        Equatable
+    {
+        let accountID: GitLabAccountID
+        let resource: GitLabMarkdownResourceID
+    }
+
     private(set) var state =
         GitLabMarkdownModelState.idle
     private(set) var failureMessage: String?
@@ -293,6 +321,7 @@ final class GitLabMarkdownModel {
     private let renderer:
         any GitLabMarkdownRendering
     private var generation: UInt64 = 0
+    private var requestContext: RequestContext?
 
     init(renderer: any GitLabMarkdownRendering) {
         self.renderer = renderer
@@ -310,10 +339,26 @@ final class GitLabMarkdownModel {
     ) async {
         generation &+= 1
         let loadGeneration = generation
-        let previousState = state
-        let previousFailure = failureMessage
+        let newContext = RequestContext(
+            accountID: request.accountID,
+            resource: request.resource
+        )
+        let canPreserveVisibleContent =
+            requestContext == newContext
+        let previousState =
+            canPreserveVisibleContent
+                ? state
+                : .idle
+        let previousFailure =
+            canPreserveVisibleContent
+                ? failureMessage
+                : nil
+        requestContext = newContext
 
-        if case .loaded = previousState {
+        if
+            canPreserveVisibleContent,
+            case .loaded = previousState
+        {
             state = previousState
         } else {
             state = .loading

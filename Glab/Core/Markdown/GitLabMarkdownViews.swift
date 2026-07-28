@@ -54,6 +54,11 @@ extension EnvironmentValues {
 }
 
 struct GitLabMarkdownDescriptionView: View {
+    private struct LoadIdentity: Hashable {
+        let request: GitLabMarkdownRequest
+        let revision: Date
+    }
+
     let request: GitLabMarkdownRequest
     let revision: Date
 
@@ -76,7 +81,12 @@ struct GitLabMarkdownDescriptionView: View {
 
     var body: some View {
         content
-            .task(id: revision) {
+            .task(
+                id: LoadIdentity(
+                    request: request,
+                    revision: revision
+                )
+            ) {
                 await model.load(request)
             }
     }
@@ -559,11 +569,15 @@ private struct GitLabMarkdownImageView: View {
     private enum Phase {
         case idle
         case loading
-        case loaded(GitLabMarkdownDecodedImage)
+        case loaded(
+            GitLabMarkdownImageLoadRequest,
+            GitLabMarkdownDecodedImage
+        )
         case failed(String)
     }
 
     private struct LoadIdentity: Hashable {
+        let accountID: GitLabAccountID
         let url: URL
         let targetPixelWidth: Int
         let retry: UInt64
@@ -612,7 +626,7 @@ private struct GitLabMarkdownImageView: View {
         switch phase {
         case .idle, .loading:
             placeholder
-        case let .loaded(decodedImage):
+        case let .loaded(_, decodedImage):
             Image(
                 decodedImage.cgImage,
                 scale: displayScale,
@@ -697,9 +711,13 @@ private struct GitLabMarkdownImageView: View {
 
     private var loadIdentity: LoadIdentity {
         LoadIdentity(
+            accountID: image.accountID,
             url: image.url,
             targetPixelWidth:
-                targetPixelWidth,
+                GitLabMarkdownImageLoadRequest
+                    .normalizedTargetPixelWidth(
+                        targetPixelWidth
+                    ),
             retry: retry
         )
     }
@@ -708,29 +726,40 @@ private struct GitLabMarkdownImageView: View {
         guard targetPixelWidth > 0 else {
             return
         }
+        let request = GitLabMarkdownImageLoadRequest(
+            accountID: image.accountID,
+            url: image.url,
+            targetPixelWidth: targetPixelWidth
+        )
         let previousPhase = phase
-        if case .loaded = previousPhase {
+        let canPreserveVisibleImage: Bool
+        if
+            case let .loaded(
+                previousRequest,
+                _
+            ) = previousPhase,
+            previousRequest.accountID
+                == request.accountID,
+            previousRequest.url == request.url
+        {
+            canPreserveVisibleImage = true
             // Preserve a visible image while a size change is
             // resolved from the memory cache.
         } else {
+            canPreserveVisibleImage = false
             phase = .loading
         }
 
         do {
             let decodedImage =
-                try await imageLoader.image(
-                    GitLabMarkdownImageLoadRequest(
-                        accountID:
-                            image.accountID,
-                        url: image.url,
-                        targetPixelWidth:
-                            targetPixelWidth
-                    )
-                )
+                try await imageLoader.image(request)
             guard !Task.isCancelled else {
                 return
             }
-            phase = .loaded(decodedImage)
+            phase = .loaded(
+                request,
+                decodedImage
+            )
         } catch is CancellationError {
             guard !Task.isCancelled else {
                 return
@@ -740,7 +769,7 @@ private struct GitLabMarkdownImageView: View {
             guard !Task.isCancelled else {
                 return
             }
-            if case .loaded = previousPhase {
+            if canPreserveVisibleImage {
                 phase = previousPhase
             } else {
                 phase = .failed(

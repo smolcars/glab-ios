@@ -23,6 +23,7 @@ nonisolated enum GitLabMarkdownResourceID:
 
 nonisolated struct GitLabMarkdownRequest:
     Equatable,
+    Hashable,
     Sendable
 {
     let accountID: GitLabAccountID
@@ -339,6 +340,11 @@ nonisolated struct GitLabMarkdownDocument:
 }
 
 nonisolated enum GitLabMarkdownParser {
+    private static let commentExpression =
+        try? NSRegularExpression(
+            pattern: "<!--[\\s\\S]*?-->"
+        )
+
     @concurrent
     static func parse(
         _ request: GitLabMarkdownRequest
@@ -363,11 +369,11 @@ nonisolated enum GitLabMarkdownParser {
         let root = GitLabMarkdownIntentNode.root()
         var fallbackIdentity = -1
 
-        for run in parsed.runs {
-            try Task.checkCancellation()
-            let fragment = AttributedString(
-                parsed[run.range]
-            )
+        for (index, run) in parsed.runs.enumerated() {
+            if index.isMultiple(of: 64) {
+                try Task.checkCancellation()
+            }
+            let fragment = parsed[run.range]
 
             guard let intent = run.presentationIntent else {
                 let node = GitLabMarkdownIntentNode(
@@ -377,8 +383,14 @@ nonisolated enum GitLabMarkdownParser {
                 fallbackIdentity -= 1
                 node.fragments.append(
                     .text(
-                        GitLabMarkdownInlineProcessor
-                            .plainText(fragment)
+                        AttributedString(
+                            GitLabMarkdownEscapedReference
+                                .restore(
+                                    String(
+                                        fragment.characters
+                                    )
+                                )
+                        )
                     )
                 )
                 root.children.append(node)
@@ -407,12 +419,10 @@ nonisolated enum GitLabMarkdownParser {
                 )
             } else {
                 parent.fragments.append(
-                    .text(
-                        GitLabMarkdownInlineProcessor.process(
-                            fragment,
-                            existingLink: run.link,
-                            context: context
-                        )
+                    GitLabMarkdownInlineProcessor.process(
+                        fragment,
+                        existingLink: run.link,
+                        context: context
                     )
                 )
             }
@@ -430,15 +440,11 @@ nonisolated enum GitLabMarkdownParser {
     private static func sourceWithoutComments(
         _ source: String
     ) -> String {
-        guard
-            let expression = try? NSRegularExpression(
-                pattern: "<!--[\\s\\S]*?-->"
-            )
-        else {
+        guard let commentExpression else {
             return source
         }
 
-        return expression.stringByReplacingMatches(
+        return commentExpression.stringByReplacingMatches(
             in: source,
             range: NSRange(
                 source.startIndex..<source.endIndex,
@@ -450,6 +456,7 @@ nonisolated enum GitLabMarkdownParser {
 }
 
 nonisolated private enum GitLabMarkdownIntentFragment {
+    case substring(AttributedSubstring)
     case text(AttributedString)
     case image(rawURL: URL, altText: String)
 }
@@ -459,6 +466,8 @@ nonisolated private final class GitLabMarkdownIntentNode {
     let kind: PresentationIntent.Kind?
     var children: [GitLabMarkdownIntentNode] = []
     var fragments: [GitLabMarkdownIntentFragment] = []
+    private var childrenByIdentity:
+        [Int: GitLabMarkdownIntentNode] = [:]
 
     init(
         identity: Int,
@@ -479,11 +488,7 @@ nonisolated private final class GitLabMarkdownIntentNode {
         identity: Int,
         kind: PresentationIntent.Kind
     ) -> GitLabMarkdownIntentNode {
-        if
-            let existing = children.first(
-                where: { $0.identity == identity }
-            )
-        {
+        if let existing = childrenByIdentity[identity] {
             return existing
         }
 
@@ -492,6 +497,7 @@ nonisolated private final class GitLabMarkdownIntentNode {
             kind: kind
         )
         children.append(child)
+        childrenByIdentity[identity] = child
         return child
     }
 }
@@ -657,7 +663,8 @@ nonisolated private enum GitLabMarkdownTreeConverter {
             result.append(
                 makeTextBlock(
                     GitLabMarkdownText(
-                        attributedString: text
+                        attributedString:
+                            inlineText(text)
                     )
                 )
             )
@@ -666,6 +673,8 @@ nonisolated private enum GitLabMarkdownTreeConverter {
 
         for fragment in fragments {
             switch fragment {
+            case let .substring(value):
+                text.append(value)
             case let .text(value):
                 text.append(value)
             case let .image(rawURL, altText):
@@ -892,12 +901,24 @@ nonisolated private enum GitLabMarkdownTreeConverter {
         var result = AttributedString()
         for fragment in fragments {
             switch fragment {
+            case let .substring(value):
+                result.append(value)
             case let .text(value):
                 result.append(value)
             case let .image(_, altText):
                 result.append(AttributedString(altText))
             }
         }
+        return inlineText(result)
+    }
+
+    private static func inlineText(
+        _ source: AttributedString
+    ) -> AttributedString {
+        var result = source
+        result.presentationIntent = nil
+        result.imageURL = nil
+        result.alternateDescription = nil
         return result
     }
 }
@@ -1127,74 +1148,89 @@ nonisolated private struct GitLabMarkdownLinkContext {
 }
 
 nonisolated private enum GitLabMarkdownInlineProcessor {
-    static func plainText(
-        _ source: AttributedString
-    ) -> AttributedString {
-        AttributedString(
-            GitLabMarkdownEscapedReference
-                .restore(
-                    String(source.characters)
-                )
+    private static let referenceExpression =
+        try? NSRegularExpression(
+            pattern:
+                "(?<![A-Za-z0-9_./\\\\])"
+                + "(#([1-9][0-9]*)"
+                + "|!([1-9][0-9]*)"
+                + "|@([A-Za-z0-9_]"
+                + "(?:[A-Za-z0-9_.-]*"
+                + "[A-Za-z0-9_])?))"
         )
-    }
 
     static func process(
-        _ source: AttributedString,
+        _ source: AttributedSubstring,
         existingLink: URL?,
         context: GitLabMarkdownLinkContext
-    ) -> AttributedString {
-        var value = source
-        value.presentationIntent = nil
-        value.imageURL = nil
-        value.alternateDescription = nil
-
+    ) -> GitLabMarkdownIntentFragment {
         if let existingLink {
+            var value = AttributedString(source)
             value.link = context.resolve(existingLink)
-            return restoreProtectedReferences(
-                in: value
+            return .text(
+                restoreProtectedReferences(
+                    in: value
+                )
             )
         }
 
-        value.link = nil
+        let containsProtectedReference =
+            source.characters.contains {
+                $0 == "\u{E000}"
+                    || $0 == "\u{E001}"
+                    || $0 == "\u{E002}"
+            }
         if
-            value.runs.contains(where: {
+            source.runs.contains(where: {
                 $0.inlinePresentationIntent?
                     .contains(.code) == true
             })
         {
-            return restoreProtectedReferences(
-                in: value
-            )
+            return containsProtectedReference
+                ? .text(
+                    restoreProtectedReferences(
+                        in: AttributedString(source)
+                    )
+                )
+                : .substring(source)
         }
 
-        return restoreProtectedReferences(
-            in: linkReferences(
-                in: value,
-                context: context
+        guard
+            source.characters.contains(where: {
+                $0 == "#" || $0 == "!" || $0 == "@"
+            })
+        else {
+            return containsProtectedReference
+                ? .text(
+                    restoreProtectedReferences(
+                        in: AttributedString(source)
+                    )
+                )
+                : .substring(source)
+        }
+
+        let text = String(source.characters)
+        return .text(
+            restoreProtectedReferences(
+                in: linkReferences(
+                    in: AttributedString(source),
+                    text: text,
+                    context: context
+                )
             )
         )
     }
 
     private static func linkReferences(
         in source: AttributedString,
+        text: String,
         context: GitLabMarkdownLinkContext
     ) -> AttributedString {
-        let text = String(source.characters)
-        guard
-            let expression = try? NSRegularExpression(
-                pattern:
-                    "(?<![A-Za-z0-9_./\\\\])"
-                    + "(#([1-9][0-9]*)"
-                    + "|!([1-9][0-9]*)"
-                    + "|@([A-Za-z0-9_]"
-                    + "(?:[A-Za-z0-9_.-]*"
-                    + "[A-Za-z0-9_])?))"
-            )
-        else {
+        guard let referenceExpression else {
             return source
         }
 
-        let matches = expression.matches(
+        let matches = referenceExpression.matches(
             in: text,
             range: NSRange(
                 text.startIndex..<text.endIndex,
@@ -1271,6 +1307,15 @@ nonisolated private enum GitLabMarkdownInlineProcessor {
     private static func restoreProtectedReferences(
         in source: AttributedString
     ) -> AttributedString {
+        let text = String(source.characters)
+        guard
+            text.contains("\u{E000}")
+                || text.contains("\u{E001}")
+                || text.contains("\u{E002}")
+        else {
+            return source
+        }
+
         var result = AttributedString()
 
         for run in source.runs {
