@@ -736,7 +736,10 @@ The Simulator and physical-device UI review found three presentation defects:
   displacing the description and discussion content even when the user only
   needs the overall verdict; and
 - the emoji picker preserves a 44-point hit target but uses a plain style, so
-  its standalone emoji has no visual affordance that it is a button.
+  its standalone emoji has no visual affordance that it is a button; and
+- discussion cards separate a labeled Reply button from the reaction picker,
+  even though both are compact comment actions that belong together at the
+  bottom-leading edge of the exact comment.
 
 The controls must remain accessible and the readiness details must remain
 available. This is a presentation repair only; it must not change discussion
@@ -753,8 +756,11 @@ Repair plan, to be committed before production edits:
 3. Reduce the visible Resolve/Reopen glass control with the small control size
    while retaining a minimum 44-point hit target, progress, disabled state,
    accessibility semantics, and Dynamic Type behavior.
-4. Give the emoji picker a small glass surface while retaining its 44-point hit
-   target and existing bottom-leading horizontal picker.
+4. Keep resource-level reaction pickers on a small glass surface. In discussion
+   comments, combine icon-only Reply and React actions into one bottom-leading
+   Liquid Glass pill. Preserve a 44-point target and accessible label for each
+   action, exact-note reaction identity, thread reply identity, and the existing
+   bottom-leading horizontal picker.
 5. Run the focused readiness, discussion-presentation, and reaction suites.
    Inspect the affected MR screens in dark and light appearance at regular and
    accessibility text sizes on the iPhone 17 Pro Simulator.
