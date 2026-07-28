@@ -8,7 +8,7 @@
 - Test implementation: complete
 - Production implementation: complete
 - Verification: pending
-- Deep review: in progress — one material finding has a committed repair plan
+- Deep review: in progress — two material findings have committed repair plans
 
 This plan must be committed and pushed before any P3-04 test or production
 code is changed.
@@ -657,6 +657,38 @@ Repair plan, to be committed before production edits:
    broaden the change to unrelated unclassified status codes.
 5. Rerun the focused client, discussion endpoint/service/model, cache, and
    presentation suites, then the complete P3-04 gates.
+6. Repeat the deep review and record the final result here.
+
+### DR-02 — An enabled resolution control can silently ignore a tap
+
+Status: repair planned; production code not yet changed.
+
+The review also found a state-ownership race after an authoritative resolution
+response. `completeAuthoritative` reconciles the returned discussion and clears
+its transient resolution state before awaiting the merge-request readiness
+refresh. The presentation can therefore render the opposite action as enabled
+while the per-discussion operation is still registered in `tasks`.
+
+A tap during that window is silently discarded by the operation guard. A slow
+or stalled readiness refresh makes the mismatch visible for longer and violates
+the requirement that an enabled control corresponds to an available action.
+
+Repair plan, to be committed before production edits:
+
+1. Add a model regression test with a gated readiness refresh. Prove the
+   authoritative discussion is retained, the control remains honestly busy,
+   and another mutation cannot start until the refresh finishes.
+2. Add presentation coverage for the post-mutation readiness-refresh state,
+   including disabled action, progress, authoritative resolved metadata, and
+   accessibility wording.
+3. Add one explicit resolution phase for the readiness refresh. Preserve the
+   authoritative discussion and resolver metadata in this phase; do not keep
+   presenting optimistic data after GitLab has confirmed the mutation.
+4. Clear the phase only after the readiness refresh returns. Keep the existing
+   behavior that a readiness-refresh failure does not roll back the confirmed
+   discussion mutation.
+5. Rerun the focused model and presentation suites, the complete P3-04 gates,
+   and Simulator interaction checks.
 6. Repeat the deep review and record the final result here.
 
 ## Non-goals
