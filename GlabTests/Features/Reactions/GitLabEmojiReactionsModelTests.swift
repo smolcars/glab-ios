@@ -203,6 +203,42 @@ struct GitLabEmojiReactionsModelTests {
         )
     }
 
+    @Test("Removes the current user's exact award")
+    func removesExactAward() async {
+        let existing = makeTestEmojiAward(
+            id: 91,
+            name: "thumbsup",
+            userID: 7
+        )
+        let loader = SequencedReactionLoader(
+            pages: [
+                .success(page([existing])),
+            ]
+        )
+        let mutator =
+            ImmediateReactionMutator(
+                removeResults: [
+                    .success(()),
+                ]
+            )
+        let model = makeModel(
+            loader: loader,
+            mutator: mutator
+        )
+        await model.loadIfNeeded()
+
+        await model.toggleReaction(
+            named: "thumbsup"
+        )
+
+        #expect(model.groups.isEmpty)
+        #expect(
+            await mutator.removeCalls
+                == [91]
+        )
+        #expect(model.mutationFailure == nil)
+    }
+
     @Test("Requires refresh after delivery-unknown rollback")
     func gatesUncertainMutation() async {
         let failure =
@@ -308,6 +344,118 @@ struct GitLabEmojiReactionsModelTests {
         #expect(
             model.authenticationFailure
                 == failure
+        )
+    }
+
+    @Test("Rolls back and gates a cancelled mutation")
+    func handlesMutationCancellation() async {
+        let failure =
+            GitLabSessionClientError
+                .api(.cancelled)
+        let loader = SequencedReactionLoader(
+            pages: [.success(page([]))]
+        )
+        let mutator =
+            ImmediateReactionMutator(
+                addResults: [
+                    .failure(failure),
+                ]
+            )
+        let model = makeModel(
+            loader: loader,
+            mutator: mutator
+        )
+        await model.loadIfNeeded()
+
+        await model.toggleReaction(
+            named: "rocket"
+        )
+
+        #expect(model.groups.isEmpty)
+        #expect(
+            model.mutationFailure?
+                .certainty
+                == .deliveryUnknown
+        )
+        #expect(
+            model.requiresRefresh(
+                name: "rocket"
+            )
+        )
+    }
+
+    @Test("Keeps independently constructed account state isolated")
+    func isolatesAccounts() async {
+        let firstLoader =
+            SequencedReactionLoader(
+                pages: [
+                    .success(
+                        page(
+                            [
+                                makeTestEmojiAward(
+                                    id: 91,
+                                    name: "heart",
+                                    userID: 7
+                                ),
+                            ]
+                        )
+                    ),
+                ]
+            )
+        let secondLoader =
+            SequencedReactionLoader(
+                pages: [
+                    .success(
+                        page(
+                            [
+                                makeTestEmojiAward(
+                                    id: 92,
+                                    name: "thumbsup",
+                                    userID: 8
+                                ),
+                            ]
+                        )
+                    ),
+                ]
+            )
+        let firstMutator =
+            ImmediateReactionMutator()
+        let secondMutator =
+            ImmediateReactionMutator()
+        let firstModel = makeModel(
+            currentUserID: 7,
+            loader: firstLoader,
+            mutator: firstMutator
+        )
+        let secondModel = makeModel(
+            currentUserID: 8,
+            loader: secondLoader,
+            mutator: secondMutator
+        )
+
+        await firstModel.loadIfNeeded()
+        await secondModel.loadIfNeeded()
+        await firstModel.toggleReaction(
+            named: "heart"
+        )
+
+        #expect(firstModel.groups.isEmpty)
+        #expect(
+            secondModel.groups.map(\.name)
+                == ["thumbsup"]
+        )
+        #expect(
+            secondModel.groups[0]
+                .currentUserAwardIDs
+                == [92]
+        )
+        #expect(
+            await firstMutator.removeCalls
+                == [91]
+        )
+        #expect(
+            await secondMutator
+                .removeCalls.isEmpty
         )
     }
 
@@ -438,6 +586,7 @@ struct GitLabEmojiReactionsModelTests {
     }
 
     private func makeModel(
+        currentUserID: Int = 7,
         apiAccess:
             GitLabAPIAccess = .readWrite,
         loader:
@@ -447,7 +596,7 @@ struct GitLabEmojiReactionsModelTests {
     ) -> GitLabEmojiReactionsModel {
         GitLabEmojiReactionsModel(
             awardable: testIssueAwardable,
-            currentUserID: 7,
+            currentUserID: currentUserID,
             apiAccess: apiAccess,
             loader: loader,
             mutator: mutator

@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-28
 
-Status: implementation and deep review in progress.
+Status: complete.
 
 Glab has not shipped. Breaking internal APIs, model initializers, and local
 cache formats are acceptable when they make this feature smaller, safer, or
@@ -383,20 +383,20 @@ Accessibility requirements:
 
 Complete after implementation:
 
-- [ ] Endpoint and HTTP method correctness
-- [ ] Exact award ID preservation and deletion
-- [ ] Group count and current-user-state correctness
-- [ ] Optimistic overlay and rollback correctness
-- [ ] Duplicate tap and concurrent-name safety
-- [ ] Delivery-unknown replay safety
-- [ ] Pagination and cache invalidation scope
-- [ ] Account and host isolation
-- [ ] Read-only and authentication behavior
-- [ ] Task cancellation and retained-task safety
-- [ ] Accessibility and Dynamic Type
-- [ ] Confidential logging and privacy
-- [ ] Duplicate code and unnecessary abstraction
-- [ ] Static analysis and complete test results
+- [x] Endpoint and HTTP method correctness
+- [x] Exact award ID preservation and deletion
+- [x] Group count and current-user-state correctness
+- [x] Optimistic overlay and rollback correctness
+- [x] Duplicate tap and concurrent-name safety
+- [x] Delivery-unknown replay safety
+- [x] Pagination and cache invalidation scope
+- [x] Account and host isolation
+- [x] Read-only and authentication behavior
+- [x] Task cancellation and retained-task safety
+- [x] Accessibility and Dynamic Type
+- [x] Confidential logging and privacy
+- [x] Duplicate code and unnecessary abstraction
+- [x] Static analysis and complete test results
 
 ### Findings
 
@@ -404,18 +404,29 @@ Complete after implementation:
   Starting a mutation for a different emoji currently clears the single
   mutation failure. If the previous failure had unknown delivery, its emoji
   remains correctly blocked but the inline Refresh action disappears. A later
-  rejected mutation can also overwrite that recovery UI.
+  rejected mutation can also overwrite that recovery UI. **Resolved:** an
+  unknown-delivery failure now remains the visible recovery state until a
+  complete successful refresh, while other names remain independently usable.
 - **F2 — Custom-name fallback accepts layout-breaking whitespace.**
   The fallback strips colons and bounds length, but an unexpected server name
   can still contain an internal newline or control character and distort a
-  compact reaction chip.
+  compact reaction chip. **Resolved:** fallback labels remove colons, collapse
+  whitespace/control runs to a hyphen, retain ordinary GitLab name characters,
+  and remain bounded to 32 displayed characters.
 - **F3 — Complete-pagination mutation gating lacks a regression test.**
   The model disables mutation until every reaction page is loaded, which is
   necessary to avoid adding a duplicate reaction when the current user's award
   is on a later page. The failure path needs direct coverage so this invariant
-  cannot regress silently.
+  cannot regress silently. **Resolved:** a failing-second-page regression test
+  proves no reaction mutation can leave the model in that incomplete state.
+
+The repeated review after these repairs found no remaining material bug,
+duplicated reaction path, unsafe retry, count drift, account leak, or
+refactoring need.
 
 ### Repair plan
+
+Status: completed.
 
 1. Add a model test that produces a delivery-unknown failure, performs a
    different-name rejected mutation, and proves the original recovery failure
@@ -430,6 +441,28 @@ Complete after implementation:
    assert mutation remains disabled and the mutator receives no request.
 6. Re-run focused reaction tests, the complete functional suite, static
    analysis, and the simulator interaction matrix before closing the findings.
+
+## Final verification
+
+Completed on 2026-07-28:
+
+- Focused domain, endpoint, service, request/retry, cache, and observable-model
+  tests pass, including exact deletion, rejected and unknown-delivery rollback,
+  cancellation, repeated taps, incomplete pagination, read-only access, and
+  independently constructed account state.
+- The complete functional test suite passes with parallel testing disabled.
+- The Markdown and discussion performance suites pass in isolated runs.
+- Xcode static analysis passes for a generic iOS Simulator destination.
+- The deterministic iPhone 17 Pro Simulator matrix passed for populated,
+  empty, pending, rejected, delivery-unknown, picker, read-only, system-note,
+  custom-name, light/dark, accessibility Dynamic Type, and Reduce Transparency
+  states.
+- The normal production app passed a continuous self-managed read-only flow
+  through Home, merge-request detail, and discussion notes. No mutation
+  control appeared and no live write was sent.
+- Cache/account review confirmed that reaction reads and invalidations use the
+  session client's account-scoped key and full request URL. The feature adds
+  no token, request-body, award, or user logging.
 
 ## Non-goals
 

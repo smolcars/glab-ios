@@ -251,7 +251,7 @@ Todo:
   editing code, add regression tests where applicable, implement every fix,
   and repeat the feature verification and review.
 
-### [ ] P2-05 — Add emoji reactions
+### [x] P2-05 — Add emoji reactions
 
 Outcome:
 
@@ -266,29 +266,29 @@ Todo:
   resource/note reaction endpoints, award identity, grouping, current-user
   state, picker scope, optimistic mutation/rollback, cache invalidation,
   tests, accessibility, and non-goals.
-- [ ] Write failing tests for decoding grouped reactions, current-user awards,
+- [x] Write failing tests for decoding grouped reactions, current-user awards,
   issue/MR/note endpoint construction, add/remove success, permission errors,
   optimistic rollback, repeated taps, cancellation, and account switching.
-- [ ] Model individual award IDs even when the UI groups identical emoji,
+- [x] Model individual award IDs even when the UI groups identical emoji,
   because removal targets a specific award.
-- [ ] Add a compact accessible reaction summary and a deliberately bounded
+- [x] Add a compact accessible reaction summary and a deliberately bounded
   common-emoji picker. Defer custom-emoji browsing unless the plan proves it
   is necessary for the first slice.
-- [ ] Implement optimistic add/remove with duplicate-action coalescing and
+- [x] Implement optimistic add/remove with duplicate-action coalescing and
   exact rollback on failure.
-- [ ] Invalidate or reconcile only the affected resource/note reaction state.
-- [ ] Disable mutations for read-only sessions while continuing to display
+- [x] Invalidate or reconcile only the affected resource/note reaction state.
+- [x] Disable mutations for read-only sessions while continuing to display
   reactions.
-- [ ] Verify issue, MR, and note reactions; rapid taps; rollback; read-only
+- [x] Verify issue, MR, and note reactions; rapid taps; rollback; read-only
   behavior; Dynamic Type; and light/dark appearance with deterministic
   services in the iPhone 17 Pro Simulator.
-- [ ] Run the focused tests, complete test suite, static analysis, and
+- [x] Run the focused tests, complete test suite, static analysis, and
   account-isolation checks.
-- [ ] Perform a deep code review of all code added or changed for this feature.
+- [x] Perform a deep code review of all code added or changed for this feature.
   Look for bugs, bad code, duplicated endpoint logic, incorrect award IDs,
   count drift, optimistic-state races, accessibility gaps, and code that needs
   refactoring. Record the findings in the engineering plan.
-- [ ] If the review finds anything material, write a repair plan before
+- [x] If the review finds anything material, write a repair plan before
   editing code, add regression tests where applicable, implement every fix,
   and repeat the feature verification and review.
 
