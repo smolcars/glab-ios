@@ -56,7 +56,7 @@ struct GitLabDiffLineDiscussionSheet: View {
     }
 }
 
-struct GitLabOtherDiffDiscussionsSheet: View {
+struct GitLabAllDiffDiscussionsSheet: View {
     let index: GitLabDiffDiscussionIndex
     let resource: GitLabDiscussionResource
     let accountID: GitLabAccountID
@@ -74,9 +74,10 @@ struct GitLabOtherDiffDiscussionsSheet: View {
 
     var body: some View {
         GitLabDiffDiscussionSheet(
-            title: "Other Diff Discussions",
+            title: "All Diff Discussions",
             location:
-                "These threads cannot be attached to a current visible line.",
+                "Current threads also appear on visible lines. "
+                + "Outdated or unavailable positions remain accessible here.",
             entries: entries,
             newPosition: nil,
             resource: resource,
@@ -94,7 +95,13 @@ struct GitLabOtherDiffDiscussionsSheet: View {
     private var entries:
         [GitLabDiffDiscussionSheetEntry]
     {
-        index.outdatedDiscussions.map {
+        index.currentDiscussions.map {
+            GitLabDiffDiscussionSheetEntry(
+                discussion: $0,
+                status: .current
+            )
+        }
+        + index.outdatedDiscussions.map {
             GitLabDiffDiscussionSheetEntry(
                 discussion: $0,
                 status: .outdated

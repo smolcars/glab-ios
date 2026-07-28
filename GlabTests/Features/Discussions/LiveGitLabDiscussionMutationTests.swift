@@ -290,6 +290,76 @@ struct LiveGitLabDiscussionMutationTests {
         )
     }
 
+    @Test(
+        "Version lookup failures are rejected before a positional POST",
+        arguments: [
+            GitLabSessionClientError.api(
+                .connectivity(
+                    .networkConnectionLost
+                )
+            ),
+            GitLabSessionClientError.api(
+                .unauthenticated
+            ),
+        ]
+    )
+    func rejectsDiffVersionRequestFailure(
+        failure: GitLabSessionClientError
+    ) async throws {
+        let client =
+            RecordingDiscussionMutationClient(
+                versionResult:
+                    .failure(failure)
+            )
+        let service =
+            LiveGitLabDiscussionService(
+                client: client
+            )
+        let position = try #require(
+            GitLabDiffLinePosition(
+                version:
+                    diffVersionIdentity(),
+                oldPath: "Sources/File.swift",
+                newPath: "Sources/File.swift",
+                oldLine: 20,
+                newLine: 21
+            )
+        )
+
+        await #expect(
+            throws:
+                GitLabDiscussionMutationError
+                    .diffVersionRequest(failure)
+        ) {
+            try await service
+                .createDiffDiscussion(
+                    for: mergeRequestRoute,
+                    body:
+                        GitLabDiscussionCommentBody(
+                            "Do not post"
+                        ),
+                    position: position
+                )
+        }
+
+        #expect(
+            await client.sentPaths
+                == [
+                    "projects/42/merge_requests/9/versions",
+                ]
+        )
+        #expect(
+            await client.invalidatedPaths
+                .isEmpty
+        )
+        #expect(
+            GitLabDiscussionMutationError
+                .diffVersionRequest(failure)
+                .deliveryCertainty
+                == .rejected
+        )
+    }
+
     @Test("Cancellation during version lookup sends no positional POST")
     func cancelsBeforeDiffDiscussionPost()
         async throws
@@ -334,7 +404,9 @@ struct LiveGitLabDiscussionMutationTests {
         await #expect(
             throws:
                 GitLabDiscussionMutationError
-                    .request(.api(.cancelled))
+                    .diffVersionRequest(
+                        .api(.cancelled)
+                    )
         ) {
             try await mutation.value
         }

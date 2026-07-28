@@ -451,6 +451,73 @@ struct GitLabDiscussionComposerModelTests {
         )
     }
 
+    @Test("Exposes authentication failures from diff version preflight")
+    @MainActor
+    func exposesDiffVersionAuthenticationFailure()
+        async throws
+    {
+        let error =
+            GitLabSessionClientError.api(
+                .unauthenticated
+            )
+        let route = GitLabMergeRequestRoute(
+            projectID: 42,
+            mergeRequestIID: 11
+        )
+        let version = try #require(
+            GitLabMergeRequestDiffVersionIdentity(
+                baseSHA: "base",
+                startSHA: "start",
+                headSHA: "head"
+            )
+        )
+        let position = try #require(
+            GitLabDiffLinePosition(
+                version: version,
+                oldPath: "Sources/File.swift",
+                newPath: "Sources/File.swift",
+                oldLine: 20,
+                newLine: 21
+            )
+        )
+        let context = try ComposerTestContext(
+            resource: .mergeRequest(route)
+        )
+        let model = context.makeModel(
+            target:
+                .newDiffDiscussion(
+                    position: position
+                ),
+            mutator:
+                RecordingComposerMutator(
+                    discussionResult:
+                        .failure(
+                            .diffVersionRequest(
+                                error
+                            )
+                        )
+                )
+        )
+        await model.restoreDraft()
+        model.body = "Preserve through sign in"
+
+        await model.send()
+
+        #expect(
+            model.authenticationFailure
+                == error
+        )
+        #expect(
+            model.failure
+                == .mutation(
+                    .diffVersionRequest(
+                        error
+                    ),
+                    certainty: .rejected
+                )
+        )
+    }
+
     @Test(
         "Ambiguous failures are marked delivery unknown",
         arguments: [

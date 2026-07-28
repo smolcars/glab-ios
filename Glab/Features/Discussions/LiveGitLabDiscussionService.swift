@@ -11,6 +11,9 @@ nonisolated enum GitLabDiscussionMutationError:
     case invalidDiffResource
     case latestDiffVersionUnavailable
     case staleDiffVersion
+    case diffVersionRequest(
+        GitLabSessionClientError
+    )
     case request(GitLabSessionClientError)
 
     var description: String {
@@ -25,6 +28,8 @@ nonisolated enum GitLabDiscussionMutationError:
         case .staleDiffVersion:
             "This diff changed before the comment was sent. "
                 + "Refresh the changed files and review the line again."
+        case let .diffVersionRequest(error):
+            error.description
         case let .request(error):
             error.description
         }
@@ -233,11 +238,13 @@ nonisolated struct LiveGitLabDiscussionService:
                     .diffVersions(at: route)
             )
         } catch {
-            throw .request(error)
+            throw .diffVersionRequest(error)
         }
 
         guard !Task.isCancelled else {
-            throw .request(.api(.cancelled))
+            throw .diffVersionRequest(
+                .api(.cancelled)
+            )
         }
         guard
             let latestVersion =

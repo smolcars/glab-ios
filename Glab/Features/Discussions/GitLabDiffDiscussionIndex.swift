@@ -14,7 +14,8 @@ nonisolated struct GitLabDiffDiscussionIndex:
         [GitLabDiscussion]
     let unmappedDiscussions:
         [GitLabDiscussion]
-    let currentDiscussionCount: Int
+    let currentDiscussions:
+        [GitLabDiscussion]
 
     init(
         discussions: [GitLabDiscussion],
@@ -30,7 +31,8 @@ nonisolated struct GitLabDiffDiscussionIndex:
             [GitLabDiscussion] = []
         var unmappedDiscussions:
             [GitLabDiscussion] = []
-        var currentDiscussionCount = 0
+        var currentDiscussions:
+            [GitLabDiscussion] = []
 
         for discussion in discussions {
             guard
@@ -74,7 +76,9 @@ nonisolated struct GitLabDiffDiscussionIndex:
                 default: []
             ]
             .append(discussion)
-            currentDiscussionCount += 1
+            currentDiscussions.append(
+                discussion
+            )
         }
 
         self.discussionsByPosition =
@@ -83,12 +87,24 @@ nonisolated struct GitLabDiffDiscussionIndex:
             outdatedDiscussions
         self.unmappedDiscussions =
             unmappedDiscussions
-        self.currentDiscussionCount =
-            currentDiscussionCount
+        self.currentDiscussions =
+            currentDiscussions
+    }
+
+    var currentDiscussionCount: Int {
+        currentDiscussions.count
+    }
+
+    var allPositionedDiscussions:
+        [GitLabDiscussion]
+    {
+        currentDiscussions
+            + outdatedDiscussions
+            + unmappedDiscussions
     }
 
     var positionedDiscussionCount: Int {
-        currentDiscussionCount
+        currentDiscussions.count
             + outdatedDiscussions.count
             + unmappedDiscussions.count
     }

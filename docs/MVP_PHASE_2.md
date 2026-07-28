@@ -347,7 +347,7 @@ Todo:
   editing code, add regression and performance tests where applicable,
   implement every fix, and repeat the feature verification and review.
 
-### [ ] P2-07 — Show and create inline diff discussions
+### [x] P2-07 — Show and create inline diff discussions
 
 Outcome:
 
@@ -363,32 +363,32 @@ Todo:
   GitLab position payloads, base/start/head SHA ownership, old/new path and
   line mapping, outdated threads, UI placement, write reconciliation,
   invalidation, tests, performance, and non-goals.
-- [ ] Write failing tests for old/new line positions, additions, deletions,
+- [x] Write failing tests for old/new line positions, additions, deletions,
   context lines, renamed paths, replies, outdated discussions, changed head
   SHAs, server validation errors, read-only sessions, and cancellation.
-- [ ] Map positional discussions onto stable diff line identities without
+- [x] Map positional discussions onto stable diff line identities without
   scanning every discussion for every visible line.
-- [ ] Display existing inline threads and distinguish current from outdated
+- [x] Display existing inline threads and distinguish current from outdated
   positions without hiding either.
-- [ ] Reuse the shared Markdown renderer, discussion composer, draft storage,
+- [x] Reuse the shared Markdown renderer, discussion composer, draft storage,
   and reaction components rather than creating diff-only duplicates.
-- [ ] Build position requests only from the exact diff version supplied by
+- [x] Build position requests only from the exact diff version supplied by
   GitLab. Reject or refresh stale UI state before sending a line comment.
-- [ ] Reconcile successful writes and update only the affected thread/line.
+- [x] Reconcile successful writes and update only the affected thread/line.
   Preserve drafts and avoid automatic retries after ambiguous POST failures.
-- [ ] Measure scrolling with representative inline-thread density and ensure
+- [x] Measure scrolling with representative inline-thread density and ensure
   collapsed threads do not eagerly render every comment.
-- [ ] Verify old/new line threads, outdated threads, reply/reaction UI,
+- [x] Verify old/new line threads, outdated threads, reply/reaction UI,
   read-only behavior, rapid navigation, and simulated version changes in the
   iPhone 17 Pro Simulator.
-- [ ] Run focused tests, the complete suite, static analysis, and
+- [x] Run focused tests, the complete suite, static analysis, and
   account/version-isolation checks.
-- [ ] Perform a deep code review of all code added or changed for this feature.
+- [x] Perform a deep code review of all code added or changed for this feature.
   Look for bugs, bad code, duplicated discussion UI or services, off-by-one
   line mapping, wrong-SHA writes, stale-version races, scrolling regressions,
   and code that needs refactoring. Record the findings in the engineering
   plan.
-- [ ] If the review finds anything material, write a repair plan before
+- [x] If the review finds anything material, write a repair plan before
   editing code, add regression and performance tests where applicable,
   implement every fix, and repeat the feature verification and review.
 

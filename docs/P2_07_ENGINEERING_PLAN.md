@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-28
 
-Status: planned; implementation has not started.
+Status: complete.
 
 Glab has not shipped. Breaking internal APIs, draft identifiers, model
 initializers, and cache formats are acceptable when they make positional
@@ -434,8 +434,99 @@ After implementation and simulator verification:
 
 ### Findings
 
-Pending implementation.
+The 2026-07-28 review covered every P2-07 production and test diff, followed by
+the real self-managed read-only Simulator flow. It found:
+
+1. **Preflight failures have the wrong delivery certainty.** The positional
+   service uses the same `.request` error for the diff-version GET and the
+   discussion POST. Connectivity, decoding, and cancellation failures during
+   the GET are therefore classified as delivery-unknown even though no write
+   was attempted. This can unnecessarily lock the composer against an explicit
+   retry and present misleading recovery guidance.
+2. **In-place cell reconfiguration can retain a stale accessibility trait.**
+   `UICollectionView.reconfigureItems` does not guarantee
+   `prepareForReuse()`. A visible line whose marker disappears clears its
+   callback and icon but can retain the `.button` trait from the previous
+   configuration.
+3. **A valid current-position thread can still be hidden.** Current threads
+   are stored only in the line-position lookup. If GitLab omits or collapses
+   the corresponding patch line, there is no marker and the thread is not in
+   the outdated/unmapped fallback sheet. The feature must provide a route that
+   does not depend on successful line rendering.
+4. **The initial fallback repair makes its count allocate arrays.** The
+   complete ordered discussion collection is useful when presenting the sheet,
+   but deriving the header count through that collection concatenates three
+   arrays during SwiftUI updates. The count should remain constant-space.
+No wrong-SHA payload construction, old/new line inversion, renamed-path
+substitution, draft collision, eager collapsed-thread Markdown work,
+unbounded discussion state, pagination termination error, or duplicate
+discussion service was found.
 
 ### Repair plan
 
-Pending review findings.
+Before editing production code:
+
+1. Add a distinct typed preflight/version-lookup mutation error. Add tests that
+   a failed version GET sends no POST, invalidates no cache, preserves
+   authentication propagation, and is classified as rejected. Keep errors
+   after POST dispatch on the existing delivery-certainty path.
+2. Add a cell regression that configures a marker and then reconfigures the
+   same instance without reuse. Reset accessibility traits on every
+   configuration so the unmarked state is static text and cannot activate.
+3. Retain the ordered current discussions in the O(1) index and add tests for
+   the complete current/outdated/unmapped collection. Change the fallback to
+   an “All Diff Discussions” route so every positioned thread remains
+   reachable even when no current line can render; keep current markers as the
+   primary line-level route.
+4. Keep the complete ordered collection for sheet presentation, but calculate
+   its count directly from the three stored array counts without allocating.
+5. Rerun the focused mutation/index/cell suites, optimized index/scroll
+   budgets, complete suite, and static analyzer. Repeat the live read-only
+   marker/all-discussions flow plus light/dark, Dynamic Type, Reduce Motion,
+   and rapid navigation checks before closing P2-07.
+
+### Repair and final review result
+
+All four findings were fixed:
+
+- Diff-version GET failures now have a distinct typed error, remain safe for an
+  intentional retry, propagate authentication failures, send no POST, and do
+  not invalidate the discussion cache.
+- Every cell configuration resets its accessibility traits before applying
+  marker state.
+- The index retains current positioned discussions in source order, while the
+  “All Diff Discussions” sheet provides a render-independent route to current,
+  outdated, and unmapped threads.
+- Header counts add the three stored collection counts without constructing a
+  combined array.
+
+A second complete review of the repaired production and test diffs found no
+remaining material bug, duplication, incorrect state ownership, or
+refactoring requirement within P2-07.
+
+## Final verification
+
+Completed on 2026-07-28:
+
+- The focused position, mutation, composer, index, collection-cell, and
+  discussion suites pass.
+- Optimized Release index-construction and virtualized-renderer performance
+  budgets pass with testability explicitly enabled.
+- The complete Debug suite passes sequentially with 625 test executions. The
+  affected index suite was rerun after the final constant-space count repair.
+- Xcode static analysis passes from the workspace source and workspace
+  DerivedData paths.
+- On the iPhone 17 Pro Simulator, the configured self-managed read-only account
+  loaded a real merge request with 17 changed files and an existing two-note
+  positional thread on `package.json` line 20. The line marker and the
+  render-independent “All Diff Discussions” route both opened the thread.
+- Expanded comments rendered through the shared Markdown card, resolved state
+  and an existing reaction remained visible, and no reply or reaction mutation
+  control appeared for the read-only account. No live mutation was attempted.
+- Dark and light appearances were visually inspected. Standard and maximum
+  accessibility Dynamic Type remained scrollable without a crash. With Reduce
+  Motion enabled, two previous-file and two next-file transitions returned to
+  the same file without stale content.
+- Screenshots were visually inspected for Home, the virtualized diff, the all
+  discussions sheet, and the line sheet. Simulator settings were restored and
+  all Simulator devices were shut down after verification.

@@ -579,7 +579,7 @@ private struct GitLabMergeRequestDiffFileView: View {
         GitLabDiffHunkJump?
     @State private var selectedLine:
         GitLabDiffLineSelection?
-    @State private var showsOtherDiscussions =
+    @State private var showsAllDiscussions =
         false
 
     init(
@@ -688,10 +688,10 @@ private struct GitLabMergeRequestDiffFileView: View {
         }
         .sheet(
             isPresented:
-                $showsOtherDiscussions
+                $showsAllDiscussions
         ) {
             if let discussionIndex {
-                GitLabOtherDiffDiscussionsSheet(
+                GitLabAllDiffDiscussionsSheet(
                     index: discussionIndex,
                     resource:
                         .mergeRequest(route),
@@ -879,14 +879,14 @@ private struct GitLabMergeRequestDiffFileView: View {
                     .foregroundStyle(.secondary)
             }
 
-            if otherDiscussionCount > 0 {
+            if allDiscussionCount > 0 {
                 Button {
-                    showsOtherDiscussions = true
+                    showsAllDiscussions = true
                 } label: {
                     Label(
-                        "\(otherDiscussionCount) other diff "
+                        "\(allDiscussionCount) diff "
                             + (
-                                otherDiscussionCount == 1
+                                allDiscussionCount == 1
                                     ? "discussion"
                                     : "discussions"
                             ),
@@ -1002,15 +1002,10 @@ private struct GitLabMergeRequestDiffFileView: View {
         )
     }
 
-    private var otherDiscussionCount: Int {
-        guard let discussionIndex else {
-            return 0
-        }
-        return
-            discussionIndex
-                .outdatedDiscussions.count
-            + discussionIndex
-                .unmappedDiscussions.count
+    private var allDiscussionCount: Int {
+        discussionIndex?
+            .positionedDiscussionCount
+            ?? 0
     }
 
     private var mergeRequestWebURL: URL? {

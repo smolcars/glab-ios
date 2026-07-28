@@ -71,9 +71,12 @@ nonisolated enum GitLabDiscussionComposerFailure:
     {
         guard
             case let .mutation(
-                .request(error),
+                mutationError,
                 _
             ) = self,
+            let error =
+                mutationError
+                .authenticationFailure,
             error.requiresReauthentication
         else {
             return nil
@@ -92,8 +95,25 @@ extension GitLabDiscussionMutationError {
              .latestDiffVersionUnavailable,
              .staleDiffVersion:
             .rejected
+        case .diffVersionRequest:
+            .rejected
         case let .request(error):
             error.mutationDeliveryCertainty
+        }
+    }
+
+    var authenticationFailure:
+        GitLabSessionClientError?
+    {
+        switch self {
+        case let .diffVersionRequest(error),
+             let .request(error):
+            error
+        case .encoding,
+             .invalidDiffResource,
+             .latestDiffVersionUnavailable,
+             .staleDiffVersion:
+            nil
         }
     }
 }

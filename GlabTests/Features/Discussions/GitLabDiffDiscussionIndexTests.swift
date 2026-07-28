@@ -56,6 +56,16 @@ struct GitLabDiffDiscussionIndexTests {
                 == ["first", "second"]
         )
         #expect(index.currentDiscussionCount == 2)
+        #expect(
+            index.currentDiscussions
+                .map(\.id)
+                == ["first", "second"]
+        )
+        #expect(
+            index.allPositionedDiscussions
+                .map(\.id)
+                == ["first", "second"]
+        )
         #expect(index.outdatedDiscussions.isEmpty)
         #expect(index.unmappedDiscussions.isEmpty)
     }
@@ -153,6 +163,15 @@ struct GitLabDiffDiscussionIndexTests {
         )
         #expect(index.currentDiscussionCount == 0)
         #expect(index.positionedDiscussionCount == 3)
+        #expect(
+            index.allPositionedDiscussions
+                .map(\.id)
+                == [
+                    "outdated",
+                    "partial",
+                    "non-text",
+                ]
+        )
     }
 
     @Test("Keeps accounts and versions out of position descriptions")

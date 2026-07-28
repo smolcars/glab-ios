@@ -436,12 +436,9 @@ private struct GitLabDiscussionComposerFailureView:
             return false
         }
 
-        if
-            case let .request(
-                sessionError
-            ) = error,
-            sessionError
-                .requiresReauthentication
+        if error.authenticationFailure?
+            .requiresReauthentication
+            == true
         {
             return false
         }

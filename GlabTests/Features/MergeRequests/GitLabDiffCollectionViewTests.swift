@@ -122,6 +122,58 @@ struct GitLabDiffCollectionViewTests {
         #expect(!cell.accessibilityActivate())
     }
 
+    @Test("In-place reconfiguration removes stale marker accessibility")
+    func resetsMarkerDuringReconfiguration()
+        throws
+    {
+        let position = try makePosition()
+        let cell = GitLabDiffCollectionViewCell(
+            frame: CGRect(
+                x: 0,
+                y: 0,
+                width: 600,
+                height:
+                    GitLabDiffLayoutMetrics
+                    .baseRowHeight
+            )
+        )
+        let line = GitLabDiffLine(
+            ordinal: 0,
+            kind: .addition,
+            oldLineNumber: nil,
+            newLineNumber: 21,
+            text: "let value = 1"
+        )
+        cell.configure(
+            with: .addition(line),
+            marker:
+                GitLabDiffDiscussionMarker(
+                    position: position,
+                    discussionCount: 1,
+                    allowsCommenting: false
+                )
+        ) { _ in }
+
+        cell.configure(
+            with: .addition(line),
+            marker: nil
+        ) { _ in }
+
+        let button = try #require(
+            cell.contentView.subviews
+                .compactMap {
+                    $0 as? UIButton
+                }
+                .first
+        )
+        #expect(button.isHidden)
+        #expect(
+            !cell.accessibilityTraits
+                .contains(.button)
+        )
+        #expect(!cell.accessibilityActivate())
+    }
+
     private func makePosition()
         throws -> GitLabDiffLinePosition
     {

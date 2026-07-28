@@ -704,6 +704,7 @@ final class GitLabDiffCollectionViewCell:
                 GitLabDiffLinePosition
             ) -> Void
     ) {
+        accessibilityTraits = .staticText
         let font = UIFontMetrics(
             forTextStyle: .caption1
         )
