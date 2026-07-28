@@ -6,16 +6,32 @@ nonisolated enum GitLabMarkdownResourceID:
     Sendable
 {
     case issue(projectID: Int, issueIID: Int)
+    case issueNote(
+        projectID: Int,
+        issueIID: Int,
+        noteID: Int
+    )
     case mergeRequest(
         projectID: Int,
         mergeRequestIID: Int
     )
+    case mergeRequestNote(
+        projectID: Int,
+        mergeRequestIID: Int,
+        noteID: Int
+    )
 
     fileprivate var webPathSuffix: String {
         switch self {
-        case let .issue(_, issueIID):
+        case let .issue(_, issueIID),
+             let .issueNote(_, issueIID, _):
             "/-/issues/\(issueIID)"
-        case let .mergeRequest(_, mergeRequestIID):
+        case let .mergeRequest(_, mergeRequestIID),
+             let .mergeRequestNote(
+                _,
+                mergeRequestIID,
+                _
+             ):
             "/-/merge_requests/\(mergeRequestIID)"
         }
     }

@@ -86,6 +86,34 @@ struct GitLabMarkdownRendererTests {
         #expect(await renderer.cacheEntryCount == 1)
     }
 
+    @Test("Caches notes independently within the same issue")
+    func noteCacheIsolation() async throws {
+        let parser = CountingMarkdownParser()
+        let renderer = GitLabMarkdownRenderer(
+            parser: parser.parse
+        )
+        let first = try makeNoteRequest(
+            source: "Original first note",
+            noteID: 101
+        )
+        let second = try makeNoteRequest(
+            source: "Second note",
+            noteID: 102
+        )
+        let updatedFirst = try makeNoteRequest(
+            source: "Updated first note",
+            noteID: 101
+        )
+
+        _ = try await renderer.render(first)
+        _ = try await renderer.render(second)
+        _ = try await renderer.render(updatedFirst)
+        _ = try await renderer.render(second)
+
+        #expect(await parser.callCount == 3)
+        #expect(await renderer.cacheEntryCount == 2)
+    }
+
     @Test("Promotes a hit and evicts the least recently used entry")
     func leastRecentlyUsedEviction() async throws {
         let parser = CountingMarkdownParser()
@@ -263,6 +291,32 @@ struct GitLabMarkdownRendererTests {
                 string:
                     "https://gitlab.example.com/group/project"
                     + "/-/issues/\(issueIID)"
+            )
+        )
+    }
+
+    private func makeNoteRequest(
+        source: String,
+        noteID: Int
+    ) throws -> GitLabMarkdownRequest {
+        let host = try GitLabHost(
+            "https://gitlab.example.com"
+        )
+        return GitLabMarkdownRequest(
+            accountID: GitLabAccountID(
+                host: host,
+                userID: 1
+            ),
+            resource: .issueNote(
+                projectID: 10,
+                issueIID: 1,
+                noteID: noteID
+            ),
+            source: source,
+            webURL: URL(
+                string:
+                    "https://gitlab.example.com/group/project"
+                    + "/-/issues/1"
             )
         )
     }
