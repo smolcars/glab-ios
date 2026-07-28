@@ -115,6 +115,39 @@ struct GitLabClientTests {
         )
     }
 
+    @Test("Captures safe validators for conditional cache revalidation")
+    func capturesCacheValidators() async throws {
+        let client = try makeClient(
+            outcome: .response(
+                Data("[]".utf8),
+                makeHTTPResponse(
+                    statusCode: 200,
+                    headers: [
+                        "ETag": " \"projects-v1\" ",
+                        "Last-Modified":
+                            " Mon, 27 Jul 2026 12:00:00 GMT ",
+                    ]
+                )
+            )
+        )
+
+        let response = try await client.sendRawPage(
+            GitLabAPIPageRequest<[TestProject]>
+                .initial(
+                    .get(
+                        requires: .read,
+                        path: ["projects"]
+                    )
+                )
+        )
+
+        #expect(response.entityTag == "\"projects-v1\"")
+        #expect(
+            response.lastModified
+                == "Mon, 27 Jul 2026 12:00:00 GMT"
+        )
+    }
+
     @Test("Allows missing and malformed optional response metadata")
     func handlesOptionalResponseMetadata() async throws {
         let missingClient = try makeClient(

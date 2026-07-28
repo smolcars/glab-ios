@@ -44,17 +44,21 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
     func sendPage<Response>(
         _ page: GitLabAPIPageRequest<Response>
     ) async throws(GitLabAPIError) -> GitLabAPIResponse<Response> {
+        let response = try await sendRawPage(page)
+        return try GitLabAPIResponseDecoder.decode(
+            response
+        )
+    }
+
+    @concurrent
+    func sendRawPage<Response>(
+        _ page: GitLabAPIPageRequest<Response>
+    ) async throws(GitLabAPIError) -> GitLabRawAPIResponse {
         guard !Task.isCancelled else {
             throw .cancelled
         }
 
-        let request: URLRequest
-
-        do {
-            request = try requestBuilder.build(page)
-        } catch {
-            throw .invalidRequest(error)
-        }
+        let request = try request(for: page)
 
         return try await send(
             request,
@@ -63,11 +67,20 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
         )
     }
 
-    private func send<Response>(
+    func request<Response>(
+        for page: GitLabAPIPageRequest<Response>
+    ) throws(GitLabAPIError) -> URLRequest {
+        do {
+            return try requestBuilder.build(page)
+        } catch {
+            throw .invalidRequest(error)
+        }
+    }
+
+    private func send(
         _ request: URLRequest,
         allowsAutomaticRetry: Bool
-    ) async throws(GitLabAPIError) -> GitLabAPIResponse<Response>
-    where Response: Decodable & Sendable {
+    ) async throws(GitLabAPIError) -> GitLabRawAPIResponse {
         var retryNumber = 1
 
         while true {
@@ -101,10 +114,9 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
         }
     }
 
-    private func sendAttempt<Response>(
+    private func sendAttempt(
         _ request: URLRequest
-    ) async throws(GitLabAPIError) -> GitLabAPIResponse<Response>
-    where Response: Decodable & Sendable {
+    ) async throws(GitLabAPIError) -> GitLabRawAPIResponse {
         guard !Task.isCancelled else {
             throw .cancelled
         }
@@ -135,25 +147,35 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
             throw Self.error(for: httpResponse)
         }
 
-        let value: Response
-
-        if data.isEmpty, let emptyResponse = GitLabEmptyResponse() as? Response {
-            value = emptyResponse
-        } else {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-
-            do {
-                value = try decoder.decode(Response.self, from: data)
-            } catch {
-                throw .decoding
-            }
-        }
-
-        return GitLabAPIResponse(
-            value: value,
-            metadata: GitLabResponseMetadata(response: httpResponse)
+        return GitLabRawAPIResponse(
+            body: data,
+            metadata:
+                GitLabResponseMetadata(
+                    response: httpResponse
+                ),
+            entityTag:
+                Self.normalizedHeader(
+                    "ETag",
+                    from: httpResponse
+                ),
+            lastModified:
+                Self.normalizedHeader(
+                    "Last-Modified",
+                    from: httpResponse
+                )
         )
+    }
+
+    private static func normalizedHeader(
+        _ name: String,
+        from response: HTTPURLResponse
+    ) -> String? {
+        let value = response
+            .value(forHTTPHeaderField: name)?
+            .trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+        return value?.isEmpty == false ? value : nil
     }
 
     private static func error(for response: HTTPURLResponse) -> GitLabAPIError {
@@ -187,5 +209,39 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
         }
 
         return seconds
+    }
+}
+
+nonisolated enum GitLabAPIResponseDecoder {
+    static func decode<Response>(
+        _ response: GitLabRawAPIResponse
+    ) throws(GitLabAPIError) -> GitLabAPIResponse<Response>
+    where Response: Decodable & Sendable {
+        let value: Response
+
+        if
+            response.body.isEmpty,
+            let emptyResponse =
+                GitLabEmptyResponse() as? Response
+        {
+            value = emptyResponse
+        } else {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+
+            do {
+                value = try decoder.decode(
+                    Response.self,
+                    from: response.body
+                )
+            } catch {
+                throw .decoding
+            }
+        }
+
+        return GitLabAPIResponse(
+            value: value,
+            metadata: response.metadata
+        )
     }
 }

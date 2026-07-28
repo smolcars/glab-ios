@@ -5,6 +5,37 @@ nonisolated struct GitLabAPIResponse<Value>: Sendable where Value: Sendable {
     let metadata: GitLabResponseMetadata
 }
 
+nonisolated enum GitLabAPIResponseSource:
+    Equatable,
+    Sendable
+{
+    case cache(GitLabCachedResponseFreshness)
+    case network
+}
+
+nonisolated struct GitLabAPIResponseEvent<Value>:
+    Sendable
+where Value: Sendable {
+    let value: Value
+    let metadata: GitLabResponseMetadata
+    let source: GitLabAPIResponseSource
+}
+
+nonisolated enum GitLabCacheRefreshBehavior:
+    Equatable,
+    Sendable
+{
+    case ifStale
+    case always
+}
+
+nonisolated struct GitLabRawAPIResponse: Sendable {
+    let body: Data
+    let metadata: GitLabResponseMetadata
+    let entityTag: String?
+    let lastModified: String?
+}
+
 nonisolated struct GitLabResponseMetadata: Equatable, Sendable {
     let requestID: String?
     let nextPageURL: URL?
