@@ -92,11 +92,9 @@ struct TodosView: View {
                 await model.loadIfNeeded()
                 await handleAuthenticationFailure()
             }
-            .confirmationDialog(
+            .alert(
                 "Mark all pending Todos done?",
-                isPresented:
-                    $isConfirmingMarkAllDone,
-                titleVisibility: .visible
+                isPresented: $isConfirmingMarkAllDone
             ) {
                 Button("Mark All Todos") {
                     Task {

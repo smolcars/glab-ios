@@ -39,10 +39,9 @@ struct AccountView: View {
             .safeAreaInset(edge: .bottom) {
                 signOutButton
             }
-            .confirmationDialog(
+            .alert(
                 "Sign out of Glab?",
                 isPresented: $showsSignOutConfirmation,
-                titleVisibility: .visible
             ) {
                 Button("Sign Out", role: .destructive) {
                     performSignOut()
