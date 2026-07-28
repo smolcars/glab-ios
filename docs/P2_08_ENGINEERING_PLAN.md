@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-28
 
-Status: planned; implementation has not started.
+Status: implemented; deep-review repairs are in progress.
 
 Glab has not shipped, so internal response and presentation models may change
 without migration. The feature is read-only. Verification will use an iPhone
@@ -346,8 +346,43 @@ After implementation and simulator verification:
 
 ### Findings
 
-Pending implementation.
+1. **Material — retained refresh failures could leave an optimistic ready
+   verdict.** `GitLabResourceDetailModel` correctly retains cached MR and
+   approval values when revalidation fails, but
+   `GitLabMergeRequestReadiness` only received the retained values. If those
+   values were mergeable and approved, the overall state could remain “Ready
+   to merge” even though the latest MR or approval refresh failed. The existing
+   inline errors disclosed the failure, but the optimistic summary still
+   violated the feature's false-ready invariant.
+2. **Fixed during Simulator verification — a section identifier masked every
+   row identifier.** Applying `mergeRequests.readiness` to the containing
+   section propagated that identifier to descendants, so the stable overall,
+   pipeline, and approval identifiers were not exposed to accessibility
+   automation. Removing only the redundant container identifier preserved the
+   VoiceOver labels and exposed every row identity.
+3. **Fixed during Simulator verification — the floating GitLab link obscured
+   content at maximum Dynamic Type.** The compact action inherited the maximum
+   accessibility text size and expanded over the readiness rows. Capping only
+   that floating control at the first accessibility size retained its
+   VoiceOver label and touch target while leaving all readiness content fully
+   uncapped and scrollable.
+
+The review found no additional material request waterfall, GitLab tier
+assumption, account/cache leakage, unsafe pipeline link, mutation exposure,
+duplicate state derivation, or color-only status issue. The MR, approval, and
+discussion loads share one structured-concurrency group; response cache keys
+remain account-scoped; 403/404 approvals remain capability-unavailable; and
+unknown future statuses prevent a ready verdict.
 
 ### Repair plan
 
-Pending review findings.
+1. Add a regression test proving retained MR or approval refresh failures
+   cannot produce `.ready`, while last-known component rows remain visible.
+2. Add one refresh-failure input to the immutable readiness derivation. Preserve
+   conservative blocked/pending/unknown results, but downgrade an otherwise
+   ready result to unknown.
+3. Feed the existing MR and approval `refreshError` state into the derivation;
+   do not add another loader, cache, coordinator, or persistence layer.
+4. Repeat focused tests, the complete suite, static analysis, cache/account
+   isolation checks, and the live self-managed read-only Simulator refresh
+   flow.
