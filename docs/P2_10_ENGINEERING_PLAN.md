@@ -433,6 +433,53 @@ After implementation and all first-pass checks:
 
 P2-10 is not complete until the review has no open material finding.
 
+## Deep-review findings and repair plan
+
+The first complete review was performed after the compact reaction picker and
+unified issue/merge-request toolbar were implemented, after 565 tests, a
+Release Simulator build, and static analysis passed. It found the following
+material issues:
+
+1. Returning from the changed-files screen restarts the summary view task and
+   calls `retry()` even after a successful load, causing an unnecessary
+   GraphQL request.
+2. `GitLabHost.graphQLURL` is persisted as stored state even though it is
+   derived from the normalized API root. Keeping a second stored URL creates
+   avoidable Codable/state-consistency risk.
+3. Moving issue and merge-request comment creation to the shared toolbar left
+   the old inline mutation-control branch unreachable at every call site.
+4. The shared activity strip still says “merge request activity” in its
+   accessibility hint when it is also shown on issue details.
+5. Reaction choices only disable their per-emoji pending/uncertain state. If
+   the model becomes globally non-mutable while the popover is open, the
+   remaining choices appear actionable but the model ignores the tap.
+6. The official GitLab logo sizing/cropping implementation is duplicated
+   between the compact Open in GitLab control and the new toolbar action.
+7. The committed test matrix is missing GitLab.com OAuth GraphQL construction,
+   forbidden/not-found loader preservation, exact singular presentation, and
+   invalid/unavailable REST fallback cases.
+
+Repair plan:
+
+1. Add the merge-request head SHA as the summary view’s identity and make its
+   task load only while idle. Verify the existing model’s load-once and retry
+   tests still cover explicit retry without navigation re-entry traffic.
+2. Derive `graphQLURL` from the normalized API base as a computed property and
+   add a host Codable regression proving the encoded shape remains the
+   canonical site URL.
+3. Delete the now-unreachable discussion mutation-control parameter, branch,
+   and view, then simplify both resource call sites.
+4. Make the shared activity accessibility hint resource-neutral.
+5. Disable and dim every picker choice when `model.canMutate` is false while
+   retaining each choice’s pending/uncertain safeguards.
+6. Extract one small reusable GitLab logo-mark view and use it in both existing
+   Open in GitLab presentations.
+7. Add the missing request, loader, and presentation regression cases before
+   changing production code.
+8. Run focused tests, the complete serialized suite, Release Simulator build,
+   analyzer, and the issue/MR Simulator interaction checks again. Repeat this
+   review and close P2-10 only when no material finding remains.
+
 ## Explicit non-goals
 
 - Replacing the existing diff viewer or parser.
