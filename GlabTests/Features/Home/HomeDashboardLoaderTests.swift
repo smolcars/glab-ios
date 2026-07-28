@@ -11,18 +11,22 @@ struct HomeDashboardLoaderTests {
         let updates = DashboardUpdateCollector()
 
         let load = Task {
-            try await loader.load {
+            try await loader.load(
+                refreshBehavior: .ifStale
+            ) {
                 await updates.append($0)
             }
         }
 
         await client.waitUntilRequestCount(6)
         #expect(await client.requestCount == 6)
+        #expect(await updates.updates.count == 6)
 
         await client.releaseAll()
         try await load.value
 
         let receivedUpdates = await updates.updates
+        #expect(receivedUpdates.count == 12)
         #expect(
             receivedUpdates.contains {
                 if case .user(.success) = $0 {
@@ -63,6 +67,8 @@ private extension HomeDashboardLoaderTests {
         private var countWaiters:
             [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
         private(set) var requestCount = 0
+        private(set) var refreshBehaviors:
+            [GitLabCacheRefreshBehavior] = []
 
         func send<Response>(
             _ endpoint: GitLabAPIRequest<Response>
@@ -83,6 +89,48 @@ private extension HomeDashboardLoaderTests {
             }
 
             return response(for: Response.self)
+        }
+
+        func loadResponse<Response>(
+            _ endpoint: GitLabAPIRequest<Response>,
+            cachePolicy: GitLabResponseCachePolicy,
+            refreshBehavior: GitLabCacheRefreshBehavior,
+            onResponse:
+                @escaping @Sendable (
+                    GitLabAPIResponseEvent<Response>
+                ) async -> Void
+        ) async throws(GitLabSessionClientError) {
+            requestCount += 1
+            refreshBehaviors.append(refreshBehavior)
+            await onResponse(
+                GitLabAPIResponseEvent(
+                    value: response(for: Response.self),
+                    metadata: GitLabResponseMetadata(),
+                    source: .cache(.stale)
+                )
+            )
+
+            let readyWaiters = countWaiters.filter {
+                requestCount >= $0.count
+            }
+            countWaiters.removeAll {
+                requestCount >= $0.count
+            }
+            readyWaiters.forEach {
+                $0.continuation.resume()
+            }
+
+            await withCheckedContinuation {
+                releaseContinuations.append($0)
+            }
+
+            await onResponse(
+                GitLabAPIResponseEvent(
+                    value: response(for: Response.self),
+                    metadata: GitLabResponseMetadata(),
+                    source: .network
+                )
+            )
         }
 
         func waitUntilRequestCount(_ count: Int) async {

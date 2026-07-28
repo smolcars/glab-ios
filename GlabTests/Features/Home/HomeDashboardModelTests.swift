@@ -156,6 +156,44 @@ struct HomeDashboardModelTests {
                 == .loaded([refreshed])
         )
         #expect(await loader.callCount == 2)
+        #expect(
+            await loader.refreshBehaviors
+                == [.ifStale, .always]
+        )
+    }
+
+    @Test("A failed revalidation keeps cached content visible")
+    func preservesCachedContentAfterRevalidationFailure() async {
+        let cached = workItem(
+            id: "project-1",
+            title: "Cached project"
+        )
+        let failure = GitLabSessionClientError.api(
+            .server(statusCode: 500)
+        )
+        let model = HomeDashboardModel(
+            loader: RevalidationFailureDashboardLoader(
+                section: .recentProjects,
+                cachedItems: [cached],
+                failure: failure
+            )
+        )
+
+        await model.loadIfNeeded()
+
+        #expect(
+            model.state(for: .recentProjects)
+                == .loaded([cached])
+        )
+        let presentation = model.presentation(
+            for: .recentProjects
+        )
+        #expect(presentation.status == .stale)
+        #expect(presentation.subtitle == "Cached project")
+        #expect(
+            presentation.accessibilityValue
+                .contains("Could not refresh")
+        )
     }
 
     @Test("Cancellation restores the previous visible state")
@@ -242,16 +280,20 @@ private extension HomeDashboardModelTests {
 
         private var outcomes: [Outcome]
         private(set) var callCount = 0
+        private(set) var refreshBehaviors:
+            [GitLabCacheRefreshBehavior] = []
 
         init(outcomes: [Outcome]) {
             self.outcomes = outcomes
         }
 
         func load(
+            refreshBehavior: GitLabCacheRefreshBehavior,
             onUpdate:
                 @escaping @Sendable (HomeDashboardLoadUpdate) async -> Void
         ) async throws(HomeDashboardLoadingError) {
             callCount += 1
+            refreshBehaviors.append(refreshBehavior)
             let outcome = outcomes.removeFirst()
 
             switch outcome {
@@ -280,6 +322,7 @@ private extension HomeDashboardModelTests {
         }
 
         func load(
+            refreshBehavior: GitLabCacheRefreshBehavior,
             onUpdate:
                 @escaping @Sendable (HomeDashboardLoadUpdate) async -> Void
         ) async throws(HomeDashboardLoadingError) {
@@ -323,6 +366,43 @@ private extension HomeDashboardModelTests {
         func finish() {
             continuation?.resume()
             continuation = nil
+        }
+    }
+
+    actor RevalidationFailureDashboardLoader:
+        HomeDashboardLoading
+    {
+        let section: HomeDashboardSection
+        let cachedItems: [GitLabHomeWorkItem]
+        let failure: GitLabSessionClientError
+
+        init(
+            section: HomeDashboardSection,
+            cachedItems: [GitLabHomeWorkItem],
+            failure: GitLabSessionClientError
+        ) {
+            self.section = section
+            self.cachedItems = cachedItems
+            self.failure = failure
+        }
+
+        func load(
+            refreshBehavior: GitLabCacheRefreshBehavior,
+            onUpdate:
+                @escaping @Sendable (HomeDashboardLoadUpdate) async -> Void
+        ) async throws(HomeDashboardLoadingError) {
+            await onUpdate(
+                .section(
+                    section,
+                    .success(cachedItems)
+                )
+            )
+            await onUpdate(
+                .section(
+                    section,
+                    .failure(failure)
+                )
+            )
         }
     }
 

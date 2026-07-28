@@ -88,6 +88,7 @@ nonisolated enum HomeDashboardRowStatus:
     case loading
     case empty
     case content
+    case stale
     case failed
 }
 
@@ -127,6 +128,7 @@ nonisolated enum HomeDashboardLoadingError:
 
 nonisolated protocol HomeDashboardLoading: Sendable {
     func load(
+        refreshBehavior: GitLabCacheRefreshBehavior,
         onUpdate:
             @escaping @Sendable (HomeDashboardLoadUpdate) async -> Void
     )

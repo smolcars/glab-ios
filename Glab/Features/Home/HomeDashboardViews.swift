@@ -72,6 +72,10 @@ struct HomeWorkShortcutRow: View {
                 Image(systemName: "exclamationmark.circle.fill")
                     .foregroundStyle(.red)
                     .accessibilityHidden(true)
+            } else if presentation.status == .stale {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityHidden(true)
             }
         }
     }

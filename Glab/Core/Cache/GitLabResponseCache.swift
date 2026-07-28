@@ -116,6 +116,33 @@ nonisolated struct GitLabResponseCachePolicy:
     }
 }
 
+extension GitLabResponseCachePolicy {
+    static let home = Self(
+        freshFor: 60,
+        maximumAge: 24 * 60 * 60
+    )
+
+    static let todos = Self(
+        freshFor: 60,
+        maximumAge: 24 * 60 * 60
+    )
+
+    static let workList = Self(
+        freshFor: 2 * 60,
+        maximumAge: 24 * 60 * 60
+    )
+
+    static let projects = Self(
+        freshFor: 5 * 60,
+        maximumAge: 24 * 60 * 60
+    )
+
+    static let workItemDetail = Self(
+        freshFor: 5 * 60,
+        maximumAge: 24 * 60 * 60
+    )
+}
+
 nonisolated enum GitLabCachedResponseFreshness:
     Equatable,
     Sendable

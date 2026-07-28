@@ -12,63 +12,68 @@ nonisolated struct LiveHomeDashboardLoader:
 
     @concurrent
     func load(
+        refreshBehavior: GitLabCacheRefreshBehavior,
         onUpdate:
             @escaping @Sendable (HomeDashboardLoadUpdate) async -> Void
     ) async throws(HomeDashboardLoadingError) {
-        await withTaskGroup(
-            of: HomeDashboardLoadUpdate.self
-        ) { group in
+        await withTaskGroup(of: Void.self) { group in
             group.addTask {
-                .user(await loadCurrentUser())
-            }
-            group.addTask {
-                .section(
-                    .assignedIssues,
-                    await loadWorkItems(
-                        HomeDashboardEndpoints.assignedIssues
-                    ) { $0.workItem }
+                await loadCurrentUser(
+                    refreshBehavior: refreshBehavior,
+                    onUpdate: onUpdate
                 )
             }
             group.addTask {
-                .section(
-                    .assignedMergeRequests,
-                    await loadWorkItems(
-                        HomeDashboardEndpoints.assignedMergeRequests
-                    ) { $0.workItem }
+                await loadWorkItems(
+                    HomeDashboardEndpoints.assignedIssues,
+                    section: .assignedIssues,
+                    refreshBehavior: refreshBehavior,
+                    transform: { $0.workItem },
+                    onUpdate: onUpdate
                 )
             }
             group.addTask {
-                .section(
-                    .reviewRequests,
-                    await loadWorkItems(
-                        HomeDashboardEndpoints.reviewRequests
-                    ) { $0.workItem }
+                await loadWorkItems(
+                    HomeDashboardEndpoints.assignedMergeRequests,
+                    section: .assignedMergeRequests,
+                    refreshBehavior: refreshBehavior,
+                    transform: { $0.workItem },
+                    onUpdate: onUpdate
                 )
             }
             group.addTask {
-                .section(
-                    .recentProjects,
-                    await loadWorkItems(
-                        HomeDashboardEndpoints.recentProjects
-                    ) { $0.workItem }
+                await loadWorkItems(
+                    HomeDashboardEndpoints.reviewRequests,
+                    section: .reviewRequests,
+                    refreshBehavior: refreshBehavior,
+                    transform: { $0.workItem },
+                    onUpdate: onUpdate
                 )
             }
             group.addTask {
-                .section(
-                    .starredProjects,
-                    await loadWorkItems(
-                        HomeDashboardEndpoints.starredProjects
-                    ) { $0.workItem }
+                await loadWorkItems(
+                    HomeDashboardEndpoints.recentProjects,
+                    section: .recentProjects,
+                    refreshBehavior: refreshBehavior,
+                    transform: { $0.workItem },
+                    onUpdate: onUpdate
+                )
+            }
+            group.addTask {
+                await loadWorkItems(
+                    HomeDashboardEndpoints.starredProjects,
+                    section: .starredProjects,
+                    refreshBehavior: refreshBehavior,
+                    transform: { $0.workItem },
+                    onUpdate: onUpdate
                 )
             }
 
-            for await update in group {
+            for await _ in group {
                 guard !Task.isCancelled else {
                     group.cancelAll()
                     return
                 }
-
-                await onUpdate(update)
             }
         }
 
@@ -77,32 +82,58 @@ nonisolated struct LiveHomeDashboardLoader:
         }
     }
 
-    private func loadCurrentUser() async
-        -> HomeDashboardLoadUpdate.UserResult
-    {
+    private func loadCurrentUser(
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onUpdate:
+            @escaping @Sendable (HomeDashboardLoadUpdate) async -> Void
+    ) async {
         do {
-            return .success(
-                try await client.send(
-                    HomeDashboardEndpoints.currentUser
+            try await client.loadResponse(
+                HomeDashboardEndpoints.currentUser,
+                cachePolicy: .home,
+                refreshBehavior: refreshBehavior
+            ) {
+                await onUpdate(
+                    .user(.success($0.value))
                 )
-            )
+            }
         } catch {
-            return .failure(error)
+            await onUpdate(.user(.failure(error)))
         }
     }
 
     private func loadWorkItems<Item>(
         _ request: GitLabAPIRequest<[Item]>,
-        transform: @Sendable (Item) -> GitLabHomeWorkItem
+        section: HomeDashboardSection,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        transform:
+            @escaping @Sendable (Item) -> GitLabHomeWorkItem,
+        onUpdate:
+            @escaping @Sendable (HomeDashboardLoadUpdate) async -> Void
     ) async
-        -> HomeDashboardLoadUpdate.WorkResult
-    where Item: Decodable, Item: Sendable
-    {
+    where Item: Decodable, Item: Sendable {
         do {
-            let items = try await client.send(request)
-            return .success(items.map(transform))
+            try await client.loadResponse(
+                request,
+                cachePolicy: .home,
+                refreshBehavior: refreshBehavior
+            ) {
+                await onUpdate(
+                    .section(
+                        section,
+                        .success(
+                            $0.value.map(transform)
+                        )
+                    )
+                )
+            }
         } catch {
-            return .failure(error)
+            await onUpdate(
+                .section(
+                    section,
+                    .failure(error)
+                )
+            )
         }
     }
 }

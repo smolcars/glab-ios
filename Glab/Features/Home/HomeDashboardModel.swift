@@ -13,6 +13,9 @@ final class HomeDashboardModel {
     private var sections: [
         HomeDashboardSection: HomeDashboardSectionState
     ]
+    private var refreshFailures: [
+        HomeDashboardSection: GitLabSessionClientError
+    ] = [:]
 
     init(loader: any HomeDashboardLoading) {
         self.loader = loader
@@ -42,7 +45,9 @@ final class HomeDashboardModel {
     func presentation(
         for section: HomeDashboardSection
     ) -> HomeDashboardRowPresentation {
-        switch state(for: section) {
+        let refreshFailure = refreshFailures[section]
+
+        return switch state(for: section) {
         case .idle, .loading:
             HomeDashboardRowPresentation(
                 status: .loading,
@@ -51,15 +56,29 @@ final class HomeDashboardModel {
             )
         case let .loaded(items) where items.isEmpty:
             HomeDashboardRowPresentation(
-                status: .empty,
+                status:
+                    refreshFailure == nil
+                    ? .empty
+                    : .stale,
                 subtitle: section.emptyMessage,
-                accessibilityValue: section.emptyMessage
+                accessibilityValue:
+                    accessibilityValue(
+                        section.emptyMessage,
+                        refreshFailure: refreshFailure
+                    )
             )
         case let .loaded(items):
             HomeDashboardRowPresentation(
-                status: .content,
+                status:
+                    refreshFailure == nil
+                    ? .content
+                    : .stale,
                 subtitle: items[0].title,
-                accessibilityValue: "Latest preview: \(items[0].title)"
+                accessibilityValue:
+                    accessibilityValue(
+                        "Latest preview: \(items[0].title)",
+                        refreshFailure: refreshFailure
+                    )
             )
         case let .failed(error):
             HomeDashboardRowPresentation(
@@ -94,6 +113,7 @@ final class HomeDashboardModel {
         authenticationFailure = nil
 
         if isInitial {
+            refreshFailures.removeAll()
             sections = Dictionary(
                 uniqueKeysWithValues: HomeDashboardSection.allCases.map {
                     ($0, .loading)
@@ -106,7 +126,10 @@ final class HomeDashboardModel {
         }
 
         do {
-            try await loader.load { [weak self] update in
+            try await loader.load(
+                refreshBehavior:
+                    isInitial ? .ifStale : .always
+            ) { [weak self] update in
                 await self?.apply(update)
             }
             guard !Task.isCancelled else {
@@ -136,11 +159,27 @@ final class HomeDashboardModel {
             }
         case let .section(section, .success(items)):
             sections[section] = .loaded(items)
+            refreshFailures[section] = nil
         case let .section(section, .failure(error)):
-            sections[section] = .failed(error)
+            if case .loaded = sections[section] {
+                refreshFailures[section] = error
+            } else {
+                sections[section] = .failed(error)
+            }
             if error.requiresReauthentication {
                 authenticationFailure = error
             }
         }
+    }
+
+    private func accessibilityValue(
+        _ content: String,
+        refreshFailure: GitLabSessionClientError?
+    ) -> String {
+        guard refreshFailure != nil else {
+            return content
+        }
+
+        return "\(content). Could not refresh; showing saved data."
     }
 }
