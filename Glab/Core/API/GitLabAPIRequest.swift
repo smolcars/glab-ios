@@ -3,6 +3,7 @@ import Foundation
 nonisolated enum GitLabHTTPMethod: String, Sendable {
     case get = "GET"
     case post = "POST"
+    case put = "PUT"
     case delete = "DELETE"
 }
 
@@ -70,17 +71,46 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
         query: [URLQueryItem] = [],
         body: Body
     ) throws -> Self {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.sortedKeys]
-
         return Self(
             target: .restV4,
             method: .post,
             requiredAccess: access,
             pathComponents: path,
             queryItems: query,
-            body: try encoder.encode(body),
+            body: try encodeJSONBody(body),
+            cacheVariant: nil
+        )
+    }
+
+    static func put(
+        requires access: GitLabAPIRequestAccess,
+        path: [String],
+        query: [URLQueryItem] = []
+    ) -> Self {
+        Self(
+            target: .restV4,
+            method: .put,
+            requiredAccess: access,
+            pathComponents: path,
+            queryItems: query,
+            body: nil,
+            cacheVariant: nil
+        )
+    }
+
+    static func put<Body: Encodable & Sendable>(
+        requires access: GitLabAPIRequestAccess,
+        path: [String],
+        query: [URLQueryItem] = [],
+        body: Body
+    ) throws -> Self {
+        Self(
+            target: .restV4,
+            method: .put,
+            requiredAccess: access,
+            pathComponents: path,
+            queryItems: query,
+            body: try encodeJSONBody(body),
             cacheVariant: nil
         )
     }
@@ -117,6 +147,17 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
             body: nil,
             cacheVariant: nil
         )
+    }
+
+    private static func encodeJSONBody<
+        Body: Encodable & Sendable
+    >(
+        _ body: Body
+    ) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(body)
     }
 }
 

@@ -151,6 +151,113 @@ struct GitLabRequestConstructionTests {
         #expect(request.value(forHTTPHeaderField: "Content-Type") == nil)
     }
 
+    @Test("Builds bodyless PUT requests with query values")
+    func buildsBodylessPutRequest() throws {
+        let endpoint = GitLabAPIRequest<TestResponse>.put(
+            requires: .write,
+            path: [
+                "projects",
+                "42",
+                "merge_requests",
+                "7",
+                "discussions",
+                "discussion/id",
+            ],
+            query: [
+                URLQueryItem(
+                    name: "resolved",
+                    value: "true"
+                ),
+                URLQueryItem(
+                    name: "reason",
+                    value: "fixed & verified"
+                ),
+            ]
+        )
+        let request = try GitLabRequestBuilder(
+            host: GitLabHost("gitlab.com"),
+            authorization:
+                .personalAccessToken("pat-secret")
+        ).build(endpoint)
+
+        #expect(request.httpMethod == "PUT")
+        #expect(
+            request.url?.absoluteString
+                == "https://gitlab.com/api/v4/projects/42/"
+                    + "merge_requests/7/discussions/discussion%2Fid"
+                    + "?resolved=true&reason=fixed%20%26%20verified"
+        )
+        #expect(request.httpBody == nil)
+        #expect(
+            request.value(
+                forHTTPHeaderField: "Content-Type"
+            ) == nil
+        )
+        #expect(endpoint.requiredAccess == .write)
+    }
+
+    @Test("Builds JSON PUT requests with ISO-8601 dates")
+    func buildsJSONPutRequest() throws {
+        let bodySecret = "never-print-this-body"
+        let endpoint =
+            try GitLabAPIRequest<TestResponse>.put(
+                requires: .write,
+                path: ["projects", "42", "issues", "7"],
+                query: [
+                    URLQueryItem(
+                        name: "notify",
+                        value: "false"
+                    )
+                ],
+                body: TestBody(
+                    title: bodySecret,
+                    createdAt:
+                        Date(timeIntervalSince1970: 0)
+                )
+            )
+        let oauthSecret = "never-print-this-oauth-token"
+        let request = try GitLabRequestBuilder(
+            host: GitLabHost("gitlab.com"),
+            authorization:
+                .oauth(accessToken: oauthSecret)
+        ).build(endpoint)
+        let body = try #require(request.httpBody)
+
+        #expect(request.httpMethod == "PUT")
+        #expect(
+            request.url?.absoluteString
+                == "https://gitlab.com/api/v4/projects/42/issues/7"
+                    + "?notify=false"
+        )
+        #expect(
+            request.value(
+                forHTTPHeaderField: "Content-Type"
+            ) == "application/json"
+        )
+        #expect(
+            String(decoding: body, as: UTF8.self)
+                == #"{"createdAt":"1970-01-01T00:00:00Z","title":"never-print-this-body"}"#
+        )
+        #expect(
+            request.value(
+                forHTTPHeaderField: "Authorization"
+            ) == "Bearer \(oauthSecret)"
+        )
+        #expect(
+            request.value(
+                forHTTPHeaderField: "PRIVATE-TOKEN"
+            ) == nil
+        )
+        #expect(
+            !String(describing: endpoint)
+                .contains(bodySecret)
+        )
+        #expect(
+            !String(reflecting: endpoint)
+                .contains(bodySecret)
+        )
+    }
+
     @Test("Builds DELETE requests without a body")
     func buildsDeleteRequest() throws {
         let endpoint = GitLabAPIRequest<GitLabEmptyResponse>.delete(
@@ -294,9 +401,15 @@ struct GitLabRequestConstructionTests {
     @Test("Applies OAuth and personal access token headers")
     func appliesAuthenticationHeaders() throws {
         let host = try GitLabHost("gitlab.com")
-        let endpoint = GitLabAPIRequest<TestResponse>.get(
-            requires: .read,
-            path: ["user"]
+        let endpoint = GitLabAPIRequest<TestResponse>.put(
+            requires: .write,
+            path: ["projects", "42", "issues", "7"],
+            query: [
+                URLQueryItem(
+                    name: "state_event",
+                    value: "close"
+                )
+            ]
         )
         let oauthRequest = try GitLabRequestBuilder(
             host: host,

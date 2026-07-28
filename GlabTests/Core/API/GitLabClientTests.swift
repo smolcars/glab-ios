@@ -61,6 +61,40 @@ struct GitLabClientTests {
         #expect(response == GitLabEmptyResponse())
     }
 
+    @Test("Decodes object and empty PUT responses")
+    func decodesPutResponses() async throws {
+        let objectClient = try makeClient(
+            outcome: .response(
+                Data(
+                    #"{"id":7,"created_at":"2026-01-01T00:00:00Z"}"#.utf8
+                ),
+                makeHTTPResponse(statusCode: 200)
+            )
+        )
+        let emptyClient = try makeClient(
+            outcome: .response(
+                Data(),
+                makeHTTPResponse(statusCode: 204)
+            )
+        )
+
+        let project = try await objectClient.send(
+            GitLabAPIRequest<TestProject>.put(
+                requires: .write,
+                path: ["projects", "7"]
+            )
+        )
+        let empty = try await emptyClient.send(
+            GitLabAPIRequest<GitLabEmptyResponse>.put(
+                requires: .write,
+                path: ["projects", "7"]
+            )
+        )
+
+        #expect(project.id == 7)
+        #expect(empty == GitLabEmptyResponse())
+    }
+
     @Test("Maps malformed JSON to a decoding error")
     func mapsMalformedJSON() async throws {
         let client = try makeClient(
@@ -266,6 +300,44 @@ struct GitLabClientTests {
             try await client.send(
                 GitLabAPIRequest<TestProject>.get(
                     requires: .read,
+                    path: ["projects", "7"]
+                )
+            )
+        }
+    }
+
+    @Test(
+        "Maps PUT HTTP status failures",
+        arguments: [
+            (400, GitLabAPIError.validation(statusCode: 400)),
+            (401, GitLabAPIError.unauthenticated),
+            (403, GitLabAPIError.forbidden),
+            (404, GitLabAPIError.notFound),
+            (418, GitLabAPIError.http(statusCode: 418)),
+            (422, GitLabAPIError.validation(statusCode: 422)),
+            (
+                429,
+                GitLabAPIError
+                    .rateLimited(retryAfterSeconds: nil)
+            ),
+            (500, GitLabAPIError.server(statusCode: 500)),
+        ]
+    )
+    func mapsPutHTTPStatus(
+        statusCode: Int,
+        expectedError: GitLabAPIError
+    ) async throws {
+        let client = try makeClient(
+            outcome: .response(
+                Data(#"{"message":"request failed"}"#.utf8),
+                makeHTTPResponse(statusCode: statusCode)
+            )
+        )
+
+        await #expect(throws: expectedError) {
+            try await client.send(
+                GitLabAPIRequest<TestProject>.put(
+                    requires: .write,
                     path: ["projects", "7"]
                 )
             )
@@ -610,6 +682,236 @@ struct GitLabClientTests {
         #expect(await sleeper.delays.isEmpty)
     }
 
+    @Test("Never retries an ambiguous PUT failure")
+    func doesNotRetryPut() async throws {
+        let failures: [
+            (StubOutcome, GitLabAPIError)
+        ] = [
+            (
+                .urlError(
+                    URLError(
+                        .networkConnectionLost
+                    )
+                ),
+                .connectivity(
+                    .networkConnectionLost
+                )
+            ),
+            (
+                .response(
+                    Data(),
+                    try makeHTTPResponse(
+                        statusCode: 503
+                    )
+                ),
+                .server(statusCode: 503)
+            ),
+        ]
+
+        for (failure, expectedError) in failures {
+            let transport = SequenceTransport(
+                outcomes: [
+                    failure,
+                    .response(
+                        Data(),
+                        try makeHTTPResponse(
+                            statusCode: 204
+                        )
+                    ),
+                ]
+            )
+            let sleeper = RecordingSleeper()
+            let client = try makeClient(
+                transport: transport,
+                sleep: { duration in
+                    await sleeper.record(duration)
+                }
+            )
+
+            do {
+                let _: GitLabEmptyResponse =
+                    try await client.send(
+                        .put(
+                            requires: .write,
+                            path: ["projects", "7"]
+                        )
+                    )
+                Issue.record(
+                    "Expected \(expectedError)"
+                )
+            } catch let error as GitLabAPIError {
+                #expect(error == expectedError)
+            } catch {
+                Issue.record(
+                    "Expected GitLabAPIError, got \(error)"
+                )
+            }
+
+            #expect(
+                await transport.requestCount == 1
+            )
+            #expect(await sleeper.delays.isEmpty)
+        }
+    }
+
+    @Test("PUT maps non-HTTP, decoding, and transport failures")
+    func mapsOtherPutFailures() async throws {
+        let invalidResponseClient = try makeClient(
+            outcome: .response(
+                Data(),
+                URLResponse(
+                    url: try #require(
+                        URL(
+                            string:
+                                "https://gitlab.com/api/v4/projects/7"
+                        )
+                    ),
+                    mimeType: nil,
+                    expectedContentLength: 0,
+                    textEncodingName: nil
+                )
+            )
+        )
+        let decodingClient = try makeClient(
+            outcome: .response(
+                Data(#"{"id":"#.utf8),
+                try makeHTTPResponse(statusCode: 200)
+            )
+        )
+        let transportClient = try makeClient(
+            outcome: .otherError
+        )
+
+        await #expect(
+            throws: GitLabAPIError.invalidResponse
+        ) {
+            try await invalidResponseClient.send(
+                GitLabAPIRequest<TestProject>.put(
+                    requires: .write,
+                    path: ["projects", "7"]
+                )
+            )
+        }
+        await #expect(
+            throws: GitLabAPIError.decoding
+        ) {
+            try await decodingClient.send(
+                GitLabAPIRequest<TestProject>.put(
+                    requires: .write,
+                    path: ["projects", "7"]
+                )
+            )
+        }
+        await #expect(
+            throws: GitLabAPIError.transport
+        ) {
+            try await transportClient.send(
+                GitLabAPIRequest<TestProject>.put(
+                    requires: .write,
+                    path: ["projects", "7"]
+                )
+            )
+        }
+    }
+
+    @Test("A pre-cancelled PUT never reaches transport")
+    func stopsPutBeforeTransportWhenAlreadyCancelled()
+        async throws
+    {
+        let transport = CountingTransport(
+            response: (
+                Data(),
+                try makeHTTPResponse(statusCode: 204)
+            )
+        )
+        let client = try GitLabClient(
+            requestBuilder: GitLabRequestBuilder(
+                host: GitLabHost("gitlab.com"),
+                authorization:
+                    .oauth(accessToken: "oauth-secret")
+            ),
+            transport: transport
+        )
+
+        let result = await Task {
+            () -> Result<
+                GitLabEmptyResponse,
+                GitLabAPIError
+            > in
+            withUnsafeCurrentTask {
+                $0?.cancel()
+            }
+            do {
+                return .success(
+                    try await client.send(
+                        .put(
+                            requires: .write,
+                            path: ["projects", "7"]
+                        )
+                    )
+                )
+            } catch let error as GitLabAPIError {
+                return .failure(error)
+            } catch {
+                return .failure(.transport)
+            }
+        }.value
+
+        #expect(result == .failure(.cancelled))
+        #expect(await transport.requestCount == 0)
+    }
+
+    @Test("A cancelled PUT owner discards a late response")
+    func cancelledPutDiscardsLateResponse() async throws {
+        let transport = GatedNoncooperativeTransport(
+            response: (
+                Data(
+                    #"{"id":7,"created_at":"2026-01-01T00:00:00Z"}"#.utf8
+                ),
+                try makeHTTPResponse(statusCode: 200)
+            )
+        )
+        let client = try GitLabClient(
+            requestBuilder: GitLabRequestBuilder(
+                host: GitLabHost("gitlab.com"),
+                authorization:
+                    .oauth(accessToken: "oauth-secret")
+            ),
+            transport: transport
+        )
+        let task = Task {
+            () -> Result<TestProject, GitLabAPIError> in
+            do {
+                return .success(
+                    try await client.send(
+                        .put(
+                            requires: .write,
+                            path: ["projects", "7"]
+                        )
+                    )
+                )
+            } catch let error as GitLabAPIError {
+                return .failure(error)
+            } catch {
+                return .failure(.transport)
+            }
+        }
+
+        await transport.waitUntilRequested()
+        task.cancel()
+        await transport.release()
+
+        let result = await task.value
+        if case .failure(.cancelled) = result {
+            // Expected.
+        } else {
+            Issue.record(
+                "Expected cancellation after transport"
+            )
+        }
+        #expect(await transport.requestCount == 1)
+    }
+
     @Test(
         "Does not retry a timeout, offline, authentication, or rate-limit failure"
     )
@@ -812,6 +1114,64 @@ private extension GitLabClientTests {
                 throw CancellationError()
             case .otherError:
                 throw StubError()
+            }
+        }
+    }
+
+    actor GatedNoncooperativeTransport:
+        GitLabHTTPTransport
+    {
+        let response: (Data, URLResponse)
+        private(set) var requestCount = 0
+        private var isReleased = false
+        private var requestContinuations:
+            [CheckedContinuation<Void, Never>] = []
+        private var releaseContinuations:
+            [CheckedContinuation<Void, Never>] = []
+
+        init(response: (Data, URLResponse)) {
+            self.response = response
+        }
+
+        func data(
+            for request: URLRequest
+        ) async throws -> (Data, URLResponse) {
+            requestCount += 1
+            let continuations = requestContinuations
+            requestContinuations.removeAll()
+            for continuation in continuations {
+                continuation.resume()
+            }
+
+            if !isReleased {
+                await withCheckedContinuation {
+                    continuation in
+                    releaseContinuations.append(
+                        continuation
+                    )
+                }
+            }
+            return response
+        }
+
+        func waitUntilRequested() async {
+            guard requestCount == 0 else {
+                return
+            }
+            await withCheckedContinuation {
+                continuation in
+                requestContinuations.append(
+                    continuation
+                )
+            }
+        }
+
+        func release() {
+            isReleased = true
+            let continuations = releaseContinuations
+            releaseContinuations.removeAll()
+            for continuation in continuations {
+                continuation.resume()
             }
         }
     }

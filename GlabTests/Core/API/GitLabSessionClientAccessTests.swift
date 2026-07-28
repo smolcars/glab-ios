@@ -60,6 +60,62 @@ struct GitLabSessionClientAccessTests {
         #expect(await transport.methods == ["POST"])
     }
 
+    @Test("Read-only sessions reject PUT before transport")
+    func rejectsPutBeforeTransport() async throws {
+        let transport = RecordingTransport()
+        let client = try makeClient(
+            scopes: ["read_api"],
+            transport: transport
+        )
+
+        await #expect(
+            throws:
+                GitLabSessionClientError
+                    .insufficientAccess(required: .write)
+        ) {
+            let _: TestResponse = try await client.send(
+                .put(
+                    requires: .write,
+                    path: ["projects", "42", "issues", "7"],
+                    query: [
+                        URLQueryItem(
+                            name: "state_event",
+                            value: "close"
+                        )
+                    ]
+                )
+            )
+        }
+
+        #expect(await transport.requestCount == 0)
+    }
+
+    @Test("Read-write sessions send PUT once")
+    func sendsSupportedPut() async throws {
+        let transport = RecordingTransport()
+        let client = try makeClient(
+            scopes: ["api"],
+            transport: transport
+        )
+
+        let response: TestResponse = try await client.send(
+            .put(
+                requires: .write,
+                path: ["projects", "42", "issues", "7"],
+                query: [
+                    URLQueryItem(
+                        name: "state_event",
+                        value: "close"
+                    )
+                ]
+            )
+        )
+
+        #expect(response.value == "ok")
+        #expect(await transport.requestCount == 1)
+        #expect(await transport.methods == ["PUT"])
+    }
+
     @Test("Pagination is structurally read-only")
     func classifiesPaginationAsRead() throws {
         let url = try #require(
