@@ -5,6 +5,7 @@ struct TodosView: View {
     let issueLoader: any GitLabIssueLoading
     let mergeRequestLoader:
         any GitLabMergeRequestLoading
+    let accountID: GitLabAccountID
     let appSession: AppSession
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var isConfirmingMarkAllDone =
@@ -374,12 +375,14 @@ struct TodosView: View {
             GitLabIssueDetailView(
                 route: issueRoute,
                 loader: issueLoader,
+                accountID: accountID,
                 appSession: appSession
             )
         case let .mergeRequest(mergeRequestRoute):
             GitLabMergeRequestDetailView(
                 route: mergeRequestRoute,
                 loader: mergeRequestLoader,
+                accountID: accountID,
                 appSession: appSession
             )
         }
@@ -510,7 +513,10 @@ struct TodosView: View {
         else {
             return
         }
-        await appSession.handleAuthenticationFailure(error)
+        await appSession.handleAuthenticationFailure(
+            error,
+            for: accountID
+        )
     }
 }
 

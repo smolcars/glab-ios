@@ -25,6 +25,7 @@ struct AppRootView: View {
                 session: session,
                 appSession: appSession
             )
+            .id(GitLabAccountID(session: session))
         }
     }
 

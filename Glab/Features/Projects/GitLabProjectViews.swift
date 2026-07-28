@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProjectsView: View {
     let mode: GitLabProjectListMode
+    let accountID: GitLabAccountID
     let appSession: AppSession
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -10,9 +11,11 @@ struct ProjectsView: View {
     init(
         mode: GitLabProjectListMode,
         loader: any GitLabProjectLoading,
+        accountID: GitLabAccountID,
         appSession: AppSession
     ) {
         self.mode = mode
+        self.accountID = accountID
         self.appSession = appSession
         _model = State(
             initialValue: ProjectsModel(
@@ -198,7 +201,10 @@ struct ProjectsView: View {
         else {
             return
         }
-        await appSession.handleAuthenticationFailure(error)
+        await appSession.handleAuthenticationFailure(
+            error,
+            for: accountID
+        )
     }
 }
 

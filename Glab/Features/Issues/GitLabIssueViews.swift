@@ -3,6 +3,7 @@ import SwiftUI
 struct AssignedIssuesView: View {
     let model: AssignedIssuesModel
     let loader: any GitLabIssueLoading
+    let accountID: GitLabAccountID
     let appSession: AppSession
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -27,6 +28,7 @@ struct AssignedIssuesView: View {
                 GitLabIssueDetailView(
                     route: $0,
                     loader: loader,
+                    accountID: accountID,
                     appSession: appSession
                 )
             }
@@ -150,7 +152,10 @@ struct AssignedIssuesView: View {
         guard let error = model.authenticationFailure else {
             return
         }
-        await appSession.handleAuthenticationFailure(error)
+        await appSession.handleAuthenticationFailure(
+            error,
+            for: accountID
+        )
     }
 }
 
@@ -373,6 +378,7 @@ private struct GitLabIssueStateLabel: View {
 }
 
 struct GitLabIssueDetailView: View {
+    let accountID: GitLabAccountID
     let appSession: AppSession
 
     @State private var model: GitLabIssueDetailModel
@@ -380,8 +386,10 @@ struct GitLabIssueDetailView: View {
     init(
         route: GitLabIssueRoute,
         loader: any GitLabIssueLoading,
+        accountID: GitLabAccountID,
         appSession: AppSession
     ) {
+        self.accountID = accountID
         self.appSession = appSession
         _model = State(
             initialValue: GitLabIssueDetailModel(
@@ -449,7 +457,10 @@ struct GitLabIssueDetailView: View {
         guard let error = model.authenticationFailure else {
             return
         }
-        await appSession.handleAuthenticationFailure(error)
+        await appSession.handleAuthenticationFailure(
+            error,
+            for: accountID
+        )
     }
 }
 

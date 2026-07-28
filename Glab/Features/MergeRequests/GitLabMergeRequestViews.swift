@@ -3,6 +3,7 @@ import SwiftUI
 struct MergeRequestsView: View {
     let mode: GitLabMergeRequestListMode
     let loader: any GitLabMergeRequestLoading
+    let accountID: GitLabAccountID
     let appSession: AppSession
 
     @State private var model: MergeRequestsModel
@@ -10,10 +11,12 @@ struct MergeRequestsView: View {
     init(
         mode: GitLabMergeRequestListMode,
         loader: any GitLabMergeRequestLoading,
+        accountID: GitLabAccountID,
         appSession: AppSession
     ) {
         self.mode = mode
         self.loader = loader
+        self.accountID = accountID
         self.appSession = appSession
         _model = State(
             initialValue: MergeRequestsModel(
@@ -46,6 +49,7 @@ struct MergeRequestsView: View {
                 GitLabMergeRequestDetailView(
                     route: $0,
                     loader: loader,
+                    accountID: accountID,
                     appSession: appSession
                 )
             }
@@ -196,7 +200,10 @@ struct MergeRequestsView: View {
         else {
             return
         }
-        await appSession.handleAuthenticationFailure(error)
+        await appSession.handleAuthenticationFailure(
+            error,
+            for: accountID
+        )
     }
 }
 
@@ -511,6 +518,7 @@ private struct GitLabMergeRequestDraftLabel: View {
 }
 
 struct GitLabMergeRequestDetailView: View {
+    let accountID: GitLabAccountID
     let appSession: AppSession
 
     @State private var model:
@@ -519,8 +527,10 @@ struct GitLabMergeRequestDetailView: View {
     init(
         route: GitLabMergeRequestRoute,
         loader: any GitLabMergeRequestLoading,
+        accountID: GitLabAccountID,
         appSession: AppSession
     ) {
+        self.accountID = accountID
         self.appSession = appSession
         _model = State(
             initialValue:
@@ -595,7 +605,10 @@ struct GitLabMergeRequestDetailView: View {
         else {
             return
         }
-        await appSession.handleAuthenticationFailure(error)
+        await appSession.handleAuthenticationFailure(
+            error,
+            for: accountID
+        )
     }
 }
 

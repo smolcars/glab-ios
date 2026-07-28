@@ -189,7 +189,10 @@ struct AppSessionTests {
         await appSession.restore()
 
         await appSession.handleAuthenticationFailure(
-            .api(.unauthenticated)
+            .api(.unauthenticated),
+            for: GitLabAccountID(
+                session: storedSession
+            )
         )
         let persisted = try await store.load(
             for: GitLabAccountID(session: storedSession)
@@ -215,7 +218,10 @@ struct AppSessionTests {
         await appSession.restore()
 
         await appSession.handleAuthenticationFailure(
-            .api(.connectivity(.notConnectedToInternet))
+            .api(.connectivity(.notConnectedToInternet)),
+            for: GitLabAccountID(
+                session: storedSession
+            )
         )
 
         #expect(appSession.state == .signedIn(storedSession))
@@ -247,7 +253,10 @@ struct AppSessionTests {
         )
         await appSession.restore()
 
-        appSession.synchronizeRefreshedSession(refreshed)
+        appSession.synchronizeRefreshedSession(
+            refreshed,
+            for: GitLabAccountID(session: original)
+        )
 
         #expect(appSession.state == .signedIn(refreshed))
     }
@@ -272,7 +281,10 @@ struct AppSessionTests {
         await appSession.restore()
         try await appSession.signOut()
 
-        appSession.synchronizeRefreshedSession(refreshed)
+        appSession.synchronizeRefreshedSession(
+            refreshed,
+            for: GitLabAccountID(session: original)
+        )
 
         #expect(appSession.state == .signedOut)
         #expect(

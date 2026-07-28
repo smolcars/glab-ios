@@ -35,6 +35,7 @@ struct SignedInShellView: View {
     let session: GitLabStoredSession
     let appSession: AppSession
 
+    private let accountID: GitLabAccountID
     @State private var selectedTab = GitLabAppTab.defaultTab
     @State private var homeDashboardModel: HomeDashboardModel
     @State private var assignedIssuesModel: AssignedIssuesModel
@@ -50,6 +51,8 @@ struct SignedInShellView: View {
     ) {
         self.session = session
         self.appSession = appSession
+        let accountID = GitLabAccountID(session: session)
+        self.accountID = accountID
 
         let transport = URLSessionGitLabHTTPTransport()
         let client = GitLabSessionClient(
@@ -62,7 +65,8 @@ struct SignedInShellView: View {
             responseCache: appSession.responseCache,
             sessionDidRefresh: { refreshedSession in
                 await appSession.synchronizeRefreshedSession(
-                    refreshedSession
+                    refreshedSession,
+                    for: accountID
                 )
             }
         )
@@ -108,6 +112,7 @@ struct SignedInShellView: View {
             Tab(value: GitLabAppTab.home) {
                 HomeView(
                     session: session,
+                    accountID: accountID,
                     appSession: appSession,
                     model: homeDashboardModel,
                     assignedIssuesModel: assignedIssuesModel,
@@ -130,6 +135,7 @@ struct SignedInShellView: View {
                     issueLoader: issueLoader,
                     mergeRequestLoader:
                         mergeRequestLoader,
+                    accountID: accountID,
                     appSession: appSession
                 )
             } label: {

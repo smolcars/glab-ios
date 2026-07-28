@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     let session: GitLabStoredSession
+    let accountID: GitLabAccountID
     let appSession: AppSession
     let model: HomeDashboardModel
     let assignedIssuesModel: AssignedIssuesModel
@@ -140,30 +141,35 @@ struct HomeView: View {
             AssignedIssuesView(
                 model: assignedIssuesModel,
                 loader: issueLoader,
+                accountID: accountID,
                 appSession: appSession
             )
         case .assignedMergeRequests:
             MergeRequestsView(
                 mode: .assigned,
                 loader: mergeRequestLoader,
+                accountID: accountID,
                 appSession: appSession
             )
         case .reviewRequests:
             MergeRequestsView(
                 mode: .reviewRequested,
                 loader: mergeRequestLoader,
+                accountID: accountID,
                 appSession: appSession
             )
         case .recentProjects:
             ProjectsView(
                 mode: .recent,
                 loader: projectLoader,
+                accountID: accountID,
                 appSession: appSession
             )
         case .starredProjects:
             ProjectsView(
                 mode: .starred,
                 loader: projectLoader,
+                accountID: accountID,
                 appSession: appSession
             )
         }
@@ -184,6 +190,9 @@ struct HomeView: View {
             return
         }
 
-        await appSession.handleAuthenticationFailure(error)
+        await appSession.handleAuthenticationFailure(
+            error,
+            for: accountID
+        )
     }
 }

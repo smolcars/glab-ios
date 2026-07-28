@@ -253,6 +253,7 @@ final class AppSession {
         }
 
         let transition = beginTransition()
+        let previousState = state
         let previousIndex = try makeIndex()
         let updatedIndex: GitLabAccountIndex
 
@@ -265,14 +266,23 @@ final class AppSession {
             throw .corruptData
         }
 
+        publish(updatedIndex)
+        if previousIndex.activeAccountID == accountID {
+            state = .restoring
+        }
+
         do {
             try await credentialStore.delete(
                 accountID
             )
         } catch {
-            try? accountIndexStore.save(
-                previousIndex
-            )
+            if isCurrent(transition) {
+                try? accountIndexStore.save(
+                    previousIndex
+                )
+                publish(previousIndex)
+                state = previousState
+            }
             throw error
         }
 
@@ -297,8 +307,6 @@ final class AppSession {
         guard isCurrent(transition) else {
             return
         }
-
-        publish(updatedIndex)
 
         guard
             previousIndex.activeAccountID
@@ -362,18 +370,6 @@ final class AppSession {
         }
     }
 
-    func invalidateAuthentication(
-        _ notice: AuthenticationNotice
-    ) async {
-        guard let activeAccountID else {
-            return
-        }
-        await invalidateAuthentication(
-            notice,
-            for: activeAccountID
-        )
-    }
-
     func handleAuthenticationFailure(
         _ error: GitLabSessionClientError,
         for accountID: GitLabAccountID
@@ -388,26 +384,15 @@ final class AppSession {
         )
     }
 
-    func handleAuthenticationFailure(
-        _ error: GitLabSessionClientError
-    ) async {
-        guard let activeAccountID else {
-            return
-        }
-        await handleAuthenticationFailure(
-            error,
-            for: activeAccountID
-        )
-    }
-
     func synchronizeRefreshedSession(
-        _ refreshedSession: GitLabStoredSession
+        _ refreshedSession: GitLabStoredSession,
+        for accountID: GitLabAccountID
     ) {
         guard
-            let activeAccountID,
+            activeAccountID == accountID,
             GitLabAccountID(
                 session: refreshedSession
-            ) == activeAccountID,
+            ) == accountID,
             case let .signedIn(currentSession) = state,
             currentSession.host == refreshedSession.host,
             currentSession.user.id == refreshedSession.user.id,
