@@ -297,13 +297,13 @@ private struct GitLabMarkdownFailureNotice: View {
     }
 }
 
-private struct GitLabMarkdownDocumentView: View {
+struct GitLabMarkdownDocumentView: View {
     let document: GitLabMarkdownDocument
     let taskInteraction:
         GitLabMarkdownTaskInteraction?
 
     var body: some View {
-        LazyVStack(
+        VStack(
             alignment: .leading,
             spacing: 14
         ) {
@@ -416,7 +416,7 @@ private struct GitLabMarkdownListView: View {
                         )
                         .padding(.top, 2)
 
-                    LazyVStack(
+                    VStack(
                         alignment: .leading,
                         spacing: 9
                     ) {
@@ -888,7 +888,7 @@ private struct GitLabMarkdownQuoteView: View {
                 .frame(width: 4)
                 .accessibilityHidden(true)
 
-            LazyVStack(
+            VStack(
                 alignment: .leading,
                 spacing: 10
             ) {
