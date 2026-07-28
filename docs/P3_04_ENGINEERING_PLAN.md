@@ -8,7 +8,7 @@
 - Test implementation: complete
 - Production implementation: complete
 - Verification: pending
-- Deep review: in progress — two material findings have committed repair plans
+- Deep review: in progress — three material findings have committed repair plans
 
 This plan must be committed and pushed before any P3-04 test or production
 code is changed.
@@ -690,6 +690,39 @@ Repair plan, to be committed before production edits:
 5. Rerun the focused model and presentation suites, the complete P3-04 gates,
    and Simulator interaction checks.
 6. Repeat the deep review and record the final result here.
+
+### DR-03 — Independent thread changes can race readiness refreshes
+
+Status: repair planned; production code not yet changed.
+
+The second deep-review pass found that successful mutations for two different
+discussion IDs can call the injected merge-request readiness refresh
+concurrently. That independence is intentional for the writes, but
+`GitLabResourceDetailModel` keeps its loaded state visible while refreshing and
+does not reject or order another refresh in that state. Two exact MR reads can
+therefore complete out of order, allowing an older
+`blocking_discussions_resolved` response to overwrite the newer one.
+
+Coalescing the second refresh into the first is also unsafe because the first
+read can begin before the second discussion mutation is accepted. P3-04 needs a
+trailing exact read after every confirmed write, in mutation-completion order.
+
+Repair plan, to be committed before production edits:
+
+1. Add a failing resolution-model test that completes two independent
+   discussion mutations together and proves readiness refreshes never overlap.
+2. Gate the first refresh and prove the second refresh starts only after the
+   first finishes, rather than being dropped or coalesced.
+3. Add the smallest model-owned serial readiness-refresh queue. Keep each
+   affected discussion in the explicit `refreshingReadiness` phase until its
+   queued refresh finishes.
+4. Propagate cancellation into queued refresh work, clear queue ownership on
+   disappearance, and prevent an inactive account from publishing late state.
+5. Do not change the shared resource-detail loading semantics or serialize the
+   independent GitLab discussion writes themselves.
+6. Rerun the focused concurrency, cancellation, readiness, and presentation
+   suites, then the complete P3-04 gates and Simulator checks.
+7. Repeat the deep review and record the final result here.
 
 ## Non-goals
 
