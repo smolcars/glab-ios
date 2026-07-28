@@ -51,6 +51,35 @@ struct GitLabPaginatedResourceModelTests {
         #expect(model.hasLoaded)
         #expect(model.reliableItemCount == nil)
     }
+
+    @Test("Shows loading while retrying an empty failed resource")
+    @MainActor
+    func showsLoadingDuringEmptyRetry() async {
+        let loader = EmptyRetryLoader()
+        let model = GitLabPaginatedResourceModel<Int, Int>(
+            loadPage: {
+                (pageURL: URL?) async throws(
+                    GitLabSessionClientError
+                ) -> GitLabResourcePage<Int> in
+                try await loader.load(pageURL)
+            },
+            identity: { $0 },
+            searchValues: { ["\($0)"] }
+        )
+
+        await model.loadIfNeeded()
+
+        let retry = Task {
+            await model.refresh()
+        }
+        await loader.waitUntilRetryStarts()
+
+        #expect(model.isLoadingInitial)
+        #expect(!model.isRefreshing)
+
+        await loader.finishRetry()
+        await retry.value
+    }
 }
 
 private actor FailingRefreshLoader {
@@ -77,5 +106,52 @@ private actor FailingRefreshLoader {
         }
 
         throw error
+    }
+}
+
+private actor EmptyRetryLoader {
+    private var requestCount = 0
+    private var retryContinuation:
+        CheckedContinuation<Void, Never>?
+    private var retryStartedContinuation:
+        CheckedContinuation<Void, Never>?
+
+    func load(
+        _ pageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourcePage<Int>
+    {
+        requestCount += 1
+
+        if requestCount == 1 {
+            throw .api(.server(statusCode: 503))
+        }
+
+        await withCheckedContinuation {
+            retryContinuation = $0
+            retryStartedContinuation?.resume()
+            retryStartedContinuation = nil
+        }
+
+        return GitLabResourcePage(
+            items: [],
+            nextPageURL: nil,
+            totalCount: 0
+        )
+    }
+
+    func waitUntilRetryStarts() async {
+        guard retryContinuation == nil else {
+            return
+        }
+
+        await withCheckedContinuation {
+            retryStartedContinuation = $0
+        }
+    }
+
+    func finishRetry() {
+        retryContinuation?.resume()
+        retryContinuation = nil
     }
 }

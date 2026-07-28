@@ -103,7 +103,7 @@ where
     }
 
     func refresh() async {
-        await replaceItems(isInitial: false)
+        await replaceItems(isInitial: items.isEmpty)
     }
 
     func loadNextPageIfNeeded(after item: Item) async {
