@@ -4,6 +4,42 @@ import Testing
 
 @Suite("GitLab discussion decoding")
 struct GitLabDiscussionTests {
+    @Test("Builds note Markdown identities for both resource types")
+    func markdownResourceIdentities() {
+        let issue: GitLabDiscussionResource =
+            .issue(
+                GitLabIssueRoute(
+                    projectID: 42,
+                    issueIID: 7
+                )
+            )
+        let mergeRequest: GitLabDiscussionResource =
+            .mergeRequest(
+                GitLabMergeRequestRoute(
+                    projectID: 42,
+                    mergeRequestIID: 9
+                )
+            )
+
+        #expect(
+            issue.markdownResourceID(noteID: 101)
+                == .issueNote(
+                    projectID: 42,
+                    issueIID: 7,
+                    noteID: 101
+                )
+        )
+        #expect(
+            mergeRequest
+                .markdownResourceID(noteID: 202)
+                == .mergeRequestNote(
+                    projectID: 42,
+                    mergeRequestIID: 9,
+                    noteID: 202
+                )
+        )
+    }
+
     @Test("Decodes threads, replies, system activity, and evolving fields")
     func decodesDiscussionVariants() throws {
         let discussions = try decode(

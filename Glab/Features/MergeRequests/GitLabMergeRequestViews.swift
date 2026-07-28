@@ -3,6 +3,8 @@ import SwiftUI
 struct MergeRequestsView: View {
     let mode: GitLabMergeRequestListMode
     let loader: any GitLabMergeRequestLoading
+    let discussionLoader:
+        any GitLabDiscussionLoading
     let accountID: GitLabAccountID
     let appSession: AppSession
 
@@ -11,11 +13,15 @@ struct MergeRequestsView: View {
     init(
         mode: GitLabMergeRequestListMode,
         loader: any GitLabMergeRequestLoading,
+        discussionLoader:
+            any GitLabDiscussionLoading,
         accountID: GitLabAccountID,
         appSession: AppSession
     ) {
         self.mode = mode
         self.loader = loader
+        self.discussionLoader =
+            discussionLoader
         self.accountID = accountID
         self.appSession = appSession
         _model = State(
@@ -49,6 +55,8 @@ struct MergeRequestsView: View {
                 GitLabMergeRequestDetailView(
                     route: $0,
                     loader: loader,
+                    discussionLoader:
+                        discussionLoader,
                     accountID: accountID,
                     appSession: appSession
                 )
@@ -520,23 +528,41 @@ private struct GitLabMergeRequestDraftLabel: View {
 struct GitLabMergeRequestDetailView: View {
     let accountID: GitLabAccountID
     let appSession: AppSession
+    let discussionResource:
+        GitLabDiscussionResource
 
     @State private var model:
         GitLabMergeRequestDetailModel
+    @State private var discussionModel:
+        GitLabDiscussionsModel
 
     init(
         route: GitLabMergeRequestRoute,
         loader: any GitLabMergeRequestLoading,
+        discussionLoader:
+            any GitLabDiscussionLoading,
         accountID: GitLabAccountID,
         appSession: AppSession
     ) {
         self.accountID = accountID
         self.appSession = appSession
+        let discussionResource =
+            GitLabDiscussionResource
+                .mergeRequest(route)
+        self.discussionResource =
+            discussionResource
         _model = State(
             initialValue:
                 GitLabMergeRequestDetailModel(
                     route: route,
                     loader: loader
+                )
+        )
+        _discussionModel = State(
+            initialValue:
+                GitLabDiscussionsModel(
+                    resource: discussionResource,
+                    loader: discussionLoader
                 )
         )
     }
@@ -548,9 +574,27 @@ struct GitLabMergeRequestDetailView: View {
             )
             .navigationTitle("Merge Request")
             .navigationBarTitleDisplayMode(.inline)
+            .refreshable {
+                await refresh()
+            }
             .task {
-                await model.loadIfNeeded()
-                await handleAuthenticationFailure()
+                await load()
+            }
+            .onChange(
+                of:
+                    discussionModel
+                        .authenticationFailure
+            ) { _, error in
+                guard let error else {
+                    return
+                }
+                Task {
+                    await appSession
+                        .handleAuthenticationFailure(
+                            error,
+                            for: accountID
+                        )
+                }
             }
     }
 
@@ -569,8 +613,7 @@ struct GitLabMergeRequestDetailView: View {
                 error: error
             ) {
                 Task {
-                    await model.retry()
-                    await handleAuthenticationFailure()
+                    await refresh()
                 }
             }
         case let .loaded(mergeRequest):
@@ -584,8 +627,7 @@ struct GitLabMergeRequestDetailView: View {
                             "mergeRequests.detailRefreshError"
                     ) {
                         Task {
-                            await model.retry()
-                            await handleAuthenticationFailure()
+                            await refresh()
                         }
                     }
                     .padding(.horizontal, 20)
@@ -594,6 +636,10 @@ struct GitLabMergeRequestDetailView: View {
 
                 GitLabMergeRequestDetailContent(
                     mergeRequest: mergeRequest,
+                    discussionModel:
+                        discussionModel,
+                    discussionResource:
+                        discussionResource,
                     accountID: accountID
                 )
             }
@@ -602,7 +648,10 @@ struct GitLabMergeRequestDetailView: View {
 
     private func handleAuthenticationFailure() async {
         guard
-            let error = model.authenticationFailure
+            let error =
+                model.authenticationFailure
+                ?? discussionModel
+                    .authenticationFailure
         else {
             return
         }
@@ -611,10 +660,30 @@ struct GitLabMergeRequestDetailView: View {
             for: accountID
         )
     }
+
+    private func load() async {
+        async let detail: Void =
+            model.loadIfNeeded()
+        async let discussion: Void =
+            discussionModel.loadIfNeeded()
+        _ = await (detail, discussion)
+        await handleAuthenticationFailure()
+    }
+
+    private func refresh() async {
+        async let detail: Void = model.retry()
+        async let discussion: Void =
+            discussionModel.refresh()
+        _ = await (detail, discussion)
+        await handleAuthenticationFailure()
+    }
 }
 
 private struct GitLabMergeRequestDetailContent: View {
     let mergeRequest: GitLabMergeRequest
+    let discussionModel: GitLabDiscussionsModel
+    let discussionResource:
+        GitLabDiscussionResource
     let accountID: GitLabAccountID
 
     @Environment(\.gitLabMarkdownRenderer)
@@ -622,7 +691,7 @@ private struct GitLabMergeRequestDetailContent: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            LazyVStack(alignment: .leading, spacing: 22) {
                 header
                 descriptionSection
                 branchesSection
@@ -633,6 +702,14 @@ private struct GitLabMergeRequestDetailContent: View {
 
                 peopleSection
                 timestampsSection
+
+                GitLabDiscussionSection(
+                    model: discussionModel,
+                    resource: discussionResource,
+                    accountID: accountID,
+                    webURL:
+                        mergeRequest.safeWebURL
+                )
             }
             .padding(20)
             .padding(
@@ -692,7 +769,7 @@ private struct GitLabMergeRequestDetailContent: View {
                     ),
                 !description.isEmpty
             {
-                GitLabMarkdownDescriptionView(
+                GitLabMarkdownContentView(
                     request: GitLabMarkdownRequest(
                         accountID: accountID,
                         resource: .mergeRequest(
@@ -706,6 +783,7 @@ private struct GitLabMergeRequestDetailContent: View {
                             mergeRequest.safeWebURL
                     ),
                     revision: mergeRequest.updatedAt,
+                    kind: .description,
                     renderer: markdownRenderer
                 )
             } else {

@@ -7,6 +7,26 @@ nonisolated enum GitLabDiscussionResource:
 {
     case issue(GitLabIssueRoute)
     case mergeRequest(GitLabMergeRequestRoute)
+
+    func markdownResourceID(
+        noteID: Int
+    ) -> GitLabMarkdownResourceID {
+        switch self {
+        case let .issue(route):
+            .issueNote(
+                projectID: route.projectID,
+                issueIID: route.issueIID,
+                noteID: noteID
+            )
+        case let .mergeRequest(route):
+            .mergeRequestNote(
+                projectID: route.projectID,
+                mergeRequestIID:
+                    route.mergeRequestIID,
+                noteID: noteID
+            )
+        }
+    }
 }
 
 nonisolated enum GitLabDiscussionNoteKind:

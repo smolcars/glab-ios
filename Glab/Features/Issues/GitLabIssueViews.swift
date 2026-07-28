@@ -3,6 +3,8 @@ import SwiftUI
 struct AssignedIssuesView: View {
     let model: AssignedIssuesModel
     let loader: any GitLabIssueLoading
+    let discussionLoader:
+        any GitLabDiscussionLoading
     let accountID: GitLabAccountID
     let appSession: AppSession
 
@@ -28,6 +30,8 @@ struct AssignedIssuesView: View {
                 GitLabIssueDetailView(
                     route: $0,
                     loader: loader,
+                    discussionLoader:
+                        discussionLoader,
                     accountID: accountID,
                     appSession: appSession
                 )
@@ -380,22 +384,39 @@ private struct GitLabIssueStateLabel: View {
 struct GitLabIssueDetailView: View {
     let accountID: GitLabAccountID
     let appSession: AppSession
+    let discussionResource:
+        GitLabDiscussionResource
 
     @State private var model: GitLabIssueDetailModel
+    @State private var discussionModel:
+        GitLabDiscussionsModel
 
     init(
         route: GitLabIssueRoute,
         loader: any GitLabIssueLoading,
+        discussionLoader:
+            any GitLabDiscussionLoading,
         accountID: GitLabAccountID,
         appSession: AppSession
     ) {
         self.accountID = accountID
         self.appSession = appSession
+        let discussionResource =
+            GitLabDiscussionResource.issue(route)
+        self.discussionResource =
+            discussionResource
         _model = State(
             initialValue: GitLabIssueDetailModel(
                 route: route,
                 loader: loader
             )
+        )
+        _discussionModel = State(
+            initialValue:
+                GitLabDiscussionsModel(
+                    resource: discussionResource,
+                    loader: discussionLoader
+                )
         )
     }
 
@@ -404,9 +425,27 @@ struct GitLabIssueDetailView: View {
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle("Issue")
             .navigationBarTitleDisplayMode(.inline)
+            .refreshable {
+                await refresh()
+            }
             .task {
-                await model.loadIfNeeded()
-                await handleAuthenticationFailure()
+                await load()
+            }
+            .onChange(
+                of:
+                    discussionModel
+                        .authenticationFailure
+            ) { _, error in
+                guard let error else {
+                    return
+                }
+                Task {
+                    await appSession
+                        .handleAuthenticationFailure(
+                            error,
+                            for: accountID
+                        )
+                }
             }
     }
 
@@ -423,8 +462,7 @@ struct GitLabIssueDetailView: View {
         case let .failed(error):
             GitLabRetryStateView(error: error) {
                 Task {
-                    await model.retry()
-                    await handleAuthenticationFailure()
+                    await refresh()
                 }
             }
         case let .loaded(issue):
@@ -438,8 +476,7 @@ struct GitLabIssueDetailView: View {
                             "issues.detailRefreshError"
                     ) {
                         Task {
-                            await model.retry()
-                            await handleAuthenticationFailure()
+                            await refresh()
                         }
                     }
                     .padding(.horizontal, 20)
@@ -448,6 +485,10 @@ struct GitLabIssueDetailView: View {
 
                 GitLabIssueDetailContent(
                     issue: issue,
+                    discussionModel:
+                        discussionModel,
+                    discussionResource:
+                        discussionResource,
                     accountID: accountID
                 )
             }
@@ -455,7 +496,12 @@ struct GitLabIssueDetailView: View {
     }
 
     private func handleAuthenticationFailure() async {
-        guard let error = model.authenticationFailure else {
+        guard
+            let error =
+                model.authenticationFailure
+                ?? discussionModel
+                    .authenticationFailure
+        else {
             return
         }
         await appSession.handleAuthenticationFailure(
@@ -463,10 +509,30 @@ struct GitLabIssueDetailView: View {
             for: accountID
         )
     }
+
+    private func load() async {
+        async let detail: Void =
+            model.loadIfNeeded()
+        async let discussion: Void =
+            discussionModel.loadIfNeeded()
+        _ = await (detail, discussion)
+        await handleAuthenticationFailure()
+    }
+
+    private func refresh() async {
+        async let detail: Void = model.retry()
+        async let discussion: Void =
+            discussionModel.refresh()
+        _ = await (detail, discussion)
+        await handleAuthenticationFailure()
+    }
 }
 
 private struct GitLabIssueDetailContent: View {
     let issue: GitLabIssue
+    let discussionModel: GitLabDiscussionsModel
+    let discussionResource:
+        GitLabDiscussionResource
     let accountID: GitLabAccountID
 
     @Environment(\.gitLabMarkdownRenderer)
@@ -474,7 +540,7 @@ private struct GitLabIssueDetailContent: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            LazyVStack(alignment: .leading, spacing: 22) {
                 header
 
                 if issue.confidential {
@@ -499,6 +565,13 @@ private struct GitLabIssueDetailContent: View {
                 }
 
                 timestampsSection
+
+                GitLabDiscussionSection(
+                    model: discussionModel,
+                    resource: discussionResource,
+                    accountID: accountID,
+                    webURL: issue.safeWebURL
+                )
             }
             .padding(20)
             .padding(.bottom, issue.safeWebURL == nil ? 0 : 76)
@@ -547,7 +620,7 @@ private struct GitLabIssueDetailContent: View {
                     ),
                 !description.isEmpty
             {
-                GitLabMarkdownDescriptionView(
+                GitLabMarkdownContentView(
                     request: GitLabMarkdownRequest(
                         accountID: accountID,
                         resource: .issue(
@@ -558,6 +631,7 @@ private struct GitLabIssueDetailContent: View {
                         webURL: issue.safeWebURL
                     ),
                     revision: issue.updatedAt,
+                    kind: .description,
                     renderer: markdownRenderer
                 )
             } else {

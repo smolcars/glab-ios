@@ -5,6 +5,8 @@ struct TodosView: View {
     let issueLoader: any GitLabIssueLoading
     let mergeRequestLoader:
         any GitLabMergeRequestLoading
+    let discussionLoader:
+        any GitLabDiscussionLoading
     let accountID: GitLabAccountID
     let appSession: AppSession
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -375,6 +377,7 @@ struct TodosView: View {
             GitLabIssueDetailView(
                 route: issueRoute,
                 loader: issueLoader,
+                discussionLoader: discussionLoader,
                 accountID: accountID,
                 appSession: appSession
             )
@@ -382,6 +385,7 @@ struct TodosView: View {
             GitLabMergeRequestDetailView(
                 route: mergeRequestRoute,
                 loader: mergeRequestLoader,
+                discussionLoader: discussionLoader,
                 accountID: accountID,
                 appSession: appSession
             )

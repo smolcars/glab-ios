@@ -43,6 +43,8 @@ struct SignedInShellView: View {
     private let issueLoader: any GitLabIssueLoading
     private let mergeRequestLoader:
         any GitLabMergeRequestLoading
+    private let discussionLoader:
+        any GitLabDiscussionLoading
     private let projectLoader: any GitLabProjectLoading
     private let markdownRenderer:
         any GitLabMarkdownRendering
@@ -84,11 +86,16 @@ struct SignedInShellView: View {
         let projectLoader = LiveGitLabProjectLoader(
             client: client
         )
+        let discussionLoader =
+            LiveGitLabDiscussionLoader(
+                client: client
+            )
         let todoService = LiveGitLabTodoLoader(
             client: client
         )
         self.issueLoader = issueLoader
         self.mergeRequestLoader = mergeRequestLoader
+        self.discussionLoader = discussionLoader
         self.projectLoader = projectLoader
         markdownRenderer = GitLabMarkdownRenderer()
         let imageRequestPolicy =
@@ -141,6 +148,7 @@ struct SignedInShellView: View {
                     assignedIssuesModel: assignedIssuesModel,
                     issueLoader: issueLoader,
                     mergeRequestLoader: mergeRequestLoader,
+                    discussionLoader: discussionLoader,
                     projectLoader: projectLoader
                 )
             } label: {
@@ -158,6 +166,8 @@ struct SignedInShellView: View {
                     issueLoader: issueLoader,
                     mergeRequestLoader:
                         mergeRequestLoader,
+                    discussionLoader:
+                        discussionLoader,
                     accountID: accountID,
                     appSession: appSession
                 )

@@ -53,7 +53,41 @@ extension EnvironmentValues {
     }
 }
 
-struct GitLabMarkdownDescriptionView: View {
+nonisolated enum GitLabMarkdownContentKind:
+    Sendable
+{
+    case description
+    case comment
+
+    var formattingMessage: String {
+        switch self {
+        case .description:
+            "Formatting description…"
+        case .comment:
+            "Formatting comment…"
+        }
+    }
+
+    var failureTitle: String {
+        switch self {
+        case .description:
+            "Couldn’t format this description"
+        case .comment:
+            "Couldn’t format this comment"
+        }
+    }
+
+    var unformattedAccessibilityLabel: String {
+        switch self {
+        case .description:
+            "Unformatted description"
+        case .comment:
+            "Unformatted comment"
+        }
+    }
+}
+
+struct GitLabMarkdownContentView: View {
     private struct LoadIdentity: Hashable {
         let request: GitLabMarkdownRequest
         let revision: Date
@@ -61,16 +95,19 @@ struct GitLabMarkdownDescriptionView: View {
 
     let request: GitLabMarkdownRequest
     let revision: Date
+    let kind: GitLabMarkdownContentKind
 
     @State private var model: GitLabMarkdownModel
 
     init(
         request: GitLabMarkdownRequest,
         revision: Date,
+        kind: GitLabMarkdownContentKind,
         renderer: any GitLabMarkdownRendering
     ) {
         self.request = request
         self.revision = revision
+        self.kind = kind
         _model = State(
             initialValue:
                 GitLabMarkdownModel(
@@ -98,7 +135,7 @@ struct GitLabMarkdownDescriptionView: View {
             HStack(spacing: 10) {
                 ProgressView()
                     .controlSize(.small)
-                Text("Formatting description…")
+                Text(kind.formattingMessage)
                     .foregroundStyle(.secondary)
             }
             .font(.callout)
@@ -108,7 +145,8 @@ struct GitLabMarkdownDescriptionView: View {
                 model.failureMessage
             {
                 GitLabMarkdownFailureNotice(
-                    message: failureMessage
+                    message: failureMessage,
+                    kind: kind
                 ) {
                     Task {
                         await model.load(request)
@@ -121,7 +159,8 @@ struct GitLabMarkdownDescriptionView: View {
             )
         case let .failed(message):
             GitLabMarkdownFailureNotice(
-                message: message
+                message: message,
+                kind: kind
             ) {
                 Task {
                     await model.load(request)
@@ -132,7 +171,8 @@ struct GitLabMarkdownDescriptionView: View {
                 .font(.body)
                 .textSelection(.enabled)
                 .accessibilityLabel(
-                    "Unformatted description, "
+                    kind.unformattedAccessibilityLabel
+                        + ", "
                         + request.source
                 )
         }
@@ -141,12 +181,13 @@ struct GitLabMarkdownDescriptionView: View {
 
 private struct GitLabMarkdownFailureNotice: View {
     let message: String
+    let kind: GitLabMarkdownContentKind
     let retry: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(
-                "Couldn’t format this description",
+                kind.failureTitle,
                 systemImage:
                     "exclamationmark.triangle.fill"
             )
