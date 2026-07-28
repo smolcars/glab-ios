@@ -271,6 +271,87 @@ struct GitLabPaginatedResourceModelTests {
         #expect(await loader.requestCount == 3)
     }
 
+    @Test("Waits for an overlapping first page before loading the rest")
+    @MainActor
+    func joinsInitialLoadBeforeLoadingAllPages() async {
+        let loader = GatedInitialAllPagesLoader()
+        let model = GitLabPaginatedResourceModel<
+            Int,
+            Int
+        >(
+            loadPage: {
+                (
+                    pageURL: URL?
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> GitLabResourcePage<Int> in
+                await loader.load(pageURL)
+            },
+            identity: { $0 },
+            searchValues: { ["\($0)"] }
+        )
+
+        let initialLoad = Task {
+            await model.loadIfNeeded()
+        }
+        await loader.waitUntilInitialPageStarts()
+
+        let remainingLoad = Task {
+            await model.loadAllRemainingPages()
+        }
+        await loader.releaseInitialPage()
+        await initialLoad.value
+        await remainingLoad.value
+
+        #expect(model.items == [1, 2])
+        #expect(model.nextPageURL == nil)
+        #expect(await loader.requestCount == 2)
+    }
+
+    @Test("Cancellation while waiting for the first page skips later pages")
+    @MainActor
+    func cancelsWhileWaitingForInitialPage() async {
+        let loader = GatedInitialAllPagesLoader()
+        let model = GitLabPaginatedResourceModel<
+            Int,
+            Int
+        >(
+            loadPage: {
+                (
+                    pageURL: URL?
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> GitLabResourcePage<Int> in
+                await loader.load(pageURL)
+            },
+            identity: { $0 },
+            searchValues: { ["\($0)"] }
+        )
+
+        let initialLoad = Task {
+            await model.loadIfNeeded()
+        }
+        await loader.waitUntilInitialPageStarts()
+
+        let remainingLoad = Task {
+            await model.loadAllRemainingPages()
+        }
+        remainingLoad.cancel()
+        await loader.releaseInitialPage()
+        await initialLoad.value
+        await remainingLoad.value
+
+        #expect(model.items == [1])
+        #expect(
+            model.nextPageURL
+                == URL(
+                    string:
+                        "https://gitlab.example.com/page-2"
+                )
+        )
+        #expect(await loader.requestCount == 1)
+    }
+
     @Test("Stops and reports a repeated next-page URL")
     @MainActor
     func rejectsRepeatedNextPageURL() async {
@@ -386,6 +467,58 @@ private actor AllPagesLoader {
             },
             totalCount: 3
         )
+    }
+}
+
+private actor GatedInitialAllPagesLoader {
+    private var didStartInitialPage = false
+    private var initialStartWaiters:
+        [CheckedContinuation<Void, Never>] = []
+    private var initialContinuation:
+        CheckedContinuation<Void, Never>?
+    private(set) var requestCount = 0
+
+    func load(
+        _ pageURL: URL?
+    ) async -> GitLabResourcePage<Int> {
+        requestCount += 1
+        guard pageURL == nil else {
+            return GitLabResourcePage(
+                items: [2],
+                nextPageURL: nil,
+                totalCount: 2
+            )
+        }
+
+        didStartInitialPage = true
+        let waiters = initialStartWaiters
+        initialStartWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        await withCheckedContinuation {
+            initialContinuation = $0
+        }
+        return GitLabResourcePage(
+            items: [1],
+            nextPageURL: URL(
+                string:
+                    "https://gitlab.example.com/page-2"
+            ),
+            totalCount: 2
+        )
+    }
+
+    func waitUntilInitialPageStarts() async {
+        guard !didStartInitialPage else {
+            return
+        }
+        await withCheckedContinuation {
+            initialStartWaiters.append($0)
+        }
+    }
+
+    func releaseInitialPage() {
+        initialContinuation?.resume()
+        initialContinuation = nil
     }
 }
 

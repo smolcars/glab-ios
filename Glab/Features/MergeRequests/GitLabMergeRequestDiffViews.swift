@@ -30,6 +30,16 @@ struct GitLabMergeRequestDiffListView: View {
     let route: GitLabMergeRequestRoute
     let headSHA: String
     let changesURL: URL?
+    let diffVersion:
+        GitLabMergeRequestDiffVersionIdentity?
+    let discussionModel:
+        GitLabDiscussionsModel
+    let apiAccess: GitLabAPIAccess
+    let discussionMutator:
+        any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
     let accountID: GitLabAccountID
     let appSession: AppSession
 
@@ -37,20 +47,51 @@ struct GitLabMergeRequestDiffListView: View {
     private var diffRenderer
     @State private var model:
         GitLabMergeRequestDiffsModel
+    @State private var discussionIndex:
+        GitLabDiffDiscussionIndex?
 
     init(
         route: GitLabMergeRequestRoute,
         headSHA: String,
         changesURL: URL?,
+        diffVersion:
+            GitLabMergeRequestDiffVersionIdentity?,
         loader: any GitLabMergeRequestDiffLoading,
+        discussionModel:
+            GitLabDiscussionsModel,
+        apiAccess: GitLabAPIAccess,
+        discussionMutator:
+            any GitLabDiscussionMutating,
+        reactionService:
+            any GitLabEmojiReactionLoading
+                & GitLabEmojiReactionMutating,
         accountID: GitLabAccountID,
         appSession: AppSession
     ) {
         self.route = route
         self.headSHA = headSHA
         self.changesURL = changesURL
+        self.diffVersion = diffVersion
+        self.discussionModel =
+            discussionModel
+        self.apiAccess = apiAccess
+        self.discussionMutator =
+            discussionMutator
+        self.reactionService =
+            reactionService
         self.accountID = accountID
         self.appSession = appSession
+        _discussionIndex = State(
+            initialValue:
+                diffVersion.map {
+                    GitLabDiffDiscussionIndex(
+                        discussions:
+                            discussionModel
+                            .discussions,
+                        currentVersion: $0
+                    )
+                }
+        )
         _model = State(
             initialValue:
                 GitLabMergeRequestDiffsModel(
@@ -83,6 +124,14 @@ struct GitLabMergeRequestDiffListView: View {
             }
             .task {
                 await load()
+            }
+            .onChange(
+                of:
+                    discussionModel
+                    .contentRevision,
+                initial: true
+            ) { _, _ in
+                rebuildDiscussionIndex()
             }
     }
 
@@ -157,6 +206,8 @@ struct GitLabMergeRequestDiffListView: View {
                 }
             }
 
+            discussionLoadingState
+
             if
                 model.displayedFiles.isEmpty,
                 !model.searchText.trimmingCharacters(
@@ -177,8 +228,22 @@ struct GitLabMergeRequestDiffListView: View {
                                 route: route,
                                 headSHA: headSHA,
                                 changesURL: changesURL,
+                                diffVersion:
+                                    diffVersion,
+                                discussionModel:
+                                    discussionModel,
+                                discussionIndex:
+                                    discussionIndex,
+                                apiAccess:
+                                    apiAccess,
+                                discussionMutator:
+                                    discussionMutator,
+                                reactionService:
+                                    reactionService,
                                 accountID: accountID,
-                                renderer: diffRenderer
+                                renderer: diffRenderer,
+                                appSession:
+                                    appSession
                             )
                         } label: {
                             GitLabMergeRequestDiffFileRow(
@@ -243,18 +308,29 @@ struct GitLabMergeRequestDiffListView: View {
     }
 
     private func load() async {
-        await model.loadIfNeeded()
+        async let files: Void =
+            model.loadIfNeeded()
+        async let discussions: Void =
+            loadAllDiscussions()
+        _ = await (files, discussions)
         await handleAuthenticationFailure()
     }
 
     private func refresh() async {
-        await model.refresh()
+        async let files: Void =
+            model.refresh()
+        async let discussions: Void =
+            refreshAllDiscussions()
+        _ = await (files, discussions)
         await handleAuthenticationFailure()
     }
 
     private func handleAuthenticationFailure() async {
         guard
-            let error = model.authenticationFailure
+            let error =
+                model.authenticationFailure
+                ?? discussionModel
+                    .authenticationFailure
         else {
             return
         }
@@ -262,6 +338,75 @@ struct GitLabMergeRequestDiffListView: View {
             error,
             for: accountID
         )
+    }
+
+    private func loadAllDiscussions() async {
+        await discussionModel.loadIfNeeded()
+        await discussionModel
+            .loadAllRemainingPages()
+    }
+
+    private func refreshAllDiscussions() async {
+        await discussionModel.refresh()
+        await discussionModel
+            .loadAllRemainingPages()
+    }
+
+    private func retryDiscussionLoad() async {
+        if discussionModel.didFailNextPage {
+            await discussionModel
+                .loadAllRemainingPages()
+        } else {
+            await refreshAllDiscussions()
+        }
+        await handleAuthenticationFailure()
+    }
+
+    @ViewBuilder
+    private var discussionLoadingState:
+        some View
+    {
+        if
+            discussionModel.isLoadingInitial
+                || discussionModel.isRefreshing
+                || discussionModel.isLoadingNextPage
+        {
+            Label(
+                "Loading inline discussions…",
+                systemImage:
+                    "bubble.left.and.text.bubble.right"
+            )
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .listRowBackground(Color.clear)
+            .accessibilityIdentifier(
+                "mergeRequestDiffs.discussionsLoading"
+            )
+        } else if
+            let error = discussionModel.loadError
+        {
+            GitLabInlineRetryRow(
+                title:
+                    "Couldn’t load all inline discussions",
+                error: error,
+                accessibilityIdentifier:
+                    "mergeRequestDiffs.discussionsError"
+            ) {
+                Task {
+                    await retryDiscussionLoad()
+                }
+            }
+        }
+    }
+
+    private func rebuildDiscussionIndex() {
+        discussionIndex = diffVersion.map {
+            GitLabDiffDiscussionIndex(
+                discussions:
+                    discussionModel.discussions,
+                currentVersion: $0
+            )
+        }
     }
 }
 
@@ -412,13 +557,30 @@ private struct GitLabMergeRequestDiffFileView: View {
     let route: GitLabMergeRequestRoute
     let headSHA: String
     let changesURL: URL?
+    let diffVersion:
+        GitLabMergeRequestDiffVersionIdentity?
+    let discussionModel:
+        GitLabDiscussionsModel
+    let discussionIndex:
+        GitLabDiffDiscussionIndex?
+    let apiAccess: GitLabAPIAccess
+    let discussionMutator:
+        any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
     let accountID: GitLabAccountID
+    let appSession: AppSession
 
     @State private var selectedFileID:
         GitLabMergeRequestDiffFileID
     @State private var model: GitLabDiffModel
     @State private var selectedHunkJump:
         GitLabDiffHunkJump?
+    @State private var selectedLine:
+        GitLabDiffLineSelection?
+    @State private var showsOtherDiscussions =
+        false
 
     init(
         filesModel: GitLabMergeRequestDiffsModel,
@@ -427,14 +589,38 @@ private struct GitLabMergeRequestDiffFileView: View {
         route: GitLabMergeRequestRoute,
         headSHA: String,
         changesURL: URL?,
+        diffVersion:
+            GitLabMergeRequestDiffVersionIdentity?,
+        discussionModel:
+            GitLabDiscussionsModel,
+        discussionIndex:
+            GitLabDiffDiscussionIndex?,
+        apiAccess: GitLabAPIAccess,
+        discussionMutator:
+            any GitLabDiscussionMutating,
+        reactionService:
+            any GitLabEmojiReactionLoading
+                & GitLabEmojiReactionMutating,
         accountID: GitLabAccountID,
-        renderer: any GitLabDiffRendering
+        renderer: any GitLabDiffRendering,
+        appSession: AppSession
     ) {
         self.filesModel = filesModel
         self.route = route
         self.headSHA = headSHA
         self.changesURL = changesURL
+        self.diffVersion = diffVersion
+        self.discussionModel =
+            discussionModel
+        self.discussionIndex =
+            discussionIndex
+        self.apiAccess = apiAccess
+        self.discussionMutator =
+            discussionMutator
+        self.reactionService =
+            reactionService
         self.accountID = accountID
+        self.appSession = appSession
         _selectedFileID = State(
             initialValue: initialFileID
         )
@@ -473,6 +659,54 @@ private struct GitLabMergeRequestDiffFileView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             fileNavigationToolbar
+        }
+        .sheet(item: $selectedLine) {
+            selection in
+            GitLabDiffLineDiscussionSheet(
+                selection: selection,
+                discussions:
+                    discussionIndex?
+                    .discussions(
+                        at:
+                            selection
+                            .position
+                    )
+                    ?? [],
+                resource:
+                    .mergeRequest(route),
+                accountID: accountID,
+                webURL:
+                    mergeRequestWebURL,
+                apiAccess: apiAccess,
+                mutator:
+                    discussionMutator,
+                reactionService:
+                    reactionService,
+                appSession: appSession,
+                onSuccess: reconcile
+            )
+        }
+        .sheet(
+            isPresented:
+                $showsOtherDiscussions
+        ) {
+            if let discussionIndex {
+                GitLabOtherDiffDiscussionsSheet(
+                    index: discussionIndex,
+                    resource:
+                        .mergeRequest(route),
+                    accountID: accountID,
+                    webURL:
+                        mergeRequestWebURL,
+                    apiAccess: apiAccess,
+                    mutator:
+                        discussionMutator,
+                    reactionService:
+                        reactionService,
+                    appSession: appSession,
+                    onSuccess: reconcile
+                )
+            }
         }
         .task(id: selectedDocumentID) {
             selectedHunkJump = nil
@@ -557,7 +791,15 @@ private struct GitLabMergeRequestDiffFileView: View {
                     documentID:
                         selectedDocumentID,
                     selectedHunkJump:
-                        selectedHunkJump
+                        selectedHunkJump,
+                    discussionContext:
+                        discussionContext,
+                    onSelectDiscussion: {
+                        selectedLine =
+                            GitLabDiffLineSelection(
+                                position: $0
+                            )
+                    }
                 )
             } else {
                 unavailableContent(
@@ -635,6 +877,28 @@ private struct GitLabMergeRequestDiffFileView: View {
                 Text(filePosition)
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
+            }
+
+            if otherDiscussionCount > 0 {
+                Button {
+                    showsOtherDiscussions = true
+                } label: {
+                    Label(
+                        "\(otherDiscussionCount) other diff "
+                            + (
+                                otherDiscussionCount == 1
+                                    ? "discussion"
+                                    : "discussions"
+                            ),
+                        systemImage:
+                            "bubble.left.and.exclamationmark.bubble.right"
+                    )
+                    .font(.caption.weight(.semibold))
+                }
+                .buttonStyle(.glass)
+                .accessibilityIdentifier(
+                    "mergeRequestDiffs.otherDiscussions"
+                )
             }
         }
         .padding(.horizontal, 16)
@@ -716,6 +980,44 @@ private struct GitLabMergeRequestDiffFileView: View {
         }
     }
 
+    private var discussionContext:
+        GitLabDiffDiscussionContext?
+    {
+        guard
+            let diffVersion,
+            let discussionIndex,
+            let selectedFile
+        else {
+            return nil
+        }
+        return GitLabDiffDiscussionContext(
+            version: diffVersion,
+            oldPath: selectedFile.oldPath,
+            newPath: selectedFile.newPath,
+            index: discussionIndex,
+            revision:
+                discussionModel.contentRevision,
+            allowsCommenting:
+                apiAccess.canWrite
+        )
+    }
+
+    private var otherDiscussionCount: Int {
+        guard let discussionIndex else {
+            return 0
+        }
+        return
+            discussionIndex
+                .outdatedDiscussions.count
+            + discussionIndex
+                .unmappedDiscussions.count
+    }
+
+    private var mergeRequestWebURL: URL? {
+        changesURL?
+            .deletingLastPathComponent()
+    }
+
     private var hasPreviousFile: Bool {
         guard let selectedFileIndex else {
             return false
@@ -765,6 +1067,29 @@ private struct GitLabMergeRequestDiffFileView: View {
             filesModel.files[destination].id
     }
 
+    private func reconcile(
+        _ result:
+            GitLabDiscussionComposerResult
+    ) {
+        switch result {
+        case let .discussion(discussion):
+            discussionModel
+                .reconcileCreatedDiscussion(
+                    discussion
+                )
+        case let .reply(
+            note,
+            discussionID
+        ):
+            discussionModel
+                .reconcileCreatedReply(
+                    note,
+                    discussionID:
+                        discussionID
+                )
+        }
+    }
+
     private func fileKindTitle(
         _ file: GitLabMergeRequestDiffFile
     ) -> String {
@@ -805,6 +1130,12 @@ private struct GitLabDiffDocumentView: View {
     let document: GitLabParsedDiffDocument
     let documentID: GitLabDiffDocumentID
     let selectedHunkJump: GitLabDiffHunkJump?
+    let discussionContext:
+        GitLabDiffDiscussionContext?
+    let onSelectDiscussion:
+        @MainActor (
+            GitLabDiffLinePosition
+        ) -> Void
 
     @ScaledMetric(relativeTo: .caption)
     private var rowHeight: CGFloat =
@@ -816,7 +1147,11 @@ private struct GitLabDiffDocumentView: View {
             documentID: documentID,
             selectedHunkJump: selectedHunkJump,
             rowHeight: rowHeight,
-            contentWidth: minimumContentWidth
+            contentWidth: minimumContentWidth,
+            discussionContext:
+                discussionContext,
+            onSelectDiscussion:
+                onSelectDiscussion
         )
     }
 

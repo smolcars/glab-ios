@@ -260,7 +260,7 @@ struct GitLabDiscussionSection: View {
     }
 }
 
-private struct GitLabDiscussionCard: View {
+struct GitLabDiscussionCard: View {
     let discussion: GitLabDiscussion
     let resource: GitLabDiscussionResource
     let accountID: GitLabAccountID

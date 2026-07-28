@@ -173,6 +173,195 @@ struct GitLabDiffDiscussionIndexTests {
         )
     }
 
+    @Test("Builds constant-time line markers for read and write access")
+    func buildsLineMarkers() throws {
+        let version = try makeVersion()
+        let rawPosition = makeRawPosition(
+            version: version
+        )
+        let discussion = makeTestDiscussion(
+            id: "thread",
+            notes: [
+                makeTestDiscussionNote(
+                    type: "DiffNote",
+                    position: rawPosition
+                ),
+            ]
+        )
+        let index = GitLabDiffDiscussionIndex(
+            discussions: [discussion],
+            currentVersion: version
+        )
+        let readOnly =
+            GitLabDiffDiscussionContext(
+                version: version,
+                oldPath: "Sources/File.swift",
+                newPath: "Sources/File.swift",
+                index: index,
+                revision: 4,
+                allowsCommenting: false
+            )
+        let write =
+            GitLabDiffDiscussionContext(
+                version: version,
+                oldPath: "Sources/File.swift",
+                newPath: "Sources/File.swift",
+                index: index,
+                revision: 4,
+                allowsCommenting: true
+            )
+        let threadedLine = GitLabDiffLine(
+            ordinal: 0,
+            kind: .context,
+            oldLineNumber: 20,
+            newLineNumber: 21,
+            text: "threaded"
+        )
+        let unthreadedLine = GitLabDiffLine(
+            ordinal: 1,
+            kind: .addition,
+            oldLineNumber: nil,
+            newLineNumber: 22,
+            text: "unthreaded"
+        )
+
+        #expect(
+            readOnly.marker(
+                for: threadedLine
+            )?.discussionCount == 1
+        )
+        #expect(
+            readOnly.marker(
+                for: unthreadedLine
+            ) == nil
+        )
+        #expect(
+            write.marker(
+                for: unthreadedLine
+            )?.discussionCount == 0
+        )
+        #expect(
+            write.marker(
+                for: unthreadedLine
+            )?.allowsCommenting == true
+        )
+    }
+
+    @Test("Indexes two thousand mixed discussions within budget")
+    func indexPerformanceBudget() throws {
+        let currentVersion = try makeVersion()
+        let oldVersion = try makeVersion(
+            headSHA: "old-head"
+        )
+        let discussions = (0..<2_000).map {
+            index in
+            let position:
+                GitLabDiscussionPosition
+            if index < 1_800 {
+                let line = index % 500 + 1
+                position =
+                    GitLabDiscussionPosition(
+                        baseSHA:
+                            currentVersion
+                            .baseSHA,
+                        startSHA:
+                            currentVersion
+                            .startSHA,
+                        headSHA:
+                            currentVersion
+                            .headSHA,
+                        positionType: "text",
+                        oldPath:
+                            "Sources/File.swift",
+                        newPath:
+                            "Sources/File.swift",
+                        oldLine: line,
+                        newLine: line
+                    )
+            } else if index < 1_900 {
+                position =
+                    GitLabDiscussionPosition(
+                        baseSHA:
+                            oldVersion.baseSHA,
+                        startSHA:
+                            oldVersion.startSHA,
+                        headSHA:
+                            oldVersion.headSHA,
+                        positionType: "text",
+                        oldPath:
+                            "Sources/File.swift",
+                        newPath:
+                            "Sources/File.swift",
+                        oldLine: index,
+                        newLine: index
+                    )
+            } else {
+                position =
+                    GitLabDiscussionPosition(
+                        baseSHA: nil,
+                        startSHA: "start",
+                        headSHA: "head",
+                        positionType: "text",
+                        oldPath:
+                            "Sources/File.swift",
+                        newPath:
+                            "Sources/File.swift",
+                        oldLine: index,
+                        newLine: index
+                    )
+            }
+            return makeTestDiscussion(
+                id: "thread-\(index)",
+                notes: [
+                    makeTestDiscussionNote(
+                        id: index + 1,
+                        type: "DiffNote",
+                        position: position
+                    ),
+                ]
+            )
+        }
+
+        var samples: [Double] = []
+        samples.reserveCapacity(30)
+        for _ in 0..<30 {
+            let start = ContinuousClock.now
+            let index =
+                GitLabDiffDiscussionIndex(
+                    discussions: discussions,
+                    currentVersion:
+                        currentVersion
+                )
+            #expect(
+                index.positionedDiscussionCount
+                    == 2_000
+            )
+            samples.append(
+                milliseconds(
+                    start.duration(
+                        to: ContinuousClock.now
+                    )
+                )
+            )
+        }
+        let p95 = percentile95(samples)
+        print(
+            "DIFF_DISCUSSION_INDEX_PERFORMANCE "
+                + "discussions=2000 p95_ms="
+                + p95.formatted(
+                    .number.precision(
+                        .fractionLength(3)
+                    )
+                )
+        )
+
+        #if DEBUG
+            #expect(p95 < 40)
+        #else
+            #expect(p95 < 20)
+        #endif
+    }
+
     private func makeVersion(
         headSHA: String = "head"
     ) throws -> GitLabMergeRequestDiffVersionIdentity {
@@ -199,5 +388,32 @@ struct GitLabDiffDiscussionIndexTests {
             oldLine: 20,
             newLine: 21
         )
+    }
+
+    private func percentile95(
+        _ samples: [Double]
+    ) -> Double {
+        let sorted = samples.sorted()
+        let index = min(
+            sorted.count - 1,
+            Int(
+                ceil(
+                    Double(sorted.count)
+                        * 0.95
+                )
+            ) - 1
+        )
+        return sorted[index]
+    }
+
+    private func milliseconds(
+        _ duration: Duration
+    ) -> Double {
+        let components = duration.components
+        return
+            Double(components.seconds)
+                * 1_000
+            + Double(components.attoseconds)
+                / 1_000_000_000_000_000
     }
 }

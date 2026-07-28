@@ -180,7 +180,33 @@ where
     }
 
     func loadAllRemainingPages() async {
+        if
+            isLoadingInitial
+                || isRefreshing
+                || isLoadingNextPage
+        {
+            for await loadState in Observations({
+                (
+                    self.isLoadingInitial,
+                    self.isRefreshing,
+                    self.isLoadingNextPage
+                )
+            }) {
+                guard !Task.isCancelled else {
+                    return
+                }
+                if
+                    !loadState.0,
+                    !loadState.1,
+                    !loadState.2
+                {
+                    break
+                }
+            }
+        }
+
         guard
+            !Task.isCancelled,
             !isLoadingInitial,
             !isRefreshing,
             !isLoadingNextPage,

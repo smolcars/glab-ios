@@ -45,6 +45,8 @@ struct GitLabDiffCollectionViewPerformanceTests {
                 + "\(format(mebibytes(memoryDelta))) "
                 + "scroll_work_p95_ms="
                 + "\(format(scroll.workP95)) "
+                + "scroll_work_max_ms="
+                + "\(format(scroll.maximumWork)) "
                 + "scroll_hitch_ratio="
                 + "\(format(scroll.hitchRatio)) "
                 + "scroll_max_frame_ms="
@@ -58,6 +60,8 @@ struct GitLabDiffCollectionViewPerformanceTests {
                 memoryDelta
                     <= 100 * 1_024 * 1_024
             )
+            #expect(scroll.workP95 < 8)
+            #expect(scroll.maximumWork < 16.67)
             #expect(scroll.hitchRatio <= 0.05)
             #expect(scroll.maximumFrame <= 250)
         #endif
@@ -93,6 +97,10 @@ struct GitLabDiffCollectionViewPerformanceTests {
         let host = try RendererHost(
             document: document,
             documentID: try makeDocumentID(),
+            discussionContext:
+                try makeDiscussionContext(
+                    discussionCount: 500
+                ),
             isVisible: true
         )
         let collectionView =
@@ -196,6 +204,58 @@ struct GitLabDiffCollectionViewPerformanceTests {
         )
     }
 
+    private func makeDiscussionContext(
+        discussionCount: Int
+    ) throws -> GitLabDiffDiscussionContext {
+        let version = try #require(
+            GitLabMergeRequestDiffVersionIdentity(
+                baseSHA: "base",
+                startSHA: "start",
+                headSHA: "benchmark-head"
+            )
+        )
+        let discussions = (0..<discussionCount)
+            .map { index in
+                let line = index * 97 + 1
+                let position =
+                    GitLabDiscussionPosition(
+                        baseSHA: version.baseSHA,
+                        startSHA:
+                            version.startSHA,
+                        headSHA: version.headSHA,
+                        positionType: "text",
+                        oldPath:
+                            "Sources/File.swift",
+                        newPath:
+                            "Sources/File.swift",
+                        oldLine: line,
+                        newLine: line
+                    )
+                return makeTestDiscussion(
+                    id: "thread-\(index)",
+                    notes: [
+                        makeTestDiscussionNote(
+                            id: index + 1,
+                            type: "DiffNote",
+                            position: position
+                        ),
+                    ]
+                )
+            }
+        let index = GitLabDiffDiscussionIndex(
+            discussions: discussions,
+            currentVersion: version
+        )
+        return GitLabDiffDiscussionContext(
+            version: version,
+            oldPath: "Sources/File.swift",
+            newPath: "Sources/File.swift",
+            index: index,
+            revision: 1,
+            allowsCommenting: true
+        )
+    }
+
     private func residentMemoryBytes()
         throws -> UInt64
     {
@@ -272,6 +332,8 @@ private final class RendererHost {
     init(
         document: GitLabParsedDiffDocument,
         documentID: GitLabDiffDocumentID,
+        discussionContext:
+            GitLabDiffDiscussionContext? = nil,
         isVisible: Bool = true
     ) throws {
         let renderer =
@@ -291,7 +353,9 @@ private final class RendererHost {
                         rowHeight:
                             GitLabDiffLayoutMetrics
                             .baseRowHeight
-                    )
+                    ),
+                discussionContext:
+                    discussionContext
             )
         controller =
             UIHostingController(
@@ -399,6 +463,7 @@ private struct PerformanceDistribution {
 
 private struct ScrollMeasurement {
     let workP95: Double
+    let maximumWork: Double
     let hitchRatio: Double
     let maximumFrame: Double
 }
@@ -558,6 +623,9 @@ private final class ScrollDisplayLinkDriver:
                     Self.percentile95(
                         workSamples
                     ),
+                maximumWork:
+                    workSamples.max()
+                    ?? 0,
                 hitchRatio:
                     expectedTime > 0
                     ? overBudgetTime

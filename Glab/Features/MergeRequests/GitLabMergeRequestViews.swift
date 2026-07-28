@@ -897,7 +897,18 @@ private struct GitLabMergeRequestDetailContent: View {
                             headSHA: headSHA,
                             changesURL:
                                 mergeRequest.safeChangesURL,
+                            diffVersion:
+                                mergeRequest
+                                .diffRefs?
+                                .identity,
                             loader: diffLoader,
+                            discussionModel:
+                                discussionModel,
+                            apiAccess: apiAccess,
+                            discussionMutator:
+                                discussionMutator,
+                            reactionService:
+                                reactionService,
                             accountID: accountID,
                             appSession: appSession
                         )

@@ -290,6 +290,129 @@ struct LiveGitLabDiscussionMutationTests {
         )
     }
 
+    @Test("Cancellation during version lookup sends no positional POST")
+    func cancelsBeforeDiffDiscussionPost()
+        async throws
+    {
+        let version = try diffVersionIdentity()
+        let client =
+            GatedDiffVersionMutationClient(
+                version:
+                    diffVersion(
+                        identity: version
+                    )
+            )
+        let service =
+            LiveGitLabDiscussionService(
+                client: client
+            )
+        let position = try #require(
+            GitLabDiffLinePosition(
+                version: version,
+                oldPath: "Sources/File.swift",
+                newPath: "Sources/File.swift",
+                oldLine: 20,
+                newLine: 21
+            )
+        )
+
+        let mutation = Task {
+            try await service
+                .createDiffDiscussion(
+                    for: mergeRequestRoute,
+                    body:
+                        GitLabDiscussionCommentBody(
+                            "Do not post"
+                        ),
+                    position: position
+                )
+        }
+        await client.waitUntilVersionRequestStarts()
+        mutation.cancel()
+        await client.releaseVersion()
+
+        await #expect(
+            throws:
+                GitLabDiscussionMutationError
+                    .request(.api(.cancelled))
+        ) {
+            try await mutation.value
+        }
+        #expect(
+            await client.sentPaths
+                == [
+                    "projects/42/merge_requests/9/versions",
+                ]
+        )
+        #expect(
+            await client.invalidatedPaths
+                .isEmpty
+        )
+    }
+
+    @Test("A rejected positional POST does not invalidate discussions")
+    func leavesCacheAfterRejectedDiffPost()
+        async throws
+    {
+        let version = try diffVersionIdentity()
+        let failure =
+            GitLabSessionClientError.api(
+                .validation(statusCode: 400)
+            )
+        let client =
+            RecordingDiscussionMutationClient(
+                discussionResult:
+                    .failure(failure),
+                versionResult:
+                    .success([
+                        diffVersion(
+                            identity: version
+                        ),
+                    ])
+            )
+        let service =
+            LiveGitLabDiscussionService(
+                client: client
+            )
+        let position = try #require(
+            GitLabDiffLinePosition(
+                version: version,
+                oldPath: "Sources/File.swift",
+                newPath: "Sources/File.swift",
+                oldLine: nil,
+                newLine: 21
+            )
+        )
+
+        await #expect(
+            throws:
+                GitLabDiscussionMutationError
+                    .request(failure)
+        ) {
+            try await service
+                .createDiffDiscussion(
+                    for: mergeRequestRoute,
+                    body:
+                        GitLabDiscussionCommentBody(
+                            "Rejected"
+                        ),
+                    position: position
+                )
+        }
+
+        #expect(
+            await client.sentPaths
+                == [
+                    "projects/42/merge_requests/9/versions",
+                    "projects/42/merge_requests/9/discussions",
+                ]
+        )
+        #expect(
+            await client.invalidatedPaths
+                .isEmpty
+        )
+    }
+
     @Test(
         "Does not invalidate after a failed or cancelled POST",
         arguments: [
@@ -464,5 +587,82 @@ private actor RecordingDiscussionMutationClient:
             endpoint.pathComponents
                 .joined(separator: "/")
         )
+    }
+}
+
+private actor GatedDiffVersionMutationClient:
+    GitLabPaginatedSessionRequestSending
+{
+    private let version:
+        GitLabMergeRequestDiffVersion
+    private var didStartVersionRequest = false
+    private var startWaiters:
+        [CheckedContinuation<Void, Never>] = []
+    private var versionContinuation:
+        CheckedContinuation<Void, Never>?
+    private(set) var sentPaths: [String] = []
+    private(set) var invalidatedPaths:
+        [String] = []
+
+    init(version: GitLabMergeRequestDiffVersion) {
+        self.version = version
+    }
+
+    func send<Response>(
+        _ endpoint: GitLabAPIRequest<Response>
+    ) async throws(GitLabSessionClientError)
+        -> Response
+    {
+        sentPaths.append(
+            endpoint.pathComponents
+                .joined(separator: "/")
+        )
+        guard
+            Response.self
+                == [GitLabMergeRequestDiffVersion]
+                    .self
+        else {
+            throw .api(.invalidResponse)
+        }
+
+        didStartVersionRequest = true
+        let waiters = startWaiters
+        startWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        await withCheckedContinuation {
+            versionContinuation = $0
+        }
+        return [version] as! Response
+    }
+
+    func sendPage<Response>(
+        _ page: GitLabAPIPageRequest<Response>
+    ) async throws(GitLabSessionClientError)
+        -> GitLabAPIResponse<Response>
+    {
+        throw .api(.invalidResponse)
+    }
+
+    func invalidateCachedResponse<Response>(
+        _ endpoint: GitLabAPIRequest<Response>
+    ) {
+        invalidatedPaths.append(
+            endpoint.pathComponents
+                .joined(separator: "/")
+        )
+    }
+
+    func waitUntilVersionRequestStarts() async {
+        guard !didStartVersionRequest else {
+            return
+        }
+        await withCheckedContinuation {
+            startWaiters.append($0)
+        }
+    }
+
+    func releaseVersion() {
+        versionContinuation?.resume()
+        versionContinuation = nil
     }
 }

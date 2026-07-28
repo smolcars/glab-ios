@@ -19,6 +19,12 @@ enum GitLabDiffLayoutMetrics {
         50 * scale(for: rowHeight)
     }
 
+    static func discussionGutterWidth(
+        for rowHeight: CGFloat
+    ) -> CGFloat {
+        32 * scale(for: rowHeight)
+    }
+
     static func contentWidth(
         maximumColumnCount: Int,
         rowHeight: CGFloat
@@ -27,7 +33,7 @@ enum GitLabDiffLayoutMetrics {
         let estimated =
             CGFloat(maximumColumnCount)
                 * 8 * scale
-                + 124 * scale
+                + 156 * scale
         return min(
             max(estimated, 520 * scale),
             8_000
@@ -42,11 +48,46 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
     let selectedHunkJump: GitLabDiffHunkJump?
     let rowHeight: CGFloat
     let contentWidth: CGFloat
+    let discussionContext:
+        GitLabDiffDiscussionContext?
+    let onSelectDiscussion:
+        @MainActor (
+            GitLabDiffLinePosition
+        ) -> Void
+
+    init(
+        document: GitLabParsedDiffDocument,
+        documentID: GitLabDiffDocumentID,
+        selectedHunkJump: GitLabDiffHunkJump?,
+        rowHeight: CGFloat,
+        contentWidth: CGFloat,
+        discussionContext:
+            GitLabDiffDiscussionContext? = nil,
+        onSelectDiscussion:
+            @escaping @MainActor (
+                GitLabDiffLinePosition
+            ) -> Void = { _ in }
+    ) {
+        self.document = document
+        self.documentID = documentID
+        self.selectedHunkJump =
+            selectedHunkJump
+        self.rowHeight = rowHeight
+        self.contentWidth = contentWidth
+        self.discussionContext =
+            discussionContext
+        self.onSelectDiscussion =
+            onSelectDiscussion
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
             document: document,
-            documentID: documentID
+            documentID: documentID,
+            discussionContext:
+                discussionContext,
+            onSelectDiscussion:
+                onSelectDiscussion
         )
     }
 
@@ -75,6 +116,8 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
         collectionView.contentInsetAdjustmentBehavior =
             .never
         collectionView.dataSource =
+            context.coordinator
+        collectionView.delegate =
             context.coordinator
         collectionView.register(
             GitLabDiffCollectionViewCell.self,
@@ -107,6 +150,13 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
                 document: document,
                 documentID: documentID
             )
+        let didChangeDiscussions =
+            context.coordinator
+            .updateDiscussionContext(
+                discussionContext,
+                onSelectDiscussion:
+                    onSelectDiscussion
+            )
         let didChangeLayout = layout.configure(
             itemCount: document.items.count,
             rowHeight: rowHeight,
@@ -117,6 +167,12 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
             collectionView.reloadData()
             collectionView.layoutIfNeeded()
             context.coordinator.resetScrollPosition()
+        } else if didChangeDiscussions {
+            collectionView.reconfigureItems(
+                at:
+                    collectionView
+                    .indexPathsForVisibleItems
+            )
         }
 
         context.coordinator.apply(
@@ -127,7 +183,8 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
     @MainActor
     final class Coordinator:
         NSObject,
-        UICollectionViewDataSource
+        UICollectionViewDataSource,
+        UICollectionViewDelegate
     {
         fileprivate weak var collectionView:
             UICollectionView?
@@ -136,15 +193,31 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
             GitLabParsedDiffDocument
         private var documentID:
             GitLabDiffDocumentID
+        private var discussionContext:
+            GitLabDiffDiscussionContext?
+        private var onSelectDiscussion:
+            @MainActor (
+                GitLabDiffLinePosition
+            ) -> Void
         private var lastHunkJumpID: UUID?
 
         init(
             document: GitLabParsedDiffDocument,
             documentID:
-                GitLabDiffDocumentID
+                GitLabDiffDocumentID,
+            discussionContext:
+                GitLabDiffDiscussionContext?,
+            onSelectDiscussion:
+                @escaping @MainActor (
+                    GitLabDiffLinePosition
+                ) -> Void
         ) {
             self.document = document
             self.documentID = documentID
+            self.discussionContext =
+                discussionContext
+            self.onSelectDiscussion =
+                onSelectDiscussion
         }
 
         func collectionView(
@@ -174,13 +247,41 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
                 return UICollectionViewCell()
             }
 
+            let item =
+                document.items[
+                    indexPath.item
+                ]
+            let marker = item.line.flatMap {
+                discussionContext?
+                    .marker(for: $0)
+            }
             cell.configure(
-                with:
-                    document.items[
-                        indexPath.item
-                    ]
+                with: item,
+                marker: marker,
+                onSelectDiscussion:
+                    onSelectDiscussion
             )
             return cell
+        }
+
+        func collectionView(
+            _ collectionView: UICollectionView,
+            didSelectItemAt indexPath: IndexPath
+        ) {
+            guard
+                document.items.indices
+                    .contains(indexPath.item),
+                let line =
+                    document.items[
+                        indexPath.item
+                    ].line,
+                let marker =
+                    discussionContext?
+                    .marker(for: line)
+            else {
+                return
+            }
+            onSelectDiscussion(marker.position)
         }
 
         fileprivate func update(
@@ -197,6 +298,24 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
                 lastHunkJumpID = nil
             }
             return didReplace
+        }
+
+        fileprivate func updateDiscussionContext(
+            _ discussionContext:
+                GitLabDiffDiscussionContext?,
+            onSelectDiscussion:
+                @escaping @MainActor (
+                    GitLabDiffLinePosition
+                ) -> Void
+        ) -> Bool {
+            let didChange =
+                self.discussionContext
+                    != discussionContext
+            self.discussionContext =
+                discussionContext
+            self.onSelectDiscussion =
+                onSelectDiscussion
+            return didChange
         }
 
         fileprivate func apply(
@@ -430,7 +549,7 @@ private final class GitLabDiffCollectionViewLayout:
 }
 
 @MainActor
-private final class GitLabDiffCollectionViewCell:
+final class GitLabDiffCollectionViewCell:
     UICollectionViewCell
 {
     static let reuseIdentifier =
@@ -438,8 +557,13 @@ private final class GitLabDiffCollectionViewCell:
 
     private let oldLineLabel = UILabel()
     private let newLineLabel = UILabel()
+    private let discussionButton =
+        UIButton(type: .system)
     private let textView = UITextView()
     private var showsLineNumbers = true
+    private var showsDiscussionButton = false
+    private var selectDiscussion:
+        (@MainActor () -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -467,8 +591,21 @@ private final class GitLabDiffCollectionViewCell:
         textView.textContainer.lineBreakMode = .byClipping
         textView.adjustsFontForContentSizeCategory = true
 
+        discussionButton.isAccessibilityElement =
+            false
+        discussionButton.addTarget(
+            self,
+            action: #selector(
+                selectDiscussionButton
+            ),
+            for: .touchUpInside
+        )
+
         contentView.addSubview(oldLineLabel)
         contentView.addSubview(newLineLabel)
+        contentView.addSubview(
+            discussionButton
+        )
         contentView.addSubview(textView)
         isAccessibilityElement = true
         oldLineLabel.isAccessibilityElement = false
@@ -486,15 +623,25 @@ private final class GitLabDiffCollectionViewCell:
         oldLineLabel.text = nil
         newLineLabel.text = nil
         textView.text = nil
+        discussionButton.configuration = nil
+        discussionButton.isHidden = true
+        selectDiscussion = nil
         accessibilityLabel = nil
+        accessibilityTraits = .staticText
         contentView.backgroundColor = .clear
         showsLineNumbers = true
+        showsDiscussionButton = false
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
         let gutterWidth =
             GitLabDiffLayoutMetrics.gutterWidth(
+                for: bounds.height
+            )
+        let discussionGutterWidth =
+            GitLabDiffLayoutMetrics
+            .discussionGutterWidth(
                 for: bounds.height
             )
 
@@ -511,19 +658,31 @@ private final class GitLabDiffCollectionViewCell:
                 width: gutterWidth,
                 height: bounds.height
             )
+            discussionButton.frame = CGRect(
+                x: gutterWidth * 2,
+                y: 0,
+                width: discussionGutterWidth,
+                height: bounds.height
+            )
             textView.frame = CGRect(
-                x: gutterWidth * 2 + 8,
+                x:
+                    gutterWidth * 2
+                    + discussionGutterWidth
+                    + 8,
                 y: 0,
                 width: max(
                     0,
                     bounds.width
-                        - gutterWidth * 2 - 24
+                        - gutterWidth * 2
+                        - discussionGutterWidth
+                        - 24
                 ),
                 height: bounds.height
             )
         } else {
             oldLineLabel.frame = .zero
             newLineLabel.frame = .zero
+            discussionButton.frame = .zero
             textView.frame = CGRect(
                 x: 12,
                 y: 0,
@@ -537,7 +696,13 @@ private final class GitLabDiffCollectionViewCell:
     }
 
     func configure(
-        with item: GitLabDiffRenderItem
+        with item: GitLabDiffRenderItem,
+        marker:
+            GitLabDiffDiscussionMarker?,
+        onSelectDiscussion:
+            @escaping @MainActor (
+                GitLabDiffLinePosition
+            ) -> Void
     ) {
         let font = UIFontMetrics(
             forTextStyle: .caption1
@@ -556,6 +721,11 @@ private final class GitLabDiffCollectionViewCell:
         textView.textColor = .label
         textView.tintColor = .systemOrange
         showsLineNumbers = item.line != nil
+        configureDiscussionButton(
+            marker,
+            onSelectDiscussion:
+                onSelectDiscussion
+        )
 
         switch item {
         case let .context(line):
@@ -611,6 +781,14 @@ private final class GitLabDiffCollectionViewCell:
         setNeedsLayout()
     }
 
+    override func accessibilityActivate() -> Bool {
+        guard let selectDiscussion else {
+            return super.accessibilityActivate()
+        }
+        selectDiscussion()
+        return true
+    }
+
     private func configure(
         _ line: GitLabDiffLine,
         prefix: String,
@@ -625,6 +803,21 @@ private final class GitLabDiffCollectionViewCell:
             backgroundColor
         accessibilityLabel =
             Self.accessibilityLabel(line)
+        if
+            let buttonLabel =
+                discussionButton
+                .accessibilityLabel,
+            showsDiscussionButton
+        {
+            accessibilityLabel =
+                [
+                    accessibilityLabel,
+                    buttonLabel,
+                ]
+                .compactMap { $0 }
+                .joined(separator: ", ")
+            accessibilityTraits.insert(.button)
+        }
     }
 
     private func configureSpecial(
@@ -641,6 +834,73 @@ private final class GitLabDiffCollectionViewCell:
             backgroundColor
         self.accessibilityLabel =
             accessibilityLabel
+    }
+
+    private func configureDiscussionButton(
+        _ marker:
+            GitLabDiffDiscussionMarker?,
+        onSelectDiscussion:
+            @escaping @MainActor (
+                GitLabDiffLinePosition
+            ) -> Void
+    ) {
+        guard let marker else {
+            discussionButton.isHidden = true
+            discussionButton.configuration = nil
+            discussionButton.accessibilityLabel = nil
+            showsDiscussionButton = false
+            selectDiscussion = nil
+            return
+        }
+
+        var configuration =
+            UIButton.Configuration.plain()
+        let hasDiscussion =
+            marker.discussionCount > 0
+        configuration.image = UIImage(
+            systemName:
+                hasDiscussion
+                    ? "bubble.left.fill"
+                    : "bubble.left"
+        )
+        if marker.discussionCount > 1 {
+            configuration.title =
+                "\(marker.discussionCount)"
+        }
+        configuration.imagePadding = 1
+        configuration.contentInsets = .zero
+        configuration.baseForegroundColor =
+            hasDiscussion
+                ? .systemOrange
+                : .tertiaryLabel
+        configuration
+            .preferredSymbolConfigurationForImage =
+                UIImage.SymbolConfiguration(
+                    pointSize: 10,
+                    weight: .semibold
+                )
+        discussionButton.configuration =
+            configuration
+        discussionButton.isHidden = false
+        showsDiscussionButton = true
+        discussionButton.accessibilityLabel =
+            if hasDiscussion {
+                marker.discussionCount == 1
+                    ? "1 line discussion"
+                    : "\(marker.discussionCount) line discussions"
+            } else {
+                "Comment on this line"
+            }
+        selectDiscussion = {
+            onSelectDiscussion(
+                marker.position
+            )
+        }
+    }
+
+    @objc
+    private func selectDiscussionButton() {
+        selectDiscussion?()
     }
 
     private static func accessibilityLabel(

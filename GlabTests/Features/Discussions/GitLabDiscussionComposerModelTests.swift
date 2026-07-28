@@ -241,6 +241,119 @@ struct GitLabDiscussionComposerModelTests {
         )
     }
 
+    @Test("Posts a positional discussion to the selected merge request")
+    @MainActor
+    func postsDiffDiscussion() async throws {
+        let route = GitLabMergeRequestRoute(
+            projectID: 42,
+            mergeRequestIID: 11
+        )
+        let version = try #require(
+            GitLabMergeRequestDiffVersionIdentity(
+                baseSHA: "base",
+                startSHA: "start",
+                headSHA: "head"
+            )
+        )
+        let position = try #require(
+            GitLabDiffLinePosition(
+                version: version,
+                oldPath: "Sources/Old.swift",
+                newPath: "Sources/New.swift",
+                oldLine: 20,
+                newLine: 21
+            )
+        )
+        let created = makeTestDiscussion(
+            id: "line-thread"
+        )
+        let mutator =
+            RecordingComposerMutator(
+                discussionResult:
+                    .success(created)
+            )
+        let context = try ComposerTestContext(
+            resource: .mergeRequest(route)
+        )
+        var received:
+            GitLabDiscussionComposerResult?
+        let model = context.makeModel(
+            target:
+                .newDiffDiscussion(
+                    position: position
+                ),
+            mutator: mutator
+        ) {
+            received = $0
+        }
+        await model.restoreDraft()
+        model.body = "Review this exact line"
+
+        await model.send()
+
+        #expect(
+            received == .discussion(created)
+        )
+        #expect(
+            await mutator.diffRoutes == [route]
+        )
+        #expect(
+            await mutator.diffPositions
+                == [position]
+        )
+    }
+
+    @Test("A read-only positional target never reaches the mutator")
+    @MainActor
+    func rejectsReadOnlyDiffDiscussion()
+        async throws
+    {
+        let version = try #require(
+            GitLabMergeRequestDiffVersionIdentity(
+                baseSHA: "base",
+                startSHA: "start",
+                headSHA: "head"
+            )
+        )
+        let position = try #require(
+            GitLabDiffLinePosition(
+                version: version,
+                oldPath: "Sources/File.swift",
+                newPath: "Sources/File.swift",
+                oldLine: nil,
+                newLine: 21
+            )
+        )
+        let mutator = RecordingComposerMutator()
+        let context = try ComposerTestContext(
+            resource:
+                .mergeRequest(
+                    GitLabMergeRequestRoute(
+                        projectID: 42,
+                        mergeRequestIID: 11
+                    )
+                )
+        )
+        let model = context.makeModel(
+            target:
+                .newDiffDiscussion(
+                    position: position
+                ),
+            apiAccess: .readOnly,
+            mutator: mutator
+        )
+        await model.restoreDraft()
+        model.body = "Do not send"
+
+        await model.send()
+
+        #expect(model.failure == .readOnly)
+        #expect(await mutator.postCount == 0)
+        #expect(
+            await mutator.diffPositions.isEmpty
+        )
+    }
+
     @Test("A draft storage failure prevents the POST")
     @MainActor
     func storageFailurePreventsPost()
@@ -529,19 +642,23 @@ private struct ComposerTestContext {
     let accountID: GitLabAccountID
     let resource: GitLabDiscussionResource
 
-    init() throws {
+    init(
+        resource:
+            GitLabDiscussionResource =
+                .issue(
+                    GitLabIssueRoute(
+                        projectID: 42,
+                        issueIID: 9
+                    )
+                )
+    ) throws {
         accountID = GitLabAccountID(
             host: try GitLabHost(
                 "https://gitlab.example.com"
             ),
             userID: 7
         )
-        resource = .issue(
-            GitLabIssueRoute(
-                projectID: 42,
-                issueIID: 9
-            )
-        )
+        self.resource = resource
     }
 
     @MainActor
@@ -720,6 +837,10 @@ private actor RecordingComposerMutator:
     private(set) var postCount = 0
     private(set) var replyIDs:
         [String] = []
+    private(set) var diffRoutes:
+        [GitLabMergeRequestRoute] = []
+    private(set) var diffPositions:
+        [GitLabDiffLinePosition] = []
     private let discussionResult:
         Result<
             GitLabDiscussion,
@@ -781,6 +902,8 @@ private actor RecordingComposerMutator:
         -> GitLabDiscussion
     {
         postCount += 1
+        diffRoutes.append(route)
+        diffPositions.append(position)
         await events?.record(
             "post:\(body.body)"
         )
