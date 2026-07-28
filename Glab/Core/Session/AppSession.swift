@@ -175,7 +175,7 @@ final class AppSession {
         guard isCurrent(transition) else {
             await restoreCredential(
                 previousSession,
-                accountID: accountID
+                replacing: session
             )
             return
         }
@@ -192,7 +192,7 @@ final class AppSession {
         } catch {
             await restoreCredential(
                 previousSession,
-                accountID: accountID
+                replacing: session
             )
             throw .corruptData
         }
@@ -255,6 +255,23 @@ final class AppSession {
         let transition = beginTransition()
         let previousState = state
         let previousIndex = try makeIndex()
+        let removedSession: GitLabStoredSession?
+
+        if
+            let activeSession = storedSession,
+            GitLabAccountID(session: activeSession)
+                == accountID
+        {
+            removedSession = activeSession
+        } else {
+            removedSession = try await credentialStore.load(
+                for: accountID
+            )
+            guard isCurrent(transition) else {
+                return
+            }
+        }
+
         let updatedIndex: GitLabAccountIndex
 
         do {
@@ -272,30 +289,25 @@ final class AppSession {
         }
 
         do {
-            try await credentialStore.delete(
-                accountID
-            )
-        } catch {
-            if isCurrent(transition) {
-                try? accountIndexStore.save(
-                    previousIndex
+            if let removedSession {
+                _ = try await credentialStore.delete(
+                    accountID,
+                    ifCurrentSessionIs: removedSession
                 )
-                publish(previousIndex)
-                state = previousState
             }
+        } catch {
+            guard isCurrent(transition) else {
+                return
+            }
+            try? accountIndexStore.save(
+                previousIndex
+            )
+            publish(previousIndex)
+            state = previousState
             throw error
         }
 
-        if
-            let removedSession =
-                storedSession,
-            GitLabAccountID(session: removedSession)
-                == accountID
-        {
-            await purgeCache(
-                for: removedSession
-            )
-        } else {
+        if !accounts.contains(where: { $0.id == accountID }) {
             await responseCache.removeAll(
                 for: GitLabCacheAccount(
                     host: accountID.host,
@@ -323,21 +335,29 @@ final class AppSession {
             return
         }
 
-        guard
-            let nextSession =
-                try await credentialStore.load(
-                    for: nextAccountID
-                ),
-            canRestore(nextSession)
-        else {
-            await restore()
-            return
-        }
-        guard isCurrent(transition) else {
-            return
-        }
+        do {
+            guard
+                let nextSession =
+                    try await credentialStore.load(
+                        for: nextAccountID
+                    ),
+                canRestore(nextSession)
+            else {
+                await restore()
+                return
+            }
+            guard isCurrent(transition) else {
+                return
+            }
 
-        state = .signedIn(nextSession)
+            state = .signedIn(nextSession)
+        } catch {
+            guard isCurrent(transition) else {
+                return
+            }
+            state = .failed(error)
+            throw error
+        }
     }
 
     func signOut() async throws(GitLabCredentialStoreError) {
@@ -382,6 +402,10 @@ final class AppSession {
             .expiredOrRevoked,
             for: accountID
         )
+    }
+
+    func dismissAuthenticationNotice() {
+        authenticationNotice = nil
     }
 
     func synchronizeRefreshedSession(
@@ -467,15 +491,19 @@ final class AppSession {
 
     private func restoreCredential(
         _ previousSession: GitLabStoredSession?,
-        accountID: GitLabAccountID
+        replacing savedSession: GitLabStoredSession
     ) async {
         if let previousSession {
-            try? await credentialStore.save(
-                previousSession
+            _ = try? await credentialStore.replace(
+                previousSession,
+                ifCurrentSessionIs: savedSession
             )
         } else {
-            try? await credentialStore.delete(
-                accountID
+            _ = try? await credentialStore.delete(
+                GitLabAccountID(
+                    session: savedSession
+                ),
+                ifCurrentSessionIs: savedSession
             )
         }
     }

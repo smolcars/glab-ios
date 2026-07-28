@@ -359,6 +359,176 @@ struct AppSessionMultipleAccountTests {
         )
     }
 
+    @Test("A stale removal cannot delete a re-established credential")
+    func staleRemovalCannotDeleteReestablishedCredential() async throws {
+        let original = try makeSession(
+            host: "gitlab.example.com",
+            userID: 1,
+            username: "same-user",
+            token: "original-secret"
+        )
+        let replacement = try makeSession(
+            host: "gitlab.example.com",
+            userID: 1,
+            username: "same-user",
+            token: "replacement-secret"
+        )
+        let accountID = GitLabAccountID(session: original)
+        let credentialStore = GatedDeletionCredentialStore(
+            sessions: [original],
+            gatedAccountID: accountID
+        )
+        let appSession = AppSession(
+            credentialStore: credentialStore,
+            accountIndexStore: try makeIndexStore(
+                sessions: [original],
+                active: original
+            )
+        )
+        await appSession.restore()
+
+        let removal = Task {
+            try await appSession.removeAccount(accountID)
+        }
+        await credentialStore.waitUntilDeleteRequested()
+
+        try await appSession.establish(replacement)
+        await credentialStore.finishDeletion()
+        try await removal.value
+
+        #expect(appSession.state == .signedIn(replacement))
+        #expect(
+            try await credentialStore.load(
+                for: accountID
+            ) == replacement
+        )
+    }
+
+    @Test("A stale add cannot delete the latest credential")
+    func staleEstablishCannotDeleteLatestCredential() async throws {
+        let stale = try makeSession(
+            host: "gitlab.example.com",
+            userID: 1,
+            username: "same-user",
+            token: "stale-secret"
+        )
+        let latest = try makeSession(
+            host: "gitlab.example.com",
+            userID: 1,
+            username: "same-user",
+            token: "latest-secret"
+        )
+        let accountID = GitLabAccountID(session: latest)
+        let credentialStore =
+            GatedFirstSaveCredentialStore()
+        let appSession = AppSession(
+            credentialStore: credentialStore
+        )
+        await appSession.restore()
+
+        let staleEstablish = Task {
+            try await appSession.establish(stale)
+        }
+        await credentialStore.waitUntilFirstSave()
+
+        try await appSession.establish(latest)
+        await credentialStore.finishFirstSave()
+        try await staleEstablish.value
+
+        #expect(appSession.state == .signedIn(latest))
+        #expect(
+            try await credentialStore.load(
+                for: accountID
+            ) == latest
+        )
+    }
+
+    @Test("A failed fallback load leaves a failure state, not restoring")
+    func failedFallbackLoadDoesNotLeaveRestoringState() async throws {
+        let removed = try makeSession(
+            host: "gitlab.example.com",
+            userID: 1,
+            username: "removed"
+        )
+        let fallback = try makeSession(
+            host: "gitlab.com",
+            userID: 2,
+            username: "fallback"
+        )
+        let failure =
+            GitLabCredentialStoreError.keychain(
+                status: -50
+            )
+        let credentialStore =
+            FailingFallbackLoadCredentialStore(
+                sessions: [removed, fallback],
+                failingAccountID:
+                    GitLabAccountID(session: fallback),
+                error: failure
+            )
+        let appSession = AppSession(
+            credentialStore: credentialStore,
+            accountIndexStore: try makeIndexStore(
+                sessions: [removed, fallback],
+                active: removed
+            )
+        )
+        await appSession.restore()
+        await credentialStore.enableFailure()
+
+        await #expect(throws: failure) {
+            try await appSession.removeAccount(
+                GitLabAccountID(session: removed)
+            )
+        }
+
+        #expect(appSession.state == .failed(failure))
+    }
+
+    @Test("A stale deletion failure cannot override a newer sign-in")
+    func staleDeletionFailureCannotOverrideNewerSignIn() async throws {
+        let rejected = try makeSession(
+            host: "gitlab.example.com",
+            userID: 1,
+            username: "same-user",
+            token: "rejected-secret"
+        )
+        let replacement = try makeSession(
+            host: "gitlab.example.com",
+            userID: 1,
+            username: "same-user",
+            token: "replacement-secret"
+        )
+        let accountID = GitLabAccountID(session: rejected)
+        let credentialStore = GatedDeletionCredentialStore(
+            sessions: [rejected],
+            gatedAccountID: accountID,
+            deletionError: .keychain(status: -50)
+        )
+        let appSession = AppSession(
+            credentialStore: credentialStore,
+            accountIndexStore: try makeIndexStore(
+                sessions: [rejected],
+                active: rejected
+            )
+        )
+        await appSession.restore()
+
+        let invalidation = Task {
+            await appSession.handleAuthenticationFailure(
+                .api(.unauthenticated),
+                for: accountID
+            )
+        }
+        await credentialStore.waitUntilDeleteRequested()
+
+        try await appSession.establish(replacement)
+        await credentialStore.finishDeletion()
+        await invalidation.value
+
+        #expect(appSession.state == .signedIn(replacement))
+    }
+
     @Test("Stale authentication callbacks cannot affect the active account")
     func ignoresStaleAuthenticationCallbacks() async throws {
         let first = try makeOAuthSession(
@@ -447,6 +617,14 @@ struct AppSessionMultipleAccountTests {
                 for: GitLabAccountID(session: second)
             ) == nil
         )
+        #expect(
+            appSession.authenticationNotice
+                == .expiredOrRevoked
+        )
+
+        appSession.dismissAuthenticationNotice()
+
+        #expect(appSession.authenticationNotice == nil)
     }
 }
 
@@ -532,10 +710,14 @@ private extension AppSessionMultipleAccountTests {
             CheckedContinuation<Void, Never>?
         private var deletionContinuation:
             CheckedContinuation<Void, Never>?
+        private let deletionError:
+            GitLabCredentialStoreError?
 
         init(
             sessions: [GitLabStoredSession],
-            gatedAccountID: GitLabAccountID
+            gatedAccountID: GitLabAccountID,
+            deletionError:
+                GitLabCredentialStoreError? = nil
         ) {
             self.sessions = Dictionary(
                 uniqueKeysWithValues: sessions.map {
@@ -543,6 +725,7 @@ private extension AppSessionMultipleAccountTests {
                 }
             )
             self.gatedAccountID = gatedAccountID
+            self.deletionError = deletionError
         }
 
         func load(
@@ -569,7 +752,38 @@ private extension AppSessionMultipleAccountTests {
                     deletionContinuation = $0
                 }
             }
+            if let deletionError {
+                throw deletionError
+            }
             sessions[accountID] = nil
+        }
+
+        func delete(
+            _ accountID: GitLabAccountID,
+            ifCurrentSessionIs expectedSession:
+                GitLabStoredSession
+        ) async throws(GitLabCredentialStoreError) -> Bool {
+            if accountID == gatedAccountID {
+                deleteWasRequested = true
+                deleteRequestWaiter?.resume()
+                deleteRequestWaiter = nil
+                await withCheckedContinuation {
+                    deletionContinuation = $0
+                }
+            }
+            if let deletionError {
+                throw deletionError
+            }
+            guard
+                GitLabAccountID(session: expectedSession)
+                    == accountID,
+                sessions[accountID] == expectedSession
+            else {
+                return false
+            }
+
+            sessions[accountID] = nil
+            return true
         }
 
         func waitUntilDeleteRequested() async {
@@ -584,6 +798,115 @@ private extension AppSessionMultipleAccountTests {
         func finishDeletion() {
             deletionContinuation?.resume()
             deletionContinuation = nil
+        }
+    }
+
+    actor GatedFirstSaveCredentialStore:
+        GitLabCredentialStore
+    {
+        private var sessions:
+            [GitLabAccountID: GitLabStoredSession] = [:]
+        private var saveCount = 0
+        private var firstSaveWasRequested = false
+        private var firstSaveRequestWaiter:
+            CheckedContinuation<Void, Never>?
+        private var firstSaveContinuation:
+            CheckedContinuation<Void, Never>?
+
+        func load(
+            for accountID: GitLabAccountID
+        ) async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
+            sessions[accountID]
+        }
+
+        func save(
+            _ session: GitLabStoredSession
+        ) async throws(GitLabCredentialStoreError) {
+            saveCount += 1
+            sessions[GitLabAccountID(session: session)] =
+                session
+
+            if saveCount == 1 {
+                firstSaveWasRequested = true
+                firstSaveRequestWaiter?.resume()
+                firstSaveRequestWaiter = nil
+                await withCheckedContinuation {
+                    firstSaveContinuation = $0
+                }
+            }
+        }
+
+        func delete(
+            _ accountID: GitLabAccountID
+        ) async throws(GitLabCredentialStoreError) {
+            sessions[accountID] = nil
+        }
+
+        func waitUntilFirstSave() async {
+            guard !firstSaveWasRequested else {
+                return
+            }
+            await withCheckedContinuation {
+                firstSaveRequestWaiter = $0
+            }
+        }
+
+        func finishFirstSave() {
+            firstSaveContinuation?.resume()
+            firstSaveContinuation = nil
+        }
+    }
+
+    actor FailingFallbackLoadCredentialStore:
+        GitLabCredentialStore
+    {
+        private var sessions:
+            [GitLabAccountID: GitLabStoredSession]
+        private let failingAccountID: GitLabAccountID
+        private let error: GitLabCredentialStoreError
+        private var isFailureEnabled = false
+
+        init(
+            sessions: [GitLabStoredSession],
+            failingAccountID: GitLabAccountID,
+            error: GitLabCredentialStoreError
+        ) {
+            self.sessions = Dictionary(
+                uniqueKeysWithValues: sessions.map {
+                    (GitLabAccountID(session: $0), $0)
+                }
+            )
+            self.failingAccountID = failingAccountID
+            self.error = error
+        }
+
+        func load(
+            for accountID: GitLabAccountID
+        ) async throws(GitLabCredentialStoreError) -> GitLabStoredSession? {
+            if
+                isFailureEnabled,
+                accountID == failingAccountID
+            {
+                throw error
+            }
+            return sessions[accountID]
+        }
+
+        func save(
+            _ session: GitLabStoredSession
+        ) async throws(GitLabCredentialStoreError) {
+            sessions[GitLabAccountID(session: session)] =
+                session
+        }
+
+        func delete(
+            _ accountID: GitLabAccountID
+        ) async throws(GitLabCredentialStoreError) {
+            sessions[accountID] = nil
+        }
+
+        func enableFailure() {
+            isFailureEnabled = true
         }
     }
 
@@ -606,7 +929,8 @@ private extension AppSessionMultipleAccountTests {
     nonisolated func makeSession(
         host: String,
         userID: Int,
-        username: String
+        username: String,
+        token: String? = nil
     ) throws -> GitLabStoredSession {
         try GitLabStoredSession(
             host: GitLabHost(host),
@@ -623,7 +947,7 @@ private extension AppSessionMultipleAccountTests {
                     expiresOn: nil
                 ),
             credential: .personalAccessToken(
-                "\(username)-secret"
+                token ?? "\(username)-secret"
             )
         )
     }

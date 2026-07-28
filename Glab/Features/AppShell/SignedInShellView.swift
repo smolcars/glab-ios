@@ -150,5 +150,34 @@ struct SignedInShellView: View {
         }
         .tint(.orange)
         .accessibilityIdentifier("signedIn.tabView")
+        .alert(
+            "GitLab Session Ended",
+            isPresented:
+                authenticationNoticeIsPresented
+        ) {
+            Button("OK") {
+                appSession
+                    .dismissAuthenticationNotice()
+            }
+        } message: {
+            Text(
+                appSession.authenticationNotice?
+                    .description
+                    ?? ""
+            )
+        }
+    }
+
+    private var authenticationNoticeIsPresented:
+        Binding<Bool>
+    {
+        Binding {
+            appSession.authenticationNotice != nil
+        } set: { isPresented in
+            if !isPresented {
+                appSession
+                    .dismissAuthenticationNotice()
+            }
+        }
     }
 }

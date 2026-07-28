@@ -44,6 +44,11 @@ nonisolated protocol GitLabCredentialStore: Sendable {
     func delete(
         _ accountID: GitLabAccountID
     ) async throws(GitLabCredentialStoreError)
+    func delete(
+        _ accountID: GitLabAccountID,
+        ifCurrentSessionIs expectedSession:
+            GitLabStoredSession
+    ) async throws(GitLabCredentialStoreError) -> Bool
 }
 
 extension GitLabCredentialStore {
@@ -63,6 +68,24 @@ extension GitLabCredentialStore {
         }
 
         try await save(session)
+        return true
+    }
+
+    func delete(
+        _ accountID: GitLabAccountID,
+        ifCurrentSessionIs expectedSession:
+            GitLabStoredSession
+    ) async throws(GitLabCredentialStoreError) -> Bool {
+        guard
+            GitLabAccountID(session: expectedSession)
+                == accountID,
+            try await load(for: accountID)
+                == expectedSession
+        else {
+            return false
+        }
+
+        try await delete(accountID)
         return true
     }
 }
@@ -144,5 +167,22 @@ actor InMemoryGitLabCredentialStore:
         _ accountID: GitLabAccountID
     ) async throws(GitLabCredentialStoreError) {
         sessions[accountID] = nil
+    }
+
+    func delete(
+        _ accountID: GitLabAccountID,
+        ifCurrentSessionIs expectedSession:
+            GitLabStoredSession
+    ) async throws(GitLabCredentialStoreError) -> Bool {
+        guard
+            GitLabAccountID(session: expectedSession)
+                == accountID,
+            sessions[accountID] == expectedSession
+        else {
+            return false
+        }
+
+        sessions[accountID] = nil
+        return true
     }
 }

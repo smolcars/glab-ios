@@ -327,6 +327,40 @@ Targets:
 
 No speculative background refresh or cross-account preloading will be added.
 
+## Deep-review findings and repair plan
+
+The first implementation pass exposed the following material issues:
+
+1. An account removal published its index only after credential deletion. A
+   switch during that suspension could therefore recreate the removed account.
+2. A stale failed account addition could unconditionally restore or delete a
+   credential written by a newer addition for the same account.
+3. A removal could unconditionally delete a newer credential when the same
+   account was re-established while Keychain deletion was suspended.
+4. Failure to load the fallback account after removing the active account left
+   the app indefinitely in its restoring state.
+5. A terminal authentication failure that successfully selected another
+   account retained an authentication notice that no signed-in UI presented.
+6. Keychain decoding did not verify that the decoded session identity matched
+   the account identity used to address the Keychain item.
+
+Repair plan, recorded before the remaining review edits:
+
+- publish the removal index before suspension and retain last-transition-wins
+  guards around every later state publication;
+- make rollback and removal credential writes conditional on the exact session
+  value they intend to replace or delete, with atomic production-store
+  implementations;
+- do not purge a cache partition if the same account was re-established during
+  a stale removal;
+- convert fallback Keychain-load errors into an explicit failed app state;
+- present retained terminal-authentication notices over the newly selected
+  signed-in hierarchy and add an explicit dismissal operation;
+- reject a decoded Keychain session whose canonical host or user ID differs
+  from the requested account;
+- add deterministic regression tests for every race and failure path, then
+  repeat focused and full verification.
+
 ## Explicit non-goals
 
 - Migrating the unreleased single `current-session` Keychain item.

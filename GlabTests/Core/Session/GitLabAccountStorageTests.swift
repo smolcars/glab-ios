@@ -142,6 +142,12 @@ struct GitLabAccountStorageTests {
         )
         let firstID = GitLabAccountID(session: first)
         let secondID = GitLabAccountID(session: second)
+        let staleFirst = try makeSession(
+            host: "gitlab.example.com",
+            userID: 42,
+            username: "shared-name",
+            token: "stale-first-secret"
+        )
         let store = InMemoryGitLabCredentialStore()
 
         try await store.save(first)
@@ -150,8 +156,17 @@ struct GitLabAccountStorageTests {
         #expect(try await store.load(for: firstID) == first)
         #expect(try await store.load(for: secondID) == second)
 
-        try await store.delete(firstID)
+        let rejected = try await store.delete(
+            firstID,
+            ifCurrentSessionIs: staleFirst
+        )
+        let accepted = try await store.delete(
+            firstID,
+            ifCurrentSessionIs: first
+        )
 
+        #expect(!rejected)
+        #expect(accepted)
         #expect(try await store.load(for: firstID) == nil)
         #expect(try await store.load(for: secondID) == second)
     }

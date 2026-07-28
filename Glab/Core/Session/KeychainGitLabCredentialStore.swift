@@ -60,6 +60,24 @@ actor KeychainGitLabCredentialStore:
         try deleteSession(for: accountID)
     }
 
+    func delete(
+        _ accountID: GitLabAccountID,
+        ifCurrentSessionIs expectedSession:
+            GitLabStoredSession
+    ) async throws(GitLabCredentialStoreError) -> Bool {
+        guard
+            GitLabAccountID(session: expectedSession)
+                == accountID,
+            try loadSession(for: accountID)
+                == expectedSession
+        else {
+            return false
+        }
+
+        try deleteSession(for: accountID)
+        return true
+    }
+
     nonisolated func accountName(
         for accountID: GitLabAccountID
     ) -> String {
@@ -107,7 +125,18 @@ actor KeychainGitLabCredentialStore:
             decoder.dateDecodingStrategy = .iso8601
 
             do {
-                return try decoder.decode(GitLabStoredSession.self, from: data)
+                let session = try decoder.decode(
+                    GitLabStoredSession.self,
+                    from: data
+                )
+                guard
+                    GitLabAccountID(session: session)
+                        == accountID
+                else {
+                    throw GitLabCredentialStoreError
+                        .corruptData
+                }
+                return session
             } catch {
                 throw .corruptData
             }

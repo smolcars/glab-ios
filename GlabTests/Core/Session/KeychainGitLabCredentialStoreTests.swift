@@ -116,6 +116,45 @@ struct KeychainGitLabCredentialStoreTests {
         }
     }
 
+    @Test("Rejects a session stored under another account identity")
+    func rejectsMismatchedAccountIdentity() async throws {
+        try await withStore { store in
+            let requested = try makeSession(
+                username: "requested",
+                token: "requested-secret"
+            )
+            let mismatched = try makeSession(
+                host: "gitlab.other.example.com",
+                userID: 7,
+                username: "mismatched",
+                token: "mismatched-secret"
+            )
+            let requestedID = GitLabAccountID(
+                session: requested
+            )
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            let status = insertRawData(
+                try encoder.encode(mismatched),
+                service: store.service,
+                account: store.accountName(
+                    for: requestedID
+                )
+            )
+            #expect(status == errSecSuccess)
+
+            await #expect(
+                throws:
+                    GitLabCredentialStoreError
+                        .corruptData
+            ) {
+                try await store.load(
+                    for: requestedID
+                )
+            }
+        }
+    }
+
     @Test("Conditionally replaces only the expected Keychain session")
     func conditionallyReplacesSession() async throws {
         try await withStore { store in
@@ -151,6 +190,17 @@ struct KeychainGitLabCredentialStoreTests {
                     )
                 ) == replacement
             )
+
+            let rejectedDeletion = try await store.delete(
+                GitLabAccountID(session: original),
+                ifCurrentSessionIs: original
+            )
+            let acceptedDeletion = try await store.delete(
+                GitLabAccountID(session: original),
+                ifCurrentSessionIs: replacement
+            )
+            #expect(!rejectedDeletion)
+            #expect(acceptedDeletion)
         }
     }
 
