@@ -59,6 +59,7 @@ struct SignedInShellView: View {
                 transport: transport
             ),
             credentialStore: appSession.credentialStore,
+            responseCache: appSession.responseCache,
             sessionDidRefresh: { refreshedSession in
                 await appSession.synchronizeRefreshedSession(
                     refreshedSession

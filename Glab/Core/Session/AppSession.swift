@@ -52,6 +52,7 @@ final class AppSession {
     private(set) var state: State = .restoring
     private(set) var authenticationNotice: AuthenticationNotice?
     let credentialStore: any GitLabCredentialStore
+    let responseCache: any GitLabResponseCaching
     private let currentDate: () -> Date
 
     var storedSession: GitLabStoredSession? {
@@ -64,9 +65,12 @@ final class AppSession {
 
     init(
         credentialStore: any GitLabCredentialStore,
+        responseCache: any GitLabResponseCaching =
+            InMemoryGitLabResponseCache(),
         currentDate: @escaping () -> Date = Date.init
     ) {
         self.credentialStore = credentialStore
+        self.responseCache = responseCache
         self.currentDate = currentDate
     }
 
@@ -81,6 +85,7 @@ final class AppSession {
                 } else {
                     authenticationNotice = .expiredOrRevoked
                     try await credentialStore.delete()
+                    await purgeCache(for: session)
                     state = .signedOut
                 }
             } else {
@@ -100,7 +105,11 @@ final class AppSession {
     }
 
     func signOut() async throws(GitLabCredentialStoreError) {
+        let session = storedSession
         try await credentialStore.delete()
+        if let session {
+            await purgeCache(for: session)
+        }
         authenticationNotice = nil
         state = .signedOut
     }
@@ -108,6 +117,7 @@ final class AppSession {
     func invalidateAuthentication(
         _ notice: AuthenticationNotice
     ) async {
+        let session = storedSession
         authenticationNotice = notice
 
         do {
@@ -115,6 +125,10 @@ final class AppSession {
             state = .signedOut
         } catch {
             state = .failed(error)
+        }
+
+        if let session {
+            await purgeCache(for: session)
         }
     }
 
@@ -156,5 +170,13 @@ final class AppSession {
         }
 
         return session.canRefreshOAuth
+    }
+
+    private func purgeCache(
+        for session: GitLabStoredSession
+    ) async {
+        await responseCache.removeAll(
+            for: GitLabCacheAccount(session: session)
+        )
     }
 }

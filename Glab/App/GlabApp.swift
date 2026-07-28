@@ -3,7 +3,8 @@ import SwiftUI
 @main
 struct GlabApp: App {
     @State private var appSession = AppSession(
-        credentialStore: KeychainGitLabCredentialStore()
+        credentialStore: KeychainGitLabCredentialStore(),
+        responseCache: FileGitLabResponseCache()
     )
 
     var body: some Scene {

@@ -91,7 +91,16 @@ struct AppSessionTests {
     func signsOut() async throws {
         let storedSession = try makeSession(token: "delete-secret")
         let store = InMemoryGitLabCredentialStore(session: storedSession)
-        let appSession = AppSession(credentialStore: store)
+        let cache = InMemoryGitLabResponseCache()
+        let cacheKey = try makeCacheKey(for: storedSession)
+        try await cache.store(
+            makeCachedResponse(),
+            for: cacheKey
+        )
+        let appSession = AppSession(
+            credentialStore: store,
+            responseCache: cache
+        )
         await appSession.restore()
 
         try await appSession.signOut()
@@ -101,13 +110,23 @@ struct AppSessionTests {
         #expect(appSession.state == .signedOut)
         #expect(appSession.storedSession == nil)
         #expect(appSession.authenticationNotice == nil)
+        #expect(await cache.response(for: cacheKey) == nil)
     }
 
     @Test("A rejected API session clears stored and in-memory user data")
     func handlesRejectedAPIAuthentication() async throws {
         let storedSession = try makeSession(token: "revoked-secret")
         let store = InMemoryGitLabCredentialStore(session: storedSession)
-        let appSession = AppSession(credentialStore: store)
+        let cache = InMemoryGitLabResponseCache()
+        let cacheKey = try makeCacheKey(for: storedSession)
+        try await cache.store(
+            makeCachedResponse(),
+            for: cacheKey
+        )
+        let appSession = AppSession(
+            credentialStore: store,
+            responseCache: cache
+        )
         await appSession.restore()
 
         await appSession.handleAuthenticationFailure(
@@ -119,6 +138,7 @@ struct AppSessionTests {
         #expect(appSession.state == .signedOut)
         #expect(appSession.storedSession == nil)
         #expect(appSession.authenticationNotice == .expiredOrRevoked)
+        #expect(await cache.response(for: cacheKey) == nil)
     }
 
     @Test("A recoverable API failure keeps the current session")
@@ -224,11 +244,18 @@ struct AppSessionTests {
     func preservesSessionOnSignOutFailure() async throws {
         let storedSession = try makeSession(token: "still-stored-secret")
         let error = GitLabCredentialStoreError.keychain(status: -1)
+        let cache = InMemoryGitLabResponseCache()
+        let cacheKey = try makeCacheKey(for: storedSession)
+        try await cache.store(
+            makeCachedResponse(),
+            for: cacheKey
+        )
         let appSession = AppSession(
             credentialStore: DeleteFailingCredentialStore(
                 session: storedSession,
                 error: error
-            )
+            ),
+            responseCache: cache
         )
         await appSession.restore()
 
@@ -237,6 +264,7 @@ struct AppSessionTests {
         }
 
         #expect(appSession.state == .signedIn(storedSession))
+        #expect(await cache.response(for: cacheKey) != nil)
     }
 
     @Test("Redacts credentials from state descriptions")
@@ -252,6 +280,32 @@ struct AppSessionTests {
 }
 
 private extension AppSessionTests {
+    nonisolated func makeCacheKey(
+        for session: GitLabStoredSession
+    ) throws -> GitLabResponseCacheKey {
+        GitLabResponseCacheKey(
+            account: GitLabCacheAccount(session: session),
+            requestURL: try #require(
+                URL(
+                    string:
+                        "\(session.host.apiBaseURL.absoluteString)/projects"
+                )
+            )
+        )
+    }
+
+    nonisolated func makeCachedResponse() -> GitLabCachedResponse {
+        GitLabCachedResponse(
+            body: Data("[]".utf8),
+            nextPageURL: nil,
+            totalCount: nil,
+            entityTag: nil,
+            lastModified: nil,
+            storedAt: .distantPast,
+            lastAccessedAt: .distantPast
+        )
+    }
+
     nonisolated struct FailingCredentialStore: GitLabCredentialStore {
         let error: GitLabCredentialStoreError
 
