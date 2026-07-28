@@ -7,6 +7,8 @@ struct GitLabEmojiReactionView: View {
 
     @State private var model:
         GitLabEmojiReactionsModel
+    @State private var
+        isPickerPresented = false
 
     init(
         awardable: GitLabEmojiAwardable,
@@ -234,61 +236,163 @@ struct GitLabEmojiReactionView: View {
     }
 
     private var reactionPicker: some View {
-        Menu {
-            ForEach(
-                GitLabEmojiPickerItem.common
-            ) { item in
-                Button {
-                    Task {
-                        await model
-                            .toggleReaction(
-                                named:
-                                    item.name
-                            )
-                        await handleAuthenticationFailure()
-                    }
-                } label: {
-                    Text(
-                        "\(item.display) \(item.title)"
-                    )
-                }
-                .disabled(
-                    model.isPending(
-                        name: item.name
-                    )
-                        || model
-                            .requiresRefresh(
-                                name:
-                                    item.name
-                            )
-                )
-                .accessibilityIdentifier(
-                    targetIdentifier
-                        + ".picker."
-                        + item.name
-                )
-            }
+        Button {
+            isPickerPresented = true
         } label: {
-            Label(
-                "Add reaction",
-                systemImage: "face.smiling"
-            )
-            .labelStyle(.iconOnly)
-            .frame(
-                minWidth: 34,
-                minHeight: 34
-            )
+            Text("🙂")
+                .font(.title3)
+                .frame(
+                    width: 44,
+                    height: 44
+                )
+                .contentShape(.rect)
         }
-        .buttonStyle(.glass)
+        .buttonStyle(.plain)
         .disabled(!model.canMutate)
         .accessibilityLabel("Add reaction")
         .accessibilityHint(
             model.canMutate
-                ? "Opens a list of common emoji."
+                ? "Opens common emoji below this comment."
                 : "Wait for reactions to finish loading."
         )
         .accessibilityIdentifier(
             targetIdentifier + ".picker"
+        )
+        .popover(
+            isPresented:
+                $isPickerPresented,
+            attachmentAnchor:
+                .point(.bottomLeading),
+            arrowEdge: .top
+        ) {
+            reactionPickerPopover
+                .presentationCompactAdaptation(
+                    .popover
+                )
+        }
+    }
+
+    private var reactionPickerPopover:
+        some View
+    {
+        ScrollView(
+            .horizontal,
+            showsIndicators: false
+        ) {
+            HStack(spacing: 6) {
+                ForEach(
+                    GitLabEmojiPickerItem.common
+                ) { item in
+                    reactionPickerItem(item)
+                }
+            }
+            .padding(10)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .fixedSize(
+            horizontal: true,
+            vertical: true
+        )
+        .accessibilityElement(
+            children: .contain
+        )
+        .accessibilityLabel(
+            "Choose a reaction"
+        )
+    }
+
+    private func reactionPickerItem(
+        _ item: GitLabEmojiPickerItem
+    ) -> some View {
+        let isPending =
+            model.isPending(name: item.name)
+        let requiresRefresh =
+            model.requiresRefresh(
+                name: item.name
+            )
+        let isSelected =
+            model.groups.first {
+                $0.name == item.name
+            }?
+            .isSelectedByCurrentUser
+            == true
+
+        return Button {
+            isPickerPresented = false
+            Task {
+                await model
+                    .toggleReaction(
+                        named: item.name
+                    )
+                await handleAuthenticationFailure()
+            }
+        } label: {
+            ZStack {
+                Text(item.display)
+                    .font(.title2)
+
+                if isPending {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .accessibilityHidden(
+                            true
+                        )
+                }
+            }
+            .frame(
+                width: 40,
+                height: 40
+            )
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(
+            isPending || requiresRefresh
+        )
+        .opacity(
+            isPending || requiresRefresh
+                ? 0.45
+                : 1
+        )
+        .accessibilityLabel(item.title)
+        .accessibilityValue(
+            pickerAccessibilityValue(
+                isSelected: isSelected,
+                isPending: isPending,
+                requiresRefresh:
+                    requiresRefresh
+            )
+        )
+        .accessibilityHint(
+            isSelected
+                ? "Removes your reaction."
+                : "Adds this reaction."
+        )
+        .accessibilityIdentifier(
+            targetIdentifier
+                + ".picker."
+                + item.name
+        )
+    }
+
+    private func pickerAccessibilityValue(
+        isSelected: Bool,
+        isPending: Bool,
+        requiresRefresh: Bool
+    ) -> String {
+        var values: [String] = []
+        if isSelected {
+            values.append("Selected")
+        }
+        if isPending {
+            values.append("Updating")
+        } else if requiresRefresh {
+            values.append(
+                "Refresh required"
+            )
+        }
+        return values.joined(
+            separator: ", "
         )
     }
 
