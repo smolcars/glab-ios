@@ -117,13 +117,16 @@ nonisolated struct GitLabEmojiReactionGroup:
     let display: String
     let count: Int
     let currentUserAwardIDs: [Int]
+    let isPending: Bool
+    let hasPendingCurrentUserAdd: Bool
 
     var id: String {
         name
     }
 
     var isSelectedByCurrentUser: Bool {
-        !currentUserAwardIDs.isEmpty
+        hasPendingCurrentUserAdd
+            || !currentUserAwardIDs.isEmpty
     }
 
     static func groups(
@@ -162,7 +165,10 @@ nonisolated struct GitLabEmojiReactionGroup:
                         $0.user.id
                             == currentUserID
                     }
-                    .map(\.id)
+                    .map(\.id),
+                isPending: false,
+                hasPendingCurrentUserAdd:
+                    false
             )
         }
     }

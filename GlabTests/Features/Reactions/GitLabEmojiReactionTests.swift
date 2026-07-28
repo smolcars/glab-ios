@@ -64,27 +64,27 @@ struct GitLabEmojiReactionTests {
     @Test("Groups identical names and preserves current-user award IDs")
     func groupsAwards() {
         let awards = [
-            makeAward(
+            makeTestEmojiAward(
                 id: 91,
                 name: "thumbsup",
                 userID: 7
             ),
-            makeAward(
+            makeTestEmojiAward(
                 id: 92,
                 name: "thumbsup",
                 userID: 8
             ),
-            makeAward(
+            makeTestEmojiAward(
                 id: 93,
                 name: "heart",
                 userID: 7
             ),
-            makeAward(
+            makeTestEmojiAward(
                 id: 94,
                 name: "thumbsup",
                 userID: 7
             ),
-            makeAward(
+            makeTestEmojiAward(
                 id: 95,
                 name: "party-parrot",
                 userID: 9
@@ -137,36 +137,6 @@ struct GitLabEmojiReactionTests {
                 GitLabEmojiPickerItem.common
                     .map(\.name)
             ).count == 6
-        )
-    }
-}
-
-private extension GitLabEmojiReactionTests {
-    func makeAward(
-        id: Int,
-        name: String,
-        userID: Int
-    ) -> GitLabEmojiAward {
-        GitLabEmojiAward(
-            id: id,
-            name: name,
-            user: GitLabAPIUser(
-                id: userID,
-                username: "user-\(userID)",
-                name: "User \(userID)",
-                avatarURL: nil,
-                webURL: nil
-            ),
-            createdAt: Date(
-                timeIntervalSince1970:
-                    TimeInterval(id)
-            ),
-            updatedAt: Date(
-                timeIntervalSince1970:
-                    TimeInterval(id)
-            ),
-            awardableID: 501,
-            awardableType: "Issue"
         )
     }
 }
