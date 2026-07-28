@@ -140,10 +140,10 @@ These values are injected policy, not scattered feature constants.
 
 ### Conditional requests and coalescing
 
-- [ ] Store response validators only from successful trusted responses.
-- [ ] Send `If-None-Match` or `If-Modified-Since` when revalidating.
-- [ ] Treat HTTP 304 as successful revalidation with the cached body.
-- [ ] Coalesce concurrent exact-key foreground reads without weakening task
+- [x] Store response validators only from successful trusted responses.
+- [x] Send `If-None-Match` or `If-Modified-Since` when revalidating.
+- [x] Treat HTTP 304 as successful revalidation with the cached body.
+- [x] Coalesce concurrent exact-key foreground reads without weakening task
   cancellation.
 
 ### Final verification

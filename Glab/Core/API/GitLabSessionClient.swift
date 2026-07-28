@@ -143,6 +143,8 @@ where
         @Sendable (GitLabStoredSession) async -> Void
     private let responseCache:
         (any GitLabResponseCaching)?
+    private let readCoalescer =
+        GitLabReadRequestCoalescer()
     private let currentDate:
         @Sendable () -> Date
     private var session: GitLabStoredSession
@@ -245,9 +247,12 @@ where
         try ensureAccess(for: page)
 
         let key = cacheKey(for: page)
+        var cachedForRevalidation:
+            GitLabCachedResponse?
+        var decodedCached:
+            GitLabAPIResponse<Response>?
 
         if
-            refreshBehavior == .ifStale,
             let responseCache,
             let key,
             let cached = await responseCache.response(
@@ -263,13 +268,19 @@ where
             case .expired:
                 await responseCache.remove(for: key)
             case .fresh, .stale:
-                if
-                    let response:
-                        GitLabAPIResponse<Response> =
-                            decodedCachedResponse(
-                                cached
-                            )
+                if let response:
+                    GitLabAPIResponse<Response> =
+                    decodedCachedResponse(cached)
                 {
+                    cachedForRevalidation = cached
+                    decodedCached = response
+
+                    guard
+                        refreshBehavior == .ifStale
+                    else {
+                        break
+                    }
+
                     await onResponse(
                         GitLabAPIResponseEvent(
                             value: response.value,
@@ -296,9 +307,57 @@ where
             throw .api(.cancelled)
         }
 
-        let rawResponse = try await sendRawPage(
-            page
+        let rawResponse = try await loadRawPage(
+            page,
+            key: key,
+            validators:
+                cachedForRevalidation.map {
+                    GitLabConditionalRequestValidators(
+                        entityTag: $0.entityTag,
+                        lastModified: $0.lastModified
+                    )
+                }
         )
+
+        if rawResponse.isNotModified {
+            guard
+                let cached = cachedForRevalidation,
+                let response = decodedCached,
+                let responseCache,
+                let key
+            else {
+                throw .api(.invalidResponse)
+            }
+
+            let date = currentDate()
+            try? await responseCache.store(
+                GitLabCachedResponse(
+                    body: cached.body,
+                    nextPageURL:
+                        cached.nextPageURL,
+                    totalCount:
+                        cached.totalCount,
+                    entityTag:
+                        rawResponse.entityTag
+                        ?? cached.entityTag,
+                    lastModified:
+                        rawResponse.lastModified
+                        ?? cached.lastModified,
+                    storedAt: date,
+                    lastAccessedAt: date
+                ),
+                for: key
+            )
+            await onResponse(
+                GitLabAPIResponseEvent(
+                    value: response.value,
+                    metadata: response.metadata,
+                    source: .network
+                )
+            )
+            return
+        }
+
         let response: GitLabAPIResponse<Response>
 
         do {
@@ -360,7 +419,9 @@ where
     }
 
     private func sendRawPage<Response>(
-        _ page: GitLabAPIPageRequest<Response>
+        _ page: GitLabAPIPageRequest<Response>,
+        validators:
+            GitLabConditionalRequestValidators? = nil
     ) async throws(GitLabSessionClientError)
         -> GitLabRawAPIResponse
     {
@@ -371,7 +432,10 @@ where
         do {
             return try await client(
                 for: attemptedSession
-            ).sendRawPage(page)
+            ).sendRawPage(
+                page,
+                validators: validators
+            )
         } catch .unauthenticated where attemptedSession.credentialKind == .oauth {
             let retrySession: GitLabStoredSession
 
@@ -384,12 +448,63 @@ where
             do {
                 return try await client(
                     for: retrySession
-                ).sendRawPage(page)
+                ).sendRawPage(
+                    page,
+                    validators: validators
+                )
             } catch {
                 throw .api(error)
             }
         } catch {
             throw .api(error)
+        }
+    }
+
+    private func loadRawPage<Response>(
+        _ page: GitLabAPIPageRequest<Response>,
+        key: GitLabResponseCacheKey?,
+        validators:
+            GitLabConditionalRequestValidators?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabRawAPIResponse
+    {
+        guard let key else {
+            return try await sendRawPage(
+                page,
+                validators: validators
+            )
+        }
+
+        let outcome = await readCoalescer.response(
+            for: key
+        ) { [weak self] in
+            guard let self else {
+                return .failure(
+                    .api(.cancelled)
+                )
+            }
+
+            do {
+                return .success(
+                    try await self.sendRawPage(
+                        page,
+                        validators: validators
+                    )
+                )
+            } catch let error as GitLabSessionClientError {
+                return .failure(error)
+            } catch {
+                return .failure(
+                    .api(.transport)
+                )
+            }
+        }
+
+        switch outcome {
+        case let .success(response):
+            return response
+        case let .failure(error):
+            throw error
         }
     }
 

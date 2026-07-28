@@ -52,13 +52,16 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
 
     @concurrent
     func sendRawPage<Response>(
-        _ page: GitLabAPIPageRequest<Response>
+        _ page: GitLabAPIPageRequest<Response>,
+        validators:
+            GitLabConditionalRequestValidators? = nil
     ) async throws(GitLabAPIError) -> GitLabRawAPIResponse {
         guard !Task.isCancelled else {
             throw .cancelled
         }
 
-        let request = try request(for: page)
+        var request = try request(for: page)
+        validators?.apply(to: &request)
 
         return try await send(
             request,
@@ -143,7 +146,12 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
         guard let httpResponse = response as? HTTPURLResponse else {
             throw .invalidResponse
         }
-        guard (200..<300).contains(httpResponse.statusCode) else {
+        guard
+            httpResponse.statusCode == 304
+                || (200..<300).contains(
+                    httpResponse.statusCode
+                )
+        else {
             throw Self.error(for: httpResponse)
         }
 
@@ -162,7 +170,9 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
                 Self.normalizedHeader(
                     "Last-Modified",
                     from: httpResponse
-                )
+                ),
+            isNotModified:
+                httpResponse.statusCode == 304
         )
     }
 
@@ -217,6 +227,10 @@ nonisolated enum GitLabAPIResponseDecoder {
         _ response: GitLabRawAPIResponse
     ) throws(GitLabAPIError) -> GitLabAPIResponse<Response>
     where Response: Decodable & Sendable {
+        guard !response.isNotModified else {
+            throw .invalidResponse
+        }
+
         let value: Response
 
         if

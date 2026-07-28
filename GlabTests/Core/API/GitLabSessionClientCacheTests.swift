@@ -359,6 +359,231 @@ struct GitLabSessionClientCacheTests {
             ) != nil
         )
     }
+
+    @Test("A stale ETag entry is reused after HTTP 304")
+    func revalidatesWithEntityTag() async throws {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let entityTag = #""cache-version""#
+        let cache = InMemoryGitLabResponseCache(
+            currentDate: { now }
+        )
+        let transport = GatedCacheTransport(
+            outcome: .notModified,
+            startsReleased: true
+        )
+        let fixture = try makeFixture(
+            transport: transport,
+            cache: cache,
+            currentDate: { now }
+        )
+        try await cache.store(
+            cachedResponse(
+                value: "cached",
+                storedAt: now.addingTimeInterval(-90),
+                entityTag: entityTag
+            ),
+            for: fixture.cacheKey
+        )
+        let events =
+            APIResponseEventCollector<TestResponse>()
+
+        try await fixture.client.loadResponse(
+            fixture.request,
+            cachePolicy: cachePolicy,
+            refreshBehavior: .ifStale
+        ) {
+            await events.append($0)
+        }
+
+        #expect(
+            await transport.lastRequestHeader(
+                "If-None-Match"
+            ) == entityTag
+        )
+        #expect(
+            await events.values.map(\.value.value)
+                == ["cached", "cached"]
+        )
+        #expect(
+            await events.values.map(\.source)
+                == [.cache(.stale), .network]
+        )
+        let revalidated = await cache.response(
+            for: fixture.cacheKey
+        )
+        #expect(revalidated?.storedAt == now)
+        #expect(revalidated?.entityTag == entityTag)
+    }
+
+    @Test("Last-Modified is used when a stale entry has no ETag")
+    func revalidatesWithLastModified() async throws {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let lastModified =
+            "Mon, 27 Jul 2026 20:00:00 GMT"
+        let cache = InMemoryGitLabResponseCache(
+            currentDate: { now }
+        )
+        let transport = GatedCacheTransport(
+            outcome: .notModified,
+            startsReleased: true
+        )
+        let fixture = try makeFixture(
+            transport: transport,
+            cache: cache,
+            currentDate: { now }
+        )
+        try await cache.store(
+            cachedResponse(
+                value: "cached",
+                storedAt: now.addingTimeInterval(-90),
+                lastModified: lastModified
+            ),
+            for: fixture.cacheKey
+        )
+
+        try await fixture.client.loadResponse(
+            fixture.request,
+            cachePolicy: cachePolicy,
+            refreshBehavior: .ifStale
+        ) { _ in }
+
+        #expect(
+            await transport.lastRequestHeader(
+                "If-Modified-Since"
+            ) == lastModified
+        )
+        #expect(
+            await transport.lastRequestHeader(
+                "If-None-Match"
+            ) == nil
+        )
+    }
+
+    @Test("Concurrent readers share one exact-key request")
+    func coalescesConcurrentReads() async throws {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let cache = InMemoryGitLabResponseCache(
+            currentDate: { now }
+        )
+        let transport = GatedCacheTransport(
+            outcome: .success("remote")
+        )
+        let fixture = try makeFixture(
+            transport: transport,
+            cache: cache,
+            currentDate: { now }
+        )
+        try await cache.store(
+            cachedResponse(
+                value: "cached",
+                storedAt: now.addingTimeInterval(-90)
+            ),
+            for: fixture.cacheKey
+        )
+        let arrivals = ArrivalCounter()
+        let firstEvents =
+            APIResponseEventCollector<TestResponse>()
+        let secondEvents =
+            APIResponseEventCollector<TestResponse>()
+
+        let first = Task {
+            try await fixture.client.loadResponse(
+                fixture.request,
+                cachePolicy: cachePolicy,
+                refreshBehavior: .ifStale
+            ) {
+                await firstEvents.append($0)
+                await arrivals.arrive()
+            }
+        }
+        let second = Task {
+            try await fixture.client.loadResponse(
+                fixture.request,
+                cachePolicy: cachePolicy,
+                refreshBehavior: .ifStale
+            ) {
+                await secondEvents.append($0)
+                await arrivals.arrive()
+            }
+        }
+        await arrivals.waitUntilCount(2)
+        await transport.waitUntilRequested()
+
+        #expect(await transport.requestCount == 1)
+        await transport.release()
+        try await first.value
+        try await second.value
+
+        #expect(
+            await firstEvents.values.map(\.value.value)
+                == ["cached", "remote"]
+        )
+        #expect(
+            await secondEvents.values.map(\.value.value)
+                == ["cached", "remote"]
+        )
+    }
+
+    @Test(
+        "Cancelling one coalesced reader leaves the shared request available"
+    )
+    func cancelsOneCoalescedReader() async throws {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let cache = InMemoryGitLabResponseCache(
+            currentDate: { now }
+        )
+        let transport = GatedCacheTransport(
+            outcome: .success("remote")
+        )
+        let fixture = try makeFixture(
+            transport: transport,
+            cache: cache,
+            currentDate: { now }
+        )
+        try await cache.store(
+            cachedResponse(
+                value: "cached",
+                storedAt: now.addingTimeInterval(-90)
+            ),
+            for: fixture.cacheKey
+        )
+        let arrivals = ArrivalCounter()
+
+        let cancelledReader = Task {
+            try await fixture.client.loadResponse(
+                fixture.request,
+                cachePolicy: cachePolicy,
+                refreshBehavior: .ifStale
+            ) { _ in
+                await arrivals.arrive()
+            }
+        }
+        let survivingReader = Task {
+            try await fixture.client.loadResponse(
+                fixture.request,
+                cachePolicy: cachePolicy,
+                refreshBehavior: .ifStale
+            ) { _ in
+                await arrivals.arrive()
+            }
+        }
+        await arrivals.waitUntilCount(2)
+
+        cancelledReader.cancel()
+        await #expect(
+            throws:
+                GitLabSessionClientError.api(
+                    .cancelled
+                )
+        ) {
+            try await cancelledReader.value
+        }
+        #expect(await transport.requestCount == 1)
+
+        await transport.release()
+        try await survivingReader.value
+        #expect(await transport.requestCount == 1)
+    }
 }
 
 private extension GitLabSessionClientCacheTests {
@@ -457,7 +682,9 @@ private extension GitLabSessionClientCacheTests {
 
     func cachedResponse(
         value: String,
-        storedAt: Date
+        storedAt: Date,
+        entityTag: String? = nil,
+        lastModified: String? = nil
     ) -> GitLabCachedResponse {
         GitLabCachedResponse(
             body: Data(
@@ -465,8 +692,8 @@ private extension GitLabSessionClientCacheTests {
             ),
             nextPageURL: nil,
             totalCount: nil,
-            entityTag: nil,
-            lastModified: nil,
+            entityTag: entityTag,
+            lastModified: lastModified,
             storedAt: storedAt,
             lastAccessedAt: storedAt
         )
@@ -490,6 +717,7 @@ private extension GitLabSessionClientCacheTests {
         enum Outcome: Sendable {
             case success(String)
             case offline
+            case notModified
         }
 
         private let outcome: Outcome
@@ -498,6 +726,7 @@ private extension GitLabSessionClientCacheTests {
             CheckedContinuation<Void, Never>?
         private var requestWaiters:
             [CheckedContinuation<Void, Never>] = []
+        private var lastRequest: URLRequest?
         private(set) var requestCount = 0
 
         init(
@@ -512,6 +741,7 @@ private extension GitLabSessionClientCacheTests {
             for request: URLRequest
         ) async throws -> (Data, URLResponse) {
             requestCount += 1
+            lastRequest = request
             let waiters = requestWaiters
             requestWaiters.removeAll()
             waiters.forEach {
@@ -541,7 +771,25 @@ private extension GitLabSessionClientCacheTests {
                 throw URLError(
                     .notConnectedToInternet
                 )
+            case .notModified:
+                return (
+                    Data(),
+                    HTTPURLResponse(
+                        url: request.url!,
+                        statusCode: 304,
+                        httpVersion: "HTTP/2",
+                        headerFields: nil
+                    )!
+                )
             }
+        }
+
+        func lastRequestHeader(
+            _ name: String
+        ) -> String? {
+            lastRequest?.value(
+                forHTTPHeaderField: name
+            )
         }
 
         func waitUntilRequested() async {
@@ -557,6 +805,43 @@ private extension GitLabSessionClientCacheTests {
             isReleased = true
             continuation?.resume()
             continuation = nil
+        }
+    }
+
+    actor ArrivalCounter {
+        private var count = 0
+        private var waiters: [
+            (
+                count: Int,
+                continuation:
+                    CheckedContinuation<Void, Never>
+            )
+        ] = []
+
+        func arrive() {
+            count += 1
+            let ready = waiters.filter {
+                count >= $0.count
+            }
+            waiters.removeAll {
+                count >= $0.count
+            }
+            ready.forEach {
+                $0.continuation.resume()
+            }
+        }
+
+        func waitUntilCount(
+            _ expectedCount: Int
+        ) async {
+            guard count < expectedCount else {
+                return
+            }
+            await withCheckedContinuation {
+                waiters.append(
+                    (expectedCount, $0)
+                )
+            }
         }
     }
 

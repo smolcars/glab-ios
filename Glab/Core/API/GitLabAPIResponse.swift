@@ -47,6 +47,43 @@ nonisolated struct GitLabRawAPIResponse: Sendable {
     let metadata: GitLabResponseMetadata
     let entityTag: String?
     let lastModified: String?
+    let isNotModified: Bool
+
+    init(
+        body: Data,
+        metadata: GitLabResponseMetadata,
+        entityTag: String?,
+        lastModified: String?,
+        isNotModified: Bool = false
+    ) {
+        self.body = body
+        self.metadata = metadata
+        self.entityTag = entityTag
+        self.lastModified = lastModified
+        self.isNotModified = isNotModified
+    }
+}
+
+nonisolated struct GitLabConditionalRequestValidators:
+    Equatable,
+    Sendable
+{
+    let entityTag: String?
+    let lastModified: String?
+
+    func apply(to request: inout URLRequest) {
+        if let entityTag {
+            request.setValue(
+                entityTag,
+                forHTTPHeaderField: "If-None-Match"
+            )
+        } else if let lastModified {
+            request.setValue(
+                lastModified,
+                forHTTPHeaderField: "If-Modified-Since"
+            )
+        }
+    }
 }
 
 nonisolated struct GitLabResponseMetadata: Equatable, Sendable {
