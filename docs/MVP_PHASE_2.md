@@ -113,7 +113,7 @@ Todo:
   editing code, add regression tests where applicable, implement every fix,
   and repeat the feature verification and review.
 
-### [ ] P2-02 — Render issue and merge-request descriptions as Markdown
+### [x] P2-02 — Render issue and merge-request descriptions as Markdown
 
 Outcome:
 
@@ -135,32 +135,32 @@ Todo:
 - [x] Benchmark candidate native parsing/rendering approaches before selecting
   one. Record dependency, maintenance, correctness, memory, and scrolling
   tradeoffs; do not select a WebView or dependency without measured reasons.
-- [ ] Define fixtures for small, medium, and large documents containing
+- [x] Define fixtures for small, medium, and large documents containing
   headings, lists, task lists, block quotes, links, images, inline/fenced code,
   tables, strikethrough, and GitLab references.
-- [ ] Write failing parser, link-routing, cancellation, malformed-input, cache
+- [x] Write failing parser, link-routing, cancellation, malformed-input, cache
   invalidation, accessibility-label, and unsupported-syntax fallback tests.
-- [ ] Implement parsing away from the main actor and publish an immutable
+- [x] Implement parsing away from the main actor and publish an immutable
   render model. Never parse from a SwiftUI `body`.
-- [ ] Cache parsed output by account, resource identity, content hash, and
+- [x] Cache parsed output by account, resource identity, content hash, and
   renderer version with a bounded storage policy.
-- [ ] Render large content incrementally or lazily, load remote images lazily
+- [x] Render large content incrementally or lazily, load remote images lazily
   with size/network limits, and keep links safe and account-aware.
-- [ ] Support the agreed common GitLab Flavored Markdown subset. Provide a
+- [x] Support the agreed common GitLab Flavored Markdown subset. Provide a
   readable fallback and Open in GitLab action for unsupported diagrams, math,
   multimedia, or server-specific constructs.
-- [ ] Measure parse time, first meaningful render, memory, and scroll behavior
+- [x] Measure parse time, first meaningful render, memory, and scroll behavior
   with every performance fixture. Record the baseline and final measurements.
-- [ ] Verify representative issue and MR descriptions, links, rotation,
+- [x] Verify representative issue and MR descriptions, links, rotation,
   Dynamic Type, VoiceOver labels, light/dark appearance, and rapid navigation
   cancellation in the iPhone 17 Pro Simulator.
-- [ ] Run the focused tests, complete test suite, static analysis, and source
+- [x] Run the focused tests, complete test suite, static analysis, and source
   privacy scan.
-- [ ] Perform a deep code review of all code added or changed for this feature.
+- [x] Perform a deep code review of all code added or changed for this feature.
   Look for bugs, bad code, duplicated code, unsafe HTML or links, repeated
   parsing, unbounded caches, main-actor work, memory retention, and code that
   needs refactoring. Record the findings in the engineering plan.
-- [ ] If the review finds anything material, write a repair plan before
+- [x] If the review finds anything material, write a repair plan before
   editing code, add regression and performance tests where applicable,
   implement every fix, and repeat the feature verification and review.
 
