@@ -16,6 +16,15 @@ nonisolated protocol GitLabIssueLoading: Sendable {
     func loadIssue(
         at route: GitLabIssueRoute
     ) async throws(GitLabSessionClientError) -> GitLabIssue
+
+    func loadIssue(
+        at route: GitLabIssueRoute,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<GitLabIssue>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError)
 }
 
 extension GitLabIssueLoading {
@@ -35,6 +44,23 @@ extension GitLabIssueLoading {
                     items: page.issues,
                     nextPageURL: page.nextPageURL
                 ),
+                source: .network
+            )
+        )
+    }
+
+    func loadIssue(
+        at route: GitLabIssueRoute,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<GitLabIssue>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        await onResponse(
+            GitLabAPIResponseEvent(
+                value: try await loadIssue(at: route),
+                metadata: GitLabResponseMetadata(),
                 source: .network
             )
         )
@@ -107,6 +133,23 @@ nonisolated struct LiveGitLabIssueLoader:
     ) async throws(GitLabSessionClientError) -> GitLabIssue {
         try await client.send(
             GitLabIssueEndpoints.issue(at: route)
+        )
+    }
+
+    @concurrent
+    func loadIssue(
+        at route: GitLabIssueRoute,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<GitLabIssue>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        try await client.loadResponse(
+            GitLabIssueEndpoints.issue(at: route),
+            cachePolicy: .workItemDetail,
+            refreshBehavior: refreshBehavior,
+            onResponse: onResponse
         )
     }
 }

@@ -22,6 +22,17 @@ nonisolated protocol GitLabMergeRequestLoading: Sendable {
         at route: GitLabMergeRequestRoute
     ) async throws(GitLabSessionClientError)
         -> GitLabMergeRequest
+
+    func loadMergeRequest(
+        at route: GitLabMergeRequestRoute,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<
+                    GitLabMergeRequest
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError)
 }
 
 extension GitLabMergeRequestLoading {
@@ -45,6 +56,28 @@ extension GitLabMergeRequestLoading {
                     items: page.mergeRequests,
                     nextPageURL: page.nextPageURL
                 ),
+                source: .network
+            )
+        )
+    }
+
+    func loadMergeRequest(
+        at route: GitLabMergeRequestRoute,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<
+                    GitLabMergeRequest
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        await onResponse(
+            GitLabAPIResponseEvent(
+                value:
+                    try await loadMergeRequest(
+                        at: route
+                    ),
+                metadata: GitLabResponseMetadata(),
                 source: .network
             )
         )
@@ -136,6 +169,26 @@ nonisolated struct LiveGitLabMergeRequestLoader:
             GitLabMergeRequestEndpoints.mergeRequest(
                 at: route
             )
+        )
+    }
+
+    @concurrent
+    func loadMergeRequest(
+        at route: GitLabMergeRequestRoute,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<
+                    GitLabMergeRequest
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        try await client.loadResponse(
+            GitLabMergeRequestEndpoints
+                .mergeRequest(at: route),
+            cachePolicy: .workItemDetail,
+            refreshBehavior: refreshBehavior,
+            onResponse: onResponse
         )
     }
 }

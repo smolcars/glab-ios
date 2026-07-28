@@ -23,6 +23,26 @@ where
                     GitLabSessionClientError
                 ) -> GitLabIssue in
                 try await loader.loadIssue(at: route)
+            },
+            loadResourceEvents: {
+                (
+                    route: GitLabIssueRoute,
+                    refreshBehavior:
+                        GitLabCacheRefreshBehavior,
+                    onResponse:
+                        @escaping @Sendable (
+                            GitLabAPIResponseEvent<
+                                GitLabIssue
+                            >
+                        ) async -> Void
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> Void in
+                try await loader.loadIssue(
+                    at: route,
+                    refreshBehavior: refreshBehavior,
+                    onResponse: onResponse
+                )
             }
         )
     }

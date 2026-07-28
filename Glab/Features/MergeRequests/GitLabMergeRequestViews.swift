@@ -564,9 +564,28 @@ struct GitLabMergeRequestDetailView: View {
                 }
             }
         case let .loaded(mergeRequest):
-            GitLabMergeRequestDetailContent(
-                mergeRequest: mergeRequest
-            )
+            VStack(spacing: 0) {
+                if let error = model.refreshError {
+                    GitLabInlineRetryRow(
+                        title:
+                            "Couldn’t refresh merge request",
+                        error: error,
+                        accessibilityIdentifier:
+                            "mergeRequests.detailRefreshError"
+                    ) {
+                        Task {
+                            await model.retry()
+                            await handleAuthenticationFailure()
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                }
+
+                GitLabMergeRequestDetailContent(
+                    mergeRequest: mergeRequest
+                )
+            }
         }
     }
 

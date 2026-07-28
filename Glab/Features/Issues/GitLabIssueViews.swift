@@ -420,7 +420,28 @@ struct GitLabIssueDetailView: View {
                 }
             }
         case let .loaded(issue):
-            GitLabIssueDetailContent(issue: issue)
+            VStack(spacing: 0) {
+                if let error = model.refreshError {
+                    GitLabInlineRetryRow(
+                        title:
+                            "Couldn’t refresh issue",
+                        error: error,
+                        accessibilityIdentifier:
+                            "issues.detailRefreshError"
+                    ) {
+                        Task {
+                            await model.retry()
+                            await handleAuthenticationFailure()
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                }
+
+                GitLabIssueDetailContent(
+                    issue: issue
+                )
+            }
         }
     }
 

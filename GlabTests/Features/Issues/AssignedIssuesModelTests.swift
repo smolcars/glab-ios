@@ -441,6 +441,95 @@ struct GitLabIssueDetailModelTests {
 
         #expect(model.state == .idle)
     }
+
+    @Test("Keeps a cached detail when revalidation fails")
+    func preservesCachedDetailAfterFailure() async {
+        let issue = makeTestIssue()
+        let failure = GitLabSessionClientError.api(
+            .server(statusCode: 500)
+        )
+        let storedAt = Date(
+            timeIntervalSince1970: 10_000
+        )
+        let loader = StaleIssueDetailLoader(
+            issue: issue,
+            failure: failure,
+            storedAt: storedAt
+        )
+        let model = GitLabIssueDetailModel(
+            route: issue.route,
+            loader: loader
+        )
+
+        await model.loadIfNeeded()
+
+        #expect(model.state == .loaded(issue))
+        #expect(model.refreshError == failure)
+        #expect(
+            model.resourceSource == .cache(.stale)
+        )
+        #expect(model.cacheStoredAt == storedAt)
+        #expect(
+            await loader.refreshBehaviors
+                == [.ifStale]
+        )
+    }
+}
+
+private actor StaleIssueDetailLoader:
+    GitLabIssueLoading
+{
+    let issue: GitLabIssue
+    let failure: GitLabSessionClientError
+    let storedAt: Date
+    private(set) var refreshBehaviors:
+        [GitLabCacheRefreshBehavior] = []
+
+    init(
+        issue: GitLabIssue,
+        failure: GitLabSessionClientError,
+        storedAt: Date
+    ) {
+        self.issue = issue
+        self.failure = failure
+        self.storedAt = storedAt
+    }
+
+    func loadAssignedIssuesPage(
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabIssuePage
+    {
+        throw .api(.invalidResponse)
+    }
+
+    func loadIssue(
+        at route: GitLabIssueRoute
+    ) async throws(GitLabSessionClientError)
+        -> GitLabIssue
+    {
+        throw failure
+    }
+
+    func loadIssue(
+        at route: GitLabIssueRoute,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<GitLabIssue>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        refreshBehaviors.append(refreshBehavior)
+        await onResponse(
+            GitLabAPIResponseEvent(
+                value: issue,
+                metadata: GitLabResponseMetadata(),
+                source: .cache(.stale),
+                cacheStoredAt: storedAt
+            )
+        )
+        throw failure
+    }
 }
 
 private actor StubIssueLoader: GitLabIssueLoading {

@@ -129,6 +129,8 @@ These values are injected policy, not scattered feature constants.
 - [x] Apply the behavior to assigned Issues and both merge-request modes.
 - [x] Keep later pages memory-only and clear them after a successful first-page
   replacement.
+- [x] Cache issue and merge-request details while preserving saved content
+  when their revalidation fails.
 
 ### Todos and mutations
 

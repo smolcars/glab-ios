@@ -23,6 +23,27 @@ where
                     GitLabSessionClientError
                 ) -> GitLabMergeRequest in
                 try await loader.loadMergeRequest(at: route)
+            },
+            loadResourceEvents: {
+                (
+                    route:
+                        GitLabMergeRequestRoute,
+                    refreshBehavior:
+                        GitLabCacheRefreshBehavior,
+                    onResponse:
+                        @escaping @Sendable (
+                            GitLabAPIResponseEvent<
+                                GitLabMergeRequest
+                            >
+                        ) async -> Void
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> Void in
+                try await loader.loadMergeRequest(
+                    at: route,
+                    refreshBehavior: refreshBehavior,
+                    onResponse: onResponse
+                )
             }
         )
     }

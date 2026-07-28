@@ -26,11 +26,31 @@ struct LiveGitLabIssueLoaderTests {
             after: nextPageURL
         )
         let detail = try await loader.loadIssue(at: issue.route)
+        let detailEvents = IssueDetailEventCollector()
+        try await loader.loadIssue(
+            at: issue.route,
+            refreshBehavior: .ifStale
+        ) {
+            await detailEvents.append($0)
+        }
 
         #expect(initialPage.issues == [issue])
         #expect(initialPage.nextPageURL == nextPageURL)
         #expect(nextPage.issues == [issue])
         #expect(detail == issue)
+        #expect(
+            await detailEvents.events
+                .map(\.value) == [issue]
+        )
+        #expect(
+            await detailEvents.events
+                .map(\.source)
+                == [.cache(.stale)]
+        )
+        #expect(
+            await client.cachePolicies
+                == [.workItemDetail]
+        )
         #expect(
             await client.pageSources
                 == [
@@ -40,7 +60,10 @@ struct LiveGitLabIssueLoaderTests {
         )
         #expect(
             await client.detailPaths
-                == [["projects", "42", "issues", "7"]]
+                == [
+                    ["projects", "42", "issues", "7"],
+                    ["projects", "42", "issues", "7"],
+                ]
         )
     }
 }
@@ -53,6 +76,8 @@ private extension LiveGitLabIssueLoaderTests {
         let returnedNextPageURL: URL?
         private(set) var pageSources: [String] = []
         private(set) var detailPaths: [[String]] = []
+        private(set) var cachePolicies:
+            [GitLabResponseCachePolicy] = []
 
         init(
             issue: GitLabIssue,
@@ -90,6 +115,37 @@ private extension LiveGitLabIssueLoaderTests {
                 )
             )
         }
+
+        func loadResponse<Response>(
+            _ endpoint: GitLabAPIRequest<Response>,
+            cachePolicy: GitLabResponseCachePolicy,
+            refreshBehavior: GitLabCacheRefreshBehavior,
+            onResponse:
+                @escaping @Sendable (
+                    GitLabAPIResponseEvent<Response>
+                ) async -> Void
+        ) async throws(GitLabSessionClientError) {
+            cachePolicies.append(cachePolicy)
+            await onResponse(
+                GitLabAPIResponseEvent(
+                    value:
+                        try await send(endpoint),
+                    metadata: GitLabResponseMetadata(),
+                    source: .cache(.stale)
+                )
+            )
+        }
+    }
+
+    actor IssueDetailEventCollector {
+        private(set) var events:
+            [GitLabAPIResponseEvent<GitLabIssue>] = []
+
+        func append(
+            _ event:
+                GitLabAPIResponseEvent<GitLabIssue>
+        ) {
+            events.append(event)
+        }
     }
 }
-
