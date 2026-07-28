@@ -5,9 +5,9 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Production implementation: complete; repair pending
-- Verification: in progress
-- Deep review: in progress; one material finding
+- Production implementation: complete
+- Verification: complete
+- Deep review: complete; three material findings repaired and final pass clean
 
 This is the required implementation plan for P3-03. It must be committed and
 pushed before any P3-03 test or production code is changed.
@@ -706,6 +706,99 @@ another scanner/parser divergence.
    parser rewrite.
 4. Rerun the complete source/parser/rewrite/performance matrix and all final
    P3-03 verification and review gates.
+
+## Deep review pass 4 — final result
+
+Date: 2026-07-28
+
+The final review repeated the complete P3-03 checklist across every production
+and test file changed since the committed plan. It traced rendered task
+identity through source indexing, immutable parsing, optimistic presentation,
+the composed P3-02 transaction, authoritative reconciliation, cache
+invalidation, cancellation, account changes, and accessibility output.
+
+The review confirmed that all three material findings from the earlier passes
+are repaired:
+
+1. Unsupported raw HTML fails closed, so a rendered task cannot inherit a
+   scanner-only marker from an HTML block.
+2. Five-or-more-column list-marker spacing cannot be indexed as a task, and a
+   parent task's VoiceOver label no longer repeats nested task content.
+3. A task marker followed immediately by text or punctuation is static; only
+   a line ending or horizontal whitespace is accepted after the marker.
+
+The scanner and rewriter share the same validation path, rewrites still change
+only one proven UTF-8 marker byte, and ambiguous inventory combinations remain
+static. The task model continues to compose P3-02 rather than duplicating
+freshness, conflict, protected-draft, delivery-certainty, retry, cache, or
+reconciliation logic. Parsing, indexing, and rewriting remain off the main
+actor, renderer and source costs remain bounded, and rapid taps cannot create
+queued description writes.
+
+No remaining material bug, bad code, duplicated mutation path, incorrect task
+offset, stale-write path, unbounded cache, accessibility defect, secret
+exposure, concurrency race, or refactoring need was found. No production edit
+was required after this final pass.
+
+## Final verification evidence
+
+Date: 2026-07-28
+
+### Automated and build gates
+
+- The complete focused source-index, rewrite, parser, renderer, cache,
+  task-toggle, P3-02 editor/service, detail/projection, draft, authentication,
+  cancellation, delivery-certainty, accessibility-model, and performance
+  matrix passed after every repair.
+- The normally signed serialized suite passed on iOS 26.5 using the iPhone 17
+  Pro Simulator: 695 tests, 695 passed, 0 failed, and 0 skipped. The recorded
+  result is
+  `.deriveddata/Glab/Logs/Test/Test-Glab-2026.07.28_17-11-28--0400.xcresult`.
+- The final Debug Simulator performance run recorded approximately 0.696 ms
+  small parse, 25.077 ms medium parse, 204.150 ms large parse, and 0.033 ms
+  warm-cache p95. Task work recorded approximately 0.037 ms small indexing,
+  6.723 ms 120-KB indexing, 53.701 ms near-limit indexing, 6.640 ms 120-KB
+  rewrite, 54.120 ms near-limit rewrite, 1,170.044 ms near-limit parse,
+  142.057 ms 120-KB first render, 0.764 ms to prepare 100 models, and 1.095 ms
+  for 10,000 state lookups. Every result is within its committed Debug budget.
+- The Release Simulator build and Xcode static analysis passed while reusing
+  `.deriveddata/Glab`.
+- `git diff --check`, source and built Info.plist validation, PrivacyInfo
+  validation, tracked-file review, configured-credential-value scans, Release
+  bundle scans, and new forced-operation/ad-hoc logging scans passed. The
+  Release bundle, relevant Maestro artifacts, temporary flows, and Simulator
+  screenshot contained zero configured credential-value matches.
+
+### Simulator and live safety gates
+
+- Only the iOS 26.5 iPhone 17 Pro Simulator
+  (`72314C64-A40A-4653-9165-61308DBF3474`) was used. No physical device was
+  installed to or tested.
+- Dark regular issue and MR descriptions, a light accessibility-extra-large
+  description and status, read-only controls, Reduce Motion, Reduce
+  Transparency, hit targets, checked values, nested reading order, scrolling,
+  navigation, and relaunch were visually and interactively verified.
+- Before any live write, read-only API requests proved that
+  `DEVOPS_DEMO_TOKEN` can access exactly project 155,
+  `zebedee/platform/devops-demo-service`, and belongs to active project bot
+  `project_155_bot_ac2d1b342093cb6fd672c256b17a04c5` with Developer access.
+- The bot created one isolated issue, IID 10,
+  `Glab P3-03 task toggle verification 20260728T212811Z`. It was unassigned,
+  had no labels or mentions, and contained only the neutral simple, nested,
+  blockquoted, and inapplicable task fixtures.
+- The app changed only `- [ ] First task` to `- [x] First task`. An
+  authoritative API read proved the nested checked task, quoted unchecked
+  task, inapplicable marker, assignee list, and every unrelated description
+  marker remained unchanged. A cold app relaunch and deep-link reload showed
+  the same checked state.
+- The temporary issue was closed, not deleted. No human was mentioned,
+  assigned, requested for review, or notified. No pipeline was triggered,
+  retried, canceled, or otherwise accessed.
+- The token entered only the Simulator secure sign-in field through an
+  ephemeral pasteboard operation. Both host and Simulator pasteboards were
+  cleared immediately, the read-only account was restored as active, and no
+  token value entered a command argument, log, fixture, test result, source
+  file, screenshot, or bundle.
 
 ## Deep-review checklist
 

@@ -218,7 +218,7 @@ Todo:
   implement every fix, rerun the complete P3-02 verification, and repeat the
   deep code review until no material finding remains.
 
-### [ ] P3-03 — Make description task lists interactive
+### [x] P3-03 — Make description task lists interactive
 
 Outcome:
 
@@ -229,51 +229,51 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect the current Markdown intent parser, task-marker normalization,
+- [x] Inspect the current Markdown intent parser, task-marker normalization,
   immutable render tree, render cache identity, list UI, description editing,
   resource refresh, and performance fixtures.
-- [ ] Before writing production code, create
+- [x] Before writing production code, create
   `docs/P3_03_ENGINEERING_PLAN.md`. Document source-range identity, supported
   task syntax, nested and duplicate-task behavior, mutation flow, stale-source
   protection, optimistic UI and rollback, render-cache invalidation,
   performance budgets, accessibility, tests, and non-goals.
-- [ ] Create fixtures for simple, nested, quoted, repeated, Unicode, mixed
+- [x] Create fixtures for simple, nested, quoted, repeated, Unicode, mixed
   line-ending, indented, malformed, very long, and large task-list Markdown.
-- [ ] Write failing parser tests proving each interactive task maps to a stable
+- [x] Write failing parser tests proving each interactive task maps to a stable
   location in the original source and toggling one task preserves every other
   byte, including whitespace, indentation, casing, line endings, and unrelated
   Markdown.
-- [ ] Write failing model tests for complete-to-incomplete and
+- [x] Write failing model tests for complete-to-incomplete and
   incomplete-to-complete changes, rapid taps, duplicate labels, stale
   descriptions, save failure rollback, ambiguous delivery, refresh during a
   toggle, read-only credentials, and account switching.
-- [ ] Extend the Markdown representation with the minimum stable source
+- [x] Extend the Markdown representation with the minimum stable source
   identity needed for task interaction. Keep parsing and source rewriting away
   from the main actor and preserve the existing immutable render output.
-- [ ] Route task updates through the P3-02 description mutation path rather
+- [x] Route task updates through the P3-02 description mutation path rather
   than creating a second resource-update implementation.
-- [ ] Revalidate the latest description before mutation. If source identity no
+- [x] Revalidate the latest description before mutation. If source identity no
   longer matches, cancel the toggle, refresh, and explain that the description
   changed.
-- [ ] Make task controls accessible buttons with accurate checked state,
+- [x] Make task controls accessible buttons with accurate checked state,
   disabled/read-only explanations, sufficient hit targets, and no loss of the
   existing list reading order.
-- [ ] Measure parse, source-index, rewrite, first-render, and scrolling
+- [x] Measure parse, source-index, rewrite, first-render, and scrolling
   performance with large task fixtures. Keep memory bounded and ensure toggling
   one item does not synchronously reparse a large document on the main actor.
-- [ ] Verify issue and MR task lists, nested and repeated tasks, stale
+- [x] Verify issue and MR task lists, nested and repeated tasks, stale
   conflicts, rollback, long content, fast scrolling, read-only access, Dynamic
   Type, VoiceOver, and Reduce Motion in the iPhone 17 Pro Simulator.
-- [ ] Run focused correctness and performance tests, the complete test suite,
+- [x] Run focused correctness and performance tests, the complete test suite,
   a Release Simulator build, Xcode static analysis, and credential/privacy
   scans.
-- [ ] Perform a deep code review of all code added or changed for P3-03. Look
+- [x] Perform a deep code review of all code added or changed for P3-03. Look
   for bugs, bad code, duplicated description mutation paths, wrong task
   offsets, Unicode or line-ending corruption, stale writes, unstable render
   identity, main-actor work, unbounded caches, accessibility mistakes,
   concurrency or cancellation races, and code that needs refactoring. Record
   every finding in `docs/P3_03_ENGINEERING_PLAN.md`.
-- [ ] If the P3-03 review finds anything material, write a repair plan before
+- [x] If the P3-03 review finds anything material, write a repair plan before
   editing code, add regression and performance tests where applicable,
   implement every fix, rerun the complete P3-03 verification, and repeat the
   deep code review until no material finding remains.
