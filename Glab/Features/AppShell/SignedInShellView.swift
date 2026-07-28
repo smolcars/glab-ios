@@ -53,6 +53,7 @@ struct SignedInShellView: View {
         any GitLabMergeRequestLoading
             & GitLabMergeRequestApprovalLoading
             & GitLabMergeRequestDiffLoading
+            & GitLabMergeRequestDiffSummaryLoading
     private let discussionLoader:
         any GitLabDiscussionLoading
     private let discussionMutator:

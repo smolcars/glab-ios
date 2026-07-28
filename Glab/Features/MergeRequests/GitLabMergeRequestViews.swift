@@ -6,6 +6,7 @@ struct MergeRequestsView: View {
         any GitLabMergeRequestLoading
             & GitLabMergeRequestApprovalLoading
             & GitLabMergeRequestDiffLoading
+            & GitLabMergeRequestDiffSummaryLoading
     let discussionLoader:
         any GitLabDiscussionLoading
     let discussionMutator:
@@ -23,7 +24,8 @@ struct MergeRequestsView: View {
         loader:
             any GitLabMergeRequestLoading
                 & GitLabMergeRequestApprovalLoading
-                & GitLabMergeRequestDiffLoading,
+                & GitLabMergeRequestDiffLoading
+                & GitLabMergeRequestDiffSummaryLoading,
         discussionLoader:
             any GitLabDiscussionLoading,
         discussionMutator:
@@ -561,6 +563,8 @@ struct GitLabMergeRequestDetailView: View {
             & GitLabEmojiReactionMutating
     let diffLoader:
         any GitLabMergeRequestDiffLoading
+    let diffSummaryLoader:
+        any GitLabMergeRequestDiffSummaryLoading
 
     @State private var model:
         GitLabMergeRequestDetailModel
@@ -568,13 +572,18 @@ struct GitLabMergeRequestDetailView: View {
         GitLabMergeRequestApprovalModel
     @State private var discussionModel:
         GitLabDiscussionsModel
+    @State private var composerTarget:
+        GitLabDiscussionComposerTarget?
+    @State private var
+        showsReadOnlyCommentAlert = false
 
     init(
         route: GitLabMergeRequestRoute,
         loader:
             any GitLabMergeRequestLoading
                 & GitLabMergeRequestApprovalLoading
-                & GitLabMergeRequestDiffLoading,
+                & GitLabMergeRequestDiffLoading
+                & GitLabMergeRequestDiffSummaryLoading,
         discussionLoader:
             any GitLabDiscussionLoading,
         discussionMutator:
@@ -592,6 +601,7 @@ struct GitLabMergeRequestDetailView: View {
         self.reactionService =
             reactionService
         diffLoader = loader
+        diffSummaryLoader = loader
         let discussionResource =
             GitLabDiscussionResource
                 .mergeRequest(route)
@@ -627,6 +637,34 @@ struct GitLabMergeRequestDetailView: View {
             )
             .navigationTitle("Merge Request")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if isDetailLoaded {
+                    ToolbarItem(
+                        placement:
+                            .topBarTrailing
+                    ) {
+                        Button {
+                            launchComposer(
+                                .newDiscussion
+                            )
+                        } label: {
+                            Label(
+                                "Add comment",
+                                systemImage:
+                                    "square.and.pencil"
+                            )
+                        }
+                        .accessibilityIdentifier(
+                            "discussion.addComment"
+                        )
+                        .accessibilityHint(
+                            apiAccess.canWrite
+                                ? "Opens a Markdown comment editor."
+                                : "Explains why commenting is unavailable."
+                        )
+                    }
+                }
+            }
             .refreshable {
                 await refresh()
             }
@@ -647,6 +685,39 @@ struct GitLabMergeRequestDetailView: View {
                             for: accountID
                         )
                 }
+            }
+            .sheet(item: $composerTarget) {
+                target in
+                GitLabDiscussionComposerView(
+                    accountID: accountID,
+                    resource:
+                        discussionResource,
+                    target: target,
+                    apiAccess: apiAccess,
+                    mutator:
+                        discussionMutator,
+                    draftStore:
+                        appSession
+                            .discussionDraftStore,
+                    appSession: appSession,
+                    onSuccess:
+                        discussionModel
+                            .reconcile
+                )
+                .presentationDragIndicator(
+                    .visible
+                )
+            }
+            .alert(
+                "Commenting unavailable",
+                isPresented:
+                    $showsReadOnlyCommentAlert
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(
+                    "This account has read-only API access. Sign in with OAuth or an API token with the api scope to post comments."
+                )
             }
     }
 
@@ -708,18 +779,17 @@ struct GitLabMergeRequestDetailView: View {
                         discussionResource,
                     accountID: accountID,
                     apiAccess:
-                        appSession.accounts
-                            .first {
-                                $0.id == accountID
-                            }?
-                            .apiAccess
-                            ?? .readOnly,
+                        apiAccess,
                     discussionMutator:
                         discussionMutator,
                     reactionService:
                         reactionService,
                     diffLoader:
                         diffLoader,
+                    diffSummaryLoader:
+                        diffSummaryLoader,
+                    launchComposer:
+                        launchComposer,
                     appSession: appSession
                 )
             }
@@ -733,6 +803,42 @@ struct GitLabMergeRequestDetailView: View {
             ?? approvalModel
                 .authenticationFailure
             ?? discussionModel.authenticationFailure
+    }
+
+    private var apiAccess:
+        GitLabAPIAccess
+    {
+        appSession.accounts
+            .first {
+                $0.id == accountID
+            }?
+            .apiAccess
+            ?? .readOnly
+    }
+
+    private var isDetailLoaded: Bool {
+        guard case .loaded = model.state else {
+            return false
+        }
+        return true
+    }
+
+    private func launchComposer(
+        _ target:
+            GitLabDiscussionComposerTarget
+    ) {
+        switch
+            GitLabDiscussionComposerLaunchPolicy
+                .decision(
+                    for: target,
+                    apiAccess: apiAccess
+                )
+        {
+        case let .present(target):
+            composerTarget = target
+        case .explainReadOnly:
+            showsReadOnlyCommentAlert = true
+        }
     }
 
     private var approvalError:
@@ -803,6 +909,10 @@ private struct GitLabMergeRequestDetailContent: View {
             & GitLabEmojiReactionMutating
     let diffLoader:
         any GitLabMergeRequestDiffLoading
+    let diffSummaryLoader:
+        any GitLabMergeRequestDiffSummaryLoading
+    let launchComposer:
+        (GitLabDiscussionComposerTarget) -> Void
     let appSession: AppSession
 
     @Environment(\.gitLabMarkdownRenderer)
@@ -845,7 +955,6 @@ private struct GitLabMergeRequestDetailContent: View {
                 )
                 descriptionSection
                 branchesSection
-                changesSection
 
                 if !mergeRequest.labels.isEmpty {
                     labelsSection
@@ -861,29 +970,25 @@ private struct GitLabMergeRequestDetailContent: View {
                     webURL:
                         mergeRequest.safeWebURL,
                     apiAccess: apiAccess,
-                    mutator: discussionMutator,
                     reactionService:
                         reactionService,
-                    appSession: appSession
+                    appSession: appSession,
+                    showsMutationControl: false,
+                    launchComposer:
+                        launchComposer
                 )
             }
             .padding(20)
             .padding(
                 .bottom,
-                mergeRequest.safeWebURL == nil ? 0 : 76
+                76
             )
         }
         .accessibilityIdentifier(
             "mergeRequests.detail.scroll"
         )
         .safeAreaInset(edge: .bottom) {
-            if let webURL = mergeRequest.safeWebURL {
-                GitLabOpenInGitLabLink(
-                    destination: webURL,
-                    accessibilityIdentifier:
-                        "mergeRequests.openInGitLab"
-                )
-            }
+            bottomControls
         }
     }
 
@@ -966,73 +1071,66 @@ private struct GitLabMergeRequestDetailContent: View {
         }
     }
 
-    private var changesSection: some View {
-        GitLabDetailSection(title: "Changes") {
-            if let headSHA = mergeRequest.diffHeadSHA {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(changesSummary)
-                        .foregroundStyle(.secondary)
-
-                    NavigationLink {
-                        GitLabMergeRequestDiffListView(
-                            route: mergeRequest.route,
-                            headSHA: headSHA,
-                            changesURL:
-                                mergeRequest.safeChangesURL,
-                            diffVersion:
-                                mergeRequest
-                                .diffRefs?
-                                .identity,
-                            loader: diffLoader,
-                            discussionModel:
-                                discussionModel,
-                            apiAccess: apiAccess,
-                            discussionMutator:
-                                discussionMutator,
-                            reactionService:
-                                reactionService,
-                            accountID: accountID,
-                            appSession: appSession
-                        )
-                    } label: {
-                        Label(
-                            "View changed files",
-                            systemImage:
-                                "doc.text.magnifyingglass"
-                        )
-                    }
-                    .buttonStyle(.glass)
+    private var bottomControls: some View {
+        GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 12) {
+                if
+                    let headSHA =
+                        mergeRequest
+                            .diffHeadSHA
+                {
+                    GitLabMergeRequestDiffSummaryLink(
+                        mergeRequest:
+                            mergeRequest,
+                        headSHA: headSHA,
+                        loader:
+                            diffSummaryLoader,
+                        diffLoader:
+                            diffLoader,
+                        discussionModel:
+                            discussionModel,
+                        apiAccess: apiAccess,
+                        discussionMutator:
+                            discussionMutator,
+                        reactionService:
+                            reactionService,
+                        accountID: accountID,
+                        appSession: appSession
+                    )
+                } else {
+                    Label(
+                        "Preparing diff",
+                        systemImage:
+                            "hourglass"
+                    )
+                    .font(
+                        .caption
+                            .weight(.medium)
+                    )
+                    .foregroundStyle(
+                        .secondary
+                    )
                     .accessibilityIdentifier(
-                        "mergeRequests.changes"
+                        "mergeRequests.changes.preparing"
                     )
                 }
-            } else {
-                Label(
-                    "GitLab is still preparing this diff.",
-                    systemImage: "hourglass"
-                )
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier(
-                    "mergeRequests.changes.preparing"
-                )
+
+                Spacer(minLength: 0)
+
+                if
+                    let webURL =
+                        mergeRequest.safeWebURL
+                {
+                    GitLabOpenInGitLabControl(
+                        destination: webURL,
+                        accessibilityIdentifier:
+                            "mergeRequests.openInGitLab"
+                    )
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
         }
-    }
-
-    private var changesSummary: String {
-        guard
-            let count = mergeRequest.changesCount?
-                .trimmingCharacters(
-                    in: .whitespacesAndNewlines
-                ),
-            !count.isEmpty
-        else {
-            return "Browse the files changed by this merge request."
-        }
-
-        return count == "1"
-            ? "GitLab reports 1 changed file."
-            : "GitLab reports \(count) changed files."
     }
 
     private var labelsSection: some View {
@@ -1131,5 +1229,195 @@ private struct GitLabMergeRequestDetailContent: View {
                 }
             }
         }
+    }
+}
+
+private struct
+    GitLabMergeRequestDiffSummaryLink:
+    View
+{
+    let mergeRequest: GitLabMergeRequest
+    let headSHA: String
+    let diffLoader:
+        any GitLabMergeRequestDiffLoading
+    let discussionModel:
+        GitLabDiscussionsModel
+    let apiAccess: GitLabAPIAccess
+    let discussionMutator:
+        any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
+    let accountID: GitLabAccountID
+    let appSession: AppSession
+
+    @State private var model:
+        GitLabMergeRequestDiffSummaryModel
+
+    init(
+        mergeRequest: GitLabMergeRequest,
+        headSHA: String,
+        loader:
+            any GitLabMergeRequestDiffSummaryLoading,
+        diffLoader:
+            any GitLabMergeRequestDiffLoading,
+        discussionModel:
+            GitLabDiscussionsModel,
+        apiAccess: GitLabAPIAccess,
+        discussionMutator:
+            any GitLabDiscussionMutating,
+        reactionService:
+            any GitLabEmojiReactionLoading
+                & GitLabEmojiReactionMutating,
+        accountID: GitLabAccountID,
+        appSession: AppSession
+    ) {
+        self.mergeRequest = mergeRequest
+        self.headSHA = headSHA
+        self.diffLoader = diffLoader
+        self.discussionModel =
+            discussionModel
+        self.apiAccess = apiAccess
+        self.discussionMutator =
+            discussionMutator
+        self.reactionService =
+            reactionService
+        self.accountID = accountID
+        self.appSession = appSession
+        _model = State(
+            initialValue:
+                GitLabMergeRequestDiffSummaryModel(
+                    mergeRequestID:
+                        mergeRequest.id,
+                    loader: loader
+                )
+        )
+    }
+
+    var body: some View {
+        NavigationLink {
+            GitLabMergeRequestDiffListView(
+                route: mergeRequest.route,
+                headSHA: headSHA,
+                changesURL:
+                    mergeRequest
+                        .safeChangesURL,
+                diffVersion:
+                    mergeRequest
+                        .diffRefs?
+                        .identity,
+                loader: diffLoader,
+                discussionModel:
+                    discussionModel,
+                apiAccess: apiAccess,
+                discussionMutator:
+                    discussionMutator,
+                reactionService:
+                    reactionService,
+                accountID: accountID,
+                appSession: appSession
+            )
+        } label: {
+            ViewThatFits(
+                in: .horizontal
+            ) {
+                summaryLabel(
+                    includesLineCounts:
+                        true
+                )
+                summaryLabel(
+                    includesLineCounts:
+                        false
+                )
+            }
+        }
+        .buttonStyle(.glass)
+        .controlSize(.regular)
+        .accessibilityLabel(
+            presentation
+                .accessibilityLabel
+        )
+        .accessibilityHint(
+            "Opens changed files."
+        )
+        .accessibilityIdentifier(
+            "mergeRequests.changes"
+        )
+        .task(id: headSHA) {
+            if model.state == .idle {
+                await model.loadIfNeeded()
+            } else {
+                await model.retry()
+            }
+        }
+        .onChange(
+            of:
+                model
+                    .authenticationFailure
+        ) { _, error in
+            guard let error else {
+                return
+            }
+            Task {
+                await appSession
+                    .handleAuthenticationFailure(
+                        error,
+                        for: accountID
+                    )
+            }
+        }
+    }
+
+    private var presentation:
+        GitLabMergeRequestDiffSummaryPresentation
+    {
+        GitLabMergeRequestDiffSummaryPresentation(
+            state: model.state,
+            restChangesCount:
+                mergeRequest.changesCount
+        )
+    }
+
+    private func summaryLabel(
+        includesLineCounts: Bool
+    ) -> some View {
+        HStack(spacing: 7) {
+            if presentation.isLoading {
+                ProgressView()
+                    .controlSize(.mini)
+                    .accessibilityHidden(true)
+            } else {
+                Image(
+                    systemName:
+                        "doc.on.doc"
+                )
+                .font(.caption)
+                .accessibilityHidden(true)
+            }
+
+            Text(presentation.fileText)
+                .foregroundStyle(.primary)
+
+            if
+                includesLineCounts,
+                let additions =
+                    presentation
+                        .additionsText,
+                let deletions =
+                    presentation
+                        .deletionsText
+            {
+                Text(additions)
+                    .foregroundStyle(.green)
+                Text(deletions)
+                    .foregroundStyle(.red)
+            }
+        }
+        .font(
+            .subheadline
+                .weight(.semibold)
+                .monospacedDigit()
+        )
+        .lineLimit(1)
     }
 }

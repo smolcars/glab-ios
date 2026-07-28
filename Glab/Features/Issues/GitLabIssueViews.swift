@@ -566,6 +566,9 @@ private struct GitLabIssueDetailContent: View {
             & GitLabEmojiReactionMutating
     let appSession: AppSession
 
+    @State private var composerTarget:
+        GitLabDiscussionComposerTarget?
+
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
 
@@ -618,10 +621,12 @@ private struct GitLabIssueDetailContent: View {
                     accountID: accountID,
                     webURL: issue.safeWebURL,
                     apiAccess: apiAccess,
-                    mutator: discussionMutator,
                     reactionService:
                         reactionService,
-                    appSession: appSession
+                    appSession: appSession,
+                    showsMutationControl: true,
+                    launchComposer:
+                        launchComposer
                 )
             }
             .padding(20)
@@ -637,6 +642,43 @@ private struct GitLabIssueDetailContent: View {
                 )
             }
         }
+        .sheet(item: $composerTarget) {
+            target in
+            GitLabDiscussionComposerView(
+                accountID: accountID,
+                resource: discussionResource,
+                target: target,
+                apiAccess: apiAccess,
+                mutator: discussionMutator,
+                draftStore:
+                    appSession
+                        .discussionDraftStore,
+                appSession: appSession,
+                onSuccess:
+                    discussionModel
+                        .reconcile
+            )
+            .presentationDragIndicator(
+                .visible
+            )
+        }
+    }
+
+    private func launchComposer(
+        _ target:
+            GitLabDiscussionComposerTarget
+    ) {
+        guard
+            case let .present(target) =
+                GitLabDiscussionComposerLaunchPolicy
+                    .decision(
+                        for: target,
+                        apiAccess: apiAccess
+                    )
+        else {
+            return
+        }
+        composerTarget = target
     }
 
     private var header: some View {

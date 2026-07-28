@@ -192,6 +192,51 @@ nonisolated struct GitLabDiscussionNote:
     let resolvedBy: GitLabAPIUser?
     let resolvedAt: Date?
     let position: GitLabDiscussionPosition?
+    let activityText: String?
+
+    init(
+        id: Int,
+        type: String?,
+        body: String,
+        author: GitLabAPIUser,
+        createdAt: Date,
+        updatedAt: Date,
+        system: Bool?,
+        noteableID: Int,
+        noteableType: String,
+        projectID: Int,
+        noteableIID: Int?,
+        confidential: Bool?,
+        internalNote: Bool?,
+        resolvable: Bool?,
+        resolved: Bool?,
+        resolvedBy: GitLabAPIUser?,
+        resolvedAt: Date?,
+        position: GitLabDiscussionPosition?
+    ) {
+        self.id = id
+        self.type = type
+        self.body = body
+        self.author = author
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.system = system
+        self.noteableID = noteableID
+        self.noteableType = noteableType
+        self.projectID = projectID
+        self.noteableIID = noteableIID
+        self.confidential = confidential
+        self.internalNote = internalNote
+        self.resolvable = resolvable
+        self.resolved = resolved
+        self.resolvedBy = resolvedBy
+        self.resolvedAt = resolvedAt
+        self.position = position
+        activityText = system == true
+            ? GitLabActivityTextNormalizer()
+                .normalize(body)
+            : nil
+    }
 
     var kind: GitLabDiscussionNoteKind {
         guard let type else {
@@ -231,6 +276,96 @@ nonisolated struct GitLabDiscussionNote:
 
     var showsEditedStatus: Bool {
         !isSystem && isEdited
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(
+            keyedBy: CodingKeys.self
+        )
+        self.init(
+            id: try container.decode(
+                Int.self,
+                forKey: .id
+            ),
+            type:
+                try container.decodeIfPresent(
+                    String.self,
+                    forKey: .type
+                ),
+            body: try container.decode(
+                String.self,
+                forKey: .body
+            ),
+            author: try container.decode(
+                GitLabAPIUser.self,
+                forKey: .author
+            ),
+            createdAt: try container.decode(
+                Date.self,
+                forKey: .createdAt
+            ),
+            updatedAt: try container.decode(
+                Date.self,
+                forKey: .updatedAt
+            ),
+            system:
+                try container.decodeIfPresent(
+                    Bool.self,
+                    forKey: .system
+                ),
+            noteableID: try container.decode(
+                Int.self,
+                forKey: .noteableID
+            ),
+            noteableType: try container.decode(
+                String.self,
+                forKey: .noteableType
+            ),
+            projectID: try container.decode(
+                Int.self,
+                forKey: .projectID
+            ),
+            noteableIID:
+                try container.decodeIfPresent(
+                    Int.self,
+                    forKey: .noteableIID
+                ),
+            confidential:
+                try container.decodeIfPresent(
+                    Bool.self,
+                    forKey: .confidential
+                ),
+            internalNote:
+                try container.decodeIfPresent(
+                    Bool.self,
+                    forKey: .internalNote
+                ),
+            resolvable:
+                try container.decodeIfPresent(
+                    Bool.self,
+                    forKey: .resolvable
+                ),
+            resolved:
+                try container.decodeIfPresent(
+                    Bool.self,
+                    forKey: .resolved
+                ),
+            resolvedBy:
+                try container.decodeIfPresent(
+                    GitLabAPIUser.self,
+                    forKey: .resolvedBy
+                ),
+            resolvedAt:
+                try container.decodeIfPresent(
+                    Date.self,
+                    forKey: .resolvedAt
+                ),
+            position:
+                try container.decodeIfPresent(
+                    GitLabDiscussionPosition.self,
+                    forKey: .position
+                )
+        )
     }
 
     private enum CodingKeys: String, CodingKey {

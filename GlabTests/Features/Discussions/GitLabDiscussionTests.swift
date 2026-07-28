@@ -109,7 +109,7 @@ struct GitLabDiscussionTests {
                   {
                     "id": 103,
                     "type": null,
-                    "body": "changed the milestone",
+                    "body": "added commits <ul><li>abc123 &amp; tests</li></ul>",
                     "author": {
                       "id": 4,
                       "username": "maintainer",
@@ -151,6 +151,11 @@ struct GitLabDiscussionTests {
         #expect(discussions[0].notes[1].isEdited)
         #expect(discussions[1].isSystemActivity)
         #expect(discussions[1].notes[0].kind == .individual)
+        #expect(
+            discussions[1].notes[0].activityText
+                == "added commits • abc123 & tests"
+        )
+        #expect(discussions[0].notes[0].activityText == nil)
     }
 
     @Test("Decodes diff position and legacy confidential notes")

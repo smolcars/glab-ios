@@ -128,32 +128,51 @@ struct GitLabOpenInGitLabLink: View {
         HStack {
             Spacer(minLength: 0)
 
-            Link(destination: destination) {
-                HStack(spacing: 8) {
-                    Text("Open in")
-                        .font(.subheadline.weight(.semibold))
-
-                    Image("GitLabLogo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 26, height: 26)
-                        .scaleEffect(2.5)
-                        .clipped()
-                        .accessibilityHidden(true)
-                }
-                .padding(.horizontal, 2)
-            }
-            .buttonStyle(.glass)
-            .controlSize(.regular)
-            .dynamicTypeSize(
-                ...DynamicTypeSize.accessibility1
-            )
-            .accessibilityLabel("Open in GitLab")
-            .accessibilityIdentifier(
-                accessibilityIdentifier
+            GitLabOpenInGitLabControl(
+                destination: destination,
+                accessibilityIdentifier:
+                    accessibilityIdentifier
             )
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
+    }
+}
+
+struct GitLabOpenInGitLabControl: View {
+    let destination: URL
+    let accessibilityIdentifier: String
+
+    var body: some View {
+        Link(destination: destination) {
+            HStack(spacing: 8) {
+                Text("Open in")
+                    .font(
+                        .subheadline
+                            .weight(.semibold)
+                    )
+
+                Image("GitLabLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(
+                        width: 26,
+                        height: 26
+                    )
+                    .scaleEffect(2.5)
+                    .clipped()
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 2)
+        }
+        .buttonStyle(.glass)
+        .controlSize(.regular)
+        .dynamicTypeSize(
+            ...DynamicTypeSize.accessibility1
+        )
+        .accessibilityLabel("Open in GitLab")
+        .accessibilityIdentifier(
+                accessibilityIdentifier
+        )
     }
 }

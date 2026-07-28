@@ -141,6 +141,42 @@ struct GitLabDiscussionPerformanceTests {
         #expect(await parser.callCount == 1)
     }
 
+    @Test("Meets the maximum-sized activity normalization budget")
+    func maximumActivityNormalizationPerformance() {
+        let source = String(
+            repeating:
+                "<li>abc123 &amp; reviewed<br>next</li>",
+            count: 1_024
+        )
+        let normalizer =
+            GitLabActivityTextNormalizer()
+        var measurements: [Double] = []
+
+        _ = normalizer.normalize(source)
+        for _ in 0..<30 {
+            let start = ContinuousClock.now
+            let value = normalizer.normalize(source)
+            #expect(!value.isEmpty)
+            #expect(value.count <= 8_192)
+            measurements.append(
+                milliseconds(
+                    from: start,
+                    to: ContinuousClock.now
+                )
+            )
+        }
+
+        let p95 = percentile95(measurements)
+        print(
+            "ACTIVITY_NORMALIZATION_PERFORMANCE "
+                + "maximum_source_p95_ms="
+                + "\(format(p95))"
+        )
+        #expect(
+            p95 < activityNormalizationBudget
+        )
+    }
+
     private func p95DecodeMilliseconds(
         data: Data
     ) throws -> Double {
@@ -337,6 +373,14 @@ struct GitLabDiscussionPerformanceTests {
         20
 #else
         10
+#endif
+    }
+
+    private var activityNormalizationBudget: Double {
+#if DEBUG
+        50
+#else
+        25
 #endif
     }
 }

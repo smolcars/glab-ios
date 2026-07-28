@@ -13,6 +13,12 @@ typealias GitLabMergeRequestApprovalModel =
         GitLabMergeRequestRoute
     >
 
+typealias GitLabMergeRequestDiffSummaryModel =
+    GitLabResourceDetailModel<
+        GitLabMergeRequestDiffSummaryAvailability,
+        Int
+    >
+
 extension GitLabResourceDetailModel
 where
     Resource == GitLabMergeRequest,
@@ -50,6 +56,35 @@ where
                     refreshBehavior: refreshBehavior,
                     onResponse: onResponse
                 )
+            }
+        )
+    }
+}
+
+extension GitLabResourceDetailModel
+where
+    Resource
+        == GitLabMergeRequestDiffSummaryAvailability,
+    Route == Int
+{
+    convenience init(
+        mergeRequestID: Int,
+        loader:
+            any GitLabMergeRequestDiffSummaryLoading
+    ) {
+        self.init(
+            route: mergeRequestID,
+            loadResource: {
+                (mergeRequestID: Int) async throws(
+                    GitLabSessionClientError
+                )
+                    -> GitLabMergeRequestDiffSummaryAvailability
+                in
+                try await loader
+                    .loadMergeRequestDiffSummary(
+                        mergeRequestID:
+                            mergeRequestID
+                    )
             }
         )
     }

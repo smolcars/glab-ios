@@ -6,14 +6,13 @@ struct GitLabDiscussionSection: View {
     let accountID: GitLabAccountID
     let webURL: URL?
     let apiAccess: GitLabAPIAccess
-    let mutator: any GitLabDiscussionMutating
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
     let appSession: AppSession
-
-    @State private var composerTarget:
-        GitLabDiscussionComposerTarget?
+    let showsMutationControl: Bool
+    let launchComposer:
+        (GitLabDiscussionComposerTarget) -> Void
 
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
@@ -24,27 +23,11 @@ struct GitLabDiscussionSection: View {
                 alignment: .leading,
                 spacing: 14
             ) {
-                mutationControl
+                if showsMutationControl {
+                    mutationControl
+                }
                 content
             }
-        }
-        .sheet(item: $composerTarget) {
-            target in
-            GitLabDiscussionComposerView(
-                accountID: accountID,
-                resource: resource,
-                target: target,
-                apiAccess: apiAccess,
-                mutator: mutator,
-                draftStore:
-                    appSession
-                        .discussionDraftStore,
-                appSession: appSession,
-                onSuccess: reconcile
-            )
-            .presentationDragIndicator(
-                .visible
-            )
         }
     }
 
@@ -52,8 +35,9 @@ struct GitLabDiscussionSection: View {
     private var mutationControl: some View {
         if apiAccess.canWrite {
             Button {
-                composerTarget =
+                launchComposer(
                     .newDiscussion
+                )
             } label: {
                 Label(
                     "Add comment",
@@ -126,7 +110,13 @@ struct GitLabDiscussionSection: View {
     }
 
     private var loadedContent: some View {
-        LazyVStack(
+        let presentation =
+            GitLabDiscussionPresentation(
+                discussions:
+                    model.discussions
+            )
+
+        return LazyVStack(
             alignment: .leading,
             spacing: 14
         ) {
@@ -159,7 +149,21 @@ struct GitLabDiscussionSection: View {
                 }
             }
 
-            ForEach(model.discussions) {
+            if
+                !presentation
+                    .activityNotes
+                    .isEmpty
+            {
+                GitLabActivityStrip(
+                    notes:
+                        presentation
+                            .activityNotes
+                )
+            }
+
+            ForEach(
+                presentation.conversations
+            ) {
                 discussion in
                 GitLabDiscussionCard(
                     discussion: discussion,
@@ -176,18 +180,27 @@ struct GitLabDiscussionSection: View {
                         for: discussion
                     )
                 )
-                .task(id: model.contentRevision) {
-                    guard
-                        model.discussions.last?.id
-                            == discussion.id
-                    else {
-                        return
+            }
+
+            if
+                let paginationAnchor =
+                    presentation
+                        .paginationAnchor
+            {
+                Color.clear
+                    .frame(height: 1)
+                    .accessibilityHidden(true)
+                    .task(
+                        id:
+                            model
+                                .contentRevision
+                    ) {
+                        await model
+                            .loadNextPageIfNeeded(
+                                after:
+                                    paginationAnchor
+                            )
                     }
-                    await model
-                        .loadNextPageIfNeeded(
-                            after: discussion
-                        )
-                }
             }
 
             if model.isLoadingNextPage {
@@ -231,31 +244,294 @@ struct GitLabDiscussionSection: View {
         }
 
         return {
-            composerTarget = .reply(
-                discussionID:
-                    discussion.id
+            launchComposer(
+                .reply(
+                    discussionID:
+                        discussion.id
+                )
+            )
+        }
+    }
+}
+
+private struct GitLabActivityStrip: View {
+    let notes: [GitLabDiscussionNote]
+
+    @State private var isExpanded = false
+    @Environment(\.accessibilityReduceMotion)
+    private var reduceMotion
+
+    var body: some View {
+        VStack(
+            alignment: .leading,
+            spacing: 0
+        ) {
+            Button {
+                toggleExpanded()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(
+                        systemName:
+                            "bolt.horizontal.circle.fill"
+                    )
+                    .foregroundStyle(.orange)
+                    .accessibilityHidden(true)
+
+                    Text("Activity")
+                        .font(
+                            .subheadline
+                                .weight(.semibold)
+                        )
+
+                    Text(
+                        "\(notes.count) "
+                            + (notes.count == 1
+                                ? "event"
+                                : "events")
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                    Spacer(minLength: 8)
+
+                    Image(
+                        systemName:
+                            "chevron.down"
+                    )
+                    .font(
+                        .caption.weight(.bold)
+                    )
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(
+                        .degrees(
+                            isExpanded
+                                ? 180
+                                : 0
+                        )
+                    )
+                    .accessibilityHidden(true)
+                }
+                .contentShape(.rect)
+                .padding(14)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                "Activity, \(notes.count) "
+                    + (notes.count == 1
+                        ? "event"
+                        : "events")
+            )
+            .accessibilityValue(
+                isExpanded
+                    ? "Expanded"
+                    : "Collapsed"
+            )
+            .accessibilityHint(
+                isExpanded
+                    ? "Collapses merge request activity."
+                    : "Expands merge request activity."
+            )
+            .accessibilityIdentifier(
+                "discussion.activity"
+            )
+
+            if isExpanded {
+                Divider()
+                    .padding(.leading, 44)
+
+                LazyVStack(
+                    alignment: .leading,
+                    spacing: 0
+                ) {
+                    ForEach(
+                        Array(
+                            notes.enumerated()
+                        ),
+                        id: \.element.id
+                    ) { index, note in
+                        if index > 0 {
+                            Divider()
+                                .padding(
+                                    .leading,
+                                    44
+                                )
+                        }
+
+                        GitLabActivityEventRow(
+                            note: note
+                        )
+                    }
+                }
+            }
+        }
+        .background(
+            Color(
+                uiColor:
+                    .secondarySystemGroupedBackground
+            ),
+            in: .rect(cornerRadius: 16)
+        )
+        .overlay {
+            RoundedRectangle(
+                cornerRadius: 16
+            )
+            .stroke(
+                Color.primary.opacity(0.08),
+                lineWidth: 1
             )
         }
     }
 
-    private func reconcile(
-        _ result:
-            GitLabDiscussionComposerResult
-    ) {
-        switch result {
-        case let .discussion(discussion):
-            model.reconcileCreatedDiscussion(
-                discussion
-            )
-        case let .reply(
-            note,
-            discussionID
-        ):
-            model.reconcileCreatedReply(
-                note,
-                discussionID:
-                    discussionID
-            )
+    private func toggleExpanded() {
+        if reduceMotion {
+            isExpanded.toggle()
+        } else {
+            withAnimation(
+                .snappy(duration: 0.24)
+            ) {
+                isExpanded.toggle()
+            }
+        }
+    }
+}
+
+private struct GitLabActivityEventRow: View {
+    let note: GitLabDiscussionNote
+
+    @State private var isExpanded = false
+    @Environment(\.accessibilityReduceMotion)
+    private var reduceMotion
+
+    var body: some View {
+        Button {
+            toggleExpanded()
+        } label: {
+            HStack(
+                alignment: .top,
+                spacing: 10
+            ) {
+                Image(
+                    systemName:
+                        "bolt.horizontal"
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(width: 24, height: 24)
+                .accessibilityHidden(true)
+
+                VStack(
+                    alignment: .leading,
+                    spacing: 4
+                ) {
+                    HStack(
+                        alignment:
+                            .firstTextBaseline,
+                        spacing: 8
+                    ) {
+                        Text(
+                            note.author
+                                .displayName
+                        )
+                        .font(
+                            .caption
+                                .weight(
+                                    .semibold
+                                )
+                        )
+                        .lineLimit(1)
+
+                        Spacer(minLength: 4)
+
+                        Text(
+                            GitLabRelativeTimeFormatter
+                                .string(
+                                    from:
+                                        note.createdAt
+                                )
+                        )
+                        .font(
+                            .caption2
+                                .monospacedDigit()
+                        )
+                        .foregroundStyle(
+                            .secondary
+                        )
+                    }
+
+                    Text(
+                        note.activityText
+                            ?? "Activity details unavailable"
+                    )
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(
+                        isExpanded
+                            ? nil
+                            : 2
+                    )
+                    .multilineTextAlignment(
+                        .leading
+                    )
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
+                }
+
+                Image(
+                    systemName:
+                        "chevron.down"
+                )
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.tertiary)
+                .rotationEffect(
+                    .degrees(
+                        isExpanded ? 180 : 0
+                    )
+                )
+                .padding(.top, 5)
+                .accessibilityHidden(true)
+            }
+            .contentShape(.rect)
+            .padding(14)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            [
+                note.author.displayName,
+                note.activityText
+                    ?? "Activity details unavailable",
+                GitLabRelativeTimeFormatter
+                    .string(
+                        from: note.createdAt
+                    ),
+            ]
+            .joined(separator: ", ")
+        )
+        .accessibilityValue(
+            isExpanded
+                ? "Expanded"
+                : "Collapsed"
+        )
+        .accessibilityHint(
+            isExpanded
+                ? "Collapses this activity event."
+                : "Expands this activity event."
+        )
+        .accessibilityIdentifier(
+            "discussion.activity.note.\(note.id)"
+        )
+    }
+
+    private func toggleExpanded() {
+        if reduceMotion {
+            isExpanded.toggle()
+        } else {
+            withAnimation(
+                .snappy(duration: 0.2)
+            ) {
+                isExpanded.toggle()
+            }
         }
     }
 }
@@ -533,7 +809,14 @@ private struct GitLabDiscussionNoteView: View {
             in: .whitespacesAndNewlines
         )
 
-        if source.isEmpty {
+        if note.isSystem {
+            Text(
+                note.activityText
+                    ?? "Activity details unavailable"
+            )
+            .font(.body)
+            .foregroundStyle(.secondary)
+        } else if source.isEmpty {
             Text("No note content.")
                 .font(.body)
                 .foregroundStyle(.secondary)
@@ -552,11 +835,7 @@ private struct GitLabDiscussionNoteView: View {
                 kind: .comment,
                 renderer: markdownRenderer
             )
-            .foregroundStyle(
-                note.isSystem
-                    ? Color.secondary
-                    : Color.primary
-            )
+            .foregroundStyle(Color.primary)
         }
     }
 
