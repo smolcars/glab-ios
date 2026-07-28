@@ -301,9 +301,9 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect MR detail routing, API/client pagination, response cache, current
+- [x] Inspect MR detail routing, API/client pagination, response cache, current
   navigation/UI components, and available UIKit bridges.
-- [ ] Before writing code, create `docs/P2_06_ENGINEERING_PLAN.md`. Document
+- [x] Before writing code, create `docs/P2_06_ENGINEERING_PLAN.md`. Document
   the MR diffs endpoint, self-managed compatibility, file/hunk/line models,
   parser isolation, view virtualization, memory/cache budgets, pagination,
   cancellation, large-diff fallback, accessibility, benchmarks, tests, UI
