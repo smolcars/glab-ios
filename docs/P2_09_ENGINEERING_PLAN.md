@@ -3,9 +3,9 @@
 ## Status
 
 - Planning: complete
-- Implementation: complete; repair pass pending
-- Verification: in progress
-- Deep review: complete; material findings recorded below
+- Implementation: complete, including repair pass
+- Verification: complete
+- Deep review: complete; no open material findings
 
 This document is the required plan for P2-09. Production code must not be
 changed for this feature until this plan is committed.
@@ -516,7 +516,56 @@ the complete focused/full/analyzer/Simulator verification.
 
 ## Verification record
 
-Not started.
+Completed on July 28, 2026, using the iPhone 17 Pro Simulator
+(`72314C64-A40A-4653-9165-61308DBF3474`) and the saved read-only
+self-managed account. No physical device or write-capable GitLab operation was
+used.
+
+Automated gates:
+
+- The focused parser, matcher, incoming-link, route resolver, route resolution,
+  project, search endpoint/DTO/loader/model, Markdown-link, and app-bootstrap
+  tests pass.
+- The 531-test functional suite passes together. The response-cache suite and
+  the four contention-sensitive performance suites were then run separately,
+  giving passing evidence for all 546 tests without measuring parser and
+  renderer budgets while unrelated tests competed for the same Simulator.
+- The Markdown parser/cache, unified-diff parser/cache, discussion publication,
+  and diff collection/scroll performance suites pass in the optimized Release
+  test configuration with testability enabled.
+- The Release Simulator app build succeeds. `xcodebuild analyze` succeeds.
+- Diff and source scans found no forced casts, forced tries, credential/query
+  logging, hard-coded authorization, or write request in the P2-09 production
+  paths. Search and project requests remain read-only `GET` requests.
+
+Live and Simulator verification:
+
+- Global Search loaded live self-managed project, issue, and merge-request
+  results; clearing showed recent queries, and selecting each resource type
+  opened its native destination with working back navigation.
+- The live account did not provide a reliable multi-page result set for the
+  chosen safe queries. Independent pagination, deduplication, loop rejection,
+  and retry therefore retain deterministic unit proof.
+- Native self-managed project, issue, and merge-request custom links opened the
+  correct destinations. A supported link delivered from Todos selected Home
+  before presenting the native detail.
+- An unsupported exact-host URL and an unsupported Markdown link displayed the
+  explicit browser confirmation and remained in-app when cancelled.
+- A missing GitLab.com account displayed the add-account/browser choice. The
+  signed-out continuation and same-host multi-account choices retain
+  deterministic model coverage because verification did not remove the saved
+  Simulator account.
+- Malformed wrappers and configured-host lookalikes were ignored. After the
+  repair, delivering `git.zebedee.team.evil.test` left Home visible and showed
+  neither an add-account nor browser prompt. Exact-host port conflicts have
+  deterministic matcher coverage.
+- Search, Home, project, issue, and merge-request layouts were inspected in
+  dark and light appearance, standard and maximum Dynamic Type. Search
+  navigation and back navigation also passed with Reduce Motion enabled.
+  Stable accessibility identifiers were exercised by the Simulator flows.
+- The all-scope global retry is covered deterministically by a model test that
+  fails all scopes and then reloads all three successfully. Network access was
+  not disabled at the Mac level to force this state in the Simulator.
 
 ## Deep-review findings
 
@@ -575,3 +624,20 @@ Required before editing production code:
    analysis, URL/security scans, and the affected Simulator matrix. Repeat the
    deep review after the repairs and close the checklist only if no material
    finding remains.
+
+## Repair completion
+
+All five repair steps are complete:
+
+- Configured-host suffix/prefix lookalikes and exact-host port conflicts are
+  rejected before the missing-account path. Unrelated HTTPS hosts still offer
+  the legitimate add-account choice.
+- All-scope search failure now presents one accessible global retry while
+  retaining the three scope explanations and individual controls.
+- Search loading uses explicitly typed `do throws(GitLabSessionClientError)`
+  blocks; the unreachable fallback catches and Release warning are gone.
+- Regression tests, the complete verification matrix above, and a second
+  review pass are complete.
+
+The second review found no remaining material issue in the changed URL,
+account, search, project, navigation, error-recovery, or accessibility paths.

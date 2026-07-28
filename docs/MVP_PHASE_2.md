@@ -434,7 +434,7 @@ Todo:
   editing code, add regression tests where applicable, implement every fix,
   and repeat the feature verification and review.
 
-### [ ] P2-09 — Add global search and GitLab deep links
+### [x] P2-09 — Add global search and GitLab deep links
 
 Outcome:
 
@@ -443,39 +443,39 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect existing list search, navigation routes, URL opening, host
+- [x] Inspect existing list search, navigation routes, URL opening, host
   normalization, account identity, and project/issue/MR models.
-- [ ] Before writing code, create `docs/P2_09_ENGINEERING_PLAN.md`. Document
+- [x] Before writing code, create `docs/P2_09_ENGINEERING_PLAN.md`. Document
   supported search scopes, tier/version differences, debounce/cancellation,
   pagination, result identity, deep-link URL grammar, account matching,
   authentication fallback, security, tests, UI states, and non-goals.
-- [ ] Write failing tests for project/issue/MR search requests, debounce,
+- [x] Write failing tests for project/issue/MR search requests, debounce,
   cancellation, pagination, unknown result fields, account isolation, and
   unavailable scopes.
-- [ ] Write failing deep-link tests for GitLab.com and self-managed project,
+- [x] Write failing deep-link tests for GitLab.com and self-managed project,
   issue, and MR URLs; encoded namespaces; unmatched hosts; missing accounts;
   malicious/lookalike URLs; and signed-out routing.
-- [ ] Implement active-account search with cancellation and pagination. Do not
+- [x] Implement active-account search with cancellation and pagination. Do not
   merge results from accounts or imply a search scope exists when the server
   does not support it.
-- [ ] Add a native search screen with useful empty, recent-query, loading,
+- [x] Add a native search screen with useful empty, recent-query, loading,
   paginated, partial, permission, and failure states.
-- [ ] Route a trusted GitLab URL to the matching account and native resource.
+- [x] Route a trusted GitLab URL to the matching account and native resource.
   Ask the user to add/select an account when no safe match exists; never send
   one host's credential to another host.
-- [ ] Keep unsupported URLs visible and openable in the system browser after
+- [x] Keep unsupported URLs visible and openable in the system browser after
   explicit validation.
-- [ ] Verify search, cancellation, pagination, result navigation, account
+- [x] Verify search, cancellation, pagination, result navigation, account
   switching, supported links, unsupported links, and signed-out links in the
   iPhone 17 Pro Simulator.
-- [ ] Run focused tests, the complete suite, static analysis, and URL/security
+- [x] Run focused tests, the complete suite, static analysis, and URL/security
   scans.
-- [ ] Perform a deep code review of all code added or changed for this feature.
+- [x] Perform a deep code review of all code added or changed for this feature.
   Look for bugs, bad code, duplicated routing/search models, credential-host
   confusion, unsafe URL acceptance, stale results, cancellation races, tier
   assumptions, and code that needs refactoring. Record the findings in the
   engineering plan.
-- [ ] If the review finds anything material, write a repair plan before
+- [x] If the review finds anything material, write a repair plan before
   editing code, add regression and security tests where applicable, implement
   every fix, and repeat the feature verification and review.
 
