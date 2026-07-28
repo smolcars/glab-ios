@@ -5,9 +5,9 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Production implementation: not started
-- Verification: not started
-- Deep review: not started
+- Production implementation: complete; repair pending
+- Verification: in progress
+- Deep review: in progress; one material finding
 
 This is the required implementation plan for P3-03. It must be committed and
 pushed before any P3-03 test or production code is changed.
@@ -576,6 +576,54 @@ stubbed tests pass and only under these safeguards:
 10. Push small verified commits to `master` after each coherent slice.
 11. Run the complete automated and Simulator verification matrix.
 12. Perform the required deep review.
+
+## Deep review pass 1 — material finding and repair plan
+
+Date: 2026-07-28
+
+The review reproduced one unsafe source-mapping case:
+
+```markdown
+<pre>
+- [ ] scanner-only marker
+</pre>
+-
+  [ ] rendered multiline task
+```
+
+Foundation treats the raw HTML block as unstructured content and renders the
+second list item as the only task. The source scanner currently indexes the
+marker inside `<pre>` and does not index the multiline marker. Both ordered
+state sequences therefore contain one incomplete task, so sequence equality
+alone attaches the raw-HTML marker identity to the visible multiline task. A
+tap could rewrite the wrong source byte.
+
+This violates the fail-closed raw-HTML rule, even though ordinary count or
+state mismatches already remain static.
+
+### Committed repair plan
+
+1. Add a regression fixture and parser test for the exact false-positive plus
+   false-negative combination. Prove that the rendered task receives no
+   source identity and the document exposes no mutable task.
+2. Add source-index tests for raw HTML before, between, and after otherwise
+   supported task lists, including closing tags and HTML-like content inside
+   fenced code.
+3. Make the source scanner conservatively return no task identities when it
+   encounters an unsupported raw HTML tag outside fenced code and masked HTML
+   comments. Do not attempt to implement a second HTML parser. Preserve normal
+   task mapping for HTML-like content inside fenced code and for comments that
+   are already excluded from both source and rendered task inventories.
+4. Keep rewrite validation on the same scanner path so a fabricated or stale
+   identity cannot bypass the new fail-closed rule.
+5. Rerun source-index, rewrite, parser, renderer, toggle-model, P3-02
+   transaction, complete-suite, Release, Analyze, privacy, and serialized
+   performance gates.
+6. Repeat dark/light, Dynamic Type, accessibility, Reduce Motion/Transparency,
+   read-only, and permitted demo-project Simulator verification. Confirm raw
+   HTML descriptions show only static task markers.
+7. Perform and record another full P3-03 review before marking the feature
+   complete.
 
 ## Deep-review checklist
 
