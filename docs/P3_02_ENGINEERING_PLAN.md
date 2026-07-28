@@ -701,6 +701,37 @@ the simulator UI. It found the following material issues:
    forced-operation scans, then repeat the full relevant simulator matrix and
    deep review. Record exact evidence before checking off P3-02.
 
+## Deep review pass 2 — accessibility finding and repair plan
+
+Date: 2026-07-28
+
+The second code review found no further mutation, draft, cache, account,
+privacy, concurrency, cancellation, or duplication issue. The automated
+gates passed, but the required Simulator matrix exposed one material
+presentation defect at
+`accessibility-extra-extra-extra-large`:
+
+1. **The read-only status inset leaves too little editor viewport.** The
+   full read-only explanation scales into a tall bottom safe-area inset. The
+   title and adaptive Edit/Preview menu remain present, but the Markdown
+   editor is reduced to a narrow strip and is not practically usable.
+
+### Repair plan — committed before production repair
+
+1. Keep the full regular-size explanation, but use concise, equivalent
+   read-only title and message copy at accessibility Dynamic Type sizes. The
+   disabled Save control retains its detailed accessibility hint explaining
+   the required `api` scope, and the compact notice continues to state that
+   preview and protected local drafts work.
+2. Give the adaptive Edit/Preview picker a stable accessibility identifier so
+   the menu presentation at accessibility sizes can be verified directly
+   without assuming the regular segmented-control layout.
+3. Rebuild and rerun the issue editor at the largest accessibility size in
+   light appearance, including menu selection, preview, Cancel, and visual
+   inspection. Repeat the regular dark issue/MR entry checks, focused editor
+   tests, complete suite, Release build, analysis, and safety scans before
+   closing P3-02.
+
 ## Non-goals
 
 - Editing labels, assignees, reviewers, milestones, status, state, or any
