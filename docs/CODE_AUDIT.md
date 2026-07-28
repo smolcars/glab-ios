@@ -433,9 +433,8 @@ Scope:
 - Feature-specific issue, merge-request, project, and Todo rows/models remain
   separate. The audit found no meaningful duplication that warrants erasing
   their distinct API and interaction behavior.
-- GitLab.com OAuth and personal-token live verification require credentials or
-  a registered application that is not configured. Unit tests are not
-  substituted for those rows.
+- GitLab.com personal-token live verification still requires a token that is
+  not configured. Unit tests are not substituted for that row.
 - The self-managed host outage was transient. A resumed pass recorded GitLab
   18.11.3-ee and completed the signed-in large-device rows with the available
   read-only personal token.
@@ -485,6 +484,69 @@ pending result was empty.
 - The feature-specific issue, merge-request, project, and Todo models remain
   intentionally separate; no new duplication justified merging their API or
   interaction behavior.
-- GitLab.com OAuth and personal-token live rows remain unverified. Self-managed
-  OAuth activation, App Store distribution, and Icon Composer work are
-  explicitly deferred by the project owner.
+- GitLab.com personal-token live verification, App Store distribution, and
+  Icon Composer work remain explicitly deferred by the project owner.
+
+## GitLab.com OAuth registration audit
+
+Scope:
+
+- The public GitLab.com OAuth Application ID was promoted from a temporary
+  build override to the Debug and Release project configurations so Simulator
+  and physical-device builds use the same registration.
+- The corresponding client secret remains only in ignored local configuration.
+  Glab is a public/native PKCE client and neither needs nor reads that secret.
+- The production Swift implementation is unchanged. The delta is limited to
+  project configuration, a bundle-metadata assertion, and OAuth/MVP
+  documentation.
+
+### Verification checklist
+
+- [x] Prove the new bundle assertion fails while the project Application ID is
+  empty, then passes after configuring it.
+- [x] Build a signed generic iPhone Debug app with the configured development
+  team.
+- [x] Build a no-override Release simulator app and confirm its Info.plist
+  contains the public Application ID.
+- [x] Scan both device and Simulator app bundles for the exact local client
+  secret value and confirm it is absent.
+- [x] Launch from a clean install, accept iOS's web-authentication consent, and
+  reach GitLab.com's real username page without an unknown-application or
+  redirect error.
+
+The project owner then completed GitLab.com OAuth on a physical iPhone. The
+callback, `GET /user` validation, and restored session pass. Deterministic
+tests cover refresh-token rotation and failure; a natural live token expiry
+was not observed. The owner also reports a successful self-managed OAuth web
+login and callback with an instance-specific public Application ID.
+
+## GitLab.com Home partial-loading audit
+
+Scope:
+
+- A live GitLab.com OAuth session showed all Home summaries spinning even
+  though four requests had already completed.
+- The Home loader awaited one aggregate six-request tuple before publishing
+  any result. The documented Recent Projects request was the sole slow request,
+  eventually returning HTTP 500 after approximately 57 seconds.
+- Temporary debug-only timing output recorded only the section name, elapsed
+  time, and redacted error. It was removed before this audit.
+
+### Repair checklist
+
+- [x] Replace the aggregate result with independent user/section updates while
+  retaining concurrent requests.
+- [x] Add a regression test that pauses one request and proves an already
+  completed section is published while the model remains loading.
+- [x] Present GitLab's server failure as `GitLab is unavailable` on only the
+  affected row.
+- [x] Run the complete signed suite: 245 logical tests in 44 suites pass.
+- [x] Run Xcode static analysis.
+- [x] Install the signed Debug build on the physical iPhone and verify Assigned
+  Issues, Assigned Merge Requests, Review Requests, and Starred Projects settle
+  while Recent Projects alone remains pending.
+
+The Projects API query was not changed because its `membership`,
+`order_by=last_activity_at`, `sort=desc`, and `simple=true` parameters are
+documented. The GitLab.com HTTP 500 is deferred to the next work session; the
+app no longer lets that server failure block unrelated Home content.

@@ -179,20 +179,21 @@ Test:
 - Duplicate slashes/path fragments cannot produce a wrong API URL.
 - Read-write versus read-only capability state.
 
-### [ ] MVP-05 — Implement GitLab.com and self-managed OAuth with PKCE
+### [x] MVP-05 — Implement GitLab.com and self-managed OAuth with PKCE
 
 Implementation status (2026-07-27): the OAuth/PKCE logic, refresh handling,
 setup UI, personal-access-token fallback, unit tests, and simulator inspection
-are complete. This item remains unchecked until a GitLab.com OAuth application
-is registered, its real Application ID is supplied to the build, and a
-clean-install live callback is verified. Live self-managed OAuth activation is
-owner-deferred pending coordination with the instance administrators. See
-[Glab OAuth setup](OAUTH_SETUP.md).
+are complete. The registered GitLab.com public Application ID is embedded in
+Debug and Release. Live GitLab.com and self-managed authorization, callback,
+user validation, and session restoration pass on a physical iPhone. Refresh
+rotation and failure handling pass deterministic tests; waiting for a naturally
+expired live grant remains a release-verification follow-up rather than an
+implementation blocker. See [Glab OAuth setup](OAUTH_SETUP.md).
 
 Deliver:
 
 - Register the Glab OAuth redirect on GitLab.com and configure its public
-  Application ID outside source-controlled secrets.
+  Application ID without embedding its client secret.
 - Let a self-managed user enter their HTTPS instance URL and its Glab OAuth
   Application ID. Validate and store this non-secret configuration per host.
 - Include setup guidance for registering Glab as a public/non-confidential
@@ -446,14 +447,17 @@ Implementation status:
   iPhones, including every Home route, every Todo filter, native issue and
   merge-request details, read-only behavior, dark appearance, large
   accessibility text, and relaunch restoration against GitLab 18.11.3-ee.
-- GitLab.com OAuth and GitLab.com personal-token clean-install rows remain
-  pending. See the
+- GitLab.com and self-managed OAuth authorization, callback, user validation,
+  and session restoration pass on a physical iPhone. A natural live
+  token-expiry refresh and the GitLab.com personal-token row remain pending.
+  See the
   [MVP-15 verification record](MVP_15_ENGINEERING_PLAN.md#release-candidate-verification-record).
-- The project owner explicitly deferred self-managed OAuth activation, App
-  Store distribution, and Icon Composer/tinted-icon work. The
-  development-signed Release archive remains valid.
-- This item and MVP-05 deliberately remain unchecked; deterministic tests do
-  not replace the two remaining GitLab.com live-authentication rows.
+- The project owner explicitly deferred App Store distribution and Icon
+  Composer/tinted-icon work. The development-signed Release archive remains
+  valid.
+- This item remains unchecked; deterministic refresh tests do not replace a
+  natural live token-expiry observation, and no GitLab.com personal token is
+  configured for that authentication row.
 
 ## Explicitly out of MVP
 

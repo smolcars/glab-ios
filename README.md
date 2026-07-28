@@ -40,14 +40,17 @@ Glab is under active MVP development. The current app includes:
 Feature implementation through MVP-14 and the repository-side MVP-15 release
 gates are complete. Self-managed personal-token verification and the complete
 small/large-device UI matrix pass against a live GitLab 18.11.3-ee instance.
-GitLab.com OAuth and personal-token verification are still open. The project
-owner has deferred self-managed OAuth activation, App Store distribution, and
-Icon Composer work. The exact results live in
+GitLab.com and self-managed OAuth sign-in now pass against live accounts.
+GitLab.com personal-token verification is still open. The project owner has
+deferred App Store distribution and Icon Composer work. The exact results live
+in
 [the MVP-15 verification record](docs/MVP_15_ENGINEERING_PLAN.md#release-candidate-verification-record).
 
-GitLab.com OAuth logic is implemented, but its clean-install live callback
-remains an explicit release-verification item until a real public Application
-ID is configured. See [OAuth setup](docs/OAUTH_SETUP.md).
+GitLab.com OAuth logic and its public Application ID are configured. Live
+authorization, callback, user validation, and session restoration pass on a
+physical iPhone. Token rotation is covered deterministically; observing a
+naturally expired live grant remains a release-verification follow-up. See
+[OAuth setup](docs/OAUTH_SETUP.md).
 
 ## Requirements
 
