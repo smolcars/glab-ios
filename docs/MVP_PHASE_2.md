@@ -260,9 +260,9 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect discussion/resource models, current-user identity, mutation
+- [x] Inspect discussion/resource models, current-user identity, mutation
   capability handling, optimistic Todo updates, and cache invalidation.
-- [ ] Before writing code, create `docs/P2_05_ENGINEERING_PLAN.md`. Document
+- [x] Before writing code, create `docs/P2_05_ENGINEERING_PLAN.md`. Document
   resource/note reaction endpoints, award identity, grouping, current-user
   state, picker scope, optimistic mutation/rollback, cache invalidation,
   tests, accessibility, and non-goals.
