@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 nonisolated struct GitLabMergeRequestDiffFileID:
@@ -78,6 +79,21 @@ nonisolated struct GitLabMergeRequestDiffFile:
             oldPath: oldPath,
             newPath: newPath
         )
+    }
+
+    var privacySafeIdentifier: String {
+        let source = Data(
+            "\(oldPath)\u{0}\(newPath)".utf8
+        )
+        let digest = SHA256.hash(data: source)
+        let prefix = digest.prefix(8).map {
+            String(
+                format: "%02x",
+                $0
+            )
+        }
+        .joined()
+        return "diff.file.\(prefix)"
     }
 
     var kind: GitLabMergeRequestDiffFileKind {

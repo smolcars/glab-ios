@@ -158,6 +158,11 @@ nonisolated struct GitLabMergeRequest:
         GitLabWebURL.validated(webURL)
     }
 
+    var safeChangesURL: URL? {
+        safeWebURL?
+            .appendingPathComponent("diffs")
+    }
+
     var diffHeadSHA: String? {
         Self.nonemptyTrimmed(diffRefs?.headSHA)
             ?? Self.nonemptyTrimmed(sha)

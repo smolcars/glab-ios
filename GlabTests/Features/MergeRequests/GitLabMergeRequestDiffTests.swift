@@ -135,6 +135,66 @@ struct GitLabMergeRequestDiffTests {
         )
     }
 
+    @Test("Builds a stable privacy-safe row identifier")
+    func privacySafeIdentifier() throws {
+        let first = try #require(
+            decode(
+                """
+                [
+                  {
+                    "old_path": "Secret/Old.swift",
+                    "new_path": "Secret/New.swift",
+                    "diff": "@@ -1 +1 @@\\n-old\\n+new"
+                  }
+                ]
+                """
+            ).first
+        )
+        let same = try #require(
+            decode(
+                """
+                [
+                  {
+                    "old_path": "Secret/Old.swift",
+                    "new_path": "Secret/New.swift",
+                    "diff": "different"
+                  }
+                ]
+                """
+            ).first
+        )
+        let other = try #require(
+            decode(
+                """
+                [
+                  {
+                    "old_path": "Public/File.swift",
+                    "new_path": "Public/File.swift",
+                    "diff": "different"
+                  }
+                ]
+                """
+            ).first
+        )
+
+        #expect(
+            first.privacySafeIdentifier
+                == same.privacySafeIdentifier
+        )
+        #expect(
+            first.privacySafeIdentifier
+                != other.privacySafeIdentifier
+        )
+        #expect(
+            !first.privacySafeIdentifier
+                .contains("Secret")
+        )
+        #expect(
+            first.privacySafeIdentifier
+                .hasPrefix("diff.file.")
+        )
+    }
+
     private func decode(
         _ json: String
     ) throws -> [GitLabMergeRequestDiffFile] {
