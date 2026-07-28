@@ -474,7 +474,7 @@ private struct GitLabMergeRequestDiffFileView: View {
         .toolbar {
             fileNavigationToolbar
         }
-        .task(id: selectedFileID) {
+        .task(id: selectedDocumentID) {
             selectedHunkJump = nil
             model.reset()
             guard
@@ -554,6 +554,8 @@ private struct GitLabMergeRequestDiffFileView: View {
             } else {
                 GitLabDiffDocumentView(
                     document: document,
+                    documentID:
+                        selectedDocumentID,
                     selectedHunkJump:
                         selectedHunkJump
                 )
@@ -685,6 +687,17 @@ private struct GitLabMergeRequestDiffFileView: View {
         }
     }
 
+    private var selectedDocumentID:
+        GitLabDiffDocumentID
+    {
+        GitLabDiffDocumentID(
+            accountID: accountID,
+            route: route,
+            headSHA: headSHA,
+            fileID: selectedFileID
+        )
+    }
+
     private var selectedFileIndex: Int? {
         filesModel.files.firstIndex {
             $0.id == selectedFileID
@@ -771,209 +784,35 @@ private struct GitLabMergeRequestDiffFileView: View {
     }
 }
 
-private struct GitLabDiffHunkJump: Equatable {
+struct GitLabDiffHunkJump: Equatable {
     let id = UUID()
     let ordinal: Int
 }
 
 private struct GitLabDiffDocumentView: View {
     let document: GitLabParsedDiffDocument
+    let documentID: GitLabDiffDocumentID
     let selectedHunkJump: GitLabDiffHunkJump?
 
+    @ScaledMetric(relativeTo: .caption)
+    private var rowHeight: CGFloat =
+        GitLabDiffLayoutMetrics.baseRowHeight
+
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView([.horizontal, .vertical]) {
-                LazyVStack(
-                    alignment: .leading,
-                    spacing: 0
-                ) {
-                    ForEach(
-                        document.items.indices,
-                        id: \.self
-                    ) { index in
-                        GitLabDiffRenderItemView(
-                            item: document.items[index]
-                        )
-                        .id(itemID(index))
-                    }
-                }
-                .frame(
-                    minWidth: minimumContentWidth,
-                    alignment: .leading
-                )
-                .textSelection(.enabled)
-            }
-            .onChange(
-                of: selectedHunkJump
-            ) { _, jump in
-                guard let jump else {
-                    return
-                }
-                withAnimation {
-                    proxy.scrollTo(
-                        "hunk.\(jump.ordinal)",
-                        anchor: .top
-                    )
-                }
-            }
-        }
-        .accessibilityIdentifier(
-            "mergeRequestDiffs.document"
+        GitLabDiffCollectionView(
+            document: document,
+            documentID: documentID,
+            selectedHunkJump: selectedHunkJump,
+            rowHeight: rowHeight,
+            contentWidth: minimumContentWidth
         )
     }
 
     private var minimumContentWidth: CGFloat {
-        let estimated =
-            CGFloat(
-                document.maximumRenderedLineLength
-            ) * 8 + 116
-        return min(
-            max(estimated, 520),
-            8_000
+        GitLabDiffLayoutMetrics.contentWidth(
+            maximumLineLength:
+                document.maximumRenderedLineLength,
+            rowHeight: rowHeight
         )
-    }
-
-    private func itemID(_ index: Int) -> String {
-        guard
-            case let .hunkHeader(ordinal, _) =
-                document.items[index]
-        else {
-            return "diff.item.\(index)"
-        }
-        return "hunk.\(ordinal)"
-    }
-}
-
-private struct GitLabDiffRenderItemView: View {
-    let item: GitLabDiffRenderItem
-
-    var body: some View {
-        switch item {
-        case let .hunkHeader(_, text):
-            specialRow(
-                text,
-                color: .blue,
-                accessibilityLabel:
-                    "Diff hunk, \(text)"
-            )
-        case let .context(line):
-            codeRow(
-                line,
-                prefix: " ",
-                color: .clear
-            )
-        case let .addition(line):
-            codeRow(
-                line,
-                prefix: "+",
-                color: .green
-            )
-        case let .deletion(line):
-            codeRow(
-                line,
-                prefix: "-",
-                color: .red
-            )
-        case let .noNewlineMarker(text):
-            specialRow(
-                text,
-                color: .secondary,
-                accessibilityLabel: text
-            )
-        case let .fileMetadata(text):
-            specialRow(
-                text,
-                color: .secondary,
-                accessibilityLabel:
-                    "File metadata, \(text)"
-            )
-        }
-    }
-
-    private func codeRow(
-        _ line: GitLabDiffLine,
-        prefix: String,
-        color: Color
-    ) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-            lineNumber(line.oldLineNumber)
-            lineNumber(line.newLineNumber)
-
-            Text(prefix + line.text)
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .leading
-                )
-                .fixedSize(
-                    horizontal: true,
-                    vertical: false
-                )
-                .padding(.leading, 8)
-                .padding(.trailing, 16)
-        }
-        .font(.system(.caption, design: .monospaced))
-        .padding(.vertical, 3)
-        .background(color.opacity(0.12))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            accessibilityLabel(line)
-        )
-    }
-
-    private func lineNumber(_ number: Int?) -> some View {
-        Text(number.map(String.init) ?? "")
-            .foregroundStyle(.secondary)
-            .multilineTextAlignment(.trailing)
-            .frame(width: 50, alignment: .trailing)
-            .padding(.trailing, 7)
-            .background(
-                Color.secondary.opacity(0.05)
-            )
-    }
-
-    private func specialRow(
-        _ text: String,
-        color: Color,
-        accessibilityLabel: String
-    ) -> some View {
-        Text(text)
-            .font(
-                .system(
-                    .caption,
-                    design: .monospaced
-                )
-            )
-            .foregroundStyle(
-                color
-            )
-            .fixedSize(
-                horizontal: true,
-                vertical: false
-            )
-            .frame(
-                maxWidth: .infinity,
-                alignment: .leading
-            )
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(color.opacity(0.1))
-            .accessibilityLabel(accessibilityLabel)
-    }
-
-    private func accessibilityLabel(
-        _ line: GitLabDiffLine
-    ) -> String {
-        switch line.kind {
-        case .context:
-            return "Context, old line "
-                + "\(line.oldLineNumber ?? 0), new line "
-                + "\(line.newLineNumber ?? 0), \(line.text)"
-        case .addition:
-            return "Added line "
-                + "\(line.newLineNumber ?? 0), \(line.text)"
-        case .deletion:
-            return "Deleted line "
-                + "\(line.oldLineNumber ?? 0), \(line.text)"
-        }
     }
 }

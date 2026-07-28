@@ -195,6 +195,85 @@ struct GitLabMergeRequestDiffTests {
         )
     }
 
+    @Test("Scopes rendered documents to account, MR, revision, and paths")
+    func scopesRenderedDocumentIdentity() throws {
+        let firstAccount = GitLabAccountID(
+            host: try GitLabHost(
+                "https://gitlab.example.com"
+            ),
+            userID: 1
+        )
+        let secondAccount = GitLabAccountID(
+            host: try GitLabHost(
+                "https://gitlab.example.net"
+            ),
+            userID: 1
+        )
+        let route = GitLabMergeRequestRoute(
+            projectID: 42,
+            mergeRequestIID: 7
+        )
+        let fileID = GitLabMergeRequestDiffFileID(
+            oldPath: "Sources/Old.swift",
+            newPath: "Sources/New.swift"
+        )
+        let identity = GitLabDiffDocumentID(
+            accountID: firstAccount,
+            route: route,
+            headSHA: "head-a",
+            fileID: fileID
+        )
+
+        #expect(
+            identity
+                == GitLabDiffDocumentID(
+                    accountID: firstAccount,
+                    route: route,
+                    headSHA: "head-a",
+                    fileID: fileID
+                )
+        )
+        #expect(
+            Set([
+                identity,
+                GitLabDiffDocumentID(
+                    accountID: secondAccount,
+                    route: route,
+                    headSHA: "head-a",
+                    fileID: fileID
+                ),
+                GitLabDiffDocumentID(
+                    accountID: firstAccount,
+                    route:
+                        GitLabMergeRequestRoute(
+                            projectID: 43,
+                            mergeRequestIID: 7
+                        ),
+                    headSHA: "head-a",
+                    fileID: fileID
+                ),
+                GitLabDiffDocumentID(
+                    accountID: firstAccount,
+                    route: route,
+                    headSHA: "head-b",
+                    fileID: fileID
+                ),
+                GitLabDiffDocumentID(
+                    accountID: firstAccount,
+                    route: route,
+                    headSHA: "head-a",
+                    fileID:
+                        GitLabMergeRequestDiffFileID(
+                            oldPath:
+                                "Sources/Other.swift",
+                            newPath:
+                                "Sources/Other.swift"
+                        )
+                ),
+            ]).count == 5
+        )
+    }
+
     private func decode(
         _ json: String
     ) throws -> [GitLabMergeRequestDiffFile] {

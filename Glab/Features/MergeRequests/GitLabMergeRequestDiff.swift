@@ -10,6 +10,17 @@ nonisolated struct GitLabMergeRequestDiffFileID:
     let newPath: String
 }
 
+nonisolated struct GitLabDiffDocumentID:
+    Equatable,
+    Hashable,
+    Sendable
+{
+    let accountID: GitLabAccountID
+    let route: GitLabMergeRequestRoute
+    let headSHA: String
+    let fileID: GitLabMergeRequestDiffFileID
+}
+
 nonisolated enum GitLabMergeRequestDiffAvailability:
     Equatable,
     Sendable

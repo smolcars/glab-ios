@@ -636,16 +636,57 @@ Complete after implementation:
 
 ### Renderer decision evidence
 
-Pending implementation measurements.
+The first implementation used one SwiftUI `LazyVStack` line surface. Parsing,
+ordinary rendering, vertical scrolling, and horizontal scrolling worked on
+the iPhone 17 Pro Simulator with live read-only data. A 14,380-character,
+two-hunk self-managed patch exposed a functional threshold failure: selecting
+the second hunk resolved the correct parser `renderItemIndex`, but SwiftUI's
+lazy two-axis scroll APIs only revealed the distant target near the bottom or
+ignored its exact anchor. One bounded pass tried an explicitly top-aligned
+two-axis container, fixed/scaled row heights, `ScrollViewReader`,
+`scrollPosition`, and exact calculated anchors. None reliably aligned the
+distant hunk at the top.
+
+P2-06 therefore uses the planned focused UIKit fallback for only the code-line
+surface. Navigation, loading, selection, errors, unavailable states, and
+toolbars remain SwiftUI. The fallback must use reusable collection cells,
+constant-time layout attributes, exact indexed hunk scrolling, shared
+horizontal access, selectable visible code text, and Dynamic Type-aware fixed
+row heights.
+
+The UIKit pass was then verified against the same live read-only fixture on
+the iPhone 17 Pro Simulator. Hunk 2 aligned at the top of the viewport,
+horizontal and vertical scrolling remained interactive, unavailable files
+retained their honest fallback, and file switches reset stale hunk state.
+Dark, light, and accessibility-extra-large inspections retained readable line
+numbers and code. Focused diff/API/model/cache tests pass. Final time, memory,
+and hitch measurements remain pending.
 
 ### Findings
 
-Pending implementation.
+- The first UIKit pass keyed the parse task and retained collection document
+  only by old/new path. If the same navigation stayed alive across an account,
+  merge request, or head revision change, the visible cells could retain the
+  prior revision.
+- A normal collection content height prevents a hunk near the end of a patch
+  from aligning to the viewport top. The live two-hunk fixture reproduced this
+  by clamping hunk 2 below earlier lines.
+- Row height and font respected Dynamic Type, but the first UIKit pass kept
+  default-size gutter and content-width estimates. Large accessibility sizes
+  could therefore clip line numbers or long code horizontally.
 
 ### Repair plan
 
-Pending review findings. If any material issue is found, write concrete repair
-steps and regression/performance proof here before editing production code.
+1. Introduce one privacy-safe document identity containing account, merge
+   request route, head SHA, and path pair. Use it for the SwiftUI parse task and
+   retained UIKit document replacement.
+2. Give the custom layout one viewport of trailing scroll allowance so every
+   row, including the last hunk, can align at the top without rendering spacer
+   cells.
+3. Unit-test document-identity isolation, rebuild, and repeat the live exact
+   hunk, file-switch, unavailable-state, and two-axis scroll checks.
+4. Derive gutters and content width from the same scaled row metric as the
+   font, while retaining the documented width cap for pathological lines.
 
 ## Non-goals
 
