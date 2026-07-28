@@ -173,7 +173,8 @@ final class GitLabDescriptionTaskToggleModel {
             activeTaskSourceID
                 == task.sourceID,
             let intendedState,
-            phase != .idle
+            phase != .idle,
+            phase != .rewriting
         else {
             return task.state
         }

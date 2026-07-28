@@ -458,6 +458,326 @@ struct GitLabDescriptionTaskToggleModelTests {
         #expect(await store.draft(for: key) == nil)
     }
 
+    @Test("A title-only server change rebases the task update")
+    @MainActor
+    func titleOnlyRebase() async throws {
+        let context = try TaskToggleTestContext()
+        let renamedIssue =
+            makeTestIssue(
+                id: context.issue.id,
+                iid: context.issue.iid,
+                projectID: context.issue.projectID,
+                title: "Renamed on GitLab",
+                description:
+                    context.snapshot.rawDescription,
+                updatedAt:
+                    context.issue.updatedAt
+                        .addingTimeInterval(10)
+            )
+        let updatedIssue =
+            makeTestIssue(
+                id: context.issue.id,
+                iid: context.issue.iid,
+                projectID: context.issue.projectID,
+                title: renamedIssue.title,
+                description: "- [x] Ship",
+                updatedAt:
+                    renamedIssue.updatedAt
+                        .addingTimeInterval(10)
+            )
+        let service =
+            TaskToggleRecordingService(
+                latestResults: [
+                    .success(
+                        .issue(renamedIssue)
+                    )
+                ],
+                updateResults: [
+                    .success(
+                        .issue(updatedIssue)
+                    )
+                ]
+            )
+        let model = context.makeModel(
+            service: service
+        )
+
+        await model.toggle(
+            context.task,
+            in: context.snapshot
+        )
+
+        let changes = try #require(
+            await service.updates.first?
+                .changes
+        )
+        #expect(changes.title == nil)
+        #expect(
+            changes.description
+                == "- [x] Ship"
+        )
+        #expect(model.failure == nil)
+    }
+
+    @Test("A stale source fails locally and refreshes without transport")
+    @MainActor
+    func staleSource() async throws {
+        let context = try TaskToggleTestContext()
+        let service =
+            TaskToggleRecordingService()
+        var refreshCount = 0
+        let model = context.makeModel(
+            service: service,
+            onStale: {
+                refreshCount += 1
+            }
+        )
+        let staleSnapshot =
+            context.snapshot(
+                description:
+                    "- [ ] Ship\nChanged locally"
+            )
+
+        await model.toggle(
+            context.task,
+            in: staleSnapshot
+        )
+
+        #expect(
+            model.failure
+                == .staleDescription
+        )
+        #expect(refreshCount == 1)
+        #expect(await service.loadCount == 0)
+        #expect(await service.updateCount == 0)
+    }
+
+    @Test("Source validation precedes optimism and rapid taps make one write")
+    @MainActor
+    func rapidTaps() async throws {
+        let context = try TaskToggleTestContext()
+        let updatedIssue =
+            makeTestIssue(
+                id: context.issue.id,
+                iid: context.issue.iid,
+                projectID: context.issue.projectID,
+                title: context.issue.title,
+                description: "- [x] Ship",
+                updatedAt:
+                    context.issue.updatedAt
+                        .addingTimeInterval(10)
+            )
+        let service =
+            TaskToggleRecordingService(
+                latestResults: [
+                    .success(
+                        .issue(context.issue)
+                    )
+                ],
+                updateResults: [
+                    .success(
+                        .issue(updatedIssue)
+                    )
+                ]
+            )
+        let gate = TaskToggleRewriteGate()
+        let model = context.makeModel(
+            service: service,
+            rewrite: {
+                source,
+                task,
+                state in
+                try await gate.rewrite(
+                    source,
+                    task: task,
+                    to: state
+                )
+            }
+        )
+
+        let first = Task {
+            await model.toggle(
+                context.task,
+                in: context.snapshot
+            )
+        }
+        await gate.waitUntilStarted()
+
+        #expect(model.phase == .rewriting)
+        #expect(
+            model.displayedState(
+                for: context.task
+            ) == .incomplete
+        )
+
+        await model.toggle(
+            context.task,
+            in: context.snapshot
+        )
+        #expect(await service.loadCount == 0)
+        #expect(await service.updateCount == 0)
+
+        await gate.release()
+        await first.value
+
+        #expect(await service.loadCount == 1)
+        #expect(await service.updateCount == 1)
+        #expect(model.failure == nil)
+    }
+
+    @Test("Draft storage failure sends no request")
+    @MainActor
+    func draftStorageFailure() async throws {
+        let context = try TaskToggleTestContext()
+        let service =
+            TaskToggleRecordingService()
+        let model = context.makeModel(
+            service: service,
+            draftStore:
+                FailingTaskToggleDraftStore()
+        )
+
+        await model.toggle(
+            context.task,
+            in: context.snapshot
+        )
+
+        #expect(
+            model.failure
+                == .editor(.draftStorage)
+        )
+        #expect(await service.loadCount == 0)
+        #expect(await service.updateCount == 0)
+    }
+
+    @Test("A delivery check proving no change requires an explicit retry")
+    @MainActor
+    func unknownDeliveryRetry() async throws {
+        let context = try TaskToggleTestContext()
+        let updatedIssue =
+            makeTestIssue(
+                id: context.issue.id,
+                iid: context.issue.iid,
+                projectID: context.issue.projectID,
+                title: context.issue.title,
+                description: "- [x] Ship",
+                updatedAt:
+                    context.issue.updatedAt
+                        .addingTimeInterval(10)
+            )
+        let service =
+            TaskToggleRecordingService(
+                latestResults: [
+                    .success(
+                        .issue(context.issue)
+                    ),
+                    .success(
+                        .issue(context.issue)
+                    ),
+                    .success(
+                        .issue(context.issue)
+                    ),
+                ],
+                updateResults: [
+                    .failure(
+                        .api(
+                            .server(
+                                statusCode: 500
+                            )
+                        )
+                    ),
+                    .success(
+                        .issue(updatedIssue)
+                    ),
+                ]
+            )
+        let model = context.makeModel(
+            service: service
+        )
+
+        await model.toggle(
+            context.task,
+            in: context.snapshot
+        )
+        await model.checkGitLab()
+
+        #expect(
+            model.phase
+                == .retryAvailable
+        )
+        #expect(await service.updateCount == 1)
+
+        await model.retry()
+
+        #expect(model.phase == .idle)
+        #expect(model.failure == nil)
+        #expect(await service.loadCount == 3)
+        #expect(await service.updateCount == 2)
+    }
+
+    @Test("A third server value stays protected for editor recovery")
+    @MainActor
+    func unknownDeliveryConflict() async throws {
+        let context = try TaskToggleTestContext()
+        let conflictingIssue =
+            makeTestIssue(
+                id: context.issue.id,
+                iid: context.issue.iid,
+                projectID: context.issue.projectID,
+                title: context.issue.title,
+                description:
+                    "- [ ] Ship\nThird value",
+                updatedAt:
+                    context.issue.updatedAt
+                        .addingTimeInterval(10)
+            )
+        let service =
+            TaskToggleRecordingService(
+                latestResults: [
+                    .success(
+                        .issue(context.issue)
+                    ),
+                    .success(
+                        .issue(conflictingIssue)
+                    ),
+                ],
+                updateResults: [
+                    .failure(
+                        .api(
+                            .server(
+                                statusCode: 500
+                            )
+                        )
+                    )
+                ]
+            )
+        var refreshCount = 0
+        let model = context.makeModel(
+            service: service,
+            onStale: {
+                refreshCount += 1
+            }
+        )
+
+        await model.toggle(
+            context.task,
+            in: context.snapshot
+        )
+        await model.checkGitLab()
+
+        #expect(
+            model.phase
+                == .deliveryUnknown
+        )
+        #expect(refreshCount == 1)
+        let editor = try #require(
+            model.takeRecoveryEditor()
+        )
+        #expect(editor.requiresDeliveryCheck)
+        #expect(model.phase == .idle)
+        #expect(await service.updateCount == 1)
+    }
+
     private func indexedTask(
         in source: String
     ) async throws -> GitLabMarkdownIndexedTask {
@@ -658,7 +978,22 @@ private struct TaskToggleTestContext {
             ) -> Void = { _ in },
         onStale:
             @escaping @MainActor () async
-                -> Void = {}
+                -> Void = {},
+        rewrite:
+            @escaping
+            GitLabDescriptionTaskToggleModel
+            .Rewrite = {
+                source,
+                task,
+                state in
+                try await
+                    GitLabMarkdownTaskSourceRewriter
+                    .rewrite(
+                        source,
+                        task: task,
+                        to: state
+                    )
+            }
     ) -> GitLabDescriptionTaskToggleModel {
         GitLabDescriptionTaskToggleModel(
             accountID: accountID,
@@ -668,7 +1003,79 @@ private struct TaskToggleTestContext {
             isAccountCurrent:
                 isAccountCurrent,
             onSuccess: onSuccess,
-            onStale: onStale
+            onStale: onStale,
+            rewrite: rewrite
         )
     }
+}
+
+private actor TaskToggleRewriteGate {
+    private var didStart = false
+    private var startWaiters:
+        [CheckedContinuation<Void, Never>] = []
+    private var releaseContinuation:
+        CheckedContinuation<Void, Never>?
+
+    func rewrite(
+        _ source: String,
+        task: GitLabMarkdownIndexedTask,
+        to state: GitLabMarkdownTaskState
+    ) async throws -> String {
+        didStart = true
+        let waiters = startWaiters
+        startWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        await withCheckedContinuation {
+            releaseContinuation = $0
+        }
+        try Task.checkCancellation()
+        return try await
+            GitLabMarkdownTaskSourceRewriter
+            .rewrite(
+                source,
+                task: task,
+                to: state
+            )
+    }
+
+    func waitUntilStarted() async {
+        guard !didStart else {
+            return
+        }
+        await withCheckedContinuation {
+            startWaiters.append($0)
+        }
+    }
+
+    func release() {
+        releaseContinuation?.resume()
+        releaseContinuation = nil
+    }
+}
+
+private actor FailingTaskToggleDraftStore:
+    GitLabResourceEditDraftStoring
+{
+    func draft(
+        for key: GitLabResourceEditDraftKey
+    ) -> GitLabResourceEditDraft? {
+        nil
+    }
+
+    func store(
+        _ draft: GitLabResourceEditDraft,
+        for key: GitLabResourceEditDraftKey
+    ) throws(
+        GitLabResourceEditDraftStoreError
+    ) {
+        throw .storage
+    }
+
+    func remove(
+        for key: GitLabResourceEditDraftKey
+    ) {}
+
+    func removeAll(
+        for accountID: GitLabAccountID
+    ) {}
 }
