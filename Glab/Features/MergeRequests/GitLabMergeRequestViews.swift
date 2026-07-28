@@ -971,7 +971,6 @@ private struct GitLabMergeRequestDetailContent: View {
                     reactionService:
                         reactionService,
                     appSession: appSession,
-                    showsMutationControl: false,
                     launchComposer:
                         launchComposer
                 )
@@ -1094,6 +1093,7 @@ private struct GitLabMergeRequestDetailContent: View {
                     accountID: accountID,
                     appSession: appSession
                 )
+                .id(headSHA)
             } else {
                 Label(
                     "Preparing diff",
@@ -1329,11 +1329,7 @@ private struct
             "mergeRequests.changes"
         )
         .task(id: headSHA) {
-            if model.state == .idle {
-                await model.loadIfNeeded()
-            } else {
-                await model.retry()
-            }
+            await model.loadIfNeeded()
         }
         .onChange(
             of:

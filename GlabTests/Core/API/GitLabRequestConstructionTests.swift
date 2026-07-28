@@ -63,6 +63,28 @@ struct GitLabRequestConstructionTests {
         )
     }
 
+    @Test("Round trips a host through its canonical site URL")
+    func roundTripsCanonicalHostEncoding() throws {
+        let original = try GitLabHost(
+            "https://gitlab.example.com/company%20gitlab/api/v4"
+        )
+        let encoded = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(
+            GitLabHost.self,
+            from: encoded
+        )
+
+        #expect(
+            String(decoding: encoded, as: UTF8.self)
+                == "\"https:\\/\\/gitlab.example.com\\/company%20gitlab\""
+        )
+        #expect(decoded == original)
+        #expect(
+            decoded.graphQLURL.absoluteString
+                == "https://gitlab.example.com/company%20gitlab/api/graphql"
+        )
+    }
+
     @Test("Encodes path components and query values")
     func encodesPathAndQuery() throws {
         let host = try GitLabHost("https://gitlab.example.com/company")

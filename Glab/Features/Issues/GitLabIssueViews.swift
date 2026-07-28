@@ -714,7 +714,6 @@ private struct GitLabIssueDetailContent: View {
                     reactionService:
                         reactionService,
                     appSession: appSession,
-                    showsMutationControl: false,
                     launchComposer:
                         launchComposer
                 )

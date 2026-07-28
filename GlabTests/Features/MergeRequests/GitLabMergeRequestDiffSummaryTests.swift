@@ -71,6 +71,48 @@ struct GitLabMergeRequestDiffSummaryTests {
         )
     }
 
+    @Test("Builds the GitLab.com GraphQL query with OAuth")
+    func buildsHostedOAuthGraphQLQuery() throws {
+        let endpoint =
+            try GitLabMergeRequestDiffSummaryEndpoint
+                .query(mergeRequestID: 7)
+        let request = try GitLabRequestBuilder(
+            host: GitLabHost("gitlab.com"),
+            authorization:
+                .oauth(
+                    accessToken:
+                        "oauth-secret"
+                )
+        ).build(endpoint)
+
+        #expect(
+            request.url?.absoluteString
+                == "https://gitlab.com/api/graphql"
+        )
+        #expect(
+            request.value(
+                forHTTPHeaderField:
+                    "Authorization"
+            ) == "Bearer oauth-secret"
+        )
+        #expect(
+            request.value(
+                forHTTPHeaderField:
+                    "PRIVATE-TOKEN"
+            ) == nil
+        )
+        #expect(
+            !(request.httpBody.map {
+                String(
+                    decoding: $0,
+                    as: UTF8.self
+                )
+            } ?? "").contains(
+                "oauth-secret"
+            )
+        )
+    }
+
     @Test("Maps a complete GraphQL summary")
     func loadsSummary() async throws {
         let client = DiffSummaryClient(
@@ -165,6 +207,12 @@ struct GitLabMergeRequestDiffSummaryTests {
                 .unauthenticated
             ),
             GitLabSessionClientError.api(
+                .forbidden
+            ),
+            GitLabSessionClientError.api(
+                .notFound
+            ),
+            GitLabSessionClientError.api(
                 .server(statusCode: 503)
             ),
             GitLabSessionClientError.api(
@@ -188,6 +236,39 @@ struct GitLabMergeRequestDiffSummaryTests {
                     mergeRequestID: 314
                 )
         }
+    }
+
+    @Test("Loads a diff summary only once until explicitly retried")
+    func loadsSummaryOnce() async {
+        let client = DiffSummaryClient(
+            json:
+                """
+                {
+                  "data": {
+                    "mergeRequest": {
+                      "diffStatsSummary": {
+                        "additions": 2,
+                        "deletions": 1,
+                        "changes": 3,
+                        "fileCount": 1
+                      }
+                    }
+                  }
+                }
+                """
+        )
+        let model = GitLabMergeRequestDiffSummaryModel(
+            mergeRequestID: 7,
+            loader:
+                LiveGitLabMergeRequestLoader(
+                    client: client
+                )
+        )
+
+        await model.loadIfNeeded()
+        await model.loadIfNeeded()
+
+        #expect(await client.sendCount == 1)
     }
 }
 
@@ -227,6 +308,31 @@ struct GitLabMergeRequestDiffSummaryPresentationTests {
         #expect(
             presentation.accessibilityLabel
                 == "12 changed files, 727 additions, 7 deletions"
+        )
+    }
+
+    @Test("Presents exact singular GraphQL statistics")
+    func presentsExactSingularStatistics() {
+        let presentation =
+            GitLabMergeRequestDiffSummaryPresentation(
+                state:
+                    .loaded(
+                        .available(
+                            GitLabMergeRequestDiffSummary(
+                                additions: 1,
+                                deletions: 1,
+                                changes: 2,
+                                fileCount: 1
+                            )
+                        )
+                    ),
+                restChangesCount: nil
+            )
+
+        #expect(presentation.fileText == "1 file")
+        #expect(
+            presentation.accessibilityLabel
+                == "1 changed file, 1 additions, 1 deletions"
         )
     }
 
@@ -293,6 +399,46 @@ struct GitLabMergeRequestDiffSummaryPresentationTests {
                 == "8 files"
         )
         #expect(presentation.isLoading)
+    }
+
+    @Test(
+        "Uses a generic fallback for unavailable or invalid REST counts",
+        arguments: [
+            (
+                GitLabResourceDetailState<
+                    GitLabMergeRequestDiffSummaryAvailability
+                >.idle,
+                "files"
+            ),
+            (
+                .loaded(.unavailable),
+                "12 files"
+            ),
+            (
+                .failed(.api(.notFound)),
+                "+"
+            ),
+        ]
+    )
+    func presentsGenericFallback(
+        state:
+            GitLabResourceDetailState<
+                GitLabMergeRequestDiffSummaryAvailability
+            >,
+        restCount: String
+    ) {
+        let presentation =
+            GitLabMergeRequestDiffSummaryPresentation(
+                state: state,
+                restChangesCount: restCount
+            )
+
+        #expect(
+            presentation.fileText
+                == "Changed files"
+        )
+        #expect(presentation.additionsText == nil)
+        #expect(presentation.deletionsText == nil)
     }
 }
 

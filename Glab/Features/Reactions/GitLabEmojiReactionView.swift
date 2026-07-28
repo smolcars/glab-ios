@@ -316,6 +316,10 @@ struct GitLabEmojiReactionView: View {
             }?
             .isSelectedByCurrentUser
             == true
+        let isDisabled =
+            !model.canMutate
+            || isPending
+            || requiresRefresh
 
         return Button {
             isPickerPresented = false
@@ -346,11 +350,9 @@ struct GitLabEmojiReactionView: View {
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .disabled(
-            isPending || requiresRefresh
-        )
+        .disabled(isDisabled)
         .opacity(
-            isPending || requiresRefresh
+            isDisabled
                 ? 0.45
                 : 1
         )

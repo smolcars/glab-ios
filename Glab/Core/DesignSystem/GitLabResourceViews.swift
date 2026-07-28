@@ -152,16 +152,7 @@ struct GitLabOpenInGitLabControl: View {
                             .weight(.semibold)
                     )
 
-                Image("GitLabLogo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(
-                        width: 26,
-                        height: 26
-                    )
-                    .scaleEffect(2.5)
-                    .clipped()
-                    .accessibilityHidden(true)
+                GitLabLogoMark()
             }
             .padding(.horizontal, 2)
         }
@@ -195,18 +186,7 @@ struct GitLabResourceDetailToolbarActions:
                     destination:
                         destination
                 ) {
-                    Image("GitLabLogo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(
-                            width: 26,
-                            height: 26
-                        )
-                        .scaleEffect(2.5)
-                        .clipped()
-                        .accessibilityHidden(
-                            true
-                        )
+                    GitLabLogoMark()
                 }
                 .accessibilityLabel(
                     "Open in GitLab"
@@ -234,5 +214,20 @@ struct GitLabResourceDetailToolbarActions:
                     : "Explains why commenting is unavailable."
             )
         }
+    }
+}
+
+private struct GitLabLogoMark: View {
+    var body: some View {
+        Image("GitLabLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(
+                width: 26,
+                height: 26
+            )
+            .scaleEffect(2.5)
+            .clipped()
+            .accessibilityHidden(true)
     }
 }

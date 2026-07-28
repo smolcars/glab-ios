@@ -10,7 +10,6 @@ struct GitLabDiscussionSection: View {
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
     let appSession: AppSession
-    let showsMutationControl: Bool
     let launchComposer:
         (GitLabDiscussionComposerTarget) -> Void
 
@@ -23,58 +22,8 @@ struct GitLabDiscussionSection: View {
                 alignment: .leading,
                 spacing: 14
             ) {
-                if showsMutationControl {
-                    mutationControl
-                }
                 content
             }
-        }
-    }
-
-    @ViewBuilder
-    private var mutationControl: some View {
-        if apiAccess.canWrite {
-            Button {
-                launchComposer(
-                    .newDiscussion
-                )
-            } label: {
-                Label(
-                    "Add comment",
-                    systemImage:
-                        "bubble.left.and.text.bubble.right"
-                )
-            }
-            .buttonStyle(.glassProminent)
-            .tint(.orange)
-            .accessibilityIdentifier(
-                "discussion.addComment"
-            )
-            .accessibilityHint(
-                "Opens a Markdown comment editor."
-            )
-        } else {
-            Label {
-                Text(
-                    "Read-only access. The api scope is required to comment."
-                )
-                .font(.footnote)
-            } icon: {
-                Image(systemName: "lock.fill")
-            }
-            .foregroundStyle(.orange)
-            .padding(12)
-            .frame(
-                maxWidth: .infinity,
-                alignment: .leading
-            )
-            .background(
-                Color.orange.opacity(0.1),
-                in: .rect(cornerRadius: 12)
-            )
-            .accessibilityIdentifier(
-                "discussion.readOnlyMessage"
-            )
         }
     }
 
@@ -328,8 +277,8 @@ private struct GitLabActivityStrip: View {
             )
             .accessibilityHint(
                 isExpanded
-                    ? "Collapses merge request activity."
-                    : "Expands merge request activity."
+                    ? "Collapses activity."
+                    : "Expands activity."
             )
             .accessibilityIdentifier(
                 "discussion.activity"

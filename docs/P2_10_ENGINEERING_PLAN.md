@@ -443,9 +443,10 @@ material issues:
 1. Returning from the changed-files screen restarts the summary view task and
    calls `retry()` even after a successful load, causing an unnecessary
    GraphQL request.
-2. `GitLabHost.graphQLURL` is persisted as stored state even though it is
-   derived from the normalized API root. Keeping a second stored URL creates
-   avoidable Codable/state-consistency risk.
+2. `GitLabHost.graphQLURL` is retained as stored state even though only the
+   canonical site URL is encoded and the GraphQL URL is derived from the
+   normalized API root. Keeping a second in-memory URL creates avoidable
+   state-consistency risk.
 3. Moving issue and merge-request comment creation to the shared toolbar left
    the old inline mutation-control branch unreachable at every call site.
 4. The shared activity strip still says “merge request activity” in its
