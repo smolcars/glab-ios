@@ -213,6 +213,12 @@ final class GitLabDiscussionComposerModel {
             ).isEmpty
     }
 
+    var canSubmitFromToolbar: Bool {
+        canSend
+            && failure?.certainty
+                != .deliveryUnknown
+    }
+
     var authenticationFailure:
         GitLabSessionClientError?
     {

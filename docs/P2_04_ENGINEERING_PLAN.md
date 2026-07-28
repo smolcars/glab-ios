@@ -471,6 +471,58 @@ passes with the full OAuth refresh, session access, discussion mutation, and
 composer suites. Reactive refresh-and-retry remains available for GET and
 pagination requests only.
 
+#### Finding 2 — The write composer obscured the read-only discussion views
+
+**Severity:** material maintainability issue; no runtime defect.
+
+Adding the composer and its failure presentation grew
+`GitLabDiscussionViews.swift` beyond 1,100 lines and placed the independent
+write workflow between the discussion card and note presentation. This makes
+future discussion, reaction, and diff-note review unnecessarily difficult.
+The composer already has a clean input boundary and does not need a new
+abstraction.
+
+Repair plan:
+
+1. Move the composer and its private failure view verbatim into a focused
+   `GitLabDiscussionComposerView.swift` file.
+2. Keep model ownership, dependency injection, accessibility identifiers, and
+   presentation behavior unchanged.
+3. Build, rerun the composer/discussion suites, and inspect the production
+   sheet again in the Simulator to prove the move is behavior-neutral.
+
+Resolution: completed. The extracted source is byte-for-byte equivalent apart
+from the file-scope access modifier, the signed build succeeds, and the real
+self-managed read-only issue flow still displays the correct capability
+notice with no mutation control in the iPhone 17 Pro Simulator.
+
+#### Finding 3 — Uncertain delivery left the normal Post action enabled
+
+**Severity:** material duplicate-post UX risk.
+
+After a delivery-unknown failure, the failure card correctly warns about a
+possible duplicate and shows `Try Again`, but the ordinary toolbar `Post` or
+`Reply` action also remained enabled. Both paths were intentional taps, yet
+the ordinary action bypassed the warning's deliberately explicit retry
+affordance and made an accidental duplicate easier.
+
+Repair plan:
+
+1. Add model coverage proving the ordinary composer action becomes unavailable
+   after an uncertain result while an explicit model retry remains possible.
+2. Drive the toolbar disabled state from that safety-specific presentation
+   property. Keep the failure-card `Try Again` action as the only retry route
+   while delivery is uncertain.
+3. Preserve ordinary toolbar retries for local draft-storage failures and
+   rejected failures, then rerun composer tests and the deterministic failure
+   UI flow.
+
+Resolution: implementation and focused model coverage are complete. The
+ordinary toolbar action is disabled only for delivery-unknown failures; the
+warning's `Try Again` remains available, and rejected or local draft-storage
+failures retain their intended recovery paths. Deterministic failure-state UI
+inspection remains part of final verification.
+
 ## Non-goals
 
 - Markdown composer preview or toolbar.

@@ -265,6 +265,7 @@ struct GitLabDiscussionComposerModelTests {
             model.failure == .draftStorage
         )
         #expect(model.body == "Keep this safe")
+        #expect(model.canSubmitFromToolbar)
         #expect(await mutator.postCount == 0)
     }
 
@@ -299,6 +300,7 @@ struct GitLabDiscussionComposerModelTests {
                     certainty: .rejected
                 )
         )
+        #expect(model.canSubmitFromToolbar)
         #expect(
             await store.draft(
                 for: context.draftKey()
@@ -378,6 +380,7 @@ struct GitLabDiscussionComposerModelTests {
                         .deliveryUnknown
                 )
         )
+        #expect(!model.canSubmitFromToolbar)
         #expect(await mutator.postCount == 1)
     }
 
