@@ -141,6 +141,11 @@ extension GitLabResponseCachePolicy {
         freshFor: 5 * 60,
         maximumAge: 24 * 60 * 60
     )
+
+    static let discussions = Self(
+        freshFor: 60,
+        maximumAge: 24 * 60 * 60
+    )
 }
 
 nonisolated enum GitLabCachedResponseFreshness:
