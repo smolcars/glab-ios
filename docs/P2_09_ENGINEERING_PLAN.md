@@ -3,9 +3,9 @@
 ## Status
 
 - Planning: complete
-- Implementation: not started
-- Verification: not started
-- Deep review: not started
+- Implementation: complete; repair pass pending
+- Verification: in progress
+- Deep review: complete; material findings recorded below
 
 This document is the required plan for P2-09. Production code must not be
 changed for this feature until this plan is committed.
@@ -520,8 +520,58 @@ Not started.
 
 ## Deep-review findings
 
-Not started.
+The first post-implementation review covered every P2-09 production and test
+change, the account/session boundaries it calls, and the live Simulator
+deep-link and search behavior.
+
+Material findings:
+
+1. **Configured-host lookalikes reached the missing-account prompt.**
+   `GitLabDeepLinkParser` correctly classified
+   `git.zebedee.team.evil.test` as untrusted for the configured
+   `git.zebedee.team` account. However, `GitLabDeepLinkAccountMatcher`
+   interpreted the absence of any exact match as a legitimate new GitLab
+   instance and offered Add Account and Open in GitLab. The same branch would
+   treat an exact configured hostname on a mismatched port as a new instance.
+   This contradicts the planned rule that prefix/suffix/lookalike origins and
+   port mismatches are rejected without browser fallback. Simulator delivery
+   reproduced the prompt; it did not send a credential or open the URL.
+2. **The all-scope search failure had no global retry.**
+   `GitLabGlobalSearchModel.allScopesFailed` was implemented and tested, but
+   the view only rendered three independent retry rows. This missed the
+   planned one-tap global retry while retaining the individual explanations.
+3. **Typed-throws handling retained unreachable fallback code.**
+   Search loading catches `GitLabSessionClientError` with a runtime cast and
+   then includes a generic transport fallback even though
+   `GitLabSearchLoading` uses typed throws. The Release build reports that the
+   cast is always true. This is duplicated, misleading error handling rather
+   than a runtime bug.
+
+No additional material issue was found in credential attachment, account
+isolation, relative-root matching, path decoding/traversal rejection,
+pagination URL trust, cancellation generations, sparse decoding, search
+history isolation, cache behavior, native route ownership, or read-only
+request enforcement. Search uses the uncached `sendPage` path, so neither
+queries nor result bodies are persisted by the app response cache.
 
 ## Repair plan
 
-Not required unless the deep review records a material finding.
+Required before editing production code:
+
+1. Add failing matcher and incoming-link regression tests for configured-host
+   prefix/suffix lookalikes and exact-host port mismatches. Retain an explicit
+   case proving an unrelated valid HTTPS host can still offer Add Account.
+2. Add a pure configured-origin conflict classification beside the existing
+   parser origin checks. Before the missing-account decision, reject a source
+   origin that reuses a configured hostname on a different port or embeds a
+   configured hostname as a prefix/suffix lookalike. Do not broaden this into
+   DNS, redirect, or network probing.
+3. Add an accessible global retry row when all three scopes fail. It will call
+   the existing refresh path and authentication-failure handling while leaving
+   all three per-scope explanations and retry controls visible.
+4. Replace the impossible runtime-cast/generic catch pairs with direct
+   typed-throws catches. Do not change error classification.
+5. Rerun the focused P2-09 tests, complete test suite, Release build, static
+   analysis, URL/security scans, and the affected Simulator matrix. Repeat the
+   deep review after the repairs and close the checklist only if no material
+   finding remains.
