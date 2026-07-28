@@ -28,13 +28,13 @@ Todos. GitLab's `read_api` scope cannot perform that write operation.
 
 ## GitLab.com
 
-Register Glab once under **Edit profile > Access > Applications > Add new
-application**, using the settings above. Copy the resulting Application ID, but
-not the secret.
+Glab's public GitLab.com Application ID is committed as the
+`GLAB_GITLAB_COM_OAUTH_APPLICATION_ID` user-defined build setting for both
+Debug and Release. It identifies the registered public/native application; it
+is not a credential. Do not add the corresponding client secret to the project
+or app bundle.
 
-Keep the Application ID outside the committed project value. Set the
-`GLAB_GITLAB_COM_OAUTH_APPLICATION_ID` user-defined build setting in a local
-Xcode configuration, or pass it to a development build:
+Developers can temporarily override the Application ID for a local build:
 
 ```sh
 xcodebuild \
@@ -45,9 +45,11 @@ xcodebuild \
 
 The value is expanded into the app's Info.plist at build time. An Xcode scheme
 environment variable with the same name is also supported for local
-development. The Application ID is public client metadata, but keeping the
-project default empty prevents one developer's registration from silently
-becoming the release configuration.
+development and takes precedence at runtime.
+
+Live authorization, callback, user validation, and restored-session checks
+pass with this registration on a physical iPhone. The client secret is not
+required by or present in the app.
 
 ## Self-managed GitLab
 
@@ -73,6 +75,9 @@ configuration for that host; access and refresh tokens are saved in Keychain.
 The MVP requires an HTTPS host whose certificate is trusted by iOS. HTTP,
 custom certificate authorities, and client-certificate authentication are not
 supported.
+
+Live self-managed OAuth authorization, callback, and session checks also pass
+with an instance-specific public Application ID supplied through this setup.
 
 ## Troubleshooting
 

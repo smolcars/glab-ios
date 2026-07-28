@@ -63,6 +63,24 @@ struct AppBootstrapTests {
                 == false
         )
 
+        let gitLabDotComApplicationID = try #require(
+            info[
+                GitLabOAuthRuntimeConfiguration
+                    .informationPropertyListKey
+            ] as? String
+        )
+        #expect(
+            !gitLabDotComApplicationID
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .isEmpty
+        )
+        #expect(
+            !info.keys.contains {
+                $0.localizedCaseInsensitiveContains("oauth")
+                    && $0.localizedCaseInsensitiveContains("secret")
+            }
+        )
+
         let icons = try #require(
             info["CFBundleIcons"] as? [String: Any]
         )
