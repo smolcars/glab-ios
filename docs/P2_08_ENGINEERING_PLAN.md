@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-28
 
-Status: implemented; deep-review repairs are in progress.
+Status: complete; implementation, verification, and deep-review repairs passed.
 
 Glab has not shipped, so internal response and presentation models may change
 without migration. The feature is read-only. Verification will use an iPhone
@@ -386,3 +386,36 @@ unknown future statuses prevent a ready verdict.
 4. Repeat focused tests, the complete suite, static analysis, cache/account
    isolation checks, and the live self-managed read-only Simulator refresh
    flow.
+
+Repair status: complete. The regression test preserves last-known rows while
+downgrading only an otherwise optimistic ready result. The reviewed production
+build then passed the complete verification gate below.
+
+## Final verification
+
+Completed on 2026-07-28 using only the iPhone 17 Pro Simulator running iOS
+26.5 and the configured self-managed read-only account:
+
+- Focused endpoint, decoding, readiness, approval-loader/model, cache-policy,
+  unknown-status, and stale-refresh regression tests passed.
+- The complete Debug suite passed: 501 tests, representing 688 parameterized
+  test cases, with zero failures, expected failures, or skips.
+- Six existing Release performance tests for the surrounding markdown,
+  discussion, and diff detail surfaces passed with testability enabled only
+  for the test action.
+- Xcode static analysis passed.
+- Existing multi-account switching, active-account race, cache invalidation,
+  request coalescing, variant isolation, and retained revalidation tests passed
+  as part of the complete suite.
+- Live read-only navigation showed the expected blocked summary for a real MR:
+  passed head pipeline, two approvals remaining, no conflicts, resolved
+  blocking discussions, and a non-draft review state.
+- The pipeline glass Link opened the expected self-managed GitLab browser
+  destination. Safari requested its independent GitLab login; no credential
+  was entered and no mutation was attempted.
+- Pull to refresh preserved the summary without an approval error.
+- Dark and light appearance, standard and maximum accessibility Dynamic Type,
+  Reduce Motion, stable accessibility row identifiers, scrolling, and the
+  compact floating GitLab control passed visual and interaction checks.
+- The final reviewed source was rebuilt, installed on the Simulator, and both
+  the navigation and refresh flows passed again.

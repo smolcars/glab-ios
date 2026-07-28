@@ -392,7 +392,7 @@ Todo:
   editing code, add regression and performance tests where applicable,
   implement every fix, and repeat the feature verification and review.
 
-### [ ] P2-08 — Add an MR readiness summary
+### [x] P2-08 — Add an MR readiness summary
 
 Outcome:
 
@@ -401,36 +401,36 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect the MR detail model, available decoded merge-status fields,
+- [x] Inspect the MR detail model, available decoded merge-status fields,
   discussion resolution data, API capability handling, and cache policy.
-- [ ] Before writing code, create `docs/P2_08_ENGINEERING_PLAN.md`. Document
+- [x] Before writing code, create `docs/P2_08_ENGINEERING_PLAN.md`. Document
   MR/pipeline/approval endpoint contracts, GitLab tier/version differences,
   readiness derivation, partial-data behavior, caching, refresh, tests,
   presentation, accessibility, and non-goals.
-- [ ] Define a small readiness domain model that preserves unknown and
+- [x] Define a small readiness domain model that preserves unknown and
   unavailable states instead of treating them as failure or success.
-- [ ] Write failing tests for passing/running/failed/missing pipelines,
+- [x] Write failing tests for passing/running/failed/missing pipelines,
   approved/pending/unavailable approvals, merge conflicts, draft MRs,
   unresolved discussions, unknown detailed merge statuses, partial failures,
   cache refresh, and account switching.
-- [ ] Load only the minimum additional data required for the summary and avoid
+- [x] Load only the minimum additional data required for the summary and avoid
   serial requests when independent API calls can execute concurrently.
-- [ ] Handle GitLab tiers and self-managed versions gracefully. Do not show a
+- [x] Handle GitLab tiers and self-managed versions gracefully. Do not show a
   paid or unavailable approval capability as a network failure.
-- [ ] Add a compact, accessible readiness summary to MR details with a clear
+- [x] Add a compact, accessible readiness summary to MR details with a clear
   path to pipeline, approval, and unresolved-discussion information.
-- [ ] Keep Phase 2 readiness read-only. Approve, unapprove, merge, and pipeline
+- [x] Keep Phase 2 readiness read-only. Approve, unapprove, merge, and pipeline
   retry actions require separate future plans and explicit mutation safety.
-- [ ] Verify every readiness state, partial failure, cached/stale refresh,
+- [x] Verify every readiness state, partial failure, cached/stale refresh,
   read-only account, Dynamic Type, and light/dark appearance in the iPhone 17
   Pro Simulator.
-- [ ] Run focused tests, the complete suite, static analysis, and API
+- [x] Run focused tests, the complete suite, static analysis, and API
   compatibility checks.
-- [ ] Perform a deep code review of all code added or changed for this feature.
+- [x] Perform a deep code review of all code added or changed for this feature.
   Look for bugs, bad code, duplicated loading/state derivation, false-ready
   states, tier/version assumptions, request waterfalls, stale summaries, and
   code that needs refactoring. Record the findings in the engineering plan.
-- [ ] If the review finds anything material, write a repair plan before
+- [x] If the review finds anything material, write a repair plan before
   editing code, add regression tests where applicable, implement every fix,
   and repeat the feature verification and review.
 
