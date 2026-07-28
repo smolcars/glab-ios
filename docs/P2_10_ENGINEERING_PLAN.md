@@ -19,9 +19,9 @@ Merge-request details use three compact review affordances:
 2. One Activity strip summarizes system-only discussion events. The strip and
    its individual events can be expanded without turning every event into a
    large card.
-3. Compact top-trailing comment controls on merge-request and issue details
-   open the existing Markdown composer. Read-only accounts can inspect why
-   commenting is unavailable.
+3. One compact top-trailing Liquid Glass action group on merge-request and
+   issue details contains an icon-only GitLab web link and the comment
+   control. Read-only accounts can inspect why commenting is unavailable.
 
 These controls must reduce occupied space without hiding user comments or
 making loading of one optional summary block the merge-request screen.
@@ -216,9 +216,12 @@ The MR and issue detail boundaries each own
 `GitLabDiscussionComposerTarget?` and present the existing
 `GitLabDiscussionComposerView`.
 
-- A native top-trailing toolbar button with a compose symbol is the
-  new-comment control on both details. iOS 26 supplies the floating toolbar
-  Liquid Glass treatment.
+- One native top-trailing `ToolbarItemGroup` on both details contains an
+  icon-only GitLab web link and the compose action. iOS 26 supplies the
+  grouped Liquid Glass treatment and individual control feedback.
+- The GitLab action uses the official bundled mark without visible text.
+  It retains an `Open in GitLab` accessibility label and stable
+  resource-specific identifier.
 - A write-enabled tap selects `.newDiscussion`.
 - A read-only tap presents a concise capability explanation; it never opens a
   send-capable composer.
@@ -235,42 +238,50 @@ closure, while each detail screen owns new-comment presentation.
 ## Liquid Glass and layout
 
 - Custom glass remains limited to interactive floating controls.
-- The diff capsule and existing Open in GitLab control share one bottom
-  `GlassEffectContainer` and remain separate actions.
+- The diff capsule remains the only bottom merge-request control. Issue
+  detail has no bottom floating control.
 - Activity is content, not a glass control; use a compact standard disclosure
   surface.
-- The comment action uses the native iOS 26 toolbar glass rather than drawing
-  another material layer.
+- The web and comment actions use one native iOS 26 toolbar group rather than
+  drawing another material layer.
 - Counts use monospaced digits, retain sufficient color contrast, and never
   rely on color alone in accessibility labels.
 - Layout must fit narrow iPhone widths and accessibility Dynamic Type without
   covering the Home/Todos tab bar or discussion content.
 
-## Follow-up plan — consistent issue comment control
+## Follow-up plan — unified detail action pill
 
 Screenshot review found that issue detail retained the older large inline
 comment control after merge-request detail adopted the compact toolbar action.
-This follow-up is presentation-only.
+Further review found that the bottom floating Open in GitLab control competes
+with content and the bottom navigation. This follow-up is presentation-only.
 
 Implementation:
 
 1. Move issue composer-target state and sheet presentation from issue detail
    content to the issue detail boundary, matching merge-request ownership.
-2. Add the same native top-trailing compose action after issue detail loads.
+2. On both issue and merge-request detail, use one native top-trailing
+   `ToolbarItemGroup` containing the official GitLab mark link followed by the
+   compose action.
 3. Reuse `GitLabDiscussionComposerLaunchPolicy`: writable accounts open the
    existing composer and read-only accounts receive the same concise
    capability explanation without creating a composer target.
 4. Pass one composer-launch closure into discussion content for replies and
    remove the issue-only inline mutation surface.
-5. Preserve draft storage, server-ID reconciliation, authentication handling,
+5. Remove the issue and merge-request bottom Open in GitLab controls. Keep the
+   merge-request changed-files summary as its sole bottom floating action.
+6. Preserve draft storage, server-ID reconciliation, authentication handling,
    comment endpoints, mutation certainty, and cache invalidation unchanged.
 
 Verification:
 
 - Existing launch-policy and composer tests remain green.
-- Simulator inspection proves issue and merge-request details expose the same
-  top-trailing action, no inline add-comment button remains, replies still
-  target the correct discussion, and read-only taps issue no mutation.
+- Simulator inspection proves issue and merge-request details expose one
+  horizontal two-action pill, no bottom GitLab action or inline add-comment
+  button remains, replies still target the correct discussion, and read-only
+  comment taps issue no mutation.
+- The GitLab mark visibly fills its toolbar slot and opens the existing safe
+  resource URL while retaining its accessibility label.
 - Include both resource-detail composer paths in the P2-10 deep-review gate.
 
 ## Follow-up plan — compact horizontal reaction picker
@@ -391,8 +402,8 @@ Use only the configured iPhone 17 Pro Simulator:
 - Diff capsule tap, file list, file diff, and back navigation.
 - Write-enabled deterministic comment and reply composer presentation without
   a live POST.
-- Issue and merge-request toolbar action consistency with no inline
-  add-comment control.
+- Issue and merge-request toolbar action consistency with one horizontal
+  GitLab/comment group and no inline add-comment or bottom GitLab control.
 - Read-only live self-managed account: comment explanation and zero mutation
   on both resource details.
 - VoiceOver labels/actions for the three refined controls.

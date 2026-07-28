@@ -486,8 +486,9 @@ Outcome:
 - Merge-request details use compact review controls: a floating changed-files
   summary with exact additions and deletions when GitLab supplies them, one
   collapsible Activity strip, and a floating comment action.
-- Issue details use the same compact top-trailing comment action instead of
-  retaining a separate large inline control.
+- Issue and merge-request details use the same compact top-trailing Liquid
+  Glass action group for the GitLab web link and commenting, without a
+  separate large inline or bottom web control.
 - Loading or compatibility failures in the new summary never block merge
   request content, discussions, or the existing changed-file viewer.
 
@@ -524,6 +525,10 @@ Todo:
 - [ ] Apply the same compact top-trailing Add Comment action to issue detail.
   Remove the issue-only inline control and keep one shared composer,
   reconciliation, draft, mutation, and read-only capability path.
+- [ ] Group the official icon-only GitLab web link and Add Comment action in
+  one top-trailing Liquid Glass pill on issue and merge-request details.
+  Remove their bottom floating GitLab controls while retaining the MR diff
+  summary as its sole bottom action.
 - [ ] Verify successful, loading, unavailable, and failed diff summaries;
   no/short/long activity; comments plus activity; read-only and write-enabled
   composer presentation; pagination; Dynamic Type; VoiceOver; Reduce Motion;
