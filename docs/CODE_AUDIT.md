@@ -441,4 +441,7 @@ Scope:
   be claimed as passed.
 - The local archive is development-signed. Distribution signing and App Store
   validation remain external release actions and are not inferred from a
-  successful local archive.
+  successful local archive. A non-uploading App Store Connect export was
+  attempted and Xcode reported no authenticated accounts and no distribution
+  profile for the app bundle identifier; the separate validation method
+  requires an upload and was intentionally not used.

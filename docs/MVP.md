@@ -444,6 +444,9 @@ Implementation status:
   distribution validation, and the remaining environment-owned device rows
   are still pending. See the
   [MVP-15 verification record](MVP_15_ENGINEERING_PLAN.md#release-candidate-verification-record).
+- The latest non-uploading App Store Connect export attempt reached signing
+  resolution but Xcode had no authenticated account or distribution profile
+  available. The development-signed Release archive itself remains valid.
 - This item and MVP-05 deliberately remain unchecked; deterministic tests do
   not replace the required live authentication rows.
 

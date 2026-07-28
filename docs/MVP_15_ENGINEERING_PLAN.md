@@ -215,6 +215,16 @@ Candidate code commit: `f788c44`
   `get-task-allow = true`. Organizer/App Store Connect distribution signing and
   validation remain a separate release-owner action; a successful local
   archive is not presented as App Store validation.
+- A fresh archive at repository checkpoint `084c2bb` also succeeds and passes
+  strict local code-signature verification. A non-uploading App Store Connect
+  export reaches signing resolution but fails with Xcode reporting no
+  authenticated accounts and no distribution provisioning profile for
+  `com.glab.ios`. An Apple Distribution identity is installed, so the remaining
+  requirement is the Xcode account/profile session rather than app source.
+- Xcode's `validation` export method requires `destination = upload`; it was
+  not used because this plan explicitly forbids uploading as an incidental
+  verification side effect. Organizer/App Store Connect validation therefore
+  remains pending.
 
 ### Authentication matrix
 
@@ -263,4 +273,6 @@ client/model gates or the already completed fresh-install session proof.
   test.
 
 MVP-15 and MVP-05 remain unchecked until the live OAuth rows, GitLab.com token
-row, outstanding device rows, and distribution validation are completed.
+row, outstanding device rows, and distribution validation are completed. The
+Mac must also be unlocked before Xcode's account state and the system icon
+treatments can be inspected interactively.
