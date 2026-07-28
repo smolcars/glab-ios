@@ -8,7 +8,7 @@
 - Test implementation: complete
 - Production implementation: complete
 - Verification: pending
-- Deep review: in progress — three material findings have committed repair plans
+- Deep review: in progress — four material findings have committed repair plans
 
 This plan must be committed and pushed before any P3-04 test or production
 code is changed.
@@ -723,6 +723,45 @@ Repair plan, to be committed before production edits:
 6. Rerun the focused concurrency, cancellation, readiness, and presentation
    suites, then the complete P3-04 gates and Simulator checks.
 7. Repeat the deep review and record the final result here.
+
+### DR-04 — Review controls and readiness consume excessive space
+
+Status: repair planned; production code not yet changed.
+
+The Simulator and physical-device UI review found three presentation defects:
+
+- the standard glass style paints the entire 44-point Resolve/Reopen hit target,
+  producing an oversized visual control inside each discussion card;
+- merge readiness permanently renders its summary plus five verbose check rows,
+  displacing the description and discussion content even when the user only
+  needs the overall verdict; and
+- the emoji picker preserves a 44-point hit target but uses a plain style, so
+  its standalone emoji has no visual affordance that it is a button.
+
+The controls must remain accessible and the readiness details must remain
+available. This is a presentation repair only; it must not change discussion
+mutation, reaction mutation, readiness derivation, API, cache, or permission
+behavior.
+
+Repair plan, to be committed before production edits:
+
+1. Add focused readiness-presentation tests for a concise summary of blocked,
+   pending, ready, and unavailable checks.
+2. Default merge readiness to a compact summary row and let the user expand or
+   collapse all five detailed checks. Keep approval errors visible while
+   collapsed and preserve the pipeline deep link in the expanded details.
+3. Reduce the visible Resolve/Reopen glass control with the small control size
+   while retaining a minimum 44-point hit target, progress, disabled state,
+   accessibility semantics, and Dynamic Type behavior.
+4. Give the emoji picker a small glass surface while retaining its 44-point hit
+   target and existing bottom-leading horizontal picker.
+5. Run the focused readiness, discussion-presentation, and reaction suites.
+   Inspect the affected MR screens in dark and light appearance at regular and
+   accessibility text sizes on the iPhone 17 Pro Simulator.
+6. Rerun the full test suite, Release build, analyzer, privacy, credential, and
+   forced-operation checks.
+7. Repeat the deep review and record the final result here before closing
+   P3-04 or beginning P3-05.
 
 ## Non-goals
 
