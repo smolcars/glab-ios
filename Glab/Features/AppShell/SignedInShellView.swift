@@ -44,6 +44,8 @@ struct SignedInShellView: View {
     private let mergeRequestLoader:
         any GitLabMergeRequestLoading
     private let projectLoader: any GitLabProjectLoading
+    private let markdownRenderer:
+        any GitLabMarkdownRendering
 
     init(
         session: GitLabStoredSession,
@@ -86,6 +88,7 @@ struct SignedInShellView: View {
         self.issueLoader = issueLoader
         self.mergeRequestLoader = mergeRequestLoader
         self.projectLoader = projectLoader
+        markdownRenderer = GitLabMarkdownRenderer()
         _homeDashboardModel = State(
             initialValue: HomeDashboardModel(
                 loader: LiveHomeDashboardLoader(
@@ -149,6 +152,10 @@ struct SignedInShellView: View {
             .badge(todosModel.pendingBadgeCount ?? 0)
         }
         .tint(.orange)
+        .environment(
+            \.gitLabMarkdownRenderer,
+            markdownRenderer
+        )
         .accessibilityIdentifier("signedIn.tabView")
         .alert(
             "GitLab Session Ended",

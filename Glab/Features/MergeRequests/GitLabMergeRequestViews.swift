@@ -593,7 +593,8 @@ struct GitLabMergeRequestDetailView: View {
                 }
 
                 GitLabMergeRequestDetailContent(
-                    mergeRequest: mergeRequest
+                    mergeRequest: mergeRequest,
+                    accountID: accountID
                 )
             }
         }
@@ -614,6 +615,10 @@ struct GitLabMergeRequestDetailView: View {
 
 private struct GitLabMergeRequestDetailContent: View {
     let mergeRequest: GitLabMergeRequest
+    let accountID: GitLabAccountID
+
+    @Environment(\.gitLabMarkdownRenderer)
+    private var markdownRenderer
 
     var body: some View {
         ScrollView {
@@ -687,12 +692,22 @@ private struct GitLabMergeRequestDetailContent: View {
                     ),
                 !description.isEmpty
             {
-                Text(
-                    GitLabDescriptionFormatter
-                        .attributedString(description)
+                GitLabMarkdownDescriptionView(
+                    request: GitLabMarkdownRequest(
+                        accountID: accountID,
+                        resource: .mergeRequest(
+                            projectID:
+                                mergeRequest.projectID,
+                            mergeRequestIID:
+                                mergeRequest.iid
+                        ),
+                        source: description,
+                        webURL:
+                            mergeRequest.safeWebURL
+                    ),
+                    revision: mergeRequest.updatedAt,
+                    renderer: markdownRenderer
                 )
-                .font(.body)
-                .textSelection(.enabled)
             } else {
                 Text("No description provided.")
                     .font(.body)

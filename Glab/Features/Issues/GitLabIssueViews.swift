@@ -447,7 +447,8 @@ struct GitLabIssueDetailView: View {
                 }
 
                 GitLabIssueDetailContent(
-                    issue: issue
+                    issue: issue,
+                    accountID: accountID
                 )
             }
         }
@@ -466,6 +467,10 @@ struct GitLabIssueDetailView: View {
 
 private struct GitLabIssueDetailContent: View {
     let issue: GitLabIssue
+    let accountID: GitLabAccountID
+
+    @Environment(\.gitLabMarkdownRenderer)
+    private var markdownRenderer
 
     var body: some View {
         ScrollView {
@@ -542,12 +547,19 @@ private struct GitLabIssueDetailContent: View {
                     ),
                 !description.isEmpty
             {
-                Text(
-                    GitLabDescriptionFormatter
-                        .attributedString(description)
+                GitLabMarkdownDescriptionView(
+                    request: GitLabMarkdownRequest(
+                        accountID: accountID,
+                        resource: .issue(
+                            projectID: issue.projectID,
+                            issueIID: issue.iid
+                        ),
+                        source: description,
+                        webURL: issue.safeWebURL
+                    ),
+                    revision: issue.updatedAt,
+                    renderer: markdownRenderer
                 )
-                    .font(.body)
-                    .textSelection(.enabled)
             } else {
                 Text("No description provided.")
                     .font(.body)

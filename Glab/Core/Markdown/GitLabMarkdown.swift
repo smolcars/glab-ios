@@ -160,6 +160,7 @@ nonisolated struct GitLabMarkdownTable:
     let alignments: [GitLabMarkdownTableAlignment]
     let header: [GitLabMarkdownText]
     let rows: [[GitLabMarkdownText]]
+    let columnCharacterCounts: [Int]
 }
 
 nonisolated struct GitLabMarkdownImage:
@@ -825,8 +826,33 @@ nonisolated private enum GitLabMarkdownTreeConverter {
                 }
             },
             header: header,
-            rows: rows
+            rows: rows,
+            columnCharacterCounts:
+                columnCharacterCounts(
+                    header: header,
+                    rows: rows,
+                    columnCount: columns.count
+                )
         )
+    }
+
+    private static func columnCharacterCounts(
+        header: [GitLabMarkdownText],
+        rows: [[GitLabMarkdownText]],
+        columnCount: Int
+    ) -> [Int] {
+        (0..<columnCount).map { columnIndex in
+            ([header] + rows)
+                .compactMap { row in
+                    guard row.indices.contains(columnIndex) else {
+                        return nil
+                    }
+                    return row[columnIndex]
+                        .plainText.count
+                }
+                .max()
+                ?? 0
+        }
     }
 
     private static func unsupportedKind(
