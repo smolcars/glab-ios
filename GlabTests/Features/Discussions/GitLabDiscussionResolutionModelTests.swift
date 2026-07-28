@@ -370,6 +370,179 @@ struct GitLabDiscussionResolutionModelTests {
         )
     }
 
+    @Test("Serializes readiness refreshes without serializing independent writes")
+    @MainActor
+    func serializesReadinessRefreshes()
+        async throws
+    {
+        let first =
+            resolutionDiscussion(
+                id: "first",
+                resolved: false
+            )
+        let second =
+            resolutionDiscussion(
+                id: "second",
+                resolved: false
+            )
+        let resolvedFirst =
+            resolutionDiscussion(
+                id: "first",
+                resolved: true
+            )
+        let resolvedSecond =
+            resolutionDiscussion(
+                id: "second",
+                resolved: true
+            )
+        let mutator =
+            ResolutionRecordingMutator(
+                resolutionResults: [
+                    "first": [
+                        .success(resolvedFirst),
+                    ],
+                    "second": [
+                        .success(resolvedSecond),
+                    ],
+                ]
+            )
+        let context =
+            try ResolutionModelContext(
+                discussions: [
+                    first,
+                    second,
+                ],
+                mutator: mutator
+            )
+        context.state.gatesReadiness = true
+
+        let firstTask = Task {
+            await context.model.toggle(first)
+        }
+        await context.state
+            .waitUntilReadinessRefreshCount(1)
+
+        let secondTask = Task {
+            await context.model.toggle(second)
+        }
+        await context.state
+            .waitUntilReconciledCount(2)
+
+        #expect(
+            await mutator.resolutionCalls
+                .count == 2
+        )
+        #expect(
+            context.state.readinessRefreshCount
+                == 1
+        )
+        #expect(
+            context.state
+                .maximumConcurrentReadinessRefreshCount
+                == 1
+        )
+        #expect(
+            context.model.status(for: first)?
+                .phase == .refreshingReadiness
+        )
+        #expect(
+            context.model.status(for: second)?
+                .phase == .refreshingReadiness
+        )
+
+        context.state
+            .releaseReadinessRefresh()
+        await context.state
+            .waitUntilReadinessRefreshCount(2)
+
+        #expect(
+            context.state
+                .maximumConcurrentReadinessRefreshCount
+                == 1
+        )
+
+        context.state
+            .releaseReadinessRefresh()
+        await firstTask.value
+        await secondTask.value
+    }
+
+    @Test("Cancellation releases active and queued readiness refreshes")
+    @MainActor
+    func cancelsReadinessRefreshQueue()
+        async throws
+    {
+        let first =
+            resolutionDiscussion(
+                id: "first",
+                resolved: false
+            )
+        let second =
+            resolutionDiscussion(
+                id: "second",
+                resolved: false
+            )
+        let mutator =
+            ResolutionRecordingMutator(
+                resolutionResults: [
+                    "first": [
+                        .success(
+                            resolutionDiscussion(
+                                id: "first",
+                                resolved: true
+                            )
+                        ),
+                    ],
+                    "second": [
+                        .success(
+                            resolutionDiscussion(
+                                id: "second",
+                                resolved: true
+                            )
+                        ),
+                    ],
+                ]
+            )
+        let context =
+            try ResolutionModelContext(
+                discussions: [
+                    first,
+                    second,
+                ],
+                mutator: mutator
+            )
+        context.state.gatesReadiness = true
+
+        let firstTask = Task {
+            await context.model.toggle(first)
+        }
+        await context.state
+            .waitUntilReadinessRefreshCount(1)
+
+        let secondTask = Task {
+            await context.model.toggle(second)
+        }
+        await context.state
+            .waitUntilReconciledCount(2)
+
+        context.model.cancelAll()
+        await firstTask.value
+        await secondTask.value
+
+        #expect(
+            context.state.readinessRefreshCount
+                == 1
+        )
+        #expect(
+            context.model.status(for: first)?
+                .phase == .idle
+        )
+        #expect(
+            context.model.status(for: second)?
+                .phase == .idle
+        )
+    }
+
     @Test("Rejects read-only and inapplicable discussions before transport")
     @MainActor
     func rejectsInvalidStarts() async throws {
@@ -1244,17 +1417,41 @@ private final class ResolutionModelState {
     var reconciled:
         [GitLabDiscussion] = []
     var readinessRefreshCount = 0
+    private(set) var
+        maximumConcurrentReadinessRefreshCount =
+            0
     var gatesReadiness = false
     var isAccountCurrent = true
-    private var readinessRefreshStarted =
-        false
-    private var readinessRefreshReleased =
-        false
     private var readinessStartWaiters:
-        [CheckedContinuation<Void, Never>] =
-            []
-    private var readinessReleaseWaiter:
-        CheckedContinuation<Void, Never>?
+        [
+            Int:
+                [
+                    CheckedContinuation<
+                        Void,
+                        Never
+                    >
+                ]
+        ] = [:]
+    private var readinessReleaseWaiters:
+        [
+            Int:
+                CheckedContinuation<
+                    Void,
+                    Never
+                >
+        ] = [:]
+    private var activeReadinessRefreshCount =
+        0
+    private var reconciledWaiters:
+        [
+            Int:
+                [
+                    CheckedContinuation<
+                        Void,
+                        Never
+                    >
+                ]
+        ] = [:]
 
     init(
         discussions: [GitLabDiscussion]
@@ -1269,39 +1466,130 @@ private final class ResolutionModelState {
 
     func refreshReadiness() async {
         readinessRefreshCount += 1
+        let refreshNumber =
+            readinessRefreshCount
+        activeReadinessRefreshCount += 1
+        maximumConcurrentReadinessRefreshCount =
+            max(
+                maximumConcurrentReadinessRefreshCount,
+                activeReadinessRefreshCount
+            )
+        resumeReadinessStartWaiters()
+        defer {
+            activeReadinessRefreshCount -= 1
+        }
         guard gatesReadiness else {
             return
         }
 
-        readinessRefreshStarted = true
-        for waiter in readinessStartWaiters {
-            waiter.resume()
-        }
-        readinessStartWaiters.removeAll()
-
-        guard !readinessRefreshReleased else {
-            return
-        }
-        await withCheckedContinuation {
-            readinessReleaseWaiter = $0
+        await withTaskCancellationHandler {
+            await withCheckedContinuation {
+                readinessReleaseWaiters[
+                    refreshNumber
+                ] = $0
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?
+                    .releaseReadinessRefresh(
+                        refreshNumber
+                    )
+            }
         }
     }
 
     func waitUntilReadinessRefreshStarts()
         async
     {
-        guard !readinessRefreshStarted else {
+        await waitUntilReadinessRefreshCount(
+            1
+        )
+    }
+
+    func waitUntilReadinessRefreshCount(
+        _ count: Int
+    ) async {
+        guard
+            readinessRefreshCount < count
+        else {
             return
         }
         await withCheckedContinuation {
-            readinessStartWaiters.append($0)
+            readinessStartWaiters[
+                count,
+                default: []
+            ].append($0)
         }
     }
 
     func releaseReadinessRefresh() {
-        readinessRefreshReleased = true
-        readinessReleaseWaiter?.resume()
-        readinessReleaseWaiter = nil
+        guard
+            let firstKey =
+                readinessReleaseWaiters
+                    .keys.min()
+        else {
+            return
+        }
+        releaseReadinessRefresh(
+            firstKey
+        )
+    }
+
+    func waitUntilReconciledCount(
+        _ count: Int
+    ) async {
+        guard reconciled.count < count else {
+            return
+        }
+        await withCheckedContinuation {
+            reconciledWaiters[
+                count,
+                default: []
+            ].append($0)
+        }
+    }
+
+    func didReconcile() {
+        let readyCounts =
+            reconciledWaiters.keys
+                .filter {
+                    $0 <= reconciled.count
+                }
+        for count in readyCounts {
+            reconciledWaiters
+                .removeValue(forKey: count)?
+                .forEach {
+                    $0.resume()
+                }
+        }
+    }
+
+    private func
+        resumeReadinessStartWaiters()
+    {
+        let readyCounts =
+            readinessStartWaiters.keys
+                .filter {
+                    $0
+                        <= readinessRefreshCount
+                }
+        for count in readyCounts {
+            readinessStartWaiters
+                .removeValue(forKey: count)?
+                .forEach {
+                    $0.resume()
+                }
+        }
+    }
+
+    private func releaseReadinessRefresh(
+        _ refreshNumber: Int
+    ) {
+        readinessReleaseWaiters
+            .removeValue(
+                forKey: refreshNumber
+            )?
+            .resume()
     }
 }
 
@@ -1362,6 +1650,7 @@ private struct ResolutionModelContext {
                     state.reconciled.append(
                         discussion
                     )
+                    state.didReconcile()
                     return true
                 },
                 refreshReadiness: {

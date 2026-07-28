@@ -102,6 +102,15 @@ final class GitLabDiscussionResolutionModel {
             GitLabDiscussionResolutionFailure?
     }
 
+    private struct ReadinessRefreshWaiter {
+        let id: UInt64
+        let continuation:
+            CheckedContinuation<
+                Bool,
+                Never
+            >
+    }
+
     let accountID: GitLabAccountID
     let route: GitLabMergeRequestRoute
     let apiAccess: GitLabAPIAccess
@@ -136,6 +145,15 @@ final class GitLabDiscussionResolutionModel {
         [String: UInt64] = [:]
     @ObservationIgnored
     private var nextGeneration: UInt64 = 0
+    @ObservationIgnored
+    private var
+        activeReadinessRefreshID: UInt64?
+    @ObservationIgnored
+    private var queuedReadinessRefreshes:
+        [ReadinessRefreshWaiter] = []
+    @ObservationIgnored
+    private var nextReadinessRefreshID:
+        UInt64 = 0
 
     init(
         accountID: GitLabAccountID,
@@ -399,8 +417,12 @@ final class GitLabDiscussionResolutionModel {
             resolution.isResolved
                 == state.desiredResolved
         {
-            states[discussionID] = nil
-            await refreshReadiness()
+            await startReadinessRefresh(
+                discussion: current,
+                resolution: resolution,
+                desiredResolved:
+                    state.desiredResolved
+            )
             return
         }
 
@@ -416,11 +438,19 @@ final class GitLabDiscussionResolutionModel {
         nextGeneration &+= 1
         let activeTasks =
             Array(tasks.values)
+        let readinessWaiters =
+            queuedReadinessRefreshes
         tasks.removeAll()
         taskGenerations.removeAll()
         states.removeAll()
+        queuedReadinessRefreshes
+            .removeAll()
         for task in activeTasks {
             task.cancel()
+        }
+        for waiter in readinessWaiters {
+            waiter.continuation
+                .resume(returning: false)
         }
     }
 
@@ -468,6 +498,83 @@ final class GitLabDiscussionResolutionModel {
             operation,
             discussionID:
                 discussionID,
+            generation: generation
+        )
+    }
+
+    private func startReadinessRefresh(
+        discussion: GitLabDiscussion,
+        resolution:
+            GitLabDiscussionThreadResolution,
+        desiredResolved: Bool
+    ) async {
+        let discussionID =
+            discussion.id
+        let generation =
+            makeGeneration()
+        states[discussionID] =
+            TransientState(
+                baseline: discussion,
+                baselineResolution:
+                    resolution,
+                desiredResolved:
+                    desiredResolved,
+                generation: generation,
+                phase:
+                    .refreshingReadiness,
+                failure: nil
+            )
+
+        let operation = Task {
+            [weak self] in
+            guard
+                let self,
+                !Task.isCancelled
+            else {
+                return
+            }
+            await self
+                .performReadinessRefresh(
+                    discussionID:
+                        discussionID,
+                    generation: generation
+                )
+        }
+        tasks[discussionID] =
+            operation
+        taskGenerations[discussionID] =
+            generation
+        await awaitOperation(
+            operation,
+            discussionID:
+                discussionID,
+            generation: generation
+        )
+    }
+
+    private func performReadinessRefresh(
+        discussionID: String,
+        generation: UInt64
+    ) async {
+        guard
+            canPublish(
+                discussionID:
+                    discussionID,
+                generation: generation
+            ),
+            !Task.isCancelled
+        else {
+            clearIfCurrent(
+                discussionID:
+                    discussionID,
+                generation: generation
+            )
+            return
+        }
+
+        await refreshReadinessInOrder()
+        clearIfCurrent(
+            discussionID: discussionID,
             generation: generation
         )
     }
@@ -755,11 +862,131 @@ final class GitLabDiscussionResolutionModel {
                     .refreshingReadiness,
                 failure: nil
             )
-        await refreshReadiness()
+        await refreshReadinessInOrder()
         clearIfCurrent(
             discussionID: discussionID,
             generation: generation
         )
+    }
+
+    private func refreshReadinessInOrder()
+        async
+    {
+        nextReadinessRefreshID &+= 1
+        let refreshID =
+            nextReadinessRefreshID
+        guard
+            await acquireReadinessRefresh(
+                refreshID
+            )
+        else {
+            return
+        }
+        defer {
+            finishReadinessRefresh(
+                refreshID
+            )
+        }
+        guard
+            !Task.isCancelled,
+            isAccountCurrent()
+        else {
+            return
+        }
+        await refreshReadiness()
+    }
+
+    private func acquireReadinessRefresh(
+        _ refreshID: UInt64
+    ) async -> Bool {
+        guard !Task.isCancelled else {
+            return false
+        }
+        guard
+            activeReadinessRefreshID != nil
+        else {
+            activeReadinessRefreshID =
+                refreshID
+            return true
+        }
+
+        return await
+            withTaskCancellationHandler {
+                await withCheckedContinuation {
+                    continuation in
+                    guard
+                        !Task.isCancelled
+                    else {
+                        continuation.resume(
+                            returning: false
+                        )
+                        return
+                    }
+                    queuedReadinessRefreshes
+                        .append(
+                            ReadinessRefreshWaiter(
+                                id: refreshID,
+                                continuation:
+                                    continuation
+                            )
+                        )
+                }
+            } onCancel: {
+                Task {
+                    @MainActor [weak self] in
+                    self?
+                        .cancelQueuedReadinessRefresh(
+                            refreshID
+                        )
+                }
+            }
+    }
+
+    private func finishReadinessRefresh(
+        _ refreshID: UInt64
+    ) {
+        guard
+            activeReadinessRefreshID
+                == refreshID
+        else {
+            return
+        }
+        activeReadinessRefreshID = nil
+        guard
+            !queuedReadinessRefreshes
+                .isEmpty
+        else {
+            return
+        }
+
+        let next =
+            queuedReadinessRefreshes
+                .removeFirst()
+        activeReadinessRefreshID =
+            next.id
+        next.continuation
+            .resume(returning: true)
+    }
+
+    private func
+        cancelQueuedReadinessRefresh(
+            _ refreshID: UInt64
+        )
+    {
+        guard
+            let index =
+                queuedReadinessRefreshes
+                    .firstIndex(where: {
+                        $0.id == refreshID
+                    })
+        else {
+            return
+        }
+        let waiter =
+            queuedReadinessRefreshes
+                .remove(at: index)
+        waiter.continuation
+            .resume(returning: false)
     }
 
     private func recordMutationFailure(
