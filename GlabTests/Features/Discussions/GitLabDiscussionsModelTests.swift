@@ -359,6 +359,48 @@ struct GitLabDiscussionsModelTests {
             model.discussions == [original]
         )
     }
+
+    @Test("Reconciles composer results through one shared path")
+    @MainActor
+    func reconcilesComposerResults() async {
+        let original = makeTestDiscussion(
+            id: "thread"
+        )
+        let model = GitLabDiscussionsModel(
+            resource: resource,
+            loader:
+                StaticDiscussionLoader(
+                    discussions: [original]
+                )
+        )
+        await model.loadIfNeeded()
+        let created = makeTestDiscussion(
+            id: "created"
+        )
+        let reply = makeTestDiscussionNote(
+            id: 404,
+            body: "Shared path reply"
+        )
+
+        model.reconcile(
+            .discussion(created)
+        )
+        model.reconcile(
+            .reply(
+                reply,
+                discussionID: "thread"
+            )
+        )
+
+        #expect(
+            model.discussions.map(\.id)
+                == ["thread", "created"]
+        )
+        #expect(
+            model.discussions[0].notes.last
+                == reply
+        )
+    }
 }
 
 private actor StaticDiscussionLoader:

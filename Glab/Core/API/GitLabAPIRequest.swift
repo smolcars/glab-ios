@@ -14,7 +14,16 @@ nonisolated enum GitLabAPIRequestAccess:
     case write
 }
 
+nonisolated enum GitLabAPIRequestTarget:
+    Equatable,
+    Sendable
+{
+    case restV4
+    case graphQL
+}
+
 nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodable & Sendable {
+    let target: GitLabAPIRequestTarget
     let method: GitLabHTTPMethod
     let requiredAccess: GitLabAPIRequestAccess
     let pathComponents: [String]
@@ -29,6 +38,7 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
         cacheVariant: String? = nil
     ) -> Self {
         Self(
+            target: .restV4,
             method: .get,
             requiredAccess: access,
             pathComponents: path,
@@ -44,6 +54,7 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
         query: [URLQueryItem] = []
     ) -> Self {
         Self(
+            target: .restV4,
             method: .post,
             requiredAccess: access,
             pathComponents: path,
@@ -64,10 +75,29 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
         encoder.outputFormatting = [.sortedKeys]
 
         return Self(
+            target: .restV4,
             method: .post,
             requiredAccess: access,
             pathComponents: path,
             queryItems: query,
+            body: try encoder.encode(body),
+            cacheVariant: nil
+        )
+    }
+
+    static func graphQL<Body: Encodable & Sendable>(
+        requires access: GitLabAPIRequestAccess,
+        body: Body
+    ) throws -> Self {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+
+        return Self(
+            target: .graphQL,
+            method: .post,
+            requiredAccess: access,
+            pathComponents: [],
+            queryItems: [],
             body: try encoder.encode(body),
             cacheVariant: nil
         )
@@ -79,6 +109,7 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
         query: [URLQueryItem] = []
     ) -> Self {
         Self(
+            target: .restV4,
             method: .delete,
             requiredAccess: access,
             pathComponents: path,
@@ -144,8 +175,14 @@ nonisolated struct GitLabRequestBuilder: Sendable, CustomStringConvertible, Cust
     func build<Response>(
         _ endpoint: GitLabAPIRequest<Response>
     ) throws(GitLabRequestConstructionError) -> URLRequest {
+        let baseURL = switch endpoint.target {
+        case .restV4:
+            host.apiBaseURL
+        case .graphQL:
+            host.graphQLURL
+        }
         guard var components = URLComponents(
-            url: host.apiBaseURL,
+            url: baseURL,
             resolvingAgainstBaseURL: false
         ) else {
             throw .invalidURL

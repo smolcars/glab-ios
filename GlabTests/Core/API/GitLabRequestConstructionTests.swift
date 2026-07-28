@@ -49,6 +49,20 @@ struct GitLabRequestConstructionTests {
         }
     }
 
+    @Test("Preserves encoded relative roots for GraphQL")
+    func preservesGraphQLRelativeRootEncoding()
+        throws
+    {
+        let host = try GitLabHost(
+            "https://gitlab.example.com/company%20gitlab"
+        )
+
+        #expect(
+            host.graphQLURL.absoluteString
+                == "https://gitlab.example.com/company%20gitlab/api/graphql"
+        )
+    }
+
     @Test("Encodes path components and query values")
     func encodesPathAndQuery() throws {
         let host = try GitLabHost("https://gitlab.example.com/company")

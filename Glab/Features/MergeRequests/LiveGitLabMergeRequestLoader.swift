@@ -163,6 +163,16 @@ nonisolated protocol GitLabMergeRequestDiffLoading:
     ) async throws(GitLabSessionClientError)
 }
 
+nonisolated protocol
+    GitLabMergeRequestDiffSummaryLoading:
+    Sendable
+{
+    func loadMergeRequestDiffSummary(
+        mergeRequestID: Int
+    ) async throws(GitLabSessionClientError)
+        -> GitLabMergeRequestDiffSummaryAvailability
+}
+
 extension GitLabMergeRequestDiffLoading {
     func loadMergeRequestDiffsFirstPage(
         at route: GitLabMergeRequestRoute,
@@ -197,6 +207,7 @@ nonisolated struct LiveGitLabMergeRequestLoader:
     GitLabMergeRequestLoading,
     GitLabMergeRequestApprovalLoading,
     GitLabMergeRequestDiffLoading,
+    GitLabMergeRequestDiffSummaryLoading,
     Sendable
 {
     private let client:
@@ -430,5 +441,54 @@ nonisolated struct LiveGitLabMergeRequestLoader:
                 )
             )
         }
+    }
+
+    @concurrent
+    func loadMergeRequestDiffSummary(
+        mergeRequestID: Int
+    ) async throws(GitLabSessionClientError)
+        -> GitLabMergeRequestDiffSummaryAvailability
+    {
+        let endpoint:
+            GitLabAPIRequest<
+                GitLabMergeRequestDiffSummaryGraphQLResponse
+            >
+        do {
+            endpoint =
+                try GitLabMergeRequestDiffSummaryEndpoint
+                    .query(
+                        mergeRequestID:
+                            mergeRequestID
+                    )
+        } catch {
+            throw .api(.invalidResponse)
+        }
+        let response =
+            try await client.send(endpoint)
+        guard
+            let value =
+                response.data?
+                    .mergeRequest?
+                    .diffStatsSummary,
+            let additions = value.additions,
+            let deletions = value.deletions,
+            let changes = value.changes,
+            let fileCount = value.fileCount,
+            additions >= 0,
+            deletions >= 0,
+            changes >= 0,
+            fileCount >= 0
+        else {
+            return .unavailable
+        }
+
+        return .available(
+            GitLabMergeRequestDiffSummary(
+                additions: additions,
+                deletions: deletions,
+                changes: changes,
+                fileCount: fileCount
+            )
+        )
     }
 }

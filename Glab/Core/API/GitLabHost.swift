@@ -29,6 +29,7 @@ nonisolated enum GitLabHostError: Error, Equatable, Sendable, CustomStringConver
 nonisolated struct GitLabHost: Codable, Equatable, Sendable {
     let siteURL: URL
     let apiBaseURL: URL
+    let graphQLURL: URL
 
     init(_ input: String) throws(GitLabHostError) {
         let trimmedInput = input.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -62,18 +63,28 @@ nonisolated struct GitLabHost: Codable, Equatable, Sendable {
 
         components.scheme = "https"
         components.percentEncodedPath = Self.normalizedSitePath(components.percentEncodedPath)
+        let sitePath =
+            components.percentEncodedPath
 
         guard let siteURL = components.url else {
             throw .invalidURL
         }
 
-        components.percentEncodedPath += "/api/v4"
+        components.percentEncodedPath =
+            sitePath + "/api/v4"
         guard let apiBaseURL = components.url else {
+            throw .invalidURL
+        }
+
+        components.percentEncodedPath =
+            sitePath + "/api/graphql"
+        guard let graphQLURL = components.url else {
             throw .invalidURL
         }
 
         self.siteURL = siteURL
         self.apiBaseURL = apiBaseURL
+        self.graphQLURL = graphQLURL
     }
 
     private static func normalizedSitePath(_ path: String) -> String {

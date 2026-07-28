@@ -97,4 +97,25 @@ where
         )
         return true
     }
+
+    func reconcile(
+        _ result:
+            GitLabDiscussionComposerResult
+    ) {
+        switch result {
+        case let .discussion(discussion):
+            reconcileCreatedDiscussion(
+                discussion
+            )
+        case let .reply(
+            note,
+            discussionID
+        ):
+            reconcileCreatedReply(
+                note,
+                discussionID:
+                    discussionID
+            )
+        }
+    }
 }
