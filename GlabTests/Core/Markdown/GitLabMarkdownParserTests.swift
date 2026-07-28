@@ -286,6 +286,31 @@ struct GitLabMarkdownParserTests {
         )
     }
 
+    @Test("Malformed task markers remain static")
+    func malformedTaskMarkerBoundary() async throws {
+        let document =
+            try await GitLabMarkdownParser.parse(
+                makeRequest(
+                    source:
+                        "- [ ]No separating whitespace"
+                )
+            )
+        let renderedTasks =
+            tasks(in: document.blocks)
+
+        #expect(
+            renderedTasks.map(\.state)
+                == [.incomplete]
+        )
+        #expect(
+            renderedTasks
+                .allSatisfy {
+                    $0.sourceID == nil
+                }
+        )
+        #expect(!document.hasMappedMutableTask)
+    }
+
     @Test("Preserves quote, code, table, image, and rule structure")
     func structuredBlocks() async throws {
         let request = try makeRequest(

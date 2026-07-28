@@ -887,6 +887,17 @@ nonisolated private enum
         else {
             return nil
         }
+        let contentOffset =
+            markerOffset + 3
+        guard
+            contentOffset == lineEnd
+                || GitLabMarkdownTaskASCII
+                    .isHorizontalWhitespace(
+                        bytes[contentOffset]
+                    )
+        else {
+            return nil
+        }
         return GitLabMarkdownTaskASCII.state(
             for: bytes[markerOffset + 1]
         )

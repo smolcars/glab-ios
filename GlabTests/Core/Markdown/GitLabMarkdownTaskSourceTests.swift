@@ -215,6 +215,40 @@ struct GitLabMarkdownTaskSourceTests {
         #expect(tasks.isEmpty)
     }
 
+    @Test("Requires a task marker boundary before following content")
+    func taskMarkerBoundary() async throws {
+        let malformed = [
+            "- [ ]No separating whitespace",
+            "- [x]: https://gitlab.example.com",
+            "- [~].",
+        ]
+        for source in malformed {
+            #expect(
+                try await
+                    GitLabMarkdownTaskSourceIndex
+                    .tasks(in: source)
+                    .isEmpty
+            )
+        }
+
+        let valid = """
+        - [ ]
+        - [x]\tTabbed text
+        - [~]  Spaced text
+        """
+        #expect(
+            try await
+                GitLabMarkdownTaskSourceIndex
+                .tasks(in: valid)
+                .map(\.state)
+                == [
+                    .incomplete,
+                    .complete,
+                    .inapplicable,
+                ]
+        )
+    }
+
     @Test("Toggles only the selected marker byte")
     func exactByteRewrite() async throws {
         let source =
