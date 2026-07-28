@@ -1,5 +1,8 @@
 import Foundation
+import QuartzCore
+import SwiftUI
 import Testing
+import UIKit
 @testable import Glab
 
 @Suite(
@@ -174,6 +177,88 @@ struct GitLabDiscussionPerformanceTests {
         )
         #expect(
             p95 < activityNormalizationBudget
+        )
+    }
+
+    @Test("Keeps MR-sized discussion scroll offsets stable")
+    @MainActor
+    func stableDiscussionScrollOffsets() async throws {
+        let scrollResource:
+            GitLabDiscussionResource =
+                .mergeRequest(
+                    GitLabMergeRequestRoute(
+                        projectID: 42,
+                        mergeRequestIID: 7
+                    )
+                )
+        let discussions = try decode(
+            GitLabDiscussionPerformanceFixtures
+                .data(
+                    discussionCount: 76,
+                    leadingSystemDiscussionCount: 65
+                )
+        )
+        let loader = PerformanceDiscussionLoader(
+            firstPage: discussions,
+            nextPage: nil,
+            firstPageSource: .network
+        )
+        let model = GitLabDiscussionsModel(
+            resource: scrollResource,
+            loader: loader
+        )
+        await model.loadIfNeeded()
+
+        let host = try DiscussionScrollHost(
+            model: model,
+            resource: scrollResource
+        )
+        defer {
+            host.tearDown()
+        }
+        let scrollView = try await host.prepare()
+        #expect(
+            scrollView.contentSize.height
+                > scrollView.bounds.height
+        )
+
+        var maximumDrift: CGFloat = 0
+        let steps =
+            Array(1...12)
+            + Array((0..<12).reversed())
+        for step in steps {
+            let maximumOffset = max(
+                0,
+                scrollView.contentSize.height
+                    - scrollView.bounds.height
+            )
+            let targetOffset =
+                maximumOffset
+                * CGFloat(step)
+                / 12
+            scrollView.setContentOffset(
+                CGPoint(
+                    x: 0,
+                    y: targetOffset
+                ),
+                animated: false
+            )
+            scrollView.layoutIfNeeded()
+            host.layout()
+            await Task.yield()
+            host.layout()
+            maximumDrift = max(
+                maximumDrift,
+                abs(
+                    scrollView.contentOffset.y
+                        - targetOffset
+                )
+            )
+        }
+
+        #expect(
+            maximumDrift <= 1,
+            "The discussion scroll offset drifted by \(maximumDrift) points."
         )
     }
 
@@ -477,4 +562,230 @@ private actor RecordingDiscussionParser {
             ]
         )
     }
+}
+
+@MainActor
+private final class DiscussionScrollHost {
+    let window: UIWindow
+    let controller:
+        UIHostingController<
+            DiscussionScrollTestView
+        >
+
+    init(
+        model: GitLabDiscussionsModel,
+        resource: GitLabDiscussionResource
+    ) throws {
+        let host = try GitLabHost(
+            "https://gitlab.example.com"
+        )
+        let accountID = GitLabAccountID(
+            host: host,
+            userID: 1
+        )
+        controller = UIHostingController(
+            rootView:
+                DiscussionScrollTestView(
+                    model: model,
+                    resource: resource,
+                    accountID: accountID,
+                    appSession: AppSession(
+                        credentialStore:
+                            InMemoryGitLabCredentialStore()
+                    )
+                )
+        )
+        guard
+            let windowScene =
+                UIApplication.shared
+                    .connectedScenes
+                    .compactMap({
+                        $0 as? UIWindowScene
+                    })
+                    .first
+        else {
+            throw DiscussionViewPerformanceError
+                .missingWindowScene
+        }
+        window = UIWindow(
+            windowScene: windowScene
+        )
+        window.frame = CGRect(
+            x: 0,
+            y: 0,
+            width: 402,
+            height: 874
+        )
+        window.rootViewController =
+            controller
+        controller.loadViewIfNeeded()
+        controller.view.frame =
+            window.bounds
+        window.makeKeyAndVisible()
+    }
+
+    func prepare() async throws -> UIScrollView {
+        for _ in 0..<20 {
+            layout()
+            await Task.yield()
+        }
+        guard
+            let scrollView =
+                Self.verticalScrollView(
+                    in: controller.view
+                )
+        else {
+            throw DiscussionViewPerformanceError
+                .missingScrollView
+        }
+        return scrollView
+    }
+
+    func layout() {
+        controller.view.setNeedsLayout()
+        controller.view.layoutIfNeeded()
+        CATransaction.flush()
+    }
+
+    func tearDown() {
+        window.isHidden = true
+        window.rootViewController = nil
+    }
+
+    private static func verticalScrollView(
+        in view: UIView
+    ) -> UIScrollView? {
+        if
+            let scrollView =
+                view as? UIScrollView,
+            scrollView.contentSize.height
+                > scrollView.bounds.height
+        {
+            return scrollView
+        }
+        for subview in view.subviews {
+            if
+                let scrollView =
+                    verticalScrollView(
+                        in: subview
+                    )
+            {
+                return scrollView
+            }
+        }
+        return nil
+    }
+}
+
+private struct DiscussionScrollTestView:
+    View
+{
+    let model: GitLabDiscussionsModel
+    let resource: GitLabDiscussionResource
+    let accountID: GitLabAccountID
+    let appSession: AppSession
+    private let reactions =
+        EmptyDiscussionReactionService()
+    private let renderer =
+        GitLabMarkdownRenderer(
+            parser: {
+                GitLabMarkdownDocument(
+                    blocks: [
+                        .paragraph(
+                            GitLabMarkdownText(
+                                attributedString:
+                                    AttributedString(
+                                        $0.source
+                                    )
+                            )
+                        ),
+                    ]
+                )
+            }
+        )
+
+    var body: some View {
+        ScrollView {
+            GitLabDetailScrollContent {
+                ForEach(0..<8, id: \.self) {
+                    index in
+                    Text(
+                        String(
+                            repeating:
+                                "Readiness item \(index). ",
+                            count: index + 1
+                        )
+                    )
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
+                }
+
+                GitLabDiscussionSection(
+                    model: model,
+                    resource: resource,
+                    accountID: accountID,
+                    webURL: URL(
+                        string:
+                            "https://gitlab.example.com/"
+                            + "group/project/-/merge_requests/7"
+                    ),
+                    apiAccess: .readOnly,
+                    reactionService:
+                        reactions,
+                    resolutionModel: nil,
+                    appSession: appSession,
+                    launchComposer: { _ in }
+                )
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            Color.clear.frame(height: 76)
+        }
+        .environment(
+            \.gitLabMarkdownRenderer,
+            renderer
+        )
+    }
+}
+
+private actor EmptyDiscussionReactionService:
+    GitLabEmojiReactionLoading,
+    GitLabEmojiReactionMutating
+{
+    func loadReactionsPage(
+        for awardable: GitLabEmojiAwardable,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourcePage<GitLabEmojiAward>
+    {
+        GitLabResourcePage(
+            items: [],
+            nextPageURL: nil
+        )
+    }
+
+    func addReaction(
+        named name: String,
+        to awardable: GitLabEmojiAwardable
+    ) async throws(GitLabSessionClientError)
+        -> GitLabEmojiAward
+    {
+        throw .api(.invalidResponse)
+    }
+
+    func removeReaction(
+        awardID: Int,
+        from awardable: GitLabEmojiAwardable
+    ) async throws(GitLabSessionClientError) {
+        throw .api(.invalidResponse)
+    }
+}
+
+private enum DiscussionViewPerformanceError:
+    Error
+{
+    case missingWindowScene
+    case missingScrollView
 }

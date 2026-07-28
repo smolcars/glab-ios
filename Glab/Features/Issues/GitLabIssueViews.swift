@@ -833,7 +833,7 @@ private struct GitLabIssueDetailContent: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 22) {
+            GitLabDetailScrollContent {
                 header
 
                 GitLabEmojiReactionView(
@@ -888,7 +888,6 @@ private struct GitLabIssueDetailContent: View {
                         launchComposer
                 )
             }
-            .padding(20)
         }
         .accessibilityIdentifier("issues.detail.scroll")
     }

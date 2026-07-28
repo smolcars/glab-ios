@@ -1171,7 +1171,9 @@ private struct GitLabMergeRequestDetailContent: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 22) {
+            GitLabDetailScrollContent(
+                bottomPadding: 76
+            ) {
                 header
 
                 GitLabMergeRequestReadinessView(
@@ -1230,11 +1232,6 @@ private struct GitLabMergeRequestDetailContent: View {
                         launchComposer
                 )
             }
-            .padding(20)
-            .padding(
-                .bottom,
-                76
-            )
         }
         .accessibilityIdentifier(
             "mergeRequests.detail.scroll"

@@ -2,10 +2,19 @@ import Foundation
 
 enum GitLabDiscussionPerformanceFixtures {
     static func data(
-        discussionCount: Int
+        discussionCount: Int,
+        leadingSystemDiscussionCount: Int? = nil
     ) throws -> Data {
         let discussions = (0..<discussionCount).map {
-            discussion(index: $0)
+            index in
+            discussion(
+                index: index,
+                isSystem:
+                    leadingSystemDiscussionCount
+                        .map { limit in
+                            index < limit
+                        }
+            )
         }
         return try JSONSerialization.data(
             withJSONObject: discussions,
@@ -14,20 +23,23 @@ enum GitLabDiscussionPerformanceFixtures {
     }
 
     private static func discussion(
-        index: Int
+        index: Int,
+        isSystem: Bool?
     ) -> [String: Any] {
         let isThread = index.isMultiple(of: 5)
         let notes = isThread
             ? (0..<3).map {
                 note(
                     discussionIndex: index,
-                    replyIndex: $0
+                    replyIndex: $0,
+                    isSystem: isSystem
                 )
             }
             : [
                 note(
                     discussionIndex: index,
-                    replyIndex: 0
+                    replyIndex: 0,
+                    isSystem: isSystem
                 ),
             ]
 
@@ -40,12 +52,14 @@ enum GitLabDiscussionPerformanceFixtures {
 
     private static func note(
         discussionIndex: Int,
-        replyIndex: Int
+        replyIndex: Int,
+        isSystem systemOverride: Bool?
     ) -> [String: Any] {
         let noteID =
             discussionIndex * 10 + replyIndex + 1
         let isSystem =
-            discussionIndex.isMultiple(of: 4)
+            systemOverride
+            ?? discussionIndex.isMultiple(of: 4)
         let isDiff =
             discussionIndex.isMultiple(of: 7)
         let isInternal =

@@ -292,7 +292,7 @@ private struct GitLabActivityStrip: View {
                 Divider()
                     .padding(.leading, 44)
 
-                LazyVStack(
+                VStack(
                     alignment: .leading,
                     spacing: 0
                 ) {
@@ -506,7 +506,7 @@ struct GitLabDiscussionCard: View {
     let reply: (() -> Void)?
 
     var body: some View {
-        LazyVStack(
+        VStack(
             alignment: .leading,
             spacing: 0
         ) {

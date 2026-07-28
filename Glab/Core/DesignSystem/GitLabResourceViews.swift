@@ -120,6 +120,30 @@ struct GitLabDetailSection<Content: View>: View {
     }
 }
 
+struct GitLabDetailScrollContent<Content: View>: View {
+    let bottomPadding: CGFloat
+    let content: Content
+
+    init(
+        bottomPadding: CGFloat = 0,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.bottomPadding = bottomPadding
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(
+            alignment: .leading,
+            spacing: 22
+        ) {
+            content
+        }
+        .padding(20)
+        .padding(.bottom, bottomPadding)
+    }
+}
+
 struct GitLabOpenInGitLabLink: View {
     let destination: URL
     let accessibilityIdentifier: String
