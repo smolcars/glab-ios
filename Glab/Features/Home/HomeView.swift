@@ -81,10 +81,11 @@ struct HomeView: View {
                     } label: {
                         GitLabUserAvatar(
                             user: displayedUser,
-                            size: 30
+                            size: 44
                         )
-                        .frame(width: 44, height: 44)
                     }
+                    .buttonStyle(.plain)
+                    .contentShape(.circle)
                     .accessibilityLabel(
                         "Account for \(displayedUser.displayName)"
                     )

@@ -125,20 +125,32 @@ struct GitLabOpenInGitLabLink: View {
     let accessibilityIdentifier: String
 
     var body: some View {
-        Link(destination: destination) {
-            Label(
-                "Open in GitLab",
-                systemImage: "safari"
+        HStack {
+            Spacer(minLength: 0)
+
+            Link(destination: destination) {
+                HStack(spacing: 8) {
+                    Text("Open in")
+                        .font(.subheadline.weight(.semibold))
+
+                    Image("GitLabLogo")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                        .scaleEffect(2)
+                        .clipped()
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 2)
+            }
+            .buttonStyle(.glass)
+            .controlSize(.regular)
+            .accessibilityLabel("Open in GitLab")
+            .accessibilityIdentifier(
+                accessibilityIdentifier
             )
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: 30)
         }
-        .buttonStyle(.glassProminent)
-        .tint(.orange)
-        .controlSize(.large)
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .accessibilityIdentifier(accessibilityIdentifier)
+        .padding(.vertical, 8)
     }
 }
