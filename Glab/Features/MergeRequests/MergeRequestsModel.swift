@@ -32,6 +32,27 @@ where
                     nextPageURL: page.nextPageURL
                 )
             },
+            loadFirstPage: {
+                (
+                    refreshBehavior:
+                        GitLabCacheRefreshBehavior,
+                    onPage:
+                        @escaping @Sendable (
+                            GitLabResourcePageEvent<
+                                GitLabMergeRequest
+                            >
+                        ) async -> Void
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> Void in
+                try await loader
+                    .loadMergeRequestsFirstPage(
+                        for: mode,
+                        refreshBehavior:
+                            refreshBehavior,
+                        onPage: onPage
+                    )
+            },
             identity: { $0.route },
             searchValues: {
                 let users =

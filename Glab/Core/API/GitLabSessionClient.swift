@@ -251,7 +251,9 @@ where
                             value: response.value,
                             metadata: response.metadata,
                             source:
-                                .cache(freshness)
+                                .cache(freshness),
+                            cacheStoredAt:
+                                cached.storedAt
                         )
                     )
 

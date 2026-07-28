@@ -6,6 +6,40 @@ nonisolated protocol GitLabProjectLoading: Sendable {
         after nextPageURL: URL?
     ) async throws(GitLabSessionClientError)
         -> GitLabProjectPage
+
+    func loadProjectsFirstPage(
+        for mode: GitLabProjectListMode,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<GitLabProject>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError)
+}
+
+extension GitLabProjectLoading {
+    func loadProjectsFirstPage(
+        for mode: GitLabProjectListMode,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<GitLabProject>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        let page = try await loadProjectsPage(
+            for: mode,
+            after: nil
+        )
+        await onPage(
+            GitLabResourcePageEvent(
+                page: GitLabResourcePage(
+                    items: page.projects,
+                    nextPageURL: page.nextPageURL
+                ),
+                source: .network
+            )
+        )
+    }
 }
 
 nonisolated struct LiveGitLabProjectLoader:
@@ -45,5 +79,39 @@ nonisolated struct LiveGitLabProjectLoader:
             nextPageURL: response.metadata.nextPageURL
         )
     }
-}
 
+    @concurrent
+    func loadProjectsFirstPage(
+        for mode: GitLabProjectListMode,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<GitLabProject>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        try await client.loadPage(
+            .initial(
+                GitLabProjectEndpoints.projects(
+                    for: mode
+                )
+            ),
+            cachePolicy: .projects,
+            refreshBehavior: refreshBehavior
+        ) {
+            await onPage(
+                GitLabResourcePageEvent(
+                    page: GitLabResourcePage(
+                        items: $0.value,
+                        nextPageURL:
+                            $0.metadata.nextPageURL,
+                        totalCount:
+                            $0.metadata.totalCount
+                    ),
+                    source: $0.source,
+                    cacheStoredAt:
+                        $0.cacheStoredAt
+                )
+            )
+        }
+    }
+}

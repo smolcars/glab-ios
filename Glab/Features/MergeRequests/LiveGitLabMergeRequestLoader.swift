@@ -7,10 +7,48 @@ nonisolated protocol GitLabMergeRequestLoading: Sendable {
     ) async throws(GitLabSessionClientError)
         -> GitLabMergeRequestPage
 
+    func loadMergeRequestsFirstPage(
+        for mode: GitLabMergeRequestListMode,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<
+                    GitLabMergeRequest
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError)
+
     func loadMergeRequest(
         at route: GitLabMergeRequestRoute
     ) async throws(GitLabSessionClientError)
         -> GitLabMergeRequest
+}
+
+extension GitLabMergeRequestLoading {
+    func loadMergeRequestsFirstPage(
+        for mode: GitLabMergeRequestListMode,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<
+                    GitLabMergeRequest
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        let page = try await loadMergeRequestsPage(
+            for: mode,
+            after: nil
+        )
+        await onPage(
+            GitLabResourcePageEvent(
+                page: GitLabResourcePage(
+                    items: page.mergeRequests,
+                    nextPageURL: page.nextPageURL
+                ),
+                source: .network
+            )
+        )
+    }
 }
 
 nonisolated struct LiveGitLabMergeRequestLoader:
@@ -50,6 +88,42 @@ nonisolated struct LiveGitLabMergeRequestLoader:
             mergeRequests: response.value,
             nextPageURL: response.metadata.nextPageURL
         )
+    }
+
+    @concurrent
+    func loadMergeRequestsFirstPage(
+        for mode: GitLabMergeRequestListMode,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<
+                    GitLabMergeRequest
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        try await client.loadPage(
+            .initial(
+                GitLabMergeRequestEndpoints
+                    .mergeRequests(for: mode)
+            ),
+            cachePolicy: .workList,
+            refreshBehavior: refreshBehavior
+        ) {
+            await onPage(
+                GitLabResourcePageEvent(
+                    page: GitLabResourcePage(
+                        items: $0.value,
+                        nextPageURL:
+                            $0.metadata.nextPageURL,
+                        totalCount:
+                            $0.metadata.totalCount
+                    ),
+                    source: $0.source,
+                    cacheStoredAt:
+                        $0.cacheStoredAt
+                )
+            )
+        }
     }
 
     @concurrent

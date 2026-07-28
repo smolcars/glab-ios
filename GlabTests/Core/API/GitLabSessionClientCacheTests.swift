@@ -41,6 +41,10 @@ struct GitLabSessionClientCacheTests {
             await events.values.map(\.source)
                 == [.cache(.fresh)]
         )
+        #expect(
+            await events.values.map(\.cacheStoredAt)
+                == [now.addingTimeInterval(-30)]
+        )
     }
 
     @Test("A stale cache hit publishes before one request completes")

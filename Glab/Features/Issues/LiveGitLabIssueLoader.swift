@@ -5,9 +5,40 @@ nonisolated protocol GitLabIssueLoading: Sendable {
         after nextPageURL: URL?
     ) async throws(GitLabSessionClientError) -> GitLabIssuePage
 
+    func loadAssignedIssuesFirstPage(
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<GitLabIssue>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError)
+
     func loadIssue(
         at route: GitLabIssueRoute
     ) async throws(GitLabSessionClientError) -> GitLabIssue
+}
+
+extension GitLabIssueLoading {
+    func loadAssignedIssuesFirstPage(
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<GitLabIssue>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        let page = try await loadAssignedIssuesPage(
+            after: nil
+        )
+        await onPage(
+            GitLabResourcePageEvent(
+                page: GitLabResourcePage(
+                    items: page.issues,
+                    nextPageURL: page.nextPageURL
+                ),
+                source: .network
+            )
+        )
+    }
 }
 
 nonisolated struct LiveGitLabIssueLoader:
@@ -39,6 +70,38 @@ nonisolated struct LiveGitLabIssueLoader:
     }
 
     @concurrent
+    func loadAssignedIssuesFirstPage(
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<GitLabIssue>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        try await client.loadPage(
+            .initial(
+                GitLabIssueEndpoints.assignedIssues
+            ),
+            cachePolicy: .workList,
+            refreshBehavior: refreshBehavior
+        ) {
+            await onPage(
+                GitLabResourcePageEvent(
+                    page: GitLabResourcePage(
+                        items: $0.value,
+                        nextPageURL:
+                            $0.metadata.nextPageURL,
+                        totalCount:
+                            $0.metadata.totalCount
+                    ),
+                    source: $0.source,
+                    cacheStoredAt:
+                        $0.cacheStoredAt
+                )
+            )
+        }
+    }
+
+    @concurrent
     func loadIssue(
         at route: GitLabIssueRoute
     ) async throws(GitLabSessionClientError) -> GitLabIssue {
@@ -47,4 +110,3 @@ nonisolated struct LiveGitLabIssueLoader:
         )
     }
 }
-

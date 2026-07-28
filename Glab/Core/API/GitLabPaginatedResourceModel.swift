@@ -18,6 +18,24 @@ where Item: Sendable {
     }
 }
 
+nonisolated struct GitLabResourcePageEvent<Item>:
+    Sendable
+where Item: Sendable {
+    let page: GitLabResourcePage<Item>
+    let source: GitLabAPIResponseSource
+    let cacheStoredAt: Date?
+
+    init(
+        page: GitLabResourcePage<Item>,
+        source: GitLabAPIResponseSource,
+        cacheStoredAt: Date? = nil
+    ) {
+        self.page = page
+        self.source = source
+        self.cacheStoredAt = cacheStoredAt
+    }
+}
+
 @MainActor
 @Observable
 final class GitLabPaginatedResourceModel<Item, Identity>
@@ -42,11 +60,21 @@ where
     private(set) var didFailNextPage = false
     private(set) var hasLoaded = false
     private(set) var contentRevision = 0
+    private(set) var firstPageSource:
+        GitLabAPIResponseSource?
+    private(set) var firstPageCacheStoredAt: Date?
     var searchText = ""
 
     private let loadPage:
         @Sendable (URL?) async throws(GitLabSessionClientError)
             -> GitLabResourcePage<Item>
+    private let loadFirstPage:
+        (@Sendable (
+            GitLabCacheRefreshBehavior,
+            @escaping @Sendable (
+                GitLabResourcePageEvent<Item>
+            ) async -> Void
+        ) async throws(GitLabSessionClientError) -> Void)?
     private let identity: @Sendable (Item) -> Identity
     private let searchValues: @Sendable (Item) -> [String]
 
@@ -54,10 +82,18 @@ where
         loadPage: @escaping @Sendable (URL?) async throws(
             GitLabSessionClientError
         ) -> GitLabResourcePage<Item>,
+        loadFirstPage:
+            (@Sendable (
+                GitLabCacheRefreshBehavior,
+                @escaping @Sendable (
+                    GitLabResourcePageEvent<Item>
+                ) async -> Void
+            ) async throws(GitLabSessionClientError) -> Void)? = nil,
         identity: @escaping @Sendable (Item) -> Identity,
         searchValues: @escaping @Sendable (Item) -> [String]
     ) {
         self.loadPage = loadPage
+        self.loadFirstPage = loadFirstPage
         self.identity = identity
         self.searchValues = searchValues
     }
@@ -142,17 +178,29 @@ where
         }
 
         do {
-            let page = try await loadPage(nil)
+            if let loadFirstPage {
+                try await loadFirstPage(
+                    isInitial ? .ifStale : .always
+                ) { [weak self] event in
+                    guard !Task.isCancelled else {
+                        return
+                    }
+                    await self?.applyFirstPage(event)
+                }
+            } else {
+                let page = try await loadPage(nil)
+                applyFirstPage(
+                    GitLabResourcePageEvent(
+                        page: page,
+                        source: .network
+                    )
+                )
+            }
+
             guard !Task.isCancelled else {
                 restoreFailureState(previousFailureState)
                 return
             }
-
-            items = appending(page.items, to: [])
-            nextPageURL = page.nextPageURL
-            totalItemCount = page.totalCount
-            hasLoaded = true
-            contentRevision += 1
         } catch {
             guard
                 !Task.isCancelled,
@@ -162,9 +210,39 @@ where
                 return
             }
 
+            let retainedFirstPage = hasLoaded
             loadError = error
-            didFailRefresh = !isInitial
+            didFailRefresh =
+                !isInitial || retainedFirstPage
             hasLoaded = true
+        }
+    }
+
+    private func applyFirstPage(
+        _ event: GitLabResourcePageEvent<Item>
+    ) {
+        items = appending(
+            event.page.items,
+            to: []
+        )
+        nextPageURL = event.page.nextPageURL
+        totalItemCount = event.page.totalCount
+        firstPageSource = event.source
+        firstPageCacheStoredAt = event.cacheStoredAt
+        loadError = nil
+        didFailRefresh = false
+        didFailNextPage = false
+        hasLoaded = true
+        contentRevision += 1
+
+        switch event.source {
+        case .cache(.stale):
+            isLoadingInitial = false
+            isRefreshing = true
+        case .cache(.fresh), .network:
+            isLoadingInitial = false
+        case .cache(.expired):
+            break
         }
     }
 

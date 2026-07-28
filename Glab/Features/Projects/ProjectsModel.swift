@@ -29,6 +29,25 @@ where
                     nextPageURL: page.nextPageURL
                 )
             },
+            loadFirstPage: {
+                (
+                    refreshBehavior:
+                        GitLabCacheRefreshBehavior,
+                    onPage:
+                        @escaping @Sendable (
+                            GitLabResourcePageEvent<
+                                GitLabProject
+                            >
+                        ) async -> Void
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> Void in
+                try await loader.loadProjectsFirstPage(
+                    for: mode,
+                    refreshBehavior: refreshBehavior,
+                    onPage: onPage
+                )
+            },
             identity: { $0.id },
             searchValues: {
                 [
@@ -53,4 +72,3 @@ where
         displayedItems
     }
 }
-

@@ -26,6 +26,26 @@ where
                     nextPageURL: page.nextPageURL
                 )
             },
+            loadFirstPage: {
+                (
+                    refreshBehavior:
+                        GitLabCacheRefreshBehavior,
+                    onPage:
+                        @escaping @Sendable (
+                            GitLabResourcePageEvent<
+                                GitLabIssue
+                            >
+                        ) async -> Void
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> Void in
+                try await loader
+                    .loadAssignedIssuesFirstPage(
+                        refreshBehavior:
+                            refreshBehavior,
+                        onPage: onPage
+                    )
+            },
             identity: { $0.route },
             searchValues: {
                 [

@@ -33,17 +33,47 @@ struct LiveGitLabProjectLoaderTests {
             for: .recent,
             after: nextPageURL
         )
+        let cachedPages = ProjectPageEventCollector()
+        try await loader.loadProjectsFirstPage(
+            for: .starred,
+            refreshBehavior: .ifStale
+        ) {
+            await cachedPages.append($0)
+        }
 
         #expect(recent.projects == [project])
         #expect(recent.nextPageURL == nextPageURL)
         #expect(starred.projects == [project])
         #expect(nextPage.projects == [project])
         #expect(
+            await cachedPages.events
+                .map(\.page.items) == [[project]]
+        )
+        #expect(
+            await cachedPages.events
+                .map(\.page.nextPageURL)
+                == [nextPageURL]
+        )
+        #expect(
+            await cachedPages.events
+                .map(\.source)
+                == [.cache(.stale)]
+        )
+        #expect(
+            await client.cachePolicies
+                == [.projects]
+        )
+        #expect(
+            await client.refreshBehaviors
+                == [.ifStale]
+        )
+        #expect(
             await client.pageSources
                 == [
                     "initial:projects:membership",
                     "initial:projects:starred",
                     "next:\(nextPageURL.absoluteString)",
+                    "initial:projects:starred",
                 ]
         )
     }
@@ -56,6 +86,10 @@ private extension LiveGitLabProjectLoaderTests {
         let project: GitLabProject
         let returnedNextPageURL: URL?
         private(set) var pageSources: [String] = []
+        private(set) var cachePolicies:
+            [GitLabResponseCachePolicy] = []
+        private(set) var refreshBehaviors:
+            [GitLabCacheRefreshBehavior] = []
 
         init(
             project: GitLabProject,
@@ -96,6 +130,40 @@ private extension LiveGitLabProjectLoaderTests {
                 )
             )
         }
+
+        func loadPage<Response>(
+            _ page: GitLabAPIPageRequest<Response>,
+            cachePolicy: GitLabResponseCachePolicy,
+            refreshBehavior: GitLabCacheRefreshBehavior,
+            onResponse:
+                @escaping @Sendable (
+                    GitLabAPIResponseEvent<Response>
+                ) async -> Void
+        ) async throws(GitLabSessionClientError) {
+            cachePolicies.append(cachePolicy)
+            refreshBehaviors.append(refreshBehavior)
+            let response:
+                GitLabAPIResponse<Response> =
+                    try await sendPage(page)
+            await onResponse(
+                GitLabAPIResponseEvent(
+                    value: response.value,
+                    metadata: response.metadata,
+                    source: .cache(.stale)
+                )
+            )
+        }
+    }
+
+    actor ProjectPageEventCollector {
+        private(set) var events:
+            [GitLabResourcePageEvent<GitLabProject>] = []
+
+        func append(
+            _ event:
+                GitLabResourcePageEvent<GitLabProject>
+        ) {
+            events.append(event)
+        }
     }
 }
-

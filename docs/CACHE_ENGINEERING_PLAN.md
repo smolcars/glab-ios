@@ -118,16 +118,16 @@ These values are injected policy, not scattered feature constants.
 - [x] Prove a cached Home section publishes before a gated request completes.
 - [x] Prove a fresh Home entry skips the network.
 - [x] Prove a stale Home entry survives GitLab HTTP 500.
-- [ ] Cache the first recent/starred Projects page and preserve pagination
+- [x] Cache the first recent/starred Projects page and preserve pagination
   metadata.
 - [ ] Inspect cached, stale, failed-refresh, and manual-refresh UI in Simulator.
 
 ### Generic paginated resources
 
-- [ ] Add cache timestamps and cache-source state to the generic paginated
+- [x] Add cache timestamps and cache-source state to the generic paginated
   model without changing its existing pagination/cancellation behavior.
-- [ ] Apply the behavior to assigned Issues and both merge-request modes.
-- [ ] Keep later pages memory-only and clear them after a successful first-page
+- [x] Apply the behavior to assigned Issues and both merge-request modes.
+- [x] Keep later pages memory-only and clear them after a successful first-page
   replacement.
 
 ### Todos and mutations

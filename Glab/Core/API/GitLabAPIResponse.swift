@@ -19,6 +19,19 @@ where Value: Sendable {
     let value: Value
     let metadata: GitLabResponseMetadata
     let source: GitLabAPIResponseSource
+    let cacheStoredAt: Date?
+
+    init(
+        value: Value,
+        metadata: GitLabResponseMetadata,
+        source: GitLabAPIResponseSource,
+        cacheStoredAt: Date? = nil
+    ) {
+        self.value = value
+        self.metadata = metadata
+        self.source = source
+        self.cacheStoredAt = cacheStoredAt
+    }
 }
 
 nonisolated enum GitLabCacheRefreshBehavior:
