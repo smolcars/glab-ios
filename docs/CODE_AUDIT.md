@@ -433,15 +433,58 @@ Scope:
 - Feature-specific issue, merge-request, project, and Todo rows/models remain
   separate. The audit found no meaningful duplication that warrants erasing
   their distinct API and interaction behavior.
-- GitLab.com OAuth, GitLab.com token, and self-managed OAuth live verification
-  require credentials or registered applications that are not configured.
-  Unit tests are not substituted for those rows.
-- The configured self-managed host became unreachable during the release pass,
-  so its current version and the remaining signed-in large-device rows cannot
-  be claimed as passed.
+- GitLab.com OAuth and personal-token live verification require credentials or
+  a registered application that is not configured. Unit tests are not
+  substituted for those rows.
+- The self-managed host outage was transient. A resumed pass recorded GitLab
+  18.11.3-ee and completed the signed-in large-device rows with the available
+  read-only personal token.
 - The local archive is development-signed. Distribution signing and App Store
   validation remain external release actions and are not inferred from a
   successful local archive. A non-uploading App Store Connect export was
   attempted and Xcode reported no authenticated accounts and no distribution
   profile for the app bundle identifier; the separate validation method
   requires an upload and was intentionally not used.
+
+## Resumed MVP-15 live-verification audit
+
+Scope:
+
+- The resumed pass has no production Swift, test Swift, or Xcode-project delta
+  from candidate code commit `f788c44`, whose full 27,122-line audit and
+  244-test result therefore remain current.
+- A Release build was exercised against GitLab 18.11.3-ee on one dedicated
+  iPhone 17 Pro Max simulator running iOS 26.5, then the app and simulator were
+  shut down.
+- The review re-ran the full source smell scan. Its only force casts are
+  type-directed generic test doubles; its production precondition is the
+  already documented OAuth presentation-anchor invariant. No new crash,
+  duplication, or refactor candidate was found.
+
+### Live verification checklist
+
+- [x] Reconfirm the configured host with successful live version, user, and
+  personal-token capability requests without recording its private values.
+- [x] Restore the Keychain-backed read-only session after relaunch.
+- [x] Exercise all five Home routes and native issue/merge-request details.
+- [x] Exercise pending/done with all/issues/merge-request Todo filters and
+  native Done Todo routing. The live account had no pending Todos, and the
+  empty state rendered correctly.
+- [x] Inspect Home and Todos in dark appearance with accessibility-extra-large
+  text, including scrolling and tab reachability.
+- [x] Shut down the sole test simulator and confirm no Simulator remains
+  booted.
+
+Two failed automation assertions were rejected as test-script mistakes rather
+than app defects: one used the nonexistent identifier `rootTab.home` instead
+of `tab.home`, and one expected a pending issue Todo on an account whose live
+pending result was empty.
+
+### Deliberately unchanged or deferred
+
+- The feature-specific issue, merge-request, project, and Todo models remain
+  intentionally separate; no new duplication justified merging their API or
+  interaction behavior.
+- GitLab.com OAuth and personal-token live rows remain unverified. Self-managed
+  OAuth activation, App Store distribution, and Icon Composer work are
+  explicitly deferred by the project owner.

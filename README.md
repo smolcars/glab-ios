@@ -38,9 +38,11 @@ Glab is under active MVP development. The current app includes:
   App Store privacy manifest declaring no tracking or collected data.
 
 Feature implementation through MVP-14 and the repository-side MVP-15 release
-gates are complete. The available self-managed personal-token clean-install
-row passes; live OAuth, GitLab.com token, remaining environment-owned device,
-and App Store distribution checks are still open. The exact results live in
+gates are complete. Self-managed personal-token verification and the complete
+small/large-device UI matrix pass against a live GitLab 18.11.3-ee instance.
+GitLab.com OAuth and personal-token verification are still open. The project
+owner has deferred self-managed OAuth activation, App Store distribution, and
+Icon Composer work. The exact results live in
 [the MVP-15 verification record](docs/MVP_15_ENGINEERING_PLAN.md#release-candidate-verification-record).
 
 GitLab.com OAuth logic is implemented, but its clean-install live callback

@@ -2,9 +2,11 @@
 
 Last updated: 2026-07-27
 
-Status: repository-side release work is complete. Live OAuth, GitLab.com
-token, App Store distribution validation, and the remaining environment-owned
-visual rows are still pending; the results are recorded below.
+Status: repository-side release work, live self-managed personal-token
+verification, and the small/large-device UI matrix are complete. GitLab.com
+OAuth and personal-token verification remain pending. The project owner
+deferred self-managed OAuth activation, App Store distribution, and Icon
+Composer work; the results are recorded below.
 
 ## Outcome
 
@@ -22,10 +24,11 @@ clean-install or live-authentication requirements:
 - document the supported GitLab/iOS baseline and every external release
   dependency precisely.
 
-MVP-15 is not complete until every live account row passes. Unit tests or
-constructed callbacks do not replace a real GitLab.com OAuth callback,
-self-managed web login with 2FA, or token validation against the named
-offering.
+MVP-15 remains unchecked while the GitLab.com live account rows are pending.
+Unit tests or constructed callbacks do not replace a real GitLab.com OAuth
+callback or token validation. The separately deferred self-managed OAuth row
+will require a real instance application and normal web login with 2FA when
+the owner resumes it.
 
 ## Baseline and constraints
 
@@ -136,8 +139,8 @@ Use a fresh dedicated simulator per row and record only pass/fail evidence:
 | --- | --- | --- |
 | GitLab.com OAuth | Real authorization, callback, user validation, relaunch, refresh | Blocked: no registered Application ID |
 | GitLab.com PAT | Real token validation, scope/expiry display, relaunch | Blocked: no GitLab.com token |
-| Self-managed OAuth | Real normal web login with username/password and 2FA, callback, relaunch, refresh | Blocked: no Application ID or web credentials |
-| Self-managed PAT | Real validation, read-only capability, populated Home/Todos, relaunch | Available through local `.env` |
+| Self-managed OAuth | Real normal web login with username/password and 2FA, callback, relaunch, refresh | Owner-deferred pending administrator coordination |
+| Self-managed PAT | Real validation, read-only capability, populated Home/Todos, relaunch | Passed through local `.env` |
 
 Do not mark a blocked row passed based on unit tests. Do not write a live token
 into a Maestro flow, launch argument, shell history, screenshot, or test
@@ -168,16 +171,17 @@ result.
 - Record any older-server or administrator-policy limitations observed.
 - Add a release-verification audit with the exact tested device/runtime,
   archive, suite, and live-account matrix results.
-- Keep MVP-05 and MVP-15 unchecked while their live OAuth criteria remain
-  blocked. Check MVP-15 only after every authentication row and exit criterion
-  passes.
+- Keep MVP-05 and MVP-15 unchecked while the GitLab.com live-authentication
+  rows remain blocked. Record owner-deferred rows separately rather than
+  representing them as passed.
 
 ## Verification gates
 
 1. Metadata tests fail without the icon, privacy link, encryption declaration,
    or privacy manifest and pass in the release candidate.
-2. The icon is legible on the Home Screen in default, dark, and tinted system
+2. The icon is legible on the Home Screen in default and dark system
    appearances and remains visually distinct from official GitLab branding.
+   Tinted/Icon Composer treatment is owner-deferred.
 3. Privacy policy and in-app/API-scope explanations agree with the app's actual
    behavior.
 4. A signed Release archive contains the expected production bundle and no
@@ -232,13 +236,13 @@ Candidate code commit: `f788c44`
 | --- | --- |
 | GitLab.com OAuth | Blocked: no registered Glab Application ID is configured |
 | GitLab.com personal access token | Blocked: no GitLab.com test token is configured |
-| Self-managed OAuth | Blocked: no instance Application ID or web-login test account is configured |
-| Self-managed personal access token | Passed from a fresh install: live validation, read-only capability, and Keychain-backed relaunch restoration |
+| Self-managed OAuth | Owner-deferred pending instance-administrator coordination; no result claimed |
+| Self-managed personal access token | Passed from fresh installs: live validation, read-only capability, populated navigation, and Keychain-backed relaunch restoration |
 
-The available self-managed host later became unreachable from both macOS and
-the simulator. The outage prevented a current server-version query and the
-remaining populated large-device rows; it did not affect the deterministic
-client/model gates or the already completed fresh-install session proof.
+The earlier self-managed outage was transient. The final resumed pass received
+HTTP 200 responses from `GET /version`, `GET /user`, and
+`GET /personal_access_tokens/self`, and recorded GitLab 18.11.3-ee without
+persisting the private host or credential in repository artifacts.
 
 ### State and device matrix
 
@@ -250,17 +254,22 @@ client/model gates or the already completed fresh-install session proof.
   text size. The redesigned signed-out flow was separately inspected on iPhone
   17 Pro Max in light/default and dark/large-text configurations, including
   the privacy, OAuth setup, and token sheets.
+- The resumed signed-in iPhone 17 Pro Max pass covered all five Home routes,
+  live populated issue, merge-request, and project lists, native issue and
+  merge-request details, all six Todo state/target filter combinations, the
+  read-only completion explanation, and Keychain-backed relaunch restoration.
+  The live instance had no pending Todos; its Done filters supplied both issue
+  and merge-request Todos for native-detail routing.
+- Home and Todos remained readable, scrollable, and reachable in dark
+  appearance at an accessibility-extra-large text size on the large device.
 - Empty, expired-session, offline, rate-limit, permission, retained-refresh,
   pagination, retry, cancellation, and optimistic mutation rollback states are
   covered deterministically by the signed test suite. Live timeout/retry and
   empty-retry loading behavior were also exercised without mutating GitLab
   data.
 - The Glab icon is visually legible and distinct in both default and automatic
-  dark Home Screen appearances on iPhone 17 Pro. The tinted treatment remains
-  pending: transient SpringBoard customization automation did not produce
-  reliable visual evidence, and no result from that attempt is counted.
-- A signed-in large-device walkthrough and a repeated live server-version
-  query remain pending until the configured self-managed host is reachable.
+  dark Home Screen appearances on iPhone 17 Pro. Tinted/Icon Composer work is
+  owner-deferred.
 
 ### Compatibility declaration
 
@@ -268,12 +277,11 @@ client/model gates or the already completed fresh-install session proof.
 - The declared self-managed GitLab floor is 15.5 because the token capability
   check uses `GET /personal_access_tokens/self`, introduced in GitLab 15.5.
 - Self-managed instances must use HTTPS with a certificate trusted by iOS.
-- The configured live server version could not be recorded during this pass
-  because the server became unreachable; the declared floor is therefore
-  documentation-derived, not claimed as a live older-server compatibility
-  test.
+- The resumed live pass recorded GitLab 18.11.3-ee after an earlier transient
+  outage. The 15.5 floor remains documentation-derived and is not claimed as a
+  live older-server compatibility test.
 
-MVP-15 and MVP-05 remain unchecked until the live OAuth rows, GitLab.com token
-row, outstanding device rows, and distribution validation are completed. The
-Mac must also be unlocked before Xcode's account state and the system icon
-treatments can be inspected interactively.
+MVP-15 and MVP-05 remain unchecked only for the unverified GitLab.com OAuth and
+personal-token rows. Self-managed OAuth activation, App Store distribution,
+and Icon Composer/tinted-icon work are explicitly owner-deferred and are not
+represented as passed.

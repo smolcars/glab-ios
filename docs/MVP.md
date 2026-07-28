@@ -185,7 +185,9 @@ Implementation status (2026-07-27): the OAuth/PKCE logic, refresh handling,
 setup UI, personal-access-token fallback, unit tests, and simulator inspection
 are complete. This item remains unchecked until a GitLab.com OAuth application
 is registered, its real Application ID is supplied to the build, and a
-clean-install live callback is verified. See [Glab OAuth setup](OAUTH_SETUP.md).
+clean-install live callback is verified. Live self-managed OAuth activation is
+owner-deferred pending coordination with the instance administrators. See
+[Glab OAuth setup](OAUTH_SETUP.md).
 
 Deliver:
 
@@ -440,15 +442,18 @@ Implementation status:
   personal-token verification pass.
 - The declared support floor is iOS 26+ and GitLab 15.5+ over HTTPS with a
   certificate trusted by iOS.
-- GitLab.com OAuth, GitLab.com token, self-managed OAuth, App Store
-  distribution validation, and the remaining environment-owned device rows
-  are still pending. See the
+- The live self-managed personal-token session passes on small and large
+  iPhones, including every Home route, every Todo filter, native issue and
+  merge-request details, read-only behavior, dark appearance, large
+  accessibility text, and relaunch restoration against GitLab 18.11.3-ee.
+- GitLab.com OAuth and GitLab.com personal-token clean-install rows remain
+  pending. See the
   [MVP-15 verification record](MVP_15_ENGINEERING_PLAN.md#release-candidate-verification-record).
-- The latest non-uploading App Store Connect export attempt reached signing
-  resolution but Xcode had no authenticated account or distribution profile
-  available. The development-signed Release archive itself remains valid.
+- The project owner explicitly deferred self-managed OAuth activation, App
+  Store distribution, and Icon Composer/tinted-icon work. The
+  development-signed Release archive remains valid.
 - This item and MVP-05 deliberately remain unchecked; deterministic tests do
-  not replace the required live authentication rows.
+  not replace the two remaining GitLab.com live-authentication rows.
 
 ## Explicitly out of MVP
 
