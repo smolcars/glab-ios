@@ -47,6 +47,32 @@ nonisolated struct GitLabMergeRequestDiffFile:
     let isCollapsed: Bool
     let isTooLarge: Bool
 
+    init(
+        oldPath: String,
+        newPath: String,
+        oldMode: String? = nil,
+        newMode: String? = nil,
+        diff: String,
+        isNewFile: Bool = false,
+        isRenamedFile: Bool = false,
+        isDeletedFile: Bool = false,
+        isGeneratedFile: Bool = false,
+        isCollapsed: Bool = false,
+        isTooLarge: Bool = false
+    ) {
+        self.oldPath = oldPath
+        self.newPath = newPath
+        self.oldMode = oldMode
+        self.newMode = newMode
+        self.diff = diff
+        self.isNewFile = isNewFile
+        self.isRenamedFile = isRenamedFile
+        self.isDeletedFile = isDeletedFile
+        self.isGeneratedFile = isGeneratedFile
+        self.isCollapsed = isCollapsed
+        self.isTooLarge = isTooLarge
+    }
+
     var id: GitLabMergeRequestDiffFileID {
         GitLabMergeRequestDiffFileID(
             oldPath: oldPath,
@@ -85,50 +111,52 @@ nonisolated struct GitLabMergeRequestDiffFile:
             keyedBy: CodingKeys.self
         )
 
-        oldPath = try container.decode(
-            String.self,
-            forKey: .oldPath
+        self.init(
+            oldPath: try container.decode(
+                String.self,
+                forKey: .oldPath
+            ),
+            newPath: try container.decode(
+                String.self,
+                forKey: .newPath
+            ),
+            oldMode: try container.decodeIfPresent(
+                String.self,
+                forKey: .oldMode
+            ),
+            newMode: try container.decodeIfPresent(
+                String.self,
+                forKey: .newMode
+            ),
+            diff: try container.decodeIfPresent(
+                String.self,
+                forKey: .diff
+            ) ?? "",
+            isNewFile: try container.decodeIfPresent(
+                Bool.self,
+                forKey: .isNewFile
+            ) ?? false,
+            isRenamedFile: try container.decodeIfPresent(
+                Bool.self,
+                forKey: .isRenamedFile
+            ) ?? false,
+            isDeletedFile: try container.decodeIfPresent(
+                Bool.self,
+                forKey: .isDeletedFile
+            ) ?? false,
+            isGeneratedFile: try container.decodeIfPresent(
+                Bool.self,
+                forKey: .isGeneratedFile
+            ) ?? false,
+            isCollapsed: try container.decodeIfPresent(
+                Bool.self,
+                forKey: .isCollapsed
+            ) ?? false,
+            isTooLarge: try container.decodeIfPresent(
+                Bool.self,
+                forKey: .isTooLarge
+            ) ?? false
         )
-        newPath = try container.decode(
-            String.self,
-            forKey: .newPath
-        )
-        oldMode = try container.decodeIfPresent(
-            String.self,
-            forKey: .oldMode
-        )
-        newMode = try container.decodeIfPresent(
-            String.self,
-            forKey: .newMode
-        )
-        diff = try container.decodeIfPresent(
-            String.self,
-            forKey: .diff
-        ) ?? ""
-        isNewFile = try container.decodeIfPresent(
-            Bool.self,
-            forKey: .isNewFile
-        ) ?? false
-        isRenamedFile = try container.decodeIfPresent(
-            Bool.self,
-            forKey: .isRenamedFile
-        ) ?? false
-        isDeletedFile = try container.decodeIfPresent(
-            Bool.self,
-            forKey: .isDeletedFile
-        ) ?? false
-        isGeneratedFile = try container.decodeIfPresent(
-            Bool.self,
-            forKey: .isGeneratedFile
-        ) ?? false
-        isCollapsed = try container.decodeIfPresent(
-            Bool.self,
-            forKey: .isCollapsed
-        ) ?? false
-        isTooLarge = try container.decodeIfPresent(
-            Bool.self,
-            forKey: .isTooLarge
-        ) ?? false
     }
 
     private enum CodingKeys: String, CodingKey {

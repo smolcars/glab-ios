@@ -84,8 +84,71 @@ extension GitLabMergeRequestLoading {
     }
 }
 
+nonisolated struct GitLabMergeRequestDiffPage:
+    Equatable,
+    Sendable
+{
+    let files: [GitLabMergeRequestDiffFile]
+    let nextPageURL: URL?
+    let totalCount: Int?
+}
+
+nonisolated protocol GitLabMergeRequestDiffLoading:
+    Sendable
+{
+    func loadMergeRequestDiffsPage(
+        at route: GitLabMergeRequestRoute,
+        headSHA: String,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabMergeRequestDiffPage
+
+    func loadMergeRequestDiffsFirstPage(
+        at route: GitLabMergeRequestRoute,
+        headSHA: String,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<
+                    GitLabMergeRequestDiffFile
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError)
+}
+
+extension GitLabMergeRequestDiffLoading {
+    func loadMergeRequestDiffsFirstPage(
+        at route: GitLabMergeRequestRoute,
+        headSHA: String,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<
+                    GitLabMergeRequestDiffFile
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        let page = try await loadMergeRequestDiffsPage(
+            at: route,
+            headSHA: headSHA,
+            after: nil
+        )
+        await onPage(
+            GitLabResourcePageEvent(
+                page: GitLabResourcePage(
+                    items: page.files,
+                    nextPageURL: page.nextPageURL,
+                    totalCount: page.totalCount
+                ),
+                source: .network
+            )
+        )
+    }
+}
+
 nonisolated struct LiveGitLabMergeRequestLoader:
     GitLabMergeRequestLoading,
+    GitLabMergeRequestDiffLoading,
     Sendable
 {
     private let client:
@@ -181,5 +244,70 @@ nonisolated struct LiveGitLabMergeRequestLoader:
             refreshBehavior: refreshBehavior,
             onResponse: onResponse
         )
+    }
+
+    @concurrent
+    func loadMergeRequestDiffsPage(
+        at route: GitLabMergeRequestRoute,
+        headSHA: String,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabMergeRequestDiffPage
+    {
+        let request: GitLabAPIPageRequest<
+            [GitLabMergeRequestDiffFile]
+        > =
+            if let nextPageURL {
+                .next(nextPageURL)
+            } else {
+                .initial(
+                    GitLabMergeRequestDiffEndpoints
+                        .diffs(
+                            at: route,
+                            headSHA: headSHA
+                        )
+                )
+            }
+        let response = try await client.sendPage(
+            request
+        )
+        return GitLabMergeRequestDiffPage(
+            files: response.value,
+            nextPageURL:
+                response.metadata.nextPageURL,
+            totalCount:
+                response.metadata.totalCount
+        )
+    }
+
+    @concurrent
+    func loadMergeRequestDiffsFirstPage(
+        at route: GitLabMergeRequestRoute,
+        headSHA: String,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<
+                    GitLabMergeRequestDiffFile
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        try await client.loadPage(
+            .initial(
+                GitLabMergeRequestDiffEndpoints
+                    .diffs(
+                        at: route,
+                        headSHA: headSHA
+                    )
+            ),
+            cachePolicy: .mergeRequestDiffs,
+            refreshBehavior: refreshBehavior
+        ) {
+            await onPage(
+                GitLabResourcePageEvent(
+                    apiResponse: $0
+                )
+            )
+        }
     }
 }

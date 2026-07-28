@@ -157,6 +157,11 @@ extension GitLabResponseCachePolicy {
         freshFor: 60,
         maximumAge: 24 * 60 * 60
     )
+
+    static let mergeRequestDiffs = Self(
+        freshFor: 60,
+        maximumAge: 24 * 60 * 60
+    )
 }
 
 nonisolated enum GitLabCachedResponseFreshness:

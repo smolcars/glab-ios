@@ -77,3 +77,29 @@ nonisolated func makeTestAPIUser(
         )
     )
 }
+
+nonisolated func makeTestDiffFile(
+    oldPath: String = "Sources/File.swift",
+    newPath: String = "Sources/File.swift",
+    diff: String = "@@ -1 +1 @@\n-old\n+new",
+    isNewFile: Bool = false,
+    isRenamedFile: Bool = false,
+    isDeletedFile: Bool = false,
+    isGeneratedFile: Bool = false,
+    isCollapsed: Bool = false,
+    isTooLarge: Bool = false
+) -> GitLabMergeRequestDiffFile {
+    GitLabMergeRequestDiffFile(
+        oldPath: oldPath,
+        newPath: newPath,
+        oldMode: "100644",
+        newMode: "100644",
+        diff: diff,
+        isNewFile: isNewFile,
+        isRenamedFile: isRenamedFile,
+        isDeletedFile: isDeletedFile,
+        isGeneratedFile: isGeneratedFile,
+        isCollapsed: isCollapsed,
+        isTooLarge: isTooLarge
+    )
+}
