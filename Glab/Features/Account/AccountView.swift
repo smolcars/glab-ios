@@ -5,14 +5,17 @@ struct AccountView: View {
     let appSession: AppSession
 
     @Environment(\.dismiss) private var dismiss
-    @State private var showsSignOutConfirmation = false
-    @State private var isSigningOut = false
-    @State private var signOutError: String?
+    @State private var showsAddAccount = false
+    @State private var pendingRemoval:
+        GitLabAccountSummary?
+    @State private var isPerformingAccountAction = false
+    @State private var accountActionError: String?
 
     var body: some View {
         NavigationStack {
             List {
                 profileSection
+                accountsSection
                 accountSection
                 privacySection
 
@@ -20,8 +23,8 @@ struct AccountView: View {
                     readOnlySection
                 }
 
-                if let signOutError {
-                    errorSection(signOutError)
+                if let accountActionError {
+                    errorSection(accountActionError)
                 }
             }
             .listStyle(.insetGrouped)
@@ -32,26 +35,35 @@ struct AccountView: View {
                     Button("Done") {
                         dismiss()
                     }
-                    .disabled(isSigningOut)
+                    .disabled(isPerformingAccountAction)
                     .accessibilityIdentifier("account.doneButton")
                 }
             }
             .safeAreaInset(edge: .bottom) {
-                signOutButton
+                removeCurrentAccountButton
             }
             .alert(
-                "Sign out of Glab?",
-                isPresented: $showsSignOutConfirmation,
+                removalTitle,
+                isPresented: showsRemovalConfirmation,
+                presenting: pendingRemoval
             ) {
-                Button("Sign Out", role: .destructive) {
-                    performSignOut()
+                account in
+                Button(
+                    removalButtonTitle,
+                    role: .destructive
+                ) {
+                    removeAccount(account)
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
-                Text(
-                    "This removes the account and its credentials from "
-                        + "this device."
+                account in
+                Text(removalMessage(for: account))
+            }
+            .sheet(isPresented: $showsAddAccount) {
+                GitLabOAuthSignInScene(
+                    appSession: appSession
                 )
+                .presentationDragIndicator(.visible)
             }
         }
     }
@@ -75,6 +87,82 @@ struct AccountView: View {
             .padding(.vertical, 8)
             .accessibilityElement(children: .combine)
         }
+    }
+
+    private var accountsSection: some View {
+        Section("Accounts") {
+            ForEach(appSession.accounts) { account in
+                Button {
+                    switchAccount(account)
+                } label: {
+                    accountRow(account)
+                }
+                .buttonStyle(.plain)
+                .disabled(isPerformingAccountAction)
+                .swipeActions {
+                    Button(
+                        "Remove",
+                        systemImage: "trash",
+                        role: .destructive
+                    ) {
+                        pendingRemoval = account
+                    }
+                }
+                .accessibilityIdentifier(
+                    "account.row.\(account.id.userID)"
+                )
+            }
+
+            Button {
+                showsAddAccount = true
+            } label: {
+                Label(
+                    "Add GitLab Account",
+                    systemImage: "person.crop.circle.badge.plus"
+                )
+            }
+            .disabled(isPerformingAccountAction)
+            .accessibilityIdentifier("account.addButton")
+        }
+    }
+
+    private func accountRow(
+        _ account: GitLabAccountSummary
+    ) -> some View {
+        HStack(spacing: 12) {
+            GitLabUserAvatar(
+                user: account.user,
+                size: 42
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(account.user.displayName)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                Text(
+                    "@\(account.user.username) · "
+                        + instanceName(for: account.host)
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            if account.id == appSession.activeAccountID {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityLabel("Current account")
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .contentShape(.rect)
     }
 
     private var accountSection: some View {
@@ -134,18 +222,22 @@ struct AccountView: View {
         }
     }
 
-    private var signOutButton: some View {
+    private var removeCurrentAccountButton: some View {
         Button(role: .destructive) {
-            showsSignOutConfirmation = true
+            pendingRemoval = currentAccount
         } label: {
             HStack(spacing: 9) {
-                if isSigningOut {
+                if isPerformingAccountAction {
                     ProgressView()
                 } else {
                     Image(systemName: "rectangle.portrait.and.arrow.right")
                 }
 
-                Text(isSigningOut ? "Signing out…" : "Sign Out")
+                Text(
+                    isPerformingAccountAction
+                        ? "Removing account…"
+                        : currentAccountRemovalTitle
+                )
             }
             .font(.headline)
             .frame(maxWidth: .infinity)
@@ -154,15 +246,17 @@ struct AccountView: View {
         .buttonStyle(.glass)
         .controlSize(.large)
         .tint(.red)
-        .disabled(isSigningOut)
+        .disabled(
+            isPerformingAccountAction
+                || currentAccount == nil
+        )
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
         .accessibilityIdentifier("account.signOutButton")
     }
 
     private var instanceName: String {
-        session.host.siteURL.host(percentEncoded: false)
-            ?? session.host.siteURL.absoluteString
+        instanceName(for: session.host)
     }
 
     private var authenticationMethod: String {
@@ -183,16 +277,103 @@ struct AccountView: View {
         }
     }
 
-    private func performSignOut() {
-        signOutError = nil
-        isSigningOut = true
+    private var currentAccount:
+        GitLabAccountSummary?
+    {
+        appSession.accounts.first {
+            $0.id == GitLabAccountID(session: session)
+        }
+    }
+
+    private var currentAccountRemovalTitle: String {
+        appSession.accounts.count == 1
+            ? "Sign Out"
+            : "Remove Current Account"
+    }
+
+    private var showsRemovalConfirmation:
+        Binding<Bool>
+    {
+        Binding {
+            pendingRemoval != nil
+        } set: { isPresented in
+            if !isPresented {
+                pendingRemoval = nil
+            }
+        }
+    }
+
+    private var removalTitle: String {
+        pendingRemoval == nil
+            ? "Remove account?"
+            : removalButtonTitle + "?"
+    }
+
+    private var removalButtonTitle: String {
+        appSession.accounts.count == 1
+            ? "Sign Out"
+            : "Remove Account"
+    }
+
+    private func removalMessage(
+        for account: GitLabAccountSummary
+    ) -> String {
+        "This removes @\(account.user.username) on "
+            + "\(instanceName(for: account.host)) and its credentials "
+            + "from this device."
+    }
+
+    private func instanceName(
+        for host: GitLabHost
+    ) -> String {
+        host.siteURL.host(percentEncoded: false)
+            ?? host.siteURL.absoluteString
+    }
+
+    private func switchAccount(
+        _ account: GitLabAccountSummary
+    ) {
+        guard
+            account.id != appSession.activeAccountID,
+            !isPerformingAccountAction
+        else {
+            return
+        }
+
+        accountActionError = nil
+        isPerformingAccountAction = true
 
         Task {
             do {
-                try await appSession.signOut()
+                try await appSession.switchAccount(
+                    to: account.id
+                )
+                dismiss()
             } catch {
-                signOutError = error.localizedDescription
-                isSigningOut = false
+                accountActionError =
+                    error.localizedDescription
+                isPerformingAccountAction = false
+            }
+        }
+    }
+
+    private func removeAccount(
+        _ account: GitLabAccountSummary
+    ) {
+        accountActionError = nil
+        isPerformingAccountAction = true
+
+        Task {
+            do {
+                try await appSession.removeAccount(
+                    account.id
+                )
+                pendingRemoval = nil
+                isPerformingAccountAction = false
+            } catch {
+                accountActionError =
+                    error.localizedDescription
+                isPerformingAccountAction = false
             }
         }
     }
