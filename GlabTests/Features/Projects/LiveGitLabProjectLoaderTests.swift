@@ -40,11 +40,26 @@ struct LiveGitLabProjectLoaderTests {
         ) {
             await cachedPages.append($0)
         }
+        let resolvedProject =
+            try await loader.loadProject(
+                pathWithNamespace:
+                    "group/subgroup/project"
+            )
+        let projectEvents =
+            ProjectResponseEventCollector()
+        try await loader.loadProject(
+            pathWithNamespace:
+                "group/subgroup/project",
+            refreshBehavior: .ifStale
+        ) {
+            await projectEvents.append($0)
+        }
 
         #expect(recent.projects == [project])
         #expect(recent.nextPageURL == nextPageURL)
         #expect(starred.projects == [project])
         #expect(nextPage.projects == [project])
+        #expect(resolvedProject == project)
         #expect(
             await cachedPages.events
                 .map(\.page.items) == [[project]]
@@ -61,11 +76,33 @@ struct LiveGitLabProjectLoaderTests {
         )
         #expect(
             await client.cachePolicies
-                == [.projects]
+                == [
+                    .projects,
+                    .projects,
+                ]
         )
         #expect(
             await client.refreshBehaviors
-                == [.ifStale]
+                == [
+                    .ifStale,
+                    .ifStale,
+                ]
+        )
+        #expect(
+            await client.projectPaths
+                == [
+                    "group/subgroup/project",
+                    "group/subgroup/project",
+                ]
+        )
+        #expect(
+            await projectEvents.events
+                .map(\.value) == [project]
+        )
+        #expect(
+            await projectEvents.events
+                .map(\.source)
+                == [.cache(.stale)]
         )
         #expect(
             await client.pageSources
@@ -90,6 +127,8 @@ private extension LiveGitLabProjectLoaderTests {
             [GitLabResponseCachePolicy] = []
         private(set) var refreshBehaviors:
             [GitLabCacheRefreshBehavior] = []
+        private(set) var projectPaths:
+            [String] = []
 
         init(
             project: GitLabProject,
@@ -102,7 +141,17 @@ private extension LiveGitLabProjectLoaderTests {
         func send<Response>(
             _ endpoint: GitLabAPIRequest<Response>
         ) async throws(GitLabSessionClientError) -> Response {
-            throw .api(.invalidResponse)
+            guard
+                endpoint.pathComponents.first
+                    == "projects",
+                endpoint.pathComponents.count == 2
+            else {
+                throw .api(.invalidResponse)
+            }
+            projectPaths.append(
+                endpoint.pathComponents[1]
+            )
+            return project as! Response
         }
 
         func sendPage<Response>(
@@ -153,6 +202,37 @@ private extension LiveGitLabProjectLoaderTests {
                 )
             )
         }
+
+        func loadResponse<Response>(
+            _ endpoint:
+                GitLabAPIRequest<Response>,
+            cachePolicy:
+                GitLabResponseCachePolicy,
+            refreshBehavior:
+                GitLabCacheRefreshBehavior,
+            onResponse:
+                @escaping @Sendable (
+                    GitLabAPIResponseEvent<
+                        Response
+                    >
+                ) async -> Void
+        ) async throws(
+            GitLabSessionClientError
+        ) {
+            cachePolicies.append(cachePolicy)
+            refreshBehaviors.append(
+                refreshBehavior
+            )
+            let value = try await send(endpoint)
+            await onResponse(
+                GitLabAPIResponseEvent(
+                    value: value,
+                    metadata:
+                        GitLabResponseMetadata(),
+                    source: .cache(.stale)
+                )
+            )
+        }
     }
 
     actor ProjectPageEventCollector {
@@ -162,6 +242,24 @@ private extension LiveGitLabProjectLoaderTests {
         func append(
             _ event:
                 GitLabResourcePageEvent<GitLabProject>
+        ) {
+            events.append(event)
+        }
+    }
+
+    actor ProjectResponseEventCollector {
+        private(set) var events:
+            [
+                GitLabAPIResponseEvent<
+                    GitLabProject
+                >
+            ] = []
+
+        func append(
+            _ event:
+                GitLabAPIResponseEvent<
+                    GitLabProject
+                >
         ) {
             events.append(event)
         }

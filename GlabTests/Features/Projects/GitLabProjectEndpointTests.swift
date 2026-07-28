@@ -33,6 +33,22 @@ struct GitLabProjectEndpointTests {
                 + "&simple=true&per_page=20"
         )
     }
+
+    @Test("Encodes a namespaced path as one project identifier")
+    func buildsProjectByPathRequest() throws {
+        let endpoint = GitLabProjectEndpoints.project(
+            pathWithNamespace:
+                "group/subgroup/glab ios"
+        )
+        let url = try requestURL(endpoint)
+
+        #expect(endpoint.requiredAccess == .read)
+        #expect(
+            url.absoluteString
+                == "https://gitlab.example.com/api/v4/"
+                + "projects/group%2Fsubgroup%2Fglab%20ios"
+        )
+    }
 }
 
 private extension GitLabProjectEndpointTests {

@@ -1,5 +1,13 @@
 import Foundation
 
+nonisolated struct GitLabProjectRoute:
+    Equatable,
+    Hashable,
+    Sendable
+{
+    let pathWithNamespace: String
+}
+
 nonisolated enum GitLabProjectListMode:
     String,
     Equatable,
@@ -217,4 +225,3 @@ private nonisolated extension String {
         return value.isEmpty ? nil : value
     }
 }
-

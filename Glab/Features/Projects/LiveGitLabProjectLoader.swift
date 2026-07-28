@@ -1,6 +1,56 @@
 import Foundation
 
-nonisolated protocol GitLabProjectLoading: Sendable {
+nonisolated protocol GitLabProjectResolving:
+    Sendable
+{
+    func loadProject(
+        pathWithNamespace: String
+    ) async throws(GitLabSessionClientError)
+        -> GitLabProject
+
+    func loadProject(
+        pathWithNamespace: String,
+        refreshBehavior:
+            GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<
+                    GitLabProject
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError)
+}
+
+extension GitLabProjectResolving {
+    func loadProject(
+        pathWithNamespace: String,
+        refreshBehavior:
+            GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<
+                    GitLabProject
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        let project = try await loadProject(
+            pathWithNamespace:
+                pathWithNamespace
+        )
+        await onResponse(
+            GitLabAPIResponseEvent(
+                value: project,
+                metadata:
+                    GitLabResponseMetadata(),
+                source: .network
+            )
+        )
+    }
+}
+
+nonisolated protocol GitLabProjectLoading:
+    Sendable
+{
     func loadProjectsPage(
         for mode: GitLabProjectListMode,
         after nextPageURL: URL?
@@ -44,6 +94,7 @@ extension GitLabProjectLoading {
 
 nonisolated struct LiveGitLabProjectLoader:
     GitLabProjectLoading,
+    GitLabProjectResolving,
     Sendable
 {
     private let client:
@@ -53,6 +104,43 @@ nonisolated struct LiveGitLabProjectLoader:
         client: any GitLabPaginatedSessionRequestSending
     ) {
         self.client = client
+    }
+
+    @concurrent
+    func loadProject(
+        pathWithNamespace: String
+    ) async throws(GitLabSessionClientError)
+        -> GitLabProject
+    {
+        try await client.send(
+            GitLabProjectEndpoints.project(
+                pathWithNamespace:
+                    pathWithNamespace
+            )
+        )
+    }
+
+    @concurrent
+    func loadProject(
+        pathWithNamespace: String,
+        refreshBehavior:
+            GitLabCacheRefreshBehavior,
+        onResponse:
+            @escaping @Sendable (
+                GitLabAPIResponseEvent<
+                    GitLabProject
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        try await client.loadResponse(
+            GitLabProjectEndpoints.project(
+                pathWithNamespace:
+                    pathWithNamespace
+            ),
+            cachePolicy: .projects,
+            refreshBehavior: refreshBehavior,
+            onResponse: onResponse
+        )
     }
 
     @concurrent

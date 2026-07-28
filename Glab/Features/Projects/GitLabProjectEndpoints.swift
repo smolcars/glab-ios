@@ -1,6 +1,18 @@
 import Foundation
 
 nonisolated enum GitLabProjectEndpoints {
+    static func project(
+        pathWithNamespace: String
+    ) -> GitLabAPIRequest<GitLabProject> {
+        .get(
+            requires: .read,
+            path: [
+                "projects",
+                pathWithNamespace,
+            ]
+        )
+    }
+
     static func projects(
         for mode: GitLabProjectListMode
     ) -> GitLabAPIRequest<[GitLabProject]> {
