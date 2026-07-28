@@ -63,9 +63,6 @@ nonisolated struct LiveGitLabResourceEditService:
             let issue = try await client.send(
                 endpoint
             )
-            await invalidateIssueReads(
-                route: route
-            )
             return .issue(issue)
 
         case let .mergeRequest(route):
@@ -87,11 +84,24 @@ nonisolated struct LiveGitLabResourceEditService:
                 try await client.send(
                     endpoint
                 )
-            await invalidateMergeRequestReads(
-                route: route
-            )
             return .mergeRequest(
                 mergeRequest
+            )
+        }
+    }
+
+    @concurrent
+    func invalidateAffectedReads(
+        for target: GitLabResourceEditTarget
+    ) async {
+        switch target {
+        case let .issue(route):
+            await invalidateIssueReads(
+                route: route
+            )
+        case let .mergeRequest(route):
+            await invalidateMergeRequestReads(
+                route: route
             )
         }
     }

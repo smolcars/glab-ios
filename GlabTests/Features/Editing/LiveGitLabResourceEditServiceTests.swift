@@ -66,7 +66,7 @@ struct LiveGitLabResourceEditServiceTests {
         )
     }
 
-    @Test("Updates an issue once and invalidates every exact affected read")
+    @Test("Issue invalidation waits for authoritative reconciliation")
     func updatesIssue() async throws {
         let issue = makeTestIssue(
             id: 101,
@@ -107,13 +107,22 @@ struct LiveGitLabResourceEditServiceTests {
         )
         #expect(
             await client.invalidatedRequests
+                .isEmpty
+        )
+
+        await service.invalidateAffectedReads(
+            for: .issue(issue.route)
+        )
+
+        #expect(
+            await client.invalidatedRequests
                 == issueInvalidations(
                     route: issue.route
                 )
         )
     }
 
-    @Test("Updates a merge request once and invalidates every exact affected read")
+    @Test("Merge request invalidation waits for authoritative reconciliation")
     func updatesMergeRequest() async throws {
         let mergeRequest =
             makeTestMergeRequest(
@@ -160,6 +169,18 @@ struct LiveGitLabResourceEditServiceTests {
                     ),
                 ]
         )
+        #expect(
+            await client.invalidatedRequests
+                .isEmpty
+        )
+
+        await service.invalidateAffectedReads(
+            for:
+                .mergeRequest(
+                    mergeRequest.route
+                )
+        )
+
         #expect(
             await client.invalidatedRequests
                 == mergeRequestInvalidations(
@@ -351,16 +372,28 @@ private actor RecordingResourceEditClient:
             recorded(endpoint)
         )
         if Response.self == GitLabIssue.self {
-            return try result(issueResult)
-                as! Response
+            guard
+                let response =
+                    try result(issueResult)
+                        as? Response
+            else {
+                throw .api(.invalidResponse)
+            }
+            return response
         }
         if
             Response.self
                 == GitLabMergeRequest.self
         {
-            return try result(
-                mergeRequestResult
-            ) as! Response
+            guard
+                let response =
+                    try result(
+                        mergeRequestResult
+                    ) as? Response
+            else {
+                throw .api(.invalidResponse)
+            }
+            return response
         }
         throw .api(.invalidResponse)
     }

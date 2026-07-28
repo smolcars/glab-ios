@@ -47,6 +47,7 @@ nonisolated struct GitLabResourceEditDraft:
     let title: String
     let currentDescription: String
     let revision: Int
+    let requiresDeliveryCheck: Bool
 
     private enum CodingKeys:
         String,
@@ -56,24 +57,32 @@ nonisolated struct GitLabResourceEditDraft:
         case title
         case currentDescription = "description"
         case revision
+        case requiresDeliveryCheck
     }
 
     init(
         baseline: GitLabResourceEditSnapshot,
         title: String,
         description: String,
-        revision: Int
+        revision: Int,
+        requiresDeliveryCheck: Bool = false
     ) {
         self.baseline = baseline
         self.title = title
         currentDescription = description
         self.revision = revision
+        self.requiresDeliveryCheck =
+            requiresDeliveryCheck
     }
 
     var isDirty: Bool {
         title != baseline.title
             || currentDescription
                 != baseline.rawDescription
+    }
+
+    var hasConsistentDeliveryState: Bool {
+        !requiresDeliveryCheck || isDirty
     }
 
     var description: String {
@@ -153,7 +162,8 @@ actor InMemoryGitLabResourceEditDraftStore:
     ) {
         guard
             draft.baseline.target
-                == key.target
+                == key.target,
+            draft.hasConsistentDeliveryState
         else {
             throw .storage
         }

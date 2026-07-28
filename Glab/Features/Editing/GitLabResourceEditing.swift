@@ -44,4 +44,8 @@ nonisolated protocol GitLabResourceEditing:
         changes: GitLabResourceEditChanges
     ) async throws(GitLabSessionClientError)
         -> GitLabResourceEditResult
+
+    func invalidateAffectedReads(
+        for target: GitLabResourceEditTarget
+    ) async
 }

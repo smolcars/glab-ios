@@ -16,7 +16,7 @@ actor FileGitLabResourceEditDraftStore:
     static let maximumStoredRecordBytes =
         64 * 1_024 * 1_024
 
-    private static let formatVersion = 1
+    private static let formatVersion = 2
     private static let directoryName =
         "GlabGitLabResourceEditDrafts"
 
@@ -84,6 +84,8 @@ actor FileGitLabResourceEditDraftStore:
                 ),
             record.draft.baseline.target
                 == key.target,
+            record.draft
+                .hasConsistentDeliveryState,
             record.draft.isDirty
         else {
             discardInvalidRecord(
@@ -103,7 +105,8 @@ actor FileGitLabResourceEditDraftStore:
     ) {
         guard
             draft.baseline.target
-                == key.target
+                == key.target,
+            draft.hasConsistentDeliveryState
         else {
             throw .storage
         }

@@ -218,6 +218,67 @@ struct GitLabResourceEditDraftStoreTests {
         )
     }
 
+    @Test("Unknown-delivery recovery round trips through protected storage")
+    func unknownDeliveryRoundTrips() async throws {
+        try await withFileStore {
+            store,
+            _ in
+            let key = try draftKey()
+            let pending = GitLabResourceEditDraft(
+                baseline:
+                    draft(
+                        revision: 1
+                    ).baseline,
+                title: "Possibly saved",
+                description:
+                    "Possibly saved body",
+                revision: 8,
+                requiresDeliveryCheck: true
+            )
+
+            try await store.store(
+                pending,
+                for: key
+            )
+
+            #expect(
+                await store.draft(for: key)
+                    == pending
+            )
+        }
+    }
+
+    @Test("A clean draft cannot claim an unresolved delivery")
+    func rejectsInconsistentUnknownDelivery()
+        async throws
+    {
+        let store =
+            InMemoryGitLabResourceEditDraftStore()
+        let key = try draftKey()
+        let baseline =
+            draft(revision: 1).baseline
+        let inconsistent =
+            GitLabResourceEditDraft(
+                baseline: baseline,
+                title: baseline.title,
+                description:
+                    baseline.rawDescription,
+                revision: 2,
+                requiresDeliveryCheck: true
+            )
+
+        await #expect(
+            throws:
+                GitLabResourceEditDraftStoreError
+                    .storage
+        ) {
+            try await store.store(
+                inconsistent,
+                for: key
+            )
+        }
+    }
+
     @Test("An intentionally empty description round trips exactly")
     func emptyDescriptionRoundTrips() async throws {
         try await withFileStore {

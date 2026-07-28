@@ -208,6 +208,16 @@ final class GitLabResourceEditorModel {
             && !hasBlockingFailure
     }
 
+    var canEdit: Bool {
+        hasRestoredDraft
+            && operation == nil
+            && pendingMutation == nil
+    }
+
+    var requiresDeliveryCheck: Bool {
+        pendingMutation != nil
+    }
+
     var canCheckGitLab: Bool {
         hasRestoredDraft
             && operation == nil
@@ -240,7 +250,10 @@ final class GitLabResourceEditorModel {
         )
         isRestoringDraft = false
 
-        guard isAccountCurrent() else {
+        guard
+            !Task.isCancelled,
+            isAccountCurrent()
+        else {
             return
         }
 
@@ -256,6 +269,7 @@ final class GitLabResourceEditorModel {
                 == baseline.resourceID
         {
             if
+                !draft.requiresDeliveryCheck,
                 draft.title == baseline.title,
                 draft.currentDescription
                     == baseline.rawDescription
@@ -272,6 +286,23 @@ final class GitLabResourceEditorModel {
                 )
                 draftRevision =
                     draft.revision
+                if draft.requiresDeliveryCheck {
+                    do {
+                        pendingMutation =
+                            PendingMutation(
+                                baseline:
+                                    draft.baseline,
+                                changes:
+                                    try changes(
+                                        relativeTo:
+                                            draft.baseline
+                                    )
+                            )
+                    } catch {
+                        failure =
+                            .validation(error)
+                    }
+                }
             }
         } else if draft != nil, !hadLocalEdits {
             await draftStore.remove(
@@ -404,6 +435,9 @@ final class GitLabResourceEditorModel {
         guard operation == nil else {
             return false
         }
+        guard hasRestoredDraft else {
+            return true
+        }
         guard isDirty else {
             persistenceTask?.cancel()
             persistenceTask = nil
@@ -535,6 +569,14 @@ final class GitLabResourceEditorModel {
             baseline: baseline,
             changes: rebasedChanges
         )
+        draftRevision += 1
+        guard await persistCurrentDraft() else {
+            pendingMutation = nil
+            return
+        }
+        guard operationIsCurrent(generation) else {
+            return
+        }
         do {
             let result = try await service.update(
                 baseline.target,
@@ -568,6 +610,13 @@ final class GitLabResourceEditorModel {
                 error.mutationDeliveryCertainty
             if certainty == .rejected {
                 pendingMutation = nil
+                draftRevision += 1
+                guard await persistCurrentDraft() else {
+                    return
+                }
+                guard operationIsCurrent(generation) else {
+                    return
+                }
             }
             failure = .mutation(
                 error,
@@ -654,11 +703,11 @@ final class GitLabResourceEditorModel {
                 intendedDescription:
                     intendedDescription
             )
+            self.pendingMutation = nil
             draftRevision += 1
             guard await persistCurrentDraft() else {
                 return
             }
-            self.pendingMutation = nil
             failure = nil
             return
         }
@@ -688,6 +737,12 @@ final class GitLabResourceEditorModel {
             return
         }
         let snapshot = result.snapshot
+        await service.invalidateAffectedReads(
+            for: snapshot.target
+        )
+        guard operationIsCurrent(generation) else {
+            return
+        }
         pendingMutation = nil
         apply(
             baseline: snapshot,
@@ -987,11 +1042,32 @@ final class GitLabResourceEditorModel {
     private var currentDraft:
         GitLabResourceEditDraft
     {
-        GitLabResourceEditDraft(
+        if let pendingMutation {
+            return GitLabResourceEditDraft(
+                baseline:
+                    pendingMutation.baseline,
+                title:
+                    pendingMutation
+                        .changes.title
+                    ?? pendingMutation
+                        .baseline.title,
+                description:
+                    pendingMutation
+                        .changes.description
+                    ?? pendingMutation
+                        .baseline
+                        .rawDescription,
+                revision: draftRevision,
+                requiresDeliveryCheck: true
+            )
+        }
+
+        return GitLabResourceEditDraft(
             baseline: baseline,
             title: title,
             description: rawDescription,
-            revision: draftRevision
+            revision: draftRevision,
+            requiresDeliveryCheck: false
         )
     }
 }

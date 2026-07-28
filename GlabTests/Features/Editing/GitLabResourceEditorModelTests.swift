@@ -93,6 +93,53 @@ struct GitLabResourceEditorModelTests {
         )
     }
 
+    @Test("Closing before restoration completes preserves the stored draft")
+    @MainActor
+    func dismissalDuringRestorePreservesDraft()
+        async throws
+    {
+        let context = try ResourceEditorTestContext()
+        let storedDraft =
+            GitLabResourceEditDraft(
+                baseline: context.baseline,
+                title: "Protected draft",
+                description: "Protected body",
+                revision: 7
+            )
+        let store = GatedResourceEditDraftStore(
+            draft: storedDraft
+        )
+        let model = context.makeModel(
+            draftStore: store
+        )
+
+        let restoration = Task {
+            await model.restoreDraft()
+        }
+        await store.waitUntilReadStarts()
+
+        let didPersist =
+            await model.persistForDismissal()
+
+        #expect(didPersist)
+        #expect(
+            await store.storedDraft
+                == storedDraft
+        )
+
+        restoration.cancel()
+        await store.releaseRead()
+        await restoration.value
+
+        #expect(!model.hasRestoredDraft)
+        #expect(model.baseline == context.baseline)
+        #expect(model.title == context.baseline.title)
+        #expect(
+            model.rawDescription
+                == context.baseline.rawDescription
+        )
+    }
+
     @Test("A stale draft already reflected by GitLab is discarded")
     @MainActor
     func discardsAppliedDraft() async throws {
@@ -567,7 +614,9 @@ struct GitLabResourceEditorModelTests {
                 == [
                     "store",
                     "load-latest",
+                    "store",
                     "update",
+                    "invalidate",
                     "reconcile",
                     "remove",
                 ]
@@ -848,7 +897,21 @@ struct GitLabResourceEditorModelTests {
                 )
         )
         #expect(model.canSave)
-        #expect(await store.storedDraft != nil)
+        #expect(
+            await store.storedDraft?
+                .requiresDeliveryCheck == false
+        )
+
+        let recovered = context.makeModel(
+            service:
+                RecordingResourceEditingService(),
+            draftStore: store
+        )
+        await recovered.restoreDraft()
+
+        #expect(recovered.canEdit)
+        #expect(recovered.canSave)
+        #expect(!recovered.canCheckGitLab)
     }
 
     @Test("An ambiguous PUT is reconciled as success when GitLab has the intent")
@@ -906,6 +969,56 @@ struct GitLabResourceEditorModelTests {
         #expect(model.failure == nil)
         #expect(await store.storedDraft == nil)
         #expect(await service.updateCount == 1)
+        #expect(
+            await service.invalidatedTargets
+                == [context.baseline.target]
+        )
+    }
+
+    @Test("An ambiguous PUT remains blocked after the editor is recreated")
+    @MainActor
+    func restoresUnknownDeliveryRecovery() async throws {
+        let context = try ResourceEditorTestContext()
+        let failure =
+            GitLabSessionClientError.api(
+                .server(statusCode: 500)
+            )
+        let store =
+            RecordingResourceEditDraftStore()
+        let firstService =
+            RecordingResourceEditingService(
+                latestResults: [
+                    .success(
+                        context.baselineResult
+                    ),
+                ],
+                updateResults: [
+                    .failure(failure),
+                ]
+            )
+        let firstModel = context.makeModel(
+            service: firstService,
+            draftStore: store
+        )
+        await firstModel.restoreDraft()
+        firstModel.title = "Edited"
+
+        await firstModel.save()
+        _ = await firstModel
+            .persistForDismissal()
+
+        let recoveredModel = context.makeModel(
+            service:
+                RecordingResourceEditingService(),
+            draftStore: store
+        )
+        await recoveredModel.restoreDraft()
+
+        #expect(recoveredModel.title == "Edited")
+        #expect(!recoveredModel.canEdit)
+        #expect(!recoveredModel.canSave)
+        #expect(recoveredModel.canCheckGitLab)
+        #expect(!recoveredModel.canDiscardDraft)
     }
 
     @Test("An ambiguous PUT can be retried only after GitLab proves no change")
@@ -991,6 +1104,10 @@ struct GitLabResourceEditorModelTests {
                 )
         )
         #expect(!model.canSave)
+        #expect(
+            await service.invalidatedTargets
+                .isEmpty
+        )
     }
 
     @Test("A failed ambiguous-delivery check remains blocked")
@@ -1031,6 +1148,10 @@ struct GitLabResourceEditorModelTests {
                 == .reconciliation(checkFailure)
         )
         #expect(!model.canSave)
+        #expect(
+            await service.invalidatedTargets
+                .isEmpty
+        )
     }
 
     @Test("Unknown delivery cannot send a second PUT before reconciliation")
@@ -1117,6 +1238,10 @@ struct GitLabResourceEditorModelTests {
                 )
         )
         #expect(!model.canSave)
+        #expect(
+            await service.invalidatedTargets
+                .isEmpty
+        )
     }
 
     @Test("Rapid duplicate saves perform one preflight and one PUT")
@@ -1449,6 +1574,8 @@ private actor RecordingResourceEditingService:
         [GitLabResourceEditTarget] = []
     private(set) var updates:
         [RecordedResourceEditUpdate] = []
+    private(set) var invalidatedTargets:
+        [GitLabResourceEditTarget] = []
 
     init(
         latestResults:
@@ -1515,6 +1642,13 @@ private actor RecordingResourceEditingService:
         return try result(
             updateResults.removeFirst()
         )
+    }
+
+    func invalidateAffectedReads(
+        for target: GitLabResourceEditTarget
+    ) async {
+        invalidatedTargets.append(target)
+        await events?.record("invalidate")
     }
 
     private func result<Value>(
@@ -1638,6 +1772,10 @@ private actor GatedResourceEditingService:
             updateResults.removeFirst()
         )
     }
+
+    func invalidateAffectedReads(
+        for target: GitLabResourceEditTarget
+    ) {}
 
     func waitUntilLatestStarts() async {
         guard !latestStarted else {

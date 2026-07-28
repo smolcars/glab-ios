@@ -175,9 +175,7 @@ struct GitLabResourceEditorView: View {
             .focused($titleIsFocused)
             .submitLabel(.done)
             .disabled(
-                !model.wrappedValue.hasRestoredDraft
-                    || model.wrappedValue.operation
-                        != nil
+                !model.wrappedValue.canEdit
             )
             .accessibilityLabel("Title")
             .accessibilityIdentifier(
@@ -262,8 +260,7 @@ struct GitLabResourceEditorView: View {
                     Color(uiColor: .secondarySystemGroupedBackground)
                 )
                 .disabled(
-                    model.wrappedValue.operation
-                        != nil
+                    !model.wrappedValue.canEdit
                 )
                 .scrollDismissesKeyboard(
                     .interactively
@@ -371,6 +368,10 @@ struct GitLabResourceEditorView: View {
             return status(for: failure)
         }
 
+        if model.requiresDeliveryCheck {
+            return unknownDeliveryStatus
+        }
+
         if model.apiAccess == .readOnly {
             return .notice(
                 title: "Read-only account",
@@ -437,7 +438,10 @@ struct GitLabResourceEditorView: View {
                 systemImage:
                     "exclamationmark.arrow.triangle.2.circlepath",
                 tint: .orange,
-                action: nil
+                action:
+                    model.canCheckGitLab
+                    ? .checkGitLab
+                    : nil
             )
         case let .mutation(error, certainty):
             switch certainty {
@@ -454,17 +458,7 @@ struct GitLabResourceEditorView: View {
                     action: nil
                 )
             case .deliveryUnknown:
-                .notice(
-                    title: "Save status unknown",
-                    message:
-                        "GitLab may already have accepted these changes. Check GitLab before trying to save again.",
-                    systemImage: "questionmark.circle.fill",
-                    tint: .orange,
-                    action:
-                        model.canCheckGitLab
-                        ? .checkGitLab
-                        : nil
-                )
+                unknownDeliveryStatus
             }
         case let .reconciliation(error):
             .notice(
@@ -487,6 +481,19 @@ struct GitLabResourceEditorView: View {
     private func conflictMessage(
         _ conflict: GitLabResourceEditConflict
     ) -> String {
+        if model.requiresDeliveryCheck {
+            if
+                conflict.fields.contains(
+                    .resourceIdentity
+                )
+            {
+                return
+                    "GitLab returned a different resource while checking the earlier save. Its delivery is still unresolved and your draft is preserved."
+            }
+            return
+                "GitLab now has a different \(conflictFieldNames(conflict)). Glab cannot determine the earlier save’s result, so your draft is preserved."
+        }
+
         if
             conflict.fields.contains(
                 .resourceIdentity
@@ -496,7 +503,14 @@ struct GitLabResourceEditorView: View {
                 "This resource no longer matches the version you began editing. Your draft was not sent."
         }
 
-        let names = conflict.fields
+        return
+            "The \(conflictFieldNames(conflict)) changed on GitLab after you began editing. Your draft was not sent."
+    }
+
+    private func conflictFieldNames(
+        _ conflict: GitLabResourceEditConflict
+    ) -> String {
+        conflict.fields
             .compactMap {
                 switch $0 {
                 case .title:
@@ -509,8 +523,22 @@ struct GitLabResourceEditorView: View {
             }
             .sorted()
             .joined(separator: " and ")
-        return
-            "The \(names) changed on GitLab after you began editing. Your draft was not sent."
+    }
+
+    private var unknownDeliveryStatus:
+        GitLabResourceEditorStatus
+    {
+        .notice(
+            title: "Save status unknown",
+            message:
+                "GitLab may already have accepted these changes. Check GitLab before editing or trying to save again.",
+            systemImage: "questionmark.circle.fill",
+            tint: .orange,
+            action:
+                model.canCheckGitLab
+                ? .checkGitLab
+                : nil
+        )
     }
 
     private var navigationTitle: String {
@@ -565,6 +593,10 @@ struct GitLabResourceEditorView: View {
         if model.apiAccess == .readOnly {
             return
                 "Saving requires OAuth or an API token with the api scope. Local editing and preview remain available."
+        }
+        if model.requiresDeliveryCheck {
+            return
+                "Check GitLab before editing or saving again."
         }
         if !model.hasRestoredDraft {
             return
