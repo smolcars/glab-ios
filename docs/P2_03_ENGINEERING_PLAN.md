@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-28
 
-Status: implemented; post-implementation deep-review repairs are in progress.
+Status: complete.
 Glab has never shipped, so breaking internal model, loader, cache-key, and
 view APIs are acceptable when they produce a simpler or safer implementation.
 
@@ -354,7 +354,32 @@ verification, and only then mark P2-03 complete.
 
 ## Verification record
 
-To be completed during implementation.
+- Verified the documented issue and merge-request discussion envelopes,
+  evolving note fields, system/user notes, and exact next-page links against
+  redacted read-only responses from the configured self-managed instance.
+- Focused discussion domain, endpoint, loader, pagination, cache, Markdown,
+  detail, session, and performance suites pass.
+- Debug and optimized Release performance gates pass for 20- and
+  200-discussion decoding, first-page and warm-cache publication, duplicate
+  merging, and lazy Markdown parsing.
+- The complete signed test suite passes on the iPhone 17 Pro Simulator with
+  test parallelization disabled. A parallel run caused only the pre-existing
+  Markdown micro-benchmark to exceed its contention-sensitive budget; that
+  benchmark passed both in isolation and in the complete serial rerun.
+- `xcodebuild analyze` completes without findings.
+- The tracked-source scan found no configured token, OAuth secret, or private
+  self-managed host value. Discussion response keys and Markdown document
+  keys remain account scoped, and the existing bounded caches are reused.
+- Live read-only issue and merge-request discussions were exercised on the
+  iPhone 17 Pro Simulator. Verification covered user Markdown, system
+  activity, long scrolling, pull-to-refresh, rapid enter/back navigation, and
+  cached relaunch in dark appearance at the default content size. Light
+  appearance and accessibility-extra-large Dynamic Type were also inspected;
+  discussion cards expanded without clipping.
+- Deterministic tests cover empty pages, empty note arrays, stale-cache and
+  failed-refresh retention, pagination, next-page failure/retry, duplicate
+  suppression, cancellation, internal notes, resolved notes, and diff notes
+  that are not all available simultaneously in the live read-only account.
 
 ## Deep-review findings and repair plan
 
@@ -392,3 +417,7 @@ identity, stale-cache overwrite, cross-account cache key, eager Markdown
 parsing, unbounded discussion-specific cache, or duplicated issue/MR service
 path was found. The existing shared pagination and Markdown components remain
 the appropriate abstractions.
+
+Both repairs were implemented and re-reviewed. The focused suites, complete
+serial suite, Release performance gates, analyzer, privacy scan, and Simulator
+interaction pass all succeeded afterward. No material P2-03 findings remain.

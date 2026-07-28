@@ -164,7 +164,7 @@ Todo:
   editing code, add regression and performance tests where applicable,
   implement every fix, and repeat the feature verification and review.
 
-### [ ] P2-03 — View issue and merge-request discussions
+### [x] P2-03 — View issue and merge-request discussions
 
 Outcome:
 
@@ -173,37 +173,37 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect issue/MR routing, detail loaders, pagination, cache behavior, and
+- [x] Inspect issue/MR routing, detail loaders, pagination, cache behavior, and
   any existing note decoding.
-- [ ] Before writing code, create `docs/P2_03_ENGINEERING_PLAN.md`. Document
+- [x] Before writing code, create `docs/P2_03_ENGINEERING_PLAN.md`. Document
   the Discussions API contract, model identity, issue/MR endpoint sharing,
   pagination, system-note presentation, Markdown integration, caching,
   cancellation, tests, performance, UI states, and non-goals.
-- [ ] Use the Discussions API rather than flattening the feature onto the Notes
+- [x] Use the Discussions API rather than flattening the feature onto the Notes
   API. Preserve thread and reply identities and decode evolving note types
   defensively.
-- [ ] Write failing tests for issue and MR endpoints, first/next-page loading,
+- [x] Write failing tests for issue and MR endpoints, first/next-page loading,
   nested replies, system notes, unknown fields, empty discussions, cache-first
   refresh, stale fallback, duplicate suppression, and cancellation.
-- [ ] Implement one shared discussion domain model and service without
+- [x] Implement one shared discussion domain model and service without
   duplicating issue and MR orchestration.
-- [ ] Render note bodies through the P2-02 Markdown pipeline and maintain stable
+- [x] Render note bodies through the P2-02 Markdown pipeline and maintain stable
   row identity so refreshed discussions do not visibly jump.
-- [ ] Cache the first discussion page by account and resource, keep later pages
+- [x] Cache the first discussion page by account and resource, keep later pages
   in memory, and retain visible content when refresh fails.
-- [ ] Use lazy/virtualized presentation for long discussions and compact or
+- [x] Use lazy/virtualized presentation for long discussions and compact or
   collapse system activity without hiding it.
-- [ ] Add loading, empty, pagination, retained-error, retry, and offline states.
-- [ ] Verify populated, empty, long, cached, failed-refresh, and paginated
+- [x] Add loading, empty, pagination, retained-error, retry, and offline states.
+- [x] Verify populated, empty, long, cached, failed-refresh, and paginated
   discussions for both issues and MRs in the iPhone 17 Pro Simulator.
-- [ ] Run the focused tests, complete test suite, static analysis, and cache
+- [x] Run the focused tests, complete test suite, static analysis, and cache
   privacy scan.
-- [ ] Perform a deep code review of all code added or changed for this feature.
+- [x] Perform a deep code review of all code added or changed for this feature.
   Look for bugs, bad code, duplicated issue/MR paths, pagination errors,
   unstable identities, lost replies, loading races, excessive rendering work,
   and code that needs refactoring. Record the findings in the engineering
   plan.
-- [ ] If the review finds anything material, write a repair plan before
+- [x] If the review finds anything material, write a repair plan before
   editing code, add regression tests where applicable, implement every fix,
   and repeat the feature verification and review.
 
