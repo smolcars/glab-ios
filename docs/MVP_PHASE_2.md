@@ -76,16 +76,17 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect the existing single-session storage, `AppSession`, client
+- [x] Inspect the existing single-session storage, `AppSession`, client
   composition, cache scoping, authentication restoration, and sign-out paths.
-- [ ] Before writing code, create `docs/P2_01_ENGINEERING_PLAN.md`. Document
+- [x] Before writing code, create `docs/P2_01_ENGINEERING_PLAN.md`. Document
   the storage migration, account identity, active-account ownership,
   dependency reconstruction, cancellation behavior, UI states, tests,
   security boundaries, and non-goals.
-- [ ] Write failing tests for migrating the existing single-account record,
+- [ ] Write failing tests for replacing the unreleased single-account storage,
   storing multiple accounts, restoring the active account, handling the same
   username on different hosts, and removing one account without removing the
-  others.
+  others. The owner explicitly authorized a breaking persistence change, so
+  the old `current-session` Keychain item does not require migration.
 - [ ] Write failing tests proving that a switch cancels or rejects stale
   in-flight results and that credentials, response-cache entries, drafts, and
   authentication failures affect only their owning account.
