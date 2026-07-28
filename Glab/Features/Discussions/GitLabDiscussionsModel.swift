@@ -65,4 +65,36 @@ where
     var discussions: [GitLabDiscussion] {
         items
     }
+
+    func reconcileCreatedDiscussion(
+        _ discussion: GitLabDiscussion
+    ) {
+        reconcileItem(
+            discussion,
+            countAdjustmentIfInserted: 1,
+            keepsAtEndUntilLoaded: true
+        )
+    }
+
+    @discardableResult
+    func reconcileCreatedReply(
+        _ note: GitLabDiscussionNote,
+        discussionID: String
+    ) -> Bool {
+        guard
+            let discussion = discussions
+                .first(
+                    where: {
+                        $0.id == discussionID
+                    }
+                )
+        else {
+            return false
+        }
+
+        reconcileItem(
+            discussion.reconciling(note)
+        )
+        return true
+    }
 }

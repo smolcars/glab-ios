@@ -1,7 +1,7 @@
 import Foundation
 @testable import Glab
 
-func makeTestDiscussion(
+nonisolated func makeTestDiscussion(
     id: String = "discussion-1",
     individualNote: Bool = false,
     notes: [GitLabDiscussionNote]? = nil
@@ -17,7 +17,7 @@ func makeTestDiscussion(
     )
 }
 
-func makeTestDiscussionNote(
+nonisolated func makeTestDiscussionNote(
     id: Int = 101,
     body: String = "A **Markdown** comment",
     authorID: Int = 1,

@@ -22,6 +22,21 @@ nonisolated protocol GitLabDiscussionLoading:
     ) async throws(GitLabSessionClientError)
 }
 
+nonisolated protocol GitLabDiscussionMutating:
+    Sendable
+{
+    func createDiscussion(
+        for resource: GitLabDiscussionResource,
+        body: GitLabDiscussionCommentBody
+    ) async throws -> GitLabDiscussion
+
+    func reply(
+        to discussionID: String,
+        in resource: GitLabDiscussionResource,
+        body: GitLabDiscussionCommentBody
+    ) async throws -> GitLabDiscussionNote
+}
+
 extension GitLabDiscussionLoading {
     func loadDiscussionsFirstPage(
         for resource: GitLabDiscussionResource,
@@ -47,8 +62,9 @@ extension GitLabDiscussionLoading {
     }
 }
 
-nonisolated struct LiveGitLabDiscussionLoader:
+nonisolated struct LiveGitLabDiscussionService:
     GitLabDiscussionLoading,
+    GitLabDiscussionMutating,
     Sendable
 {
     private let client:
@@ -121,5 +137,51 @@ nonisolated struct LiveGitLabDiscussionLoader:
                 )
             )
         }
+    }
+
+    @concurrent
+    func createDiscussion(
+        for resource: GitLabDiscussionResource,
+        body: GitLabDiscussionCommentBody
+    ) async throws -> GitLabDiscussion {
+        let discussion = try await client.send(
+            GitLabDiscussionEndpoints
+                .createDiscussion(
+                    for: resource,
+                    body: body
+                )
+        )
+        await invalidateDiscussions(
+            for: resource
+        )
+        return discussion
+    }
+
+    @concurrent
+    func reply(
+        to discussionID: String,
+        in resource: GitLabDiscussionResource,
+        body: GitLabDiscussionCommentBody
+    ) async throws -> GitLabDiscussionNote {
+        let note = try await client.send(
+            GitLabDiscussionEndpoints.reply(
+                to: discussionID,
+                in: resource,
+                body: body
+            )
+        )
+        await invalidateDiscussions(
+            for: resource
+        )
+        return note
+    }
+
+    private func invalidateDiscussions(
+        for resource: GitLabDiscussionResource
+    ) async {
+        await client.invalidateCachedResponse(
+            GitLabDiscussionEndpoints
+                .discussions(for: resource)
+        )
     }
 }

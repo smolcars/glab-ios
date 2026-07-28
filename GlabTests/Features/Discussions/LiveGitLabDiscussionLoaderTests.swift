@@ -19,7 +19,7 @@ struct LiveGitLabDiscussionLoaderTests {
             discussion: discussion,
             returnedNextPageURL: nextPageURL
         )
-        let loader = LiveGitLabDiscussionLoader(
+        let loader = LiveGitLabDiscussionService(
             client: client
         )
         let issue: GitLabDiscussionResource =

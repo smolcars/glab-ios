@@ -206,6 +206,30 @@ nonisolated struct GitLabDiscussion:
             && notes.allSatisfy(\.isSystem)
     }
 
+    func reconciling(
+        _ note: GitLabDiscussionNote
+    ) -> Self {
+        var reconciledNotes = notes
+        if
+            let index = reconciledNotes
+                .firstIndex(
+                    where: {
+                        $0.id == note.id
+                    }
+                )
+        {
+            reconciledNotes[index] = note
+        } else {
+            reconciledNotes.append(note)
+        }
+
+        return Self(
+            id: id,
+            individualNote: individualNote,
+            notes: reconciledNotes
+        )
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id
         case individualNote = "individual_note"

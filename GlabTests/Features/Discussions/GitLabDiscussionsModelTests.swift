@@ -164,6 +164,227 @@ struct GitLabDiscussionsModelTests {
                 == failure
         )
     }
+
+    @Test("Reconciles created discussions by real server identity")
+    @MainActor
+    func reconcilesCreatedDiscussion() async {
+        let first = makeTestDiscussion(
+            id: "first"
+        )
+        let loader =
+            StaticDiscussionLoader(
+                discussions: [first],
+                totalCount: 1
+            )
+        let model = GitLabDiscussionsModel(
+            resource: resource,
+            loader: loader
+        )
+        await model.loadIfNeeded()
+        let startingRevision =
+            model.contentRevision
+        let created = makeTestDiscussion(
+            id: "created",
+            notes: [
+                makeTestDiscussionNote(
+                    id: 202,
+                    body: "Created"
+                ),
+            ]
+        )
+
+        model.reconcileCreatedDiscussion(
+            created
+        )
+
+        #expect(
+            model.discussions == [
+                first,
+                created,
+            ]
+        )
+        #expect(model.totalItemCount == 2)
+        #expect(
+            model.contentRevision
+                == startingRevision + 1
+        )
+
+        let serverUpdate =
+            makeTestDiscussion(
+                id: "created",
+                notes: [
+                    makeTestDiscussionNote(
+                        id: 202,
+                        body: "Server update"
+                    ),
+                ]
+            )
+        model.reconcileCreatedDiscussion(
+            serverUpdate
+        )
+
+        #expect(
+            model.discussions == [
+                first,
+                serverUpdate,
+            ]
+        )
+        #expect(model.totalItemCount == 2)
+    }
+
+    @Test("Keeps a created discussion after subsequently loaded older pages")
+    @MainActor
+    func keepsCreatedDiscussionAtPaginationTail()
+        async
+    {
+        let first = makeTestDiscussion(
+            id: "first"
+        )
+        let second = makeTestDiscussion(
+            id: "second"
+        )
+        let created = makeTestDiscussion(
+            id: "created"
+        )
+        let model = GitLabDiscussionsModel(
+            resource: resource,
+            loader:
+                PagingDiscussionLoader(
+                    first: first,
+                    second: second
+                )
+        )
+        await model.loadIfNeeded()
+        model.reconcileCreatedDiscussion(
+            created
+        )
+
+        await model.loadNextPageIfNeeded(
+            after: created
+        )
+
+        #expect(
+            model.discussions.map(\.id)
+                == [
+                    "first",
+                    "second",
+                    "created",
+                ]
+        )
+    }
+
+    @Test("Reconciles replies by real note identity")
+    @MainActor
+    func reconcilesCreatedReply() async {
+        let original = makeTestDiscussion(
+            id: "thread",
+            notes: [
+                makeTestDiscussionNote(
+                    id: 101,
+                    body: "Original"
+                ),
+            ]
+        )
+        let model = GitLabDiscussionsModel(
+            resource: resource,
+            loader:
+                StaticDiscussionLoader(
+                    discussions: [original]
+                )
+        )
+        await model.loadIfNeeded()
+        let reply =
+            makeTestDiscussionNote(
+                id: 202,
+                body: "Reply"
+            )
+
+        #expect(
+            model.reconcileCreatedReply(
+                reply,
+                discussionID: "thread"
+            )
+        )
+        #expect(
+            model.discussions[0].notes
+                .map(\.id)
+                == [101, 202]
+        )
+
+        let serverUpdate =
+            makeTestDiscussionNote(
+                id: 202,
+                body: "Updated reply"
+            )
+        #expect(
+            model.reconcileCreatedReply(
+                serverUpdate,
+                discussionID: "thread"
+            )
+        )
+        #expect(
+            model.discussions[0].notes
+                == [
+                    original.notes[0],
+                    serverUpdate,
+                ]
+        )
+        #expect(model.totalItemCount == nil)
+    }
+
+    @Test("A missing reply target does not invent a discussion")
+    @MainActor
+    func ignoresMissingReplyTarget() async {
+        let original = makeTestDiscussion(
+            id: "thread"
+        )
+        let model = GitLabDiscussionsModel(
+            resource: resource,
+            loader:
+                StaticDiscussionLoader(
+                    discussions: [original]
+                )
+        )
+        await model.loadIfNeeded()
+
+        #expect(
+            !model.reconcileCreatedReply(
+                makeTestDiscussionNote(
+                    id: 202
+                ),
+                discussionID: "missing"
+            )
+        )
+        #expect(
+            model.discussions == [original]
+        )
+    }
+}
+
+private actor StaticDiscussionLoader:
+    GitLabDiscussionLoading
+{
+    let discussions: [GitLabDiscussion]
+    let totalCount: Int?
+
+    init(
+        discussions: [GitLabDiscussion],
+        totalCount: Int? = nil
+    ) {
+        self.discussions = discussions
+        self.totalCount = totalCount
+    }
+
+    func loadDiscussionsPage(
+        for resource: GitLabDiscussionResource,
+        after nextPageURL: URL?
+    ) -> GitLabResourcePage<GitLabDiscussion> {
+        GitLabResourcePage(
+            items: discussions,
+            nextPageURL: nil,
+            totalCount: totalCount
+        )
+    }
 }
 
 private actor StaleFailingDiscussionLoader:

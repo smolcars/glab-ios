@@ -83,6 +83,7 @@ where
     private(set) var firstPageCacheStoredAt: Date?
     var searchText = ""
 
+    private var reconciledTailItems: [Item] = []
     private let loadPage:
         @Sendable (URL?) async throws(GitLabSessionClientError)
             -> GitLabResourcePage<Item>
@@ -177,6 +178,53 @@ where
         await loadNextPage()
     }
 
+    @discardableResult
+    func reconcileItem(
+        _ item: Item,
+        countAdjustmentIfInserted: Int = 0,
+        keepsAtEndUntilLoaded: Bool = false
+    ) -> Bool {
+        let itemIdentity = identity(item)
+        if
+            let index = items.firstIndex(
+                where: {
+                    identity($0)
+                        == itemIdentity
+                }
+            )
+        {
+            items[index] = item
+            if
+                let tailIndex =
+                    reconciledTailItems.firstIndex(
+                        where: {
+                            identity($0)
+                                == itemIdentity
+                        }
+                    )
+            {
+                reconciledTailItems[tailIndex] =
+                    item
+            }
+            contentRevision += 1
+            return false
+        }
+
+        items.append(item)
+        if keepsAtEndUntilLoaded {
+            reconciledTailItems.append(item)
+        }
+        if let totalItemCount {
+            self.totalItemCount = max(
+                0,
+                totalItemCount
+                    + countAdjustmentIfInserted
+            )
+        }
+        contentRevision += 1
+        return true
+    }
+
     private func replaceItems(
         showsInitialLoading: Bool,
         refreshBehavior: GitLabCacheRefreshBehavior
@@ -249,7 +297,7 @@ where
     private func applyFirstPage(
         _ event: GitLabResourcePageEvent<Item>
     ) {
-        items = appending(
+        items = appendingServerItems(
             event.page.items,
             to: []
         )
@@ -302,7 +350,10 @@ where
                 return
             }
 
-            items = appending(page.items, to: items)
+            items = appendingServerItems(
+                page.items,
+                to: items
+            )
             self.nextPageURL = page.nextPageURL
             totalItemCount =
                 page.totalCount ?? totalItemCount
@@ -348,6 +399,35 @@ where
         }
 
         return result
+    }
+
+    private func appendingServerItems(
+        _ newItems: [Item],
+        to existingItems: [Item]
+    ) -> [Item] {
+        let previousTailIdentities =
+            Set(reconciledTailItems.map(identity))
+        let loadedIdentities =
+            Set(newItems.map(identity))
+
+        reconciledTailItems.removeAll {
+            loadedIdentities.contains(identity($0))
+        }
+
+        let existingWithoutTail =
+            existingItems.filter {
+                !previousTailIdentities.contains(
+                    identity($0)
+                )
+            }
+        let loadedItems = appending(
+            newItems,
+            to: existingWithoutTail
+        )
+        return appending(
+            reconciledTailItems,
+            to: loadedItems
+        )
     }
 
     private func matches(

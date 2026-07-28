@@ -87,7 +87,7 @@ struct SignedInShellView: View {
             client: client
         )
         let discussionLoader =
-            LiveGitLabDiscussionLoader(
+            LiveGitLabDiscussionService(
                 client: client
             )
         let todoService = LiveGitLabTodoLoader(
