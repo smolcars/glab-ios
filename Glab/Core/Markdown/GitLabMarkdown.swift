@@ -109,6 +109,8 @@ nonisolated struct GitLabMarkdownListItem:
 {
     let ordinal: Int
     let taskState: GitLabMarkdownTaskState?
+    let taskSourceID:
+        GitLabMarkdownTaskSourceID?
     let blocks: [GitLabMarkdownBlock]
 
     var plainText: String {
@@ -366,6 +368,9 @@ nonisolated enum GitLabMarkdownParser {
         _ request: GitLabMarkdownRequest
     ) async throws -> GitLabMarkdownDocument {
         try Task.checkCancellation()
+        async let indexedTasks =
+            GitLabMarkdownTaskSourceIndex
+                .tasks(in: request.source)
         let normalizedSource =
             GitLabMarkdownEscapedReference
             .protect(
@@ -450,7 +455,14 @@ nonisolated enum GitLabMarkdownParser {
                 context: context
             )
         try Task.checkCancellation()
-        return GitLabMarkdownDocument(blocks: blocks)
+        return GitLabMarkdownTaskSourceMapper
+            .attaching(
+                try await indexedTasks,
+                to:
+                    GitLabMarkdownDocument(
+                        blocks: blocks
+                    )
+            )
     }
 
     private static func sourceWithoutComments(
@@ -744,6 +756,7 @@ nonisolated private enum GitLabMarkdownTreeConverter {
             return GitLabMarkdownListItem(
                 ordinal: ordinal,
                 taskState: taskState,
+                taskSourceID: nil,
                 blocks: itemBlocks
             )
         }

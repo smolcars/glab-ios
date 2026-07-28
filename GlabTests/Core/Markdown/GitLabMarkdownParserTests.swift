@@ -96,6 +96,93 @@ struct GitLabMarkdownParserTests {
                     "Inapplicable task, Inapplicable",
                 ]
         )
+        let completeID = try #require(
+            nested.items[0].taskSourceID
+        )
+        let incompleteID = try #require(
+            nested.items[1].taskSourceID
+        )
+        let inapplicableID = try #require(
+            nested.items[2].taskSourceID
+        )
+        #expect(
+            completeID.markerUTF8Offset
+                < incompleteID.markerUTF8Offset
+        )
+        #expect(
+            incompleteID.markerUTF8Offset
+                < inapplicableID.markerUTF8Offset
+        )
+    }
+
+    @Test("Maps complex rendered tasks to exact source identities")
+    func taskSourceIdentityMapping() async throws {
+        let source =
+            GitLabMarkdownFixtures.taskSourceComplex
+        let request = try makeRequest(
+            source: source
+        )
+        let document =
+            try await GitLabMarkdownParser.parse(
+                request
+            )
+        let renderedTasks =
+            tasks(in: document.blocks)
+        let indexedTasks =
+            try await GitLabMarkdownTaskSourceIndex
+                .tasks(in: source)
+
+        #expect(
+            renderedTasks.map(\.state)
+                == indexedTasks.map(\.state)
+        )
+        #expect(
+            renderedTasks
+                .compactMap(\.sourceID)
+                == indexedTasks.map(\.sourceID)
+        )
+        #expect(
+            Set(
+                renderedTasks
+                    .compactMap(\.sourceID)
+            ).count
+                == renderedTasks.count
+        )
+    }
+
+    @Test("Fails closed when rendered and indexed task sequences disagree")
+    func taskSourceIdentityMismatch() async throws {
+        let source = "- [ ] Visible"
+        let document =
+            try await GitLabMarkdownParser.parse(
+                makeRequest(source: source)
+            )
+        let indexed =
+            try await GitLabMarkdownTaskSourceIndex
+                .tasks(in: source)
+        let task = try #require(
+            indexed.first
+        )
+        let mismatched = [
+            GitLabMarkdownIndexedTask(
+                sourceID: task.sourceID,
+                state: .complete
+            )
+        ]
+
+        let remapped =
+            GitLabMarkdownTaskSourceMapper
+                .attaching(
+                    mismatched,
+                    to: document
+                )
+
+        #expect(
+            tasks(in: remapped.blocks)
+                .allSatisfy {
+                    $0.sourceID == nil
+                }
+        )
     }
 
     @Test("Preserves quote, code, table, image, and rule structure")
@@ -297,5 +384,56 @@ struct GitLabMarkdownParserTests {
             source: source,
             webURL: URL(string: webURL)
         )
+    }
+
+    private typealias ParsedTask = (
+        state: GitLabMarkdownTaskState,
+        sourceID: GitLabMarkdownTaskSourceID?
+    )
+
+    private func tasks(
+        in blocks: [GitLabMarkdownBlock]
+    ) -> [ParsedTask] {
+        var result: [ParsedTask] = []
+
+        for block in blocks {
+            switch block {
+            case let .list(list):
+                for item in list.items {
+                    if let state = item.taskState {
+                        result.append(
+                            (
+                                state: state,
+                                sourceID:
+                                    item.taskSourceID
+                            )
+                        )
+                    }
+                    result.append(
+                        contentsOf:
+                            tasks(
+                                in: item.blocks
+                            )
+                    )
+                }
+            case let .quote(quote):
+                result.append(
+                    contentsOf:
+                        tasks(
+                            in: quote.blocks
+                        )
+                )
+            case .heading,
+                 .paragraph,
+                 .code,
+                 .table,
+                 .image,
+                 .thematicBreak,
+                 .unsupported:
+                break
+            }
+        }
+
+        return result
     }
 }

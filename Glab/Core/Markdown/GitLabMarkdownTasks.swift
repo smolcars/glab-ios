@@ -177,6 +177,159 @@ nonisolated enum GitLabMarkdownTaskSourceRewriter {
     }
 }
 
+nonisolated enum GitLabMarkdownTaskSourceMapper {
+    static func attaching(
+        _ indexedTasks:
+            [GitLabMarkdownIndexedTask],
+        to document:
+            GitLabMarkdownDocument
+    ) -> GitLabMarkdownDocument {
+        let renderedStates =
+            taskStates(
+                in: document.blocks
+            )
+        guard
+            renderedStates
+                == indexedTasks.map(\.state)
+        else {
+            var unusedIndex = 0
+            return GitLabMarkdownDocument(
+                blocks:
+                    mappedBlocks(
+                        document.blocks,
+                        indexedTasks: nil,
+                        taskIndex:
+                            &unusedIndex
+                    )
+            )
+        }
+
+        var taskIndex = 0
+        return GitLabMarkdownDocument(
+            blocks:
+                mappedBlocks(
+                    document.blocks,
+                    indexedTasks:
+                        indexedTasks,
+                    taskIndex: &taskIndex
+                )
+        )
+    }
+
+    private static func taskStates(
+        in blocks: [GitLabMarkdownBlock]
+    ) -> [GitLabMarkdownTaskState] {
+        var result:
+            [GitLabMarkdownTaskState] = []
+
+        for block in blocks {
+            switch block {
+            case let .list(list):
+                for item in list.items {
+                    if let state =
+                        item.taskState
+                    {
+                        result.append(state)
+                    }
+                    result.append(
+                        contentsOf:
+                            taskStates(
+                                in: item.blocks
+                            )
+                    )
+                }
+            case let .quote(quote):
+                result.append(
+                    contentsOf:
+                        taskStates(
+                            in: quote.blocks
+                        )
+                )
+            case .heading,
+                 .paragraph,
+                 .code,
+                 .table,
+                 .image,
+                 .thematicBreak,
+                 .unsupported:
+                break
+            }
+        }
+
+        return result
+    }
+
+    private static func mappedBlocks(
+        _ blocks: [GitLabMarkdownBlock],
+        indexedTasks:
+            [GitLabMarkdownIndexedTask]?,
+        taskIndex: inout Int
+    ) -> [GitLabMarkdownBlock] {
+        blocks.map { block in
+            switch block {
+            case let .list(list):
+                .list(
+                    GitLabMarkdownList(
+                        kind: list.kind,
+                        items: list.items.map {
+                            item in
+                            let sourceID:
+                                GitLabMarkdownTaskSourceID?
+                            if item.taskState != nil {
+                                sourceID =
+                                    indexedTasks?[
+                                        taskIndex
+                                    ].sourceID
+                                taskIndex += 1
+                            } else {
+                                sourceID = nil
+                            }
+
+                            return GitLabMarkdownListItem(
+                                ordinal:
+                                    item.ordinal,
+                                taskState:
+                                    item.taskState,
+                                taskSourceID:
+                                    sourceID,
+                                blocks:
+                                    mappedBlocks(
+                                        item.blocks,
+                                        indexedTasks:
+                                            indexedTasks,
+                                        taskIndex:
+                                            &taskIndex
+                                    )
+                            )
+                        }
+                    )
+                )
+            case let .quote(quote):
+                .quote(
+                    GitLabMarkdownQuote(
+                        blocks:
+                            mappedBlocks(
+                                quote.blocks,
+                                indexedTasks:
+                                    indexedTasks,
+                                taskIndex:
+                                    &taskIndex
+                            )
+                    )
+                )
+            case .heading,
+                 .paragraph,
+                 .code,
+                 .table,
+                 .image,
+                 .thematicBreak,
+                 .unsupported:
+                block
+            }
+        }
+    }
+}
+
 nonisolated private enum GitLabMarkdownTaskASCII {
     static let tab: UInt8 = 0x09
     static let lineFeed: UInt8 = 0x0A
