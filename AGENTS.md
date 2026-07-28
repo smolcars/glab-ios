@@ -10,6 +10,7 @@
 - Always use the gitlab API documentation as the source of truth.
 - Always plan first before coding.
 - When making UI changes, always consider the user experience and design guidelines/design skill.
+- Do not write tests for the sake of writing tests, only write tests when a test is important for that specific scenario.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
