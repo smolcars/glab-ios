@@ -2,10 +2,9 @@
 
 Last updated: 2026-07-28
 
-Status: planned before implementation. The current single-session
-implementation has been inspected. Glab has never shipped, and the owner
-explicitly authorized breaking persistence changes, so this feature will
-replace the old `current-session` Keychain format instead of migrating it.
+Status: complete. Glab has never shipped, and the owner explicitly authorized
+breaking persistence changes, so this feature replaces the old
+`current-session` Keychain format instead of migrating it.
 
 ## Outcome
 
@@ -343,6 +342,8 @@ The first implementation pass exposed the following material issues:
    account retained an authentication notice that no signed-in UI presented.
 6. Keychain decoding did not verify that the decoded session identity matched
    the account identity used to address the Keychain item.
+7. A stale credential-deletion error could escape an obsolete removal and
+   overwrite a newer successful sign-in with a global failure state.
 
 Repair plan, recorded before the remaining review edits:
 
@@ -377,10 +378,40 @@ Repair plan, recorded before the remaining review edits:
 
 ## Verification record
 
-Not yet run. Record focused/full test counts, static-analysis result,
-Simulator/runtime, live versus deterministic account rows, UI matrix, privacy
-scan, review findings, repair plan, and final commit IDs here before marking
-P2-01 complete.
+Completed on 2026-07-28:
+
+- The final focused account/session/Keychain run passed 25 tests in three
+  suites. This includes deterministic two- and three-account storage,
+  switching, restoration, removal, cache isolation, late callbacks, and every
+  concurrency regression found during review.
+- The complete Swift Testing run passed 293 tests in 48 suites on the iPhone
+  17 Pro Simulator with parallel testing disabled.
+- Xcode static analysis succeeded without analyzer findings.
+- The app was installed and launched on an iPhone 17 Pro Simulator running
+  iOS 26.5. The configured self-managed read-only account restored without
+  re-entering its token, Home loaded cached/live content, and the Account sheet
+  showed the correct avatar, active marker, host, authentication method, and
+  read-only access.
+- The Add Account presentation was opened and tapped through to verify the
+  GitLab.com OAuth, self-managed OAuth, and access-token entry points. The
+  removal confirmation was opened and cancelled. Relaunch restoration,
+  light/dark appearance, accessibility text sizing, and scroll reachability
+  were also inspected during the feature pass.
+- Only one live credential was available in Simulator. Multiple-row switching,
+  active/inactive removal, relaunch selection, last-switch-wins behavior, and
+  cache isolation were therefore verified with deterministic stores rather
+  than a second live account.
+- The configured read-only token and both configured OAuth application secrets
+  had no matches in source, tests, docs, or the built app. `.env` is untracked.
+  The persisted account index contains no credential fields; Keychain account
+  names are SHA-256-derived, non-synchronizing, and
+  `WhenUnlockedThisDeviceOnly`.
+- The deep review found the seven material issues recorded above. Each received
+  a regression where applicable, all repairs passed the focused and complete
+  suites, and the final review found no additional material bugs, duplication,
+  or refactoring work.
+- Implementation and repair commits:
+  `a8bdc3a`, `97ca7f2`, `1f73d7a`, and `d9e5fd6`.
 
 ## Required deep review
 

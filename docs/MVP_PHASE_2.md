@@ -65,7 +65,7 @@ Phase 2 is complete when:
 
 ## Ordered Phase 2 checklist
 
-### [ ] P2-01 — Add multiple accounts and account switching
+### [x] P2-01 — Add multiple accounts and account switching
 
 Outcome:
 
@@ -82,34 +82,34 @@ Todo:
   the storage migration, account identity, active-account ownership,
   dependency reconstruction, cancellation behavior, UI states, tests,
   security boundaries, and non-goals.
-- [ ] Write failing tests for replacing the unreleased single-account storage,
+- [x] Write failing tests for replacing the unreleased single-account storage,
   storing multiple accounts, restoring the active account, handling the same
   username on different hosts, and removing one account without removing the
   others. The owner explicitly authorized a breaking persistence change, so
   the old `current-session` Keychain item does not require migration.
-- [ ] Write failing tests proving that a switch cancels or rejects stale
+- [x] Write failing tests proving that a switch cancels or rejects stale
   in-flight results and that credentials, response-cache entries, drafts, and
   authentication failures affect only their owning account.
-- [ ] Implement a stable non-secret account index and active-account ID while
+- [x] Implement a stable non-secret account index and active-account ID while
   retaining secret credentials and refresh tokens only in Keychain.
-- [ ] Recompose the active session client and root feature hierarchy when the
+- [x] Recompose the active session client and root feature hierarchy when the
   account changes. Do not retain feature models that belong to the prior
   account.
-- [ ] Add an account switcher to the Account presentation with Add Account,
+- [x] Add an account switcher to the Account presentation with Add Account,
   Switch Account, and Remove Account actions. Require confirmation before
   removing an account.
-- [ ] Preserve the existing GitLab.com OAuth, self-managed OAuth, and personal
+- [x] Preserve the existing GitLab.com OAuth, self-managed OAuth, and personal
   access-token flows when adding another account.
-- [ ] Verify account addition, switching, relaunch restoration, removal,
+- [x] Verify account addition, switching, relaunch restoration, removal,
   read-only presentation, loading cancellation, and cache isolation in the
   iPhone 17 Pro Simulator.
-- [ ] Run the focused tests, complete test suite, static analysis, and a
+- [x] Run the focused tests, complete test suite, static analysis, and a
   credential/privacy scan.
-- [ ] Perform a deep code review of all code added or changed for this feature.
+- [x] Perform a deep code review of all code added or changed for this feature.
   Look for bugs, bad code, duplicated code, incorrect state ownership,
   concurrency or cancellation races, credential/data leakage, and code that
   needs refactoring. Record the findings in the engineering plan.
-- [ ] If the review finds anything material, write a repair plan before
+- [x] If the review finds anything material, write a repair plan before
   editing code, add regression tests where applicable, implement every fix,
   and repeat the feature verification and review.
 
