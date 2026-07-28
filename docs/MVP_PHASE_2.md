@@ -124,15 +124,15 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect the issue/MR detail models, current raw-description views,
+- [x] Inspect the issue/MR detail models, current raw-description views,
   navigation behavior, response cache, image loading, and existing text/link
   handling.
-- [ ] Before writing code, create `docs/P2_02_ENGINEERING_PLAN.md`. Document
+- [x] Before writing code, create `docs/P2_02_ENGINEERING_PLAN.md`. Document
   supported Markdown syntax, parser/renderer selection, GitLab-reference
   resolution, cache identity and invalidation, isolation boundaries,
   accessibility, performance fixtures, tests, fallback behavior, and
   non-goals.
-- [ ] Benchmark candidate native parsing/rendering approaches before selecting
+- [x] Benchmark candidate native parsing/rendering approaches before selecting
   one. Record dependency, maintenance, correctness, memory, and scrolling
   tradeoffs; do not select a WebView or dependency without measured reasons.
 - [ ] Define fixtures for small, medium, and large documents containing
