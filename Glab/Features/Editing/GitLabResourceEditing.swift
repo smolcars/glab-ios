@@ -49,6 +49,10 @@ nonisolated protocol GitLabResourceEditing:
         for target: GitLabResourceEditTarget
     ) async
 
+    func invalidateProjectLabels(
+        projectID: Int
+    ) async
+
     func loadLabelsPage(
         projectID: Int,
         search: String?,
@@ -75,6 +79,10 @@ nonisolated protocol GitLabResourceEditing:
 }
 
 extension GitLabResourceEditing {
+    func invalidateProjectLabels(
+        projectID: Int
+    ) async {}
+
     func loadLabelsPage(
         projectID: Int,
         search: String?,

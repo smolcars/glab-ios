@@ -81,8 +81,20 @@ final class GitLabResourceMetadataEditorModel {
     private(set) var didSucceed = false
     private(set) var failure:
         GitLabResourceMetadataEditorFailure?
-    private(set) var optionsError:
+    private(set) var labelOptionsError:
         GitLabSessionClientError?
+    private(set) var memberOptionsError:
+        GitLabSessionClientError?
+    var labelSearchText = "" {
+        didSet {
+            scheduleLabelSearch()
+        }
+    }
+    var memberSearchText = "" {
+        didSet {
+            scheduleMemberSearch()
+        }
+    }
 
     let apiAccess: GitLabAPIAccess
     let supportsReviewers: Bool
@@ -92,6 +104,8 @@ final class GitLabResourceMetadataEditorModel {
     @ObservationIgnored
     private let service:
         any GitLabResourceEditing
+    @ObservationIgnored
+    private let searchDebounce: Duration
     @ObservationIgnored
     private let isAccountCurrent:
         @MainActor () -> Bool
@@ -117,12 +131,38 @@ final class GitLabResourceMetadataEditorModel {
     @ObservationIgnored
     private var seedMembers:
         [GitLabProjectMember]
+    @ObservationIgnored
+    private var activeMemberIDs:
+        Set<Int> = []
+    @ObservationIgnored
+    private var confirmedNewLabels:
+        Set<String> = []
+    @ObservationIgnored
+    private var labelSearchTask:
+        Task<Void, Never>?
+    @ObservationIgnored
+    private var memberSearchTask:
+        Task<Void, Never>?
+    @ObservationIgnored
+    private var labelSearchGeneration:
+        UInt64 = 0
+    @ObservationIgnored
+    private var memberSearchGeneration:
+        UInt64 = 0
+    @ObservationIgnored
+    private var isLoadingNextLabelsPage =
+        false
+    @ObservationIgnored
+    private var isLoadingNextMembersPage =
+        false
 
     init(
         accountID: GitLabAccountID,
         baseline: GitLabResourceEditResult,
         apiAccess: GitLabAPIAccess,
         service: any GitLabResourceEditing,
+        searchDebounce: Duration =
+            .milliseconds(250),
         isAccountCurrent:
             @escaping @MainActor () -> Bool,
         onSuccess:
@@ -134,6 +174,8 @@ final class GitLabResourceMetadataEditorModel {
         self.baseline = baseline
         self.apiAccess = apiAccess
         self.service = service
+        self.searchDebounce =
+            searchDebounce
         self.isAccountCurrent =
             isAccountCurrent
         self.onSuccess = onSuccess
@@ -157,6 +199,11 @@ final class GitLabResourceMetadataEditorModel {
             } else {
                 false
             }
+    }
+
+    deinit {
+        labelSearchTask?.cancel()
+        memberSearchTask?.cancel()
     }
 
     var target: GitLabResourceEditTarget {
@@ -218,6 +265,13 @@ final class GitLabResourceMetadataEditorModel {
             )
     }
 
+    var optionsError:
+        GitLabSessionClientError?
+    {
+        labelOptionsError
+            ?? memberOptionsError
+    }
+
     func toggleLabel(
         _ label: GitLabProjectLabel
     ) {
@@ -232,6 +286,15 @@ final class GitLabResourceMetadataEditorModel {
             label.name,
             in: &selectedLabelNames
         )
+        if
+            !selectedLabelNames.contains(
+                label.name
+            )
+        {
+            confirmedNewLabels.remove(
+                label.name
+            )
+        }
         clearEditableFailure()
     }
 
@@ -242,13 +305,18 @@ final class GitLabResourceMetadataEditorModel {
             )
         guard
             !normalized.isEmpty,
-            !selectedLabelNames
-                .contains(normalized),
+            !containsLabel(
+                normalized,
+                in: selectedLabelNames
+            ),
             !isBusy
         else {
             return
         }
         selectedLabelNames.append(normalized)
+        confirmedNewLabels.insert(
+            normalized
+        )
         clearEditableFailure()
     }
 
@@ -259,6 +327,7 @@ final class GitLabResourceMetadataEditorModel {
         selectedLabelNames.removeAll {
             $0 == name
         }
+        confirmedNewLabels.remove(name)
         clearEditableFailure()
     }
 
@@ -287,15 +356,27 @@ final class GitLabResourceMetadataEditorModel {
     ) {
         guard
             member.id > 0,
-            member.isActive,
             !isBusy
         else {
             return
         }
-        toggle(
-            member.id,
-            in: &selectedAssigneeIDs
-        )
+        if selectedAssigneeIDs.contains(
+            member.id
+        ) {
+            removeAssignee(id: member.id)
+        } else {
+            guard
+                member.isActive,
+                activeMemberIDs.contains(
+                    member.id
+                )
+            else {
+                return
+            }
+            selectedAssigneeIDs.append(
+                member.id
+            )
+        }
         clearEditableFailure()
     }
 
@@ -305,15 +386,27 @@ final class GitLabResourceMetadataEditorModel {
         guard
             supportsReviewers,
             member.id > 0,
-            member.isActive,
             !isBusy
         else {
             return
         }
-        toggle(
-            member.id,
-            in: &selectedReviewerIDs
-        )
+        if selectedReviewerIDs.contains(
+            member.id
+        ) {
+            removeReviewer(id: member.id)
+        } else {
+            guard
+                member.isActive,
+                activeMemberIDs.contains(
+                    member.id
+                )
+            else {
+                return
+            }
+            selectedReviewerIDs.append(
+                member.id
+            )
+        }
         clearEditableFailure()
     }
 
@@ -324,124 +417,89 @@ final class GitLabResourceMetadataEditorModel {
         else {
             return
         }
+        let labelGeneration =
+            labelSearchGeneration
+        let memberGeneration =
+            memberSearchGeneration
         isLoadingOptions = true
-        optionsError = nil
+        labelOptionsError = nil
+        memberOptionsError = nil
         defer {
             isLoadingOptions = false
         }
 
-        do {
-            async let labelPage =
-                service.loadLabelsPage(
-                    projectID: projectID,
-                    search: nil,
-                    after: nil
-                )
-            async let memberPage =
-                service.loadMembersPage(
-                    projectID: projectID,
-                    search: nil,
-                    after: nil
-                )
-            let (loadedLabels, loadedMembers) =
-                try await (
-                    labelPage,
-                    memberPage
-                )
-            guard
-                !Task.isCancelled,
-                isAccountCurrent()
-            else {
-                return
-            }
-            applyLabels(loadedLabels)
-            applyMembers(loadedMembers)
-            labelSearch = nil
-            memberSearch = nil
-        } catch {
-            let error =
-                error as?
-                    GitLabSessionClientError
-                ?? .api(.invalidResponse)
-            guard
-                !Task.isCancelled,
-                error != .api(.cancelled)
-            else {
-                return
-            }
-            optionsError = error
+        async let labelResult =
+            initialLabelPageResult()
+        async let memberResult =
+            initialMemberPageResult()
+        let (
+            loadedLabels,
+            loadedMembers
+        ) = await (
+            labelResult,
+            memberResult
+        )
+        guard
+            !Task.isCancelled,
+            isAccountCurrent()
+        else {
+            return
         }
-    }
 
-    func searchLabels(
-        _ search: String
-    ) async {
-        let normalized =
-            Self.normalizedSearch(search)
-        labelSearch = normalized
-        do {
-            let page =
-                try await service
-                    .loadLabelsPage(
-                        projectID: projectID,
-                        search: normalized,
-                        after: nil
-                    )
-            guard
-                !Task.isCancelled,
-                labelSearch == normalized,
-                isAccountCurrent()
-            else {
-                return
+        if
+            labelGeneration
+                == labelSearchGeneration,
+            labelSearchText.isEmpty
+        {
+            switch loadedLabels {
+            case let .success(page):
+                applyLabels(page)
+            case let .failure(error):
+                labelOptionsError = error
             }
-            applyLabels(page)
-        } catch {
-            recordOptionsError(error)
         }
-    }
-
-    func searchMembers(
-        _ search: String
-    ) async {
-        let normalized =
-            Self.normalizedSearch(search)
-        memberSearch = normalized
-        do {
-            let page =
-                try await service
-                    .loadMembersPage(
-                        projectID: projectID,
-                        search: normalized,
-                        after: nil
-                    )
-            guard
-                !Task.isCancelled,
-                memberSearch == normalized,
-                isAccountCurrent()
-            else {
-                return
+        if
+            memberGeneration
+                == memberSearchGeneration,
+            memberSearchText.isEmpty
+        {
+            switch loadedMembers {
+            case let .success(page):
+                applyMembers(page)
+            case let .failure(error):
+                memberOptionsError = error
             }
-            applyMembers(page)
-        } catch {
-            recordOptionsError(error)
         }
     }
 
     func loadNextLabelsPage() async {
-        guard let labelNextPageURL else {
+        guard
+            let labelNextPageURL,
+            !isLoadingNextLabelsPage
+        else {
             return
+        }
+        let generation =
+            labelSearchGeneration
+        let search = labelSearch
+        isLoadingNextLabelsPage = true
+        defer {
+            isLoadingNextLabelsPage = false
         }
         do {
             let page =
                 try await service
                     .loadLabelsPage(
                         projectID: projectID,
-                        search: labelSearch,
+                        search: search,
                         after: labelNextPageURL
                     )
             guard
                 !Task.isCancelled,
-                isAccountCurrent()
+                isAccountCurrent(),
+                generation
+                    == labelSearchGeneration,
+                search == labelSearch
             else {
                 return
             }
@@ -454,38 +512,223 @@ final class GitLabResourceMetadataEditorModel {
             )
             self.labelNextPageURL =
                 page.nextPageURL
+            labelOptionsError = nil
         } catch {
-            recordOptionsError(error)
+            recordLabelOptionsError(
+                error,
+                generation: generation
+            )
         }
     }
 
     func loadNextMembersPage() async {
-        guard let memberNextPageURL else {
+        guard
+            let memberNextPageURL,
+            !isLoadingNextMembersPage
+        else {
             return
+        }
+        let generation =
+            memberSearchGeneration
+        let search = memberSearch
+        isLoadingNextMembersPage = true
+        defer {
+            isLoadingNextMembersPage =
+                false
         }
         do {
             let page =
                 try await service
                     .loadMembersPage(
                         projectID: projectID,
-                        search: memberSearch,
-                        after: memberNextPageURL
+                        search: search,
+                        after:
+                            memberNextPageURL
                     )
             guard
                 !Task.isCancelled,
+                isAccountCurrent(),
+                generation
+                    == memberSearchGeneration,
+                search == memberSearch
+            else {
+                return
+            }
+            mergeMembers(page)
+            self.memberNextPageURL =
+                page.nextPageURL
+            memberOptionsError = nil
+        } catch {
+            recordMemberOptionsError(
+                error,
+                generation: generation
+            )
+        }
+    }
+
+    private func scheduleLabelSearch() {
+        labelSearchGeneration &+= 1
+        let generation =
+            labelSearchGeneration
+        labelSearchTask?.cancel()
+        labelNextPageURL = nil
+        let search =
+            Self.normalizedSearch(
+                labelSearchText
+            )
+        labelSearch = search
+        let debounce = searchDebounce
+        labelSearchTask = Task {
+            do {
+                try await Task.sleep(
+                    for: debounce
+                )
+                try Task.checkCancellation()
+            } catch {
+                return
+            }
+            guard
+                generation
+                    == labelSearchGeneration,
                 isAccountCurrent()
             else {
                 return
             }
-            members = Self.merged(
-                members,
-                page.items.filter(\.isActive),
-                identity: \.id
+            do {
+                let page =
+                    try await service
+                        .loadLabelsPage(
+                            projectID:
+                                projectID,
+                            search: search,
+                            after: nil
+                        )
+                guard
+                    !Task.isCancelled,
+                    isAccountCurrent(),
+                    generation
+                        == labelSearchGeneration,
+                    search == labelSearch
+                else {
+                    return
+                }
+                applyLabels(page)
+                labelOptionsError = nil
+            } catch {
+                recordLabelOptionsError(
+                    error as?
+                        GitLabSessionClientError
+                        ?? .api(
+                            .invalidResponse
+                        ),
+                    generation:
+                        generation
+                )
+            }
+        }
+    }
+
+    private func scheduleMemberSearch() {
+        memberSearchGeneration &+= 1
+        let generation =
+            memberSearchGeneration
+        memberSearchTask?.cancel()
+        memberNextPageURL = nil
+        let search =
+            Self.normalizedSearch(
+                memberSearchText
             )
-            self.memberNextPageURL =
-                page.nextPageURL
+        memberSearch = search
+        let debounce = searchDebounce
+        memberSearchTask = Task {
+            do {
+                try await Task.sleep(
+                    for: debounce
+                )
+                try Task.checkCancellation()
+            } catch {
+                return
+            }
+            guard
+                generation
+                    == memberSearchGeneration,
+                isAccountCurrent()
+            else {
+                return
+            }
+            do {
+                let page =
+                    try await service
+                        .loadMembersPage(
+                            projectID:
+                                projectID,
+                            search: search,
+                            after: nil
+                        )
+                guard
+                    !Task.isCancelled,
+                    isAccountCurrent(),
+                    generation
+                        == memberSearchGeneration,
+                    search == memberSearch
+                else {
+                    return
+                }
+                applyMembers(page)
+                memberOptionsError = nil
+            } catch {
+                recordMemberOptionsError(
+                    error as?
+                        GitLabSessionClientError
+                        ?? .api(
+                            .invalidResponse
+                        ),
+                    generation:
+                        generation
+                )
+            }
+        }
+    }
+
+    private func initialLabelPageResult()
+        async -> Result<
+        GitLabResourcePage<
+            GitLabProjectLabel
+        >,
+        GitLabSessionClientError
+    > {
+        do {
+            return .success(
+                try await service
+                    .loadLabelsPage(
+                        projectID: projectID,
+                        search: nil,
+                        after: nil
+                    )
+            )
         } catch {
-            recordOptionsError(error)
+            return .failure(error)
+        }
+    }
+
+    private func initialMemberPageResult()
+        async -> Result<
+        GitLabResourcePage<
+            GitLabProjectMember
+        >,
+        GitLabSessionClientError
+    > {
+        do {
+            return .success(
+                try await service
+                    .loadMembersPage(
+                        projectID: projectID,
+                        search: nil,
+                        after: nil
+                    )
+            )
+        } catch {
+            return .failure(error)
         }
     }
 
@@ -538,7 +781,14 @@ final class GitLabResourceMetadataEditorModel {
                 latestValues
             ) {
                 self.pendingIntent = nil
-                await completeSuccess(latest)
+                await completeMutationSuccess(
+                    latest,
+                    invalidatesProjectLabels:
+                        invalidatesProjectLabels(
+                            for:
+                                pendingIntent
+                        )
+                )
             } else {
                 self.pendingIntent = nil
                 apply(
@@ -546,6 +796,7 @@ final class GitLabResourceMetadataEditorModel {
                     preserving:
                         pendingIntent
                 )
+                onSuccess(latest)
                 failure = .notApplied
             }
         } catch {
@@ -617,7 +868,28 @@ final class GitLabResourceMetadataEditorModel {
             return
         }
         if intent.matches(latestValues) {
-            await completeSuccess(latest)
+            await completeReconciliationSuccess(
+                latest,
+                invalidatesProjectLabels:
+                    invalidatesProjectLabels(
+                        for: intent
+                    )
+            )
+            return
+        }
+        guard intent.canApply(to: latestValues) else {
+            apply(
+                latest,
+                preserving: intent
+            )
+            onSuccess(latest)
+            failure = .notApplied
+            return
+        }
+        guard
+            !Task.isCancelled,
+            isAccountCurrent()
+        else {
             return
         }
 
@@ -634,6 +906,19 @@ final class GitLabResourceMetadataEditorModel {
                         changes: changes
                     )
             guard
+                !Task.isCancelled,
+                isAccountCurrent()
+            else {
+                pendingIntent = intent
+                failure =
+                    .mutation(
+                        .api(.cancelled),
+                        certainty:
+                            .deliveryUnknown
+                    )
+                return
+            }
+            guard
                 let resultValues =
                     validValues(result),
                 intent.matches(resultValues)
@@ -642,7 +927,13 @@ final class GitLabResourceMetadataEditorModel {
                     .invalidAuthoritativeResponse
                 return
             }
-            await completeSuccess(result)
+            await completeMutationSuccess(
+                result,
+                invalidatesProjectLabels:
+                    invalidatesProjectLabels(
+                        for: intent
+                    )
+            )
         } catch {
             let certainty =
                 error.mutationDeliveryCertainty
@@ -657,15 +948,44 @@ final class GitLabResourceMetadataEditorModel {
         }
     }
 
-    private func completeSuccess(
-        _ result: GitLabResourceEditResult
+    private func completeMutationSuccess(
+        _ result: GitLabResourceEditResult,
+        invalidatesProjectLabels: Bool
     ) async {
         await service.invalidateAffectedReads(
             for: target
         )
+        if invalidatesProjectLabels {
+            await service
+                .invalidateProjectLabels(
+                    projectID: projectID
+                )
+        }
         guard isAccountCurrent() else {
             return
         }
+        acceptSuccess(result)
+    }
+
+    private func completeReconciliationSuccess(
+        _ result: GitLabResourceEditResult,
+        invalidatesProjectLabels: Bool
+    ) async {
+        if invalidatesProjectLabels {
+            await service
+                .invalidateProjectLabels(
+                    projectID: projectID
+                )
+        }
+        guard isAccountCurrent() else {
+            return
+        }
+        acceptSuccess(result)
+    }
+
+    private func acceptSuccess(
+        _ result: GitLabResourceEditResult
+    ) {
         baseline = result
         let values =
             GitLabResourceMetadataValues(
@@ -681,6 +1001,13 @@ final class GitLabResourceMetadataEditorModel {
             Self.members(
                 from: result
             )
+        members = Self.merged(
+            seedMembers,
+            members,
+            identity: \.id
+        )
+        confirmedNewLabels.removeAll()
+        pendingIntent = nil
         failure = nil
         didSucceed = true
         onSuccess(result)
@@ -740,6 +1067,11 @@ final class GitLabResourceMetadataEditorModel {
             Self.members(
                 from: result
             )
+        members = Self.merged(
+            seedMembers,
+            members,
+            identity: \.id
+        )
         selectedLabelNames =
             intent.rebasedLabels(
                 onto: values.labels
@@ -767,7 +1099,6 @@ final class GitLabResourceMetadataEditorModel {
         }
         labelNextPageURL =
             page.nextPageURL
-        optionsError = nil
     }
 
     private func applyMembers(
@@ -776,6 +1107,11 @@ final class GitLabResourceMetadataEditorModel {
                 GitLabProjectMember
             >
     ) {
+        activeMemberIDs.formUnion(
+            page.items
+                .filter(\.isActive)
+                .map(\.id)
+        )
         members = Self.merged(
             seedMembers,
             page.items.filter(\.isActive),
@@ -783,11 +1119,64 @@ final class GitLabResourceMetadataEditorModel {
         )
         memberNextPageURL =
             page.nextPageURL
-        optionsError = nil
+    }
+
+    private func mergeMembers(
+        _ page:
+            GitLabResourcePage<
+                GitLabProjectMember
+            >
+    ) {
+        let active =
+            page.items.filter(\.isActive)
+        activeMemberIDs.formUnion(
+            active.map(\.id)
+        )
+        members = Self.merged(
+            members,
+            active,
+            identity: \.id
+        )
+    }
+
+    private func recordLabelOptionsError(
+        _ error: GitLabSessionClientError,
+        generation: UInt64
+    ) {
+        guard
+            generation
+                == labelSearchGeneration,
+            isAccountCurrent()
+        else {
+            return
+        }
+        recordOptionsError(
+            error,
+            in: &labelOptionsError
+        )
+    }
+
+    private func recordMemberOptionsError(
+        _ error: GitLabSessionClientError,
+        generation: UInt64
+    ) {
+        guard
+            generation
+                == memberSearchGeneration,
+            isAccountCurrent()
+        else {
+            return
+        }
+        recordOptionsError(
+            error,
+            in: &memberOptionsError
+        )
     }
 
     private func recordOptionsError(
-        _ error: GitLabSessionClientError
+        _ error: GitLabSessionClientError,
+        in destination:
+            inout GitLabSessionClientError?
     ) {
         guard
             !Task.isCancelled,
@@ -795,7 +1184,7 @@ final class GitLabResourceMetadataEditorModel {
         else {
             return
         }
-        optionsError = error
+        destination = error
     }
 
     private func clearEditableFailure() {
@@ -819,6 +1208,26 @@ final class GitLabResourceMetadataEditorModel {
             values.remove(at: index)
         } else {
             values.append(value)
+        }
+    }
+
+    private func containsLabel(
+        _ label: String,
+        in values: [String]
+    ) -> Bool {
+        values.contains {
+            $0.localizedCaseInsensitiveCompare(
+                label
+            ) == .orderedSame
+        }
+    }
+
+    private func invalidatesProjectLabels(
+        for intent:
+            GitLabResourceMetadataIntent
+    ) -> Bool {
+        intent.addedLabels.contains {
+            confirmedNewLabels.contains($0)
         }
     }
 
@@ -1112,6 +1521,20 @@ private nonisolated struct GitLabResourceMetadataIntent:
             return values.state == .opened
         case nil:
             return true
+        }
+    }
+
+    func canApply(
+        to values:
+            GitLabResourceMetadataValues
+    ) -> Bool {
+        switch stateEvent {
+        case .close:
+            values.state == .opened
+        case .reopen:
+            values.state == .closed
+        case nil:
+            true
         }
     }
 

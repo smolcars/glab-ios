@@ -387,6 +387,32 @@ struct LiveGitLabResourceEditServiceTests {
                 .isEmpty
         )
     }
+
+    @Test("Project label invalidation is exact and explicit")
+    func invalidatesProjectLabels() async {
+        let client =
+            RecordingResourceEditClient()
+        let service =
+            LiveGitLabResourceEditService(
+                client: client
+            )
+
+        await service.invalidateProjectLabels(
+            projectID: 42
+        )
+
+        #expect(
+            await client.invalidatedRequests
+                == [
+                    recorded(
+                        GitLabIssueCreationEndpoints
+                            .labels(
+                                projectID: 42
+                            )
+                    ),
+                ]
+        )
+    }
 }
 
 private nonisolated struct RecordedResourceEditRequest:

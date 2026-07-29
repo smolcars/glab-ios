@@ -204,6 +204,18 @@ nonisolated struct LiveGitLabResourceEditService:
         }
     }
 
+    @concurrent
+    func invalidateProjectLabels(
+        projectID: Int
+    ) async {
+        await client.invalidateCachedResponse(
+            GitLabIssueCreationEndpoints
+                .labels(
+                    projectID: projectID
+                )
+        )
+    }
+
     private func invalidateIssueReads(
         route: GitLabIssueRoute
     ) async {

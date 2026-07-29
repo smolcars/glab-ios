@@ -298,10 +298,11 @@ private struct GitLabMetadataLabelPicker: View {
     let model:
         GitLabResourceMetadataEditorModel
 
-    @State private var search = ""
     @State private var showsCreateLabel = false
 
     var body: some View {
+        @Bindable var model = model
+
         List {
             if
                 !model
@@ -387,23 +388,20 @@ private struct GitLabMetadataLabelPicker: View {
         .navigationTitle("Labels")
         .navigationBarTitleDisplayMode(.inline)
         .searchable(
-            text: $search,
+            text:
+                $model
+                .labelSearchText,
             prompt: "Search labels"
         )
-        .onSubmit(of: .search) {
-            Task {
-                await model.searchLabels(
-                    search
-                )
-            }
-        }
         .alert(
             "Create label?",
             isPresented: $showsCreateLabel
         ) {
             Button("Create") {
                 model.addLabel(
-                    named: search
+                    named:
+                        model
+                        .labelSearchText
                 )
             }
             Button(
@@ -418,7 +416,8 @@ private struct GitLabMetadataLabelPicker: View {
     }
 
     private var normalizedSearch: String {
-        search.trimmingCharacters(
+        model.labelSearchText
+            .trimmingCharacters(
             in: .whitespacesAndNewlines
         )
     }
@@ -434,9 +433,12 @@ private struct GitLabMetadataLabelPicker: View {
 
     private var canCreateLabel: Bool {
         !normalizedSearch.isEmpty
-            && !model.labels.contains {
-                $0.name
-                    .localizedCaseInsensitiveCompare(
+            && !(
+                model.labels.map(\.name)
+                    + model
+                    .selectedLabelNames
+            ).contains {
+                $0.localizedCaseInsensitiveCompare(
                         normalizedSearch
                     ) == .orderedSame
             }
@@ -464,9 +466,9 @@ private struct GitLabMetadataMemberPicker: View {
         GitLabResourceMetadataEditorModel
     let role: GitLabMetadataMemberRole
 
-    @State private var search = ""
-
     var body: some View {
+        @Bindable var model = model
+
         List {
             if model.members.isEmpty,
                 !model.isLoadingOptions
@@ -502,16 +504,11 @@ private struct GitLabMetadataMemberPicker: View {
         .navigationTitle(role.title)
         .navigationBarTitleDisplayMode(.inline)
         .searchable(
-            text: $search,
+            text:
+                $model
+                .memberSearchText,
             prompt: "Search people"
         )
-        .onSubmit(of: .search) {
-            Task {
-                await model.searchMembers(
-                    search
-                )
-            }
-        }
         .safeAreaInset(edge: .bottom) {
             if role == .reviewer {
                 Text(
