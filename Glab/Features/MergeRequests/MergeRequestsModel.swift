@@ -115,6 +115,8 @@ extension GitLabMergeRequest {
             return assignees.contains {
                 $0.id == userID
             }
+        case .created:
+            return author.id == userID
         case .reviewRequested:
             return reviewers.contains {
                 $0.id == userID

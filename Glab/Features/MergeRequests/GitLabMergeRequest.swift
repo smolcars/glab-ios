@@ -10,17 +10,21 @@ nonisolated struct GitLabMergeRequestRoute:
 
 nonisolated enum GitLabMergeRequestListMode:
     String,
+    CaseIterable,
     Equatable,
     Hashable,
     Sendable
 {
     case assigned
+    case created
     case reviewRequested
 
     var scope: String {
         switch self {
         case .assigned:
             "assigned_to_me"
+        case .created:
+            "created_by_me"
         case .reviewRequested:
             "reviews_for_me"
         }
@@ -29,9 +33,11 @@ nonisolated enum GitLabMergeRequestListMode:
     var title: String {
         switch self {
         case .assigned:
-            "Assigned Merge Requests"
+            "Assigned"
+        case .created:
+            "Created"
         case .reviewRequested:
-            "Review Requests"
+            "Reviews"
         }
     }
 
@@ -39,6 +45,8 @@ nonisolated enum GitLabMergeRequestListMode:
         switch self {
         case .assigned:
             "Open merge requests assigned to you will appear here."
+        case .created:
+            "Open merge requests you created will appear here."
         case .reviewRequested:
             "Open merge requests awaiting your review will appear here."
         }
@@ -48,6 +56,8 @@ nonisolated enum GitLabMergeRequestListMode:
         switch self {
         case .assigned:
             "No assigned merge requests"
+        case .created:
+            "No created merge requests"
         case .reviewRequested:
             "No review requests"
         }

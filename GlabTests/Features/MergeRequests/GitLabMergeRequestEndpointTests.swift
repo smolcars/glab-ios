@@ -15,6 +15,10 @@ struct GitLabMergeRequestEndpointTests {
                 GitLabMergeRequestListMode.reviewRequested,
                 "reviews_for_me"
             ),
+            (
+                GitLabMergeRequestListMode.created,
+                "created_by_me"
+            ),
         ]
     )
     func buildsListQuery(

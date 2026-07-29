@@ -5,6 +5,41 @@ import Testing
 @Suite("Merge requests model")
 @MainActor
 struct MergeRequestsModelTests {
+    @Test("Loads created merge requests with an independent scope")
+    func loadsCreatedScope() async {
+        let mergeRequest =
+            makeTestMergeRequest()
+        let loader =
+            StubMergeRequestLoader(
+                pageResults: [
+                    .success(
+                        GitLabMergeRequestPage(
+                            mergeRequests: [
+                                mergeRequest,
+                            ],
+                            nextPageURL: nil
+                        )
+                    ),
+                ]
+            )
+        let model =
+            MergeRequestsModel(
+                mode: .created,
+                loader: loader
+            )
+
+        await model.loadIfNeeded()
+
+        #expect(
+            model.mergeRequests
+                == [mergeRequest]
+        )
+        #expect(
+            await loader.pageModes
+                == [.created]
+        )
+    }
+
     @Test("Appends pages without duplicate routes")
     func appendsPagesWithoutDuplicates() async throws {
         let first = makeTestMergeRequest(
