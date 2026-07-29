@@ -29,6 +29,8 @@ struct HomeView: View {
             & GitLabEmojiReactionMutating
     let editService:
         any GitLabResourceEditing
+    let issueStatusService:
+        any GitLabIssueStatusServing
     let issueCreationService:
         any GitLabIssueCreationServing
     let projectLoader:
@@ -264,6 +266,8 @@ struct HomeView: View {
                     reactionService,
                 editService:
                     editService,
+                issueStatusService:
+                    issueStatusService,
                 accountID: accountID,
                 appSession: appSession,
                 onResourceEdited:
@@ -335,6 +339,8 @@ struct HomeView: View {
                     reactionService,
                 editService:
                     editService,
+                issueStatusService:
+                    issueStatusService,
                 accountID: accountID,
                 appSession: appSession,
                 onResourceEdited:

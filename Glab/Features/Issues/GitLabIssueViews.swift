@@ -12,6 +12,8 @@ struct AssignedIssuesView: View {
             & GitLabEmojiReactionMutating
     let editService:
         any GitLabResourceEditing
+    let issueStatusService:
+        any GitLabIssueStatusServing
     let accountID: GitLabAccountID
     let appSession: AppSession
     let onResourceEdited:
@@ -47,6 +49,8 @@ struct AssignedIssuesView: View {
                         reactionService,
                     editService:
                         editService,
+                    issueStatusService:
+                        issueStatusService,
                     accountID: accountID,
                     appSession: appSession,
                     onResourceEdited:
@@ -410,6 +414,8 @@ struct GitLabIssueDetailView: View {
             & GitLabEmojiReactionMutating
     let editService:
         any GitLabResourceEditing
+    let issueStatusService:
+        any GitLabIssueStatusServing
     let onResourceEdited:
         (GitLabResourceEditResult) -> Void
 
@@ -433,6 +439,10 @@ struct GitLabIssueDetailView: View {
         showsStateConfirmation = false
     @State private var stateFailureMessage:
         String?
+    @State private var issueStatusModel:
+        GitLabIssueStatusModel?
+    @State private var statusFailureMessage:
+        String?
     @State private var taskToggleModel:
         GitLabDescriptionTaskToggleModel
 
@@ -448,6 +458,8 @@ struct GitLabIssueDetailView: View {
                 & GitLabEmojiReactionMutating,
         editService:
             any GitLabResourceEditing,
+        issueStatusService:
+            any GitLabIssueStatusServing,
         accountID: GitLabAccountID,
         appSession: AppSession,
         onResourceEdited:
@@ -462,6 +474,8 @@ struct GitLabIssueDetailView: View {
         self.reactionService =
             reactionService
         self.editService = editService
+        self.issueStatusService =
+            issueStatusService
         self.onResourceEdited =
             onResourceEdited
         let discussionResource =
@@ -541,6 +555,7 @@ struct GitLabIssueDetailView: View {
                         canEdit:
                             !taskToggleModel
                                 .isBusy
+                            && !statusMutationIsBlocking
                             && !(
                                 metadataEditorModel?
                                     .isBusy
@@ -686,6 +701,48 @@ struct GitLabIssueDetailView: View {
                 )
             }
             .alert(
+                statusConfirmationTitle,
+                isPresented:
+                    statusConfirmationIsPresented
+            ) {
+                Button(
+                    statusConfirmationActionTitle,
+                    role:
+                        issueStatusModel?
+                            .selectionConfirmation?
+                            .resultingState
+                            == .closed
+                        ? .destructive
+                        : nil
+                ) {
+                    confirmStatusSelection()
+                }
+                Button(
+                    "Cancel",
+                    role: .cancel
+                ) {
+                    issueStatusModel?
+                        .cancelSelection()
+                }
+            } message: {
+                Text(
+                    statusConfirmationMessage
+                )
+            }
+            .alert(
+                "Couldn’t update status",
+                isPresented:
+                    statusFailureIsPresented
+            ) {
+                Button("OK", role: .cancel) {
+                    statusFailureMessage = nil
+                }
+            } message: {
+                Text(
+                    statusFailureMessage ?? ""
+                )
+            }
+            .alert(
                 "Commenting unavailable",
                 isPresented:
                     $showsReadOnlyCommentAlert
@@ -745,6 +802,12 @@ struct GitLabIssueDetailView: View {
                     launchComposer:
                         launchComposer,
                     appSession: appSession,
+                    issueStatusModel:
+                        issueStatusModel,
+                    isResourceMutationBusy:
+                        resourceMutationIsBusy,
+                    statusActionDidFinish:
+                        handleStatusActionResult,
                     taskInteraction:
                         GitLabMarkdownTaskInteraction(
                             model:
@@ -753,6 +816,8 @@ struct GitLabIssueDetailView: View {
                                 GitLabResourceEditSnapshot(
                                     issue: issue
                                 ),
+                            isExternallyDisabled:
+                                statusMutationIsBlocking,
                             openEditor:
                                 launchEditor
                         )
@@ -767,6 +832,8 @@ struct GitLabIssueDetailView: View {
         model.authenticationFailure
             ?? discussionModel.authenticationFailure
             ?? taskToggleModel
+                .authenticationFailure
+            ?? issueStatusModel?
                 .authenticationFailure
     }
 
@@ -817,7 +884,10 @@ struct GitLabIssueDetailView: View {
     }
 
     private func launchEditor() {
-        guard !taskToggleModel.isBusy else {
+        guard
+            !taskToggleModel.isBusy,
+            !statusMutationIsBlocking
+        else {
             return
         }
         if let recoveryEditor =
@@ -878,6 +948,7 @@ struct GitLabIssueDetailView: View {
     private func launchMetadataEditor() {
         guard
             !taskToggleModel.isBusy,
+            !statusMutationIsBlocking,
             case let .loaded(issue) =
                 model.state
         else {
@@ -895,6 +966,7 @@ struct GitLabIssueDetailView: View {
         guard
             apiAccess.canWrite,
             !taskToggleModel.isBusy,
+            !statusMutationIsBlocking,
             case .loaded =
                 model.state
         else {
@@ -982,6 +1054,12 @@ struct GitLabIssueDetailView: View {
                 }
                 taskToggleModel.cancel()
                 onResourceEdited(result)
+                Task {
+                    await issueStatusModel?
+                        .refreshAfterIssueMutation(
+                            updatedIssue
+                        )
+                }
             }
         )
     }
@@ -1005,6 +1083,33 @@ struct GitLabIssueDetailView: View {
         }
     }
 
+    private var resourceMutationIsBusy: Bool {
+        taskToggleModel.isBusy
+            || (
+                metadataEditorModel?
+                    .isBusy
+                ?? false
+            )
+            || (
+                stateMutationModel?
+                    .isBusy
+                ?? false
+            )
+    }
+
+    private var statusMutationIsBlocking: Bool {
+        (
+            issueStatusModel?
+                .isBusy
+            ?? false
+        )
+            || (
+                issueStatusModel?
+                    .requiresDeliveryCheck
+                ?? false
+            )
+    }
+
     private var stateConfirmationTitle: String {
         pendingStateEvent == .close
             ? "Close issue?"
@@ -1025,6 +1130,109 @@ struct GitLabIssueDetailView: View {
             : "This will reopen the issue on GitLab and may return it to your assigned work."
     }
 
+    private var statusConfirmationTitle:
+        String
+    {
+        issueStatusModel?
+            .selectionConfirmation?
+            .resultingState
+            == .closed
+            ? "Close issue?"
+            : "Reopen issue?"
+    }
+
+    private var statusConfirmationActionTitle:
+        String
+    {
+        issueStatusModel?
+            .selectionConfirmation?
+            .resultingState
+            == .closed
+            ? "Change & close"
+            : "Change & reopen"
+    }
+
+    private var statusConfirmationMessage:
+        String
+    {
+        guard
+            let confirmation =
+                issueStatusModel?
+                    .selectionConfirmation
+        else {
+            return ""
+        }
+        return confirmation.resultingState
+            == .closed
+            ? "Changing the work item status to \(confirmation.status.name) will also close this issue."
+            : "Changing the work item status to \(confirmation.status.name) will also reopen this issue."
+    }
+
+    private var statusConfirmationIsPresented:
+        Binding<Bool>
+    {
+        Binding(
+            get: {
+                issueStatusModel?
+                    .selectionConfirmation
+                    != nil
+            },
+            set: {
+                if !$0 {
+                    issueStatusModel?
+                        .cancelSelection()
+                }
+            }
+        )
+    }
+
+    private func confirmStatusSelection() {
+        Task {
+            await issueStatusModel?
+                .confirmSelection()
+            handleStatusActionResult()
+        }
+    }
+
+    private func handleStatusActionResult() {
+        guard
+            let failure =
+                issueStatusModel?
+                    .failure
+        else {
+            statusFailureMessage = nil
+            return
+        }
+        guard
+            failure.authenticationFailure
+                == nil
+        else {
+            return
+        }
+
+        statusFailureMessage =
+            switch failure {
+            case .readOnly:
+                "This account has read-only API access."
+            case .permissionDenied:
+                "GitLab does not allow this account to change the status of this issue."
+            case .stale:
+                "The status changed on GitLab. Review the latest status and try again."
+            case .rejected:
+                "GitLab rejected the status change."
+            case .deliveryUnknown:
+                "GitLab may have received the change. Use the status check button before trying again."
+            case .reconciliation:
+                "The status changed, but the latest issue details could not be loaded. Use the status check button."
+            case .authoritativeMismatch:
+                "GitLab returned issue details that do not match the new status. Use the status check button."
+            case .notApplied:
+                "GitLab confirmed that the status change was not applied."
+            case .load:
+                "The latest work item status could not be loaded."
+            }
+    }
+
     private var stateFailureIsPresented:
         Binding<Bool>
     {
@@ -1040,19 +1248,87 @@ struct GitLabIssueDetailView: View {
         )
     }
 
+    private var statusFailureIsPresented:
+        Binding<Bool>
+    {
+        Binding(
+            get: {
+                statusFailureMessage
+                    != nil
+            },
+            set: {
+                if !$0 {
+                    statusFailureMessage =
+                        nil
+                }
+            }
+        )
+    }
+
     private func load() async {
         async let detail: Void =
             model.loadIfNeeded()
         async let discussion: Void =
             discussionModel.loadIfNeeded()
-        _ = await (detail, discussion)
+        await detail
+        await loadStatusIfNeeded()
+        await discussion
     }
 
     private func refresh() async {
         async let detail: Void = model.retry()
         async let discussion: Void =
             discussionModel.refresh()
-        _ = await (detail, discussion)
+        await detail
+        if let issueStatusModel {
+            await issueStatusModel.refresh()
+        } else {
+            await loadStatusIfNeeded()
+        }
+        await discussion
+    }
+
+    private func loadStatusIfNeeded() async {
+        guard
+            issueStatusModel == nil,
+            case let .loaded(issue) =
+                model.state
+        else {
+            return
+        }
+
+        let statusModel =
+            GitLabIssueStatusModel(
+                accountID: accountID,
+                issue: issue,
+                apiAccess: apiAccess,
+                statusService:
+                    issueStatusService,
+                resourceService:
+                    editService,
+                isAccountCurrent: {
+                    appSession
+                        .activeAccountID
+                        == accountID
+                },
+                onIssueReconciled: {
+                    updatedIssue in
+                    guard
+                        model
+                            .reconcileAuthoritative(
+                                updatedIssue
+                            )
+                    else {
+                        return
+                    }
+                    taskToggleModel.cancel()
+                    onResourceEdited(
+                        .issue(updatedIssue)
+                    )
+                }
+            )
+        issueStatusModel = statusModel
+        await statusModel.load()
     }
 }
 
@@ -1069,6 +1345,11 @@ private struct GitLabIssueDetailContent: View {
     let launchComposer:
         (GitLabDiscussionComposerTarget) -> Void
     let appSession: AppSession
+    let issueStatusModel:
+        GitLabIssueStatusModel?
+    let isResourceMutationBusy: Bool
+    let statusActionDidFinish:
+        () -> Void
     let taskInteraction:
         GitLabMarkdownTaskInteraction
 
@@ -1146,16 +1427,54 @@ private struct GitLabIssueDetailContent: View {
                 .font(.title2.bold())
                 .textSelection(.enabled)
 
-            HStack(spacing: 12) {
-                GitLabIssueStateLabel(issue: issue)
+            ViewThatFits(
+                in: .horizontal
+            ) {
+                HStack(spacing: 12) {
+                    issueMetadata
+                    statusControl
+                }
 
-                Label(
-                    "\(issue.userNotesCount) comments",
-                    systemImage: "bubble.left"
-                )
-                .foregroundStyle(.secondary)
+                VStack(
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    issueMetadata
+                    statusControl
+                }
             }
             .font(.subheadline.weight(.medium))
+        }
+    }
+
+    private var issueMetadata:
+        some View
+    {
+        HStack(spacing: 12) {
+            GitLabIssueStateLabel(
+                issue: issue
+            )
+
+            Label(
+                "\(issue.userNotesCount) comments",
+                systemImage: "bubble.left"
+            )
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var statusControl:
+        some View
+    {
+        if let issueStatusModel {
+            GitLabIssueStatusControl(
+                model: issueStatusModel,
+                isExternallyDisabled:
+                    isResourceMutationBusy,
+                actionDidFinish:
+                    statusActionDidFinish
+            )
         }
     }
 

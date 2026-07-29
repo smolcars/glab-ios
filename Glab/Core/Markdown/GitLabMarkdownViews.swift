@@ -142,6 +142,7 @@ struct GitLabMarkdownTaskInteraction {
         GitLabDescriptionTaskToggleModel
     let snapshot:
         GitLabResourceEditSnapshot
+    var isExternallyDisabled = false
     let openEditor: () -> Void
 }
 
@@ -526,6 +527,8 @@ private struct
     private var isEnabled: Bool {
         interaction.model.apiAccess.canWrite
             && interaction.model.phase == .idle
+            && !interaction
+                .isExternallyDisabled
     }
 
     var body: some View {

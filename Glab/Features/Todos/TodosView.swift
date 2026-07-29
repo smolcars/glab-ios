@@ -17,6 +17,8 @@ struct TodosView: View {
             & GitLabEmojiReactionMutating
     let editService:
         any GitLabResourceEditing
+    let issueStatusService:
+        any GitLabIssueStatusServing
     let accountID: GitLabAccountID
     let appSession: AppSession
     let onResourceEdited:
@@ -396,6 +398,8 @@ struct TodosView: View {
                     reactionService,
                 editService:
                     editService,
+                issueStatusService:
+                    issueStatusService,
                 accountID: accountID,
                 appSession: appSession,
                 onResourceEdited:
