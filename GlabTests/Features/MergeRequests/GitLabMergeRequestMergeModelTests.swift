@@ -77,7 +77,7 @@ struct GitLabMergeRequestMergeModelTests {
         )
         #expect(fixture.model.failure == nil)
         #expect(
-            fixture.state.editedCount == 2
+            fixture.state.editedCount == 1
         )
     }
 
@@ -280,6 +280,45 @@ struct GitLabMergeRequestMergeModelTests {
         #expect(
             forbidden.model.failure
                 == .permissionDenied
+        )
+    }
+
+    @Test("An authoritative merged state wins over a stale-SHA rejection")
+    func reconcilesConcurrentMergeAfterStaleSHA()
+        async throws
+    {
+        let merged =
+            mergeRequest(
+                state: "merged",
+                detailedStatus: "not_open"
+            )
+        let fixture = try fixture(
+            mutationError:
+                .api(
+                    .validation(
+                        statusCode: 409
+                    )
+                ),
+            preflights: [
+                preflight(),
+                preflight(
+                    mergeRequest: merged
+                ),
+            ]
+        )
+
+        await fixture.model.request(
+            .mergeNow
+        )
+        await fixture.model.confirm()
+
+        #expect(fixture.model.failure == nil)
+        #expect(
+            fixture.state.mergeRequest?
+                .stateKind == .merged
+        )
+        #expect(
+            fixture.state.editedCount == 1
         )
     }
 

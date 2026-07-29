@@ -1,5 +1,14 @@
 import Foundation
 
+nonisolated enum
+    GitLabMergeRequestMergeEndpointError:
+    Error,
+    Equatable,
+    Sendable
+{
+    case emptyHeadSHA
+}
+
 nonisolated enum GitLabMergeRequestEndpoints {
     static func mergeRequests(
         for mode: GitLabMergeRequestListMode
@@ -141,13 +150,21 @@ nonisolated enum GitLabMergeRequestEndpoints {
     ) throws -> GitLabAPIRequest<
         GitLabMergeRequest
     > {
-        try .put(
+        let normalizedSHA =
+            sha.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+        guard !normalizedSHA.isEmpty else {
+            throw GitLabMergeRequestMergeEndpointError
+                .emptyHeadSHA
+        }
+        return try .put(
             path:
                 mergeRequestPath(route)
                 + ["merge"],
             body:
                 GitLabMergeRequestMergeBody(
-                    sha: sha,
+                    sha: normalizedSHA,
                     autoMerge:
                         autoMerge
                         ? true

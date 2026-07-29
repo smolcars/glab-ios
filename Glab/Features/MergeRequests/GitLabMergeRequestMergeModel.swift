@@ -574,6 +574,9 @@ private extension
             failure = .unavailable
             return
         }
+        let shouldPropagateResourceEdit =
+            currentMergeRequest()
+            != preflight.mergeRequest
         onMergeRequestReconciled(
             preflight.mergeRequest
         )
@@ -581,20 +584,25 @@ private extension
             preflight.approvalSummary
         )
 
-        if let preferredFailure {
-            failure = preferredFailure
-            return
-        }
         if
             Self.wasApplied(
                 confirmation.action,
                 to: preflight.mergeRequest
             )
         {
-            publish(
-                preflight.mergeRequest
-            )
+            if shouldPropagateResourceEdit {
+                onResourceEdited(
+                    .mergeRequest(
+                        preflight
+                            .mergeRequest
+                    )
+                )
+            }
             failure = nil
+            return
+        }
+        if let preferredFailure {
+            failure = preferredFailure
             return
         }
         if

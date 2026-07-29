@@ -216,6 +216,25 @@ struct GitLabMergeRequestMergeEligibilityTests {
             ) == .unavailable
         )
     }
+
+    @Test("An older response without user permission projection remains eligible")
+    func supportsOmittedUserPermission() {
+        let mergeRequest =
+            Self.readyMergeRequest(
+                userCanMerge: nil
+            )
+
+        #expect(
+            GitLabMergeRequestMergeEligibility(
+                mergeRequest: mergeRequest,
+                readiness:
+                    Self.readiness(
+                        for: mergeRequest
+                    ),
+                apiAccess: .readWrite
+            ) == .mergeNow
+        )
+    }
 }
 
 private extension

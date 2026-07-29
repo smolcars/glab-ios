@@ -199,6 +199,23 @@ struct GitLabMergeRequestEndpointTests {
         )
     }
 
+    @Test("Rejects an empty merge request head SHA")
+    func rejectsEmptyMergeHeadSHA() {
+        #expect(
+            throws:
+                GitLabMergeRequestMergeEndpointError
+                .emptyHeadSHA
+        ) {
+            _ =
+                try GitLabMergeRequestEndpoints
+                    .merge(
+                        at: route,
+                        sha: " \n ",
+                        autoMerge: false
+                    )
+        }
+    }
+
     @Test("Builds a current-user unapprove request")
     func buildsUnapproveRequest() {
         let endpoint =

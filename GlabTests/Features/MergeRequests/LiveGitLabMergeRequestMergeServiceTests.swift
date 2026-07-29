@@ -109,6 +109,28 @@ struct LiveGitLabMergeRequestMergeServiceTests {
                 true
             ),
             (
+                .api(
+                    .validation(statusCode: 422)
+                ),
+                false
+            ),
+            (
+                .api(
+                    .http(statusCode: 405)
+                ),
+                false
+            ),
+            (
+                .api(
+                    .connectivity(.timedOut)
+                ),
+                true
+            ),
+            (
+                .api(.cancelled),
+                true
+            ),
+            (
                 .api(.forbidden),
                 false
             ),
@@ -137,6 +159,10 @@ struct LiveGitLabMergeRequestMergeServiceTests {
 
         let invalidated =
             await client.invalidatedKeys
+        #expect(
+            await client.sentKeys.count
+                == 1
+        )
         #expect(
             shouldInvalidate
                 ? !invalidated.isEmpty

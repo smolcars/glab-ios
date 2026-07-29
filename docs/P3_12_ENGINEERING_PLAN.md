@@ -5,9 +5,9 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Implementation: not started
-- Simulator verification: not started
-- Deep review: not started
+- Implementation: complete
+- Simulator verification: complete
+- Deep review: complete
 
 Research date: July 29, 2026.
 
@@ -347,5 +347,52 @@ uncertain merge action.
 
 ## Deep-review record
 
-Not started. Findings and any required repair plans will be recorded here
-before review-driven production edits.
+### First pass
+
+Reviewed every P3-12 production, test, fixture, and documentation change after
+the focused tests and deterministic Simulator flow passed.
+
+Material findings:
+
+1. A stale-SHA `409` always won over the authoritative reconciliation result.
+   If another actor merged the MR between confirmation and refresh, the detail
+   correctly became merged but the app still presented a stale-revision alert.
+2. A successful merge response was propagated through
+   `GitLabResourceEditResult` immediately and then propagated a second time
+   when the post-mutation preflight returned the same MR. The duplicate was
+   harmless but caused redundant Home/list/search/Todo reconciliation and made
+   that behavior part of a model test.
+3. The low-level endpoint would encode a whitespace-only SHA if called outside
+   the current model. The UI model prevents that today, but the endpoint must
+   independently enforce the exact, nonempty HEAD invariant.
+4. The focused matrix did not explicitly cover whitespace-SHA construction,
+   cancellation/timeout/`405`/`422` service delivery classification, a `409`
+   followed by an already-merged authoritative state, or the older response
+   shape where `user.can_merge` is omitted.
+
+### Repair plan
+
+1. Add regression tests for each finding before changing production behavior.
+2. Normalize and reject an empty merge SHA at endpoint construction.
+3. During reconciliation, trust an authoritative merged/auto-merge state
+   before applying a preferred stale failure.
+4. Reconcile the refreshed MR locally every time, but emit a second
+   `GitLabResourceEditResult` only when the refreshed MR differs from the state
+   already rendered from the mutation response.
+5. Expand the focused service/eligibility matrix for the reviewed edge cases,
+   rerun the P3-12 tests and Simulator smoke flow, and repeat this review.
+
+### Repair verification and second pass
+
+- The expanded focused P3-12 endpoint, eligibility, service, and model suites
+  pass on the iPhone 17 Pro Simulator.
+- The `409`/already-merged regression now trusts the authoritative merged
+  state without presenting a contradictory stale alert.
+- An unchanged post-mutation MR now produces one downstream resource edit;
+  a genuinely changed or previously unknown authoritative result still
+  propagates.
+- Empty or whitespace-only SHA construction is rejected before transport.
+- A second review of the repaired endpoint, state machine, service, cache
+  invalidation, compact UI, fixture, and tests found no remaining material
+  bugs, unsafe retry paths, duplicated mutation delivery, stale-SHA path,
+  permission assumption, or refactor requirement.
