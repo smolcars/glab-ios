@@ -750,6 +750,92 @@ material issues before P3-06 could be closed:
    - Repair plan: add focused tests for every finding before its production
      repair, then run the full quality gates and repeat this review.
 
+### Review pass 2 — additional repair required
+
+The post-repair review repeated the full P3-06 checklist on 2026-07-28. The
+complete serialized suite passed before this review with 818 tests in 114
+suites, but that run does not close P3-06 because the review found these
+additional material issues:
+
+9. **Some late read results could still cross an account or cancellation
+   boundary.** The fresh-detail path checked the active account immediately
+   before `PUT`, but its already-applied and incompatible-state branches could
+   reconcile without the same post-read guard. `Check GitLab` had the same
+   gap.
+   - Impact: a canceled task or inactive account could update a lingering
+     detail/list owner from a late `GET`, even though no write would be sent.
+   - Repair plan: gate every post-read branch on cancellation and the exact
+     active account before validation or reconciliation. Add gated-service
+     regressions for both preflight and delivery-check reads.
+
+10. **An unverifiable response after a sent `PUT` did not enter
+    delivery-unknown recovery.** A wrong resource identity or authoritative
+    response that did not contain the intended fields produced
+    `invalidAuthoritativeResponse` without retaining the pending intent.
+    - Impact: Save became available again even though GitLab might already
+      have accepted the mutation, allowing an unsafe repeated write.
+    - Repair plan: add wrong-identity and intent-mismatch response tests, retain
+      the exact intent, classify the result as delivery unknown, and require
+      an uncached Check GitLab read before another write.
+
+11. **Loaded merge-request lists were reconciled only from their own
+    navigation path.** Each `MergeRequestsView` privately owned its model, so
+    editing an MR from Todos, search, a deep link, or the other list could
+    leave an already-loaded assigned/review-request list stale. Removing an
+    resource also did not refresh a list to fill the vacated row.
+    - Impact: a closed, unassigned, or no-longer-reviewed MR could remain in a
+      preserved tab stack, or a removed row could leave an incomplete first
+      page until manual refresh.
+    - Repair plan: promote the two account-scoped MR list models alongside the
+      existing assigned-issue owner, inject them into their views, reconcile
+      all three from the shell, and schedule a bounded refresh only when an
+      already-loaded row was removed. Reuse the existing tested eligibility
+      and removal functions.
+
+12. **Metadata presentation repeated the first-open sheet race.** Issue and MR
+    details independently set an optional editor model and a Boolean sheet
+    flag. Direct close/reopen also kept a hidden editor model before
+    confirmation and did not route a definite authentication failure through
+    session recovery unless the sheet was subsequently shown.
+    - Impact: the first metadata sheet presentation could be blank, and an
+      authentication failure from a direct state action could remain a local
+      alert instead of recovering the account.
+    - Repair plan: make the optional model the single sheet item, create the
+      state model only after confirmation, and explicitly pass direct-action
+      authentication failures to `AppSession`. Re-run cold first-presentation
+      issue and MR flows.
+
+13. **A fully selected label page had no pagination control.** Selected labels
+    are rendered in a separate section and removed from the project-label
+    rows. If every label on the current page was selected, no row remained to
+    trigger the next-page task.
+    - Impact: an existing label on page two could be unreachable.
+    - Repair plan: expose whether a trusted next label page exists and show an
+      explicit one-page-at-a-time Load More control only when filtering leaves
+      no row trigger. Add a model regression using an all-selected first page.
+
+14. **Remove-only member state and compact summaries were not fully honest.**
+    A current assignee/reviewer not confirmed by active project membership
+    could be removed but then remained a visually enabled no-op button.
+    Summaries could also show a known name followed by the total count as if it
+    were an additional selection.
+    - Impact: tapping could silently do nothing, VoiceOver announced a normal
+      unselected control, and the compact summary could double-count.
+    - Repair plan: expose tested selection eligibility, disable and explain an
+      unavailable unselected seed row while keeping removal enabled, and fall
+      back to one total-count summary when any selected identity is unknown.
+
+15. **Tracked smoke flows contained private live resource titles, and state
+    confirmation omitted list-membership impact.** The scripts selected live
+    issue/MR rows by internal titles. Close confirmation only said the resource
+    would close on GitLab.
+    - Impact: repository history disclosed unnecessary company work text, and
+      users were not warned that closing can remove the item from their work
+      lists as required by this plan.
+    - Repair plan: select the first matching row through generic accessibility
+      identifier patterns, verify the revised flows, and add compact
+      assigned/review-list impact text to close/reopen confirmation.
+
 ## Ordered implementation
 
 1. Commit and push this plan without P3-06 test or production changes.

@@ -41,6 +41,10 @@ struct SignedInShellView: View {
     @State private var selectedTab = GitLabAppTab.defaultTab
     @State private var homeDashboardModel: HomeDashboardModel
     @State private var assignedIssuesModel: AssignedIssuesModel
+    @State private var assignedMergeRequestsModel:
+        MergeRequestsModel
+    @State private var reviewRequestsModel:
+        MergeRequestsModel
     @State private var todosModel: TodosModel
     @State private var globalSearchModel:
         GitLabGlobalSearchModel
@@ -176,6 +180,18 @@ struct SignedInShellView: View {
                 loader: issueLoader
             )
         )
+        _assignedMergeRequestsModel = State(
+            initialValue: MergeRequestsModel(
+                mode: .assigned,
+                loader: mergeRequestLoader
+            )
+        )
+        _reviewRequestsModel = State(
+            initialValue: MergeRequestsModel(
+                mode: .reviewRequested,
+                loader: mergeRequestLoader
+            )
+        )
         _todosModel = State(
             initialValue: TodosModel(
                 loader: todoService,
@@ -215,6 +231,10 @@ struct SignedInShellView: View {
                     appSession: appSession,
                     model: homeDashboardModel,
                     assignedIssuesModel: assignedIssuesModel,
+                    assignedMergeRequestsModel:
+                        assignedMergeRequestsModel,
+                    reviewRequestsModel:
+                        reviewRequestsModel,
                     issueLoader: issueLoader,
                     mergeRequestLoader: mergeRequestLoader,
                     discussionLoader: discussionLoader,
@@ -429,12 +449,82 @@ struct SignedInShellView: View {
             )
 
         if case let .issue(issue) = result {
-            _ = assignedIssuesModel
+            let remainsAssigned =
+                issue.isAssignedOpenWork(
+                    for: accountID.userID
+                )
+            let wasPresent =
+                assignedIssuesModel
                 .reconcileAssignedIssue(
                     issue,
                     currentUserID:
                         accountID.userID
                 )
+            let removed =
+                !remainsAssigned
+                && wasPresent
+            if removed {
+                Task {
+                    await assignedIssuesModel
+                        .refresh()
+                }
+            }
+        }
+
+        if
+            case let .mergeRequest(
+                mergeRequest
+            ) = result
+        {
+            let remainsAssigned =
+                mergeRequest.isOpenWork(
+                    for: .assigned,
+                    userID: accountID.userID
+                )
+            let wasInAssigned =
+                assignedMergeRequestsModel
+                    .reconcileMergeRequest(
+                        mergeRequest,
+                        mode: .assigned,
+                        currentUserID:
+                            accountID.userID
+                    )
+            let removedAssigned =
+                !remainsAssigned
+                && wasInAssigned
+
+            let remainsReviewRequested =
+                mergeRequest.isOpenWork(
+                    for: .reviewRequested,
+                    userID: accountID.userID
+                )
+            let wasInReviewRequests =
+                reviewRequestsModel
+                    .reconcileMergeRequest(
+                        mergeRequest,
+                        mode: .reviewRequested,
+                        currentUserID:
+                            accountID.userID
+                    )
+            let removedReviewRequested =
+                !remainsReviewRequested
+                && wasInReviewRequests
+
+            if
+                removedAssigned
+                    || removedReviewRequested
+            {
+                Task {
+                    if removedAssigned {
+                        await assignedMergeRequestsModel
+                            .refresh()
+                    }
+                    if removedReviewRequested {
+                        await reviewRequestsModel
+                            .refresh()
+                    }
+                }
+            }
         }
 
         if removedHomePreview {

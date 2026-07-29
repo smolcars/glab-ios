@@ -7,7 +7,8 @@ name: P3-06 compact metadata editor read-only smoke
 - tapOn:
     id: home.shortcut.assignedIssues
 - assertVisible: Assigned Issues
-- tapOn: LND reporting pending funds, but already swept
+- tapOn:
+    id: "issues.row.*"
 - assertVisible: Issue
 - tapOn:
     id: resource.edit

@@ -359,6 +359,7 @@ struct GitLabResourceMetadataEditorModelTests {
                 $0.id == 2
             }
         )
+        #expect(!model.canSelectMember(seed))
 
         model.toggleAssignee(seed)
         model.toggleAssignee(seed)
@@ -534,6 +535,238 @@ struct GitLabResourceMetadataEditorModelTests {
                     == 0
             )
         }
+    }
+
+    @Test("A late incompatible preflight never reconciles an inactive account")
+    @MainActor
+    func rejectsLateIncompatiblePreflight() async {
+        let baseline =
+            makeTestMergeRequest()
+        let latest =
+            makeTestMergeRequest(
+                state: "merged"
+            )
+        let service =
+            GatedMetadataEditingService(
+                latest:
+                    .mergeRequest(latest),
+                updated:
+                    .mergeRequest(latest)
+            )
+        let account = MetadataAccountState()
+        var received:
+            GitLabResourceEditResult?
+        let model =
+            GitLabResourceMetadataEditorModel(
+                accountID: makeAccountID(),
+                baseline:
+                    .mergeRequest(baseline),
+                apiAccess: .readWrite,
+                service: service,
+                isAccountCurrent: {
+                    account.isCurrent
+                },
+                onSuccess: {
+                    received = $0
+                }
+            )
+
+        let change = Task {
+            await model.changeState(.close)
+        }
+        await service.waitUntilLatestStarts()
+        account.isCurrent = false
+        await service.releaseLatest()
+        await change.value
+
+        #expect(received == nil)
+        #expect(model.failure == nil)
+        #expect(await service.updateCount == 0)
+    }
+
+    @Test("A late delivery check preserves recovery for an inactive account")
+    @MainActor
+    func rejectsLateDeliveryCheck() async {
+        let baseline = makeTestIssue()
+        let updated = makeTestIssue(
+            state: "closed"
+        )
+        let service =
+            GatedDeliveryCheckMetadataEditingService(
+                baseline: .issue(baseline),
+                checked: .issue(updated)
+            )
+        let account = MetadataAccountState()
+        var received:
+            GitLabResourceEditResult?
+        let model =
+            GitLabResourceMetadataEditorModel(
+                accountID: makeAccountID(),
+                baseline: .issue(baseline),
+                apiAccess: .readWrite,
+                service: service,
+                isAccountCurrent: {
+                    account.isCurrent
+                },
+                onSuccess: {
+                    received = $0
+                }
+            )
+
+        await model.changeState(.close)
+        #expect(model.requiresDeliveryCheck)
+
+        let check = Task {
+            await model.checkGitLab()
+        }
+        await service.waitUntilCheckStarts()
+        account.isCurrent = false
+        await service.releaseCheck()
+        await check.value
+
+        #expect(received == nil)
+        #expect(model.requiresDeliveryCheck)
+        #expect(!model.didSucceed)
+    }
+
+    @Test(
+        "An intent-mismatched PUT response requires delivery reconciliation"
+    )
+    @MainActor
+    func treatsMismatchedUpdateAsUnknown() async {
+        let baseline = makeTestIssue()
+        let service =
+            RecordingMetadataEditingService(
+                latestResults: [
+                    .issue(baseline),
+                ],
+                updateResult:
+                    .success(.issue(baseline))
+            )
+        let model =
+            GitLabResourceMetadataEditorModel(
+                accountID: makeAccountID(),
+                baseline: .issue(baseline),
+                apiAccess: .readWrite,
+                service: service,
+                isAccountCurrent: { true },
+                onSuccess: { _ in }
+            )
+        model.addLabel(named: "mobile")
+
+        await model.save()
+
+        #expect(model.requiresDeliveryCheck)
+        #expect(
+            model.failure
+                == .mutation(
+                    .api(.invalidResponse),
+                    certainty:
+                        .deliveryUnknown
+                )
+        )
+        #expect(await service.updateCount == 1)
+    }
+
+    @Test(
+        "A wrong-identity PUT response requires delivery reconciliation"
+    )
+    @MainActor
+    func treatsWrongIdentityUpdateAsUnknown() async {
+        let baseline = makeTestIssue()
+        let wrongIssue = makeTestIssue(
+            id: baseline.id + 1,
+            labels: ["bug", "mobile"]
+        )
+        let service =
+            RecordingMetadataEditingService(
+                latestResults: [
+                    .issue(baseline),
+                ],
+                updateResult:
+                    .success(
+                        .issue(wrongIssue)
+                    )
+            )
+        let model =
+            GitLabResourceMetadataEditorModel(
+                accountID: makeAccountID(),
+                baseline: .issue(baseline),
+                apiAccess: .readWrite,
+                service: service,
+                isAccountCurrent: { true },
+                onSuccess: { _ in }
+            )
+        model.addLabel(named: "mobile")
+
+        await model.save()
+
+        #expect(model.requiresDeliveryCheck)
+        #expect(
+            model.failure
+                == .mutation(
+                    .api(.invalidResponse),
+                    certainty:
+                        .deliveryUnknown
+                )
+        )
+        #expect(await service.updateCount == 1)
+    }
+
+    @Test("A fully selected label page can explicitly load the next page")
+    @MainActor
+    func loadsPastFullySelectedLabelPage() async throws {
+        let nextURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.example.com/api/v4/projects/42/labels?page=2"
+            )
+        )
+        let baseline = makeTestIssue(
+            labels: ["bug"]
+        )
+        let service =
+            RecordingMetadataEditingService(
+                labelPageResults: [
+                    .success(
+                        page(
+                            [label(name: "bug")],
+                            nextPageURL:
+                                nextURL
+                        )
+                    ),
+                    .success(
+                        page([
+                            label(
+                                name: "mobile"
+                            ),
+                        ])
+                    ),
+                ],
+                memberPageResults: [
+                    .success(page()),
+                ]
+            )
+        let model =
+            GitLabResourceMetadataEditorModel(
+                accountID: makeAccountID(),
+                baseline: .issue(baseline),
+                apiAccess: .readWrite,
+                service: service,
+                isAccountCurrent: { true },
+                onSuccess: { _ in }
+            )
+
+        await model.loadOptions()
+        #expect(model.canLoadMoreLabels)
+
+        await model.loadNextLabelsPage()
+
+        #expect(
+            model.labels.map(\.name)
+                == ["bug", "mobile"]
+        )
+        #expect(!model.canLoadMoreLabels)
     }
 
     @Test("A late search response cannot replace the latest label query")
@@ -795,6 +1028,86 @@ private actor RecordingMetadataEditingService:
 @MainActor
 private final class MetadataAccountState {
     var isCurrent = true
+}
+
+private actor GatedDeliveryCheckMetadataEditingService:
+    GitLabResourceEditing
+{
+    private let baseline:
+        GitLabResourceEditResult
+    private let checked:
+        GitLabResourceEditResult
+    private var loadCount = 0
+    private var checkStarted = false
+    private var checkStartWaiters:
+        [CheckedContinuation<Void, Never>] = []
+    private var checkContinuation:
+        CheckedContinuation<Void, Never>?
+
+    init(
+        baseline: GitLabResourceEditResult,
+        checked: GitLabResourceEditResult
+    ) {
+        self.baseline = baseline
+        self.checked = checked
+    }
+
+    func loadLatest(
+        _ target: GitLabResourceEditTarget
+    ) async -> GitLabResourceEditResult {
+        loadCount += 1
+        guard loadCount > 1 else {
+            return baseline
+        }
+        checkStarted = true
+        let waiters = checkStartWaiters
+        checkStartWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        await withCheckedContinuation {
+            checkContinuation = $0
+        }
+        return checked
+    }
+
+    func update(
+        _ target: GitLabResourceEditTarget,
+        changes: GitLabResourceEditChanges
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourceEditResult
+    {
+        throw .api(.invalidResponse)
+    }
+
+    func updateMetadata(
+        _ target: GitLabResourceEditTarget,
+        changes: GitLabResourceMetadataChanges
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourceEditResult
+    {
+        throw .api(
+            .rateLimited(
+                retryAfterSeconds: 30
+            )
+        )
+    }
+
+    func invalidateAffectedReads(
+        for target: GitLabResourceEditTarget
+    ) async {}
+
+    func waitUntilCheckStarts() async {
+        guard !checkStarted else {
+            return
+        }
+        await withCheckedContinuation {
+            checkStartWaiters.append($0)
+        }
+    }
+
+    func releaseCheck() {
+        checkContinuation?.resume()
+        checkContinuation = nil
+    }
 }
 
 private actor GatedMetadataEditingService:

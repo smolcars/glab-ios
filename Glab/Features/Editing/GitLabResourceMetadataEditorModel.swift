@@ -64,7 +64,9 @@ nonisolated enum GitLabResourceMetadataEditorFailure:
 
 @MainActor
 @Observable
-final class GitLabResourceMetadataEditorModel {
+final class GitLabResourceMetadataEditorModel:
+    Identifiable
+{
     private(set) var selectedLabelNames:
         [String]
     private(set) var selectedAssigneeIDs:
@@ -235,6 +237,10 @@ final class GitLabResourceMetadataEditorModel {
             && isDirty
     }
 
+    var canLoadMoreLabels: Bool {
+        labelNextPageURL != nil
+    }
+
     var availableStateEvent:
         GitLabResourceStateEvent?
     {
@@ -365,12 +371,7 @@ final class GitLabResourceMetadataEditorModel {
         ) {
             removeAssignee(id: member.id)
         } else {
-            guard
-                member.isActive,
-                activeMemberIDs.contains(
-                    member.id
-                )
-            else {
+            guard canSelectMember(member) else {
                 return
             }
             selectedAssigneeIDs.append(
@@ -395,12 +396,7 @@ final class GitLabResourceMetadataEditorModel {
         ) {
             removeReviewer(id: member.id)
         } else {
-            guard
-                member.isActive,
-                activeMemberIDs.contains(
-                    member.id
-                )
-            else {
+            guard canSelectMember(member) else {
                 return
             }
             selectedReviewerIDs.append(
@@ -408,6 +404,16 @@ final class GitLabResourceMetadataEditorModel {
             )
         }
         clearEditableFailure()
+    }
+
+    func canSelectMember(
+        _ member: GitLabProjectMember
+    ) -> Bool {
+        member.id > 0
+            && member.isActive
+            && activeMemberIDs.contains(
+                member.id
+            )
     }
 
     func loadOptions() async {
@@ -770,6 +776,12 @@ final class GitLabResourceMetadataEditorModel {
                     target
                 )
             guard
+                !Task.isCancelled,
+                isAccountCurrent()
+            else {
+                return
+            }
+            guard
                 let latestValues =
                     validValues(latest)
             else {
@@ -780,7 +792,6 @@ final class GitLabResourceMetadataEditorModel {
             if pendingIntent.matches(
                 latestValues
             ) {
-                self.pendingIntent = nil
                 await completeMutationSuccess(
                     latest,
                     invalidatesProjectLabels:
@@ -860,6 +871,12 @@ final class GitLabResourceMetadataEditorModel {
             return
         }
         guard
+            !Task.isCancelled,
+            isAccountCurrent()
+        else {
+            return
+        }
+        guard
             let latestValues =
                 validValues(latest)
         else {
@@ -898,6 +915,7 @@ final class GitLabResourceMetadataEditorModel {
                 rebasedOnto:
                     latestValues
             )
+        pendingIntent = intent
         do {
             let result =
                 try await service
@@ -923,8 +941,13 @@ final class GitLabResourceMetadataEditorModel {
                     validValues(result),
                 intent.matches(resultValues)
             else {
+                pendingIntent = intent
                 failure =
-                    .invalidAuthoritativeResponse
+                    .mutation(
+                        .api(.invalidResponse),
+                        certainty:
+                            .deliveryUnknown
+                    )
                 return
             }
             await completeMutationSuccess(
@@ -937,8 +960,8 @@ final class GitLabResourceMetadataEditorModel {
         } catch {
             let certainty =
                 error.mutationDeliveryCertainty
-            if certainty == .deliveryUnknown {
-                pendingIntent = intent
+            if certainty != .deliveryUnknown {
+                pendingIntent = nil
             }
             failure =
                 .mutation(

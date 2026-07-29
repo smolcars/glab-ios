@@ -7,7 +7,8 @@ name: P3-06 merge request reviewer picker read-only smoke
 - tapOn:
     id: home.shortcut.assignedMergeRequests
 - assertVisible: Assigned Merge Requests
-- tapOn: Add regtest Lightning setup script
+- tapOn:
+    id: "mergeRequests.row.*"
 - assertVisible: Merge Request
 - tapOn:
     id: resource.edit

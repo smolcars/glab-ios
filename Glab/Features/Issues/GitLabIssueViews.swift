@@ -425,8 +425,8 @@ struct GitLabIssueDetailView: View {
     @State private var showsEditor = false
     @State private var metadataEditorModel:
         GitLabResourceMetadataEditorModel?
-    @State private var
-        showsMetadataEditor = false
+    @State private var stateMutationModel:
+        GitLabResourceMetadataEditorModel?
     @State private var pendingStateEvent:
         GitLabResourceStateEvent?
     @State private var
@@ -545,6 +545,11 @@ struct GitLabIssueDetailView: View {
                                 metadataEditorModel?
                                     .isBusy
                                 ?? false
+                            )
+                            && !(
+                                stateMutationModel?
+                                    .isBusy
+                                ?? false
                             ),
                         canComment:
                             apiAccess.canWrite,
@@ -630,23 +635,17 @@ struct GitLabIssueDetailView: View {
                 }
             }
             .sheet(
-                isPresented:
-                    $showsMetadataEditor,
-                onDismiss: {
-                    metadataEditorModel = nil
-                }
-            ) {
-                if let metadataEditorModel {
-                    GitLabResourceMetadataEditorView(
-                        model:
-                            metadataEditorModel,
-                        accountID: accountID,
-                        appSession: appSession
-                    )
-                    .presentationDragIndicator(
-                        .visible
-                    )
-                }
+                item: $metadataEditorModel
+            ) { metadataEditorModel in
+                GitLabResourceMetadataEditorView(
+                    model:
+                        metadataEditorModel,
+                    accountID: accountID,
+                    appSession: appSession
+                )
+                .presentationDragIndicator(
+                    .visible
+                )
             }
             .alert(
                 stateConfirmationTitle,
@@ -888,7 +887,6 @@ struct GitLabIssueDetailView: View {
             makeMetadataEditor(
                 for: .issue(issue)
             )
-        showsMetadataEditor = true
     }
 
     private func requestStateChange(
@@ -897,15 +895,11 @@ struct GitLabIssueDetailView: View {
         guard
             apiAccess.canWrite,
             !taskToggleModel.isBusy,
-            case let .loaded(issue) =
+            case .loaded =
                 model.state
         else {
             return
         }
-        metadataEditorModel =
-            makeMetadataEditor(
-                for: .issue(issue)
-            )
         pendingStateEvent = event
         showsStateConfirmation = true
     }
@@ -913,29 +907,51 @@ struct GitLabIssueDetailView: View {
     private func performStateChange() {
         guard
             let event = pendingStateEvent,
-            let metadataEditorModel
+            case let .loaded(issue) =
+                model.state
         else {
             return
         }
         pendingStateEvent = nil
+        let metadataEditorModel =
+            makeMetadataEditor(
+                for: .issue(issue)
+            )
+        stateMutationModel =
+            metadataEditorModel
         Task {
             await metadataEditorModel
                 .changeState(event)
             guard !metadataEditorModel.didSucceed else {
-                self.metadataEditorModel = nil
+                stateMutationModel = nil
+                return
+            }
+            if
+                let error =
+                    metadataEditorModel
+                        .authenticationFailure
+            {
+                stateMutationModel = nil
+                await appSession
+                    .handleAuthenticationFailure(
+                        error,
+                        for: accountID
+                    )
                 return
             }
             if
                 metadataEditorModel
                     .requiresDeliveryCheck
             {
-                showsMetadataEditor = true
+                self.metadataEditorModel =
+                    metadataEditorModel
             } else {
                 stateFailureMessage =
                     metadataEditorModel
                         .failure?
                         .description
             }
+            stateMutationModel = nil
         }
     }
 
@@ -1005,8 +1021,8 @@ struct GitLabIssueDetailView: View {
 
     private var stateConfirmationMessage: String {
         pendingStateEvent == .close
-            ? "This will close the issue on GitLab."
-            : "This will reopen the issue on GitLab."
+            ? "This will close the issue on GitLab and may remove it from your assigned work."
+            : "This will reopen the issue on GitLab and may return it to your assigned work."
     }
 
     private var stateFailureIsPresented:

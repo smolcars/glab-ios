@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MergeRequestsView: View {
     let mode: GitLabMergeRequestListMode
+    let model: MergeRequestsModel
     let loader:
         any GitLabMergeRequestLoading
             & GitLabMergeRequestApprovalLoading
@@ -21,10 +22,9 @@ struct MergeRequestsView: View {
     let onResourceEdited:
         (GitLabResourceEditResult) -> Void
 
-    @State private var model: MergeRequestsModel
-
     init(
         mode: GitLabMergeRequestListMode,
+        model: MergeRequestsModel,
         loader:
             any GitLabMergeRequestLoading
                 & GitLabMergeRequestApprovalLoading
@@ -47,6 +47,7 @@ struct MergeRequestsView: View {
             ) -> Void
     ) {
         self.mode = mode
+        self.model = model
         self.loader = loader
         self.discussionLoader =
             discussionLoader
@@ -59,12 +60,6 @@ struct MergeRequestsView: View {
         self.appSession = appSession
         self.onResourceEdited =
             onResourceEdited
-        _model = State(
-            initialValue: MergeRequestsModel(
-                mode: mode,
-                loader: loader
-            )
-        )
     }
 
     var body: some View {
@@ -100,24 +95,8 @@ struct MergeRequestsView: View {
                         editService,
                     accountID: accountID,
                     appSession: appSession,
-                    onResourceEdited: {
-                        result in
-                        if
-                            case let .mergeRequest(
-                                mergeRequest
-                            ) = result
-                        {
-                            _ = model
-                                .reconcileMergeRequest(
-                                    mergeRequest,
-                                    mode: mode,
-                                    currentUserID:
-                                        accountID
-                                        .userID
-                                )
-                        }
-                        onResourceEdited(result)
-                    }
+                    onResourceEdited:
+                        onResourceEdited
                 )
             }
             .refreshable {
@@ -638,8 +617,8 @@ struct GitLabMergeRequestDetailView: View {
     @State private var showsEditor = false
     @State private var metadataEditorModel:
         GitLabResourceMetadataEditorModel?
-    @State private var
-        showsMetadataEditor = false
+    @State private var stateMutationModel:
+        GitLabResourceMetadataEditorModel?
     @State private var pendingStateEvent:
         GitLabResourceStateEvent?
     @State private var
@@ -809,6 +788,11 @@ struct GitLabMergeRequestDetailView: View {
                                 metadataEditorModel?
                                     .isBusy
                                 ?? false
+                            )
+                            && !(
+                                stateMutationModel?
+                                    .isBusy
+                                ?? false
                             ),
                         canComment:
                             apiAccess.canWrite,
@@ -895,23 +879,17 @@ struct GitLabMergeRequestDetailView: View {
                 }
             }
             .sheet(
-                isPresented:
-                    $showsMetadataEditor,
-                onDismiss: {
-                    metadataEditorModel = nil
-                }
-            ) {
-                if let metadataEditorModel {
-                    GitLabResourceMetadataEditorView(
-                        model:
-                            metadataEditorModel,
-                        accountID: accountID,
-                        appSession: appSession
-                    )
-                    .presentationDragIndicator(
-                        .visible
-                    )
-                }
+                item: $metadataEditorModel
+            ) { metadataEditorModel in
+                GitLabResourceMetadataEditorView(
+                    model:
+                        metadataEditorModel,
+                    accountID: accountID,
+                    appSession: appSession
+                )
+                .presentationDragIndicator(
+                    .visible
+                )
             }
             .alert(
                 stateConfirmationTitle,
@@ -1187,7 +1165,6 @@ struct GitLabMergeRequestDetailView: View {
                         mergeRequest
                     )
             )
-        showsMetadataEditor = true
     }
 
     private func requestStateChange(
@@ -1196,18 +1173,11 @@ struct GitLabMergeRequestDetailView: View {
         guard
             apiAccess.canWrite,
             !taskToggleModel.isBusy,
-            case let .loaded(mergeRequest) =
+            case .loaded =
                 model.state
         else {
             return
         }
-        metadataEditorModel =
-            makeMetadataEditor(
-                for:
-                    .mergeRequest(
-                        mergeRequest
-                    )
-            )
         pendingStateEvent = event
         showsStateConfirmation = true
     }
@@ -1215,29 +1185,54 @@ struct GitLabMergeRequestDetailView: View {
     private func performStateChange() {
         guard
             let event = pendingStateEvent,
-            let metadataEditorModel
+            case let .loaded(mergeRequest) =
+                model.state
         else {
             return
         }
         pendingStateEvent = nil
+        let metadataEditorModel =
+            makeMetadataEditor(
+                for:
+                    .mergeRequest(
+                        mergeRequest
+                    )
+            )
+        stateMutationModel =
+            metadataEditorModel
         Task {
             await metadataEditorModel
                 .changeState(event)
             guard !metadataEditorModel.didSucceed else {
-                self.metadataEditorModel = nil
+                stateMutationModel = nil
+                return
+            }
+            if
+                let error =
+                    metadataEditorModel
+                        .authenticationFailure
+            {
+                stateMutationModel = nil
+                await appSession
+                    .handleAuthenticationFailure(
+                        error,
+                        for: accountID
+                    )
                 return
             }
             if
                 metadataEditorModel
                     .requiresDeliveryCheck
             {
-                showsMetadataEditor = true
+                self.metadataEditorModel =
+                    metadataEditorModel
             } else {
                 stateFailureMessage =
                     metadataEditorModel
                         .failure?
                         .description
             }
+            stateMutationModel = nil
         }
     }
 
@@ -1311,8 +1306,8 @@ struct GitLabMergeRequestDetailView: View {
 
     private var stateConfirmationMessage: String {
         pendingStateEvent == .close
-            ? "This will close the merge request on GitLab."
-            : "This will reopen the merge request on GitLab."
+            ? "This will close the merge request on GitLab and may remove it from assigned or review-requested work."
+            : "This will reopen the merge request on GitLab and may return it to assigned or review-requested work."
     }
 
     private var stateFailureIsPresented:

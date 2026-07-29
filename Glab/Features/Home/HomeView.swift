@@ -10,6 +10,10 @@ struct HomeView: View {
     let appSession: AppSession
     let model: HomeDashboardModel
     let assignedIssuesModel: AssignedIssuesModel
+    let assignedMergeRequestsModel:
+        MergeRequestsModel
+    let reviewRequestsModel:
+        MergeRequestsModel
     let issueLoader: any GitLabIssueLoading
     let mergeRequestLoader:
         any GitLabMergeRequestLoading
@@ -333,6 +337,8 @@ struct HomeView: View {
         case .assignedMergeRequests:
             MergeRequestsView(
                 mode: .assigned,
+                model:
+                    assignedMergeRequestsModel,
                 loader: mergeRequestLoader,
                 discussionLoader: discussionLoader,
                 discussionMutator:
@@ -349,6 +355,8 @@ struct HomeView: View {
         case .reviewRequests:
             MergeRequestsView(
                 mode: .reviewRequested,
+                model:
+                    reviewRequestsModel,
                 loader: mergeRequestLoader,
                 discussionLoader: discussionLoader,
                 discussionMutator:

@@ -269,20 +269,14 @@ struct GitLabResourceMetadataEditorView: View {
     private func selectedPeopleSummary(
         _ ids: [Int]
     ) -> [String] {
-        ids.compactMap { id in
+        let names = ids.compactMap { id in
             model.members.first {
                 $0.id == id
             }?.name
         }
-        + (
-            ids.contains(where: { id in
-                !model.members.contains {
-                    $0.id == id
-                }
-            })
-            ? ["\(ids.count) selected"]
-            : []
-        )
+        return names.count == ids.count
+            ? names
+            : ["\(ids.count) selected"]
     }
 
     private func requestDismissal() {
@@ -383,6 +377,27 @@ private struct GitLabMetadataLabelPicker: View {
                         }
                     }
                 }
+
+                if
+                    availableLabels.isEmpty,
+                    model.canLoadMoreLabels
+                {
+                    Button {
+                        Task {
+                            await model
+                                .loadNextLabelsPage()
+                        }
+                    } label: {
+                        Label(
+                            "Load more labels",
+                            systemImage:
+                                "arrow.down.circle"
+                        )
+                    }
+                    .accessibilityIdentifier(
+                        "metadata.labels.loadMore"
+                    )
+                }
             }
         }
         .navigationTitle("Labels")
@@ -479,10 +494,17 @@ private struct GitLabMetadataMemberPicker: View {
                 )
             } else {
                 ForEach(model.members) { member in
+                    let selected =
+                        isSelected(member)
                     memberChoiceRow(
                         member: member,
-                        isSelected:
-                            isSelected(member)
+                        isSelected: selected,
+                        isEnabled:
+                            selected
+                            || model
+                                .canSelectMember(
+                                    member
+                                )
                     ) {
                         toggle(member)
                     }
@@ -553,6 +575,7 @@ private struct GitLabMetadataMemberPicker: View {
 private func memberChoiceRow(
     member: GitLabProjectMember,
     isSelected: Bool,
+    isEnabled: Bool,
     action: @escaping () -> Void
 ) -> some View {
     Button(action: action) {
@@ -589,6 +612,7 @@ private func memberChoiceRow(
         .contentShape(.rect)
     }
     .buttonStyle(.plain)
+    .disabled(!isEnabled)
     .accessibilityLabel(
         "\(member.name), @\(member.username)"
     )
@@ -596,6 +620,11 @@ private func memberChoiceRow(
         isSelected
             ? "Selected"
             : "Not selected"
+    )
+    .accessibilityHint(
+        isEnabled
+            ? "Double-tap to \(isSelected ? "remove" : "select")."
+            : "This person is no longer an active project member."
     )
 }
 
