@@ -225,6 +225,15 @@ final class GitLabIssueCreationModel {
         pendingSubmissionFingerprint != nil
     }
 
+    var displayedAssignableMembers:
+        [GitLabProjectMember]
+    {
+        membersModel?
+            .displayedItems
+            .filter(\.isActive)
+            ?? []
+    }
+
     var authenticationFailure:
         GitLabSessionClientError?
     {
@@ -443,6 +452,8 @@ final class GitLabIssueCreationModel {
         async
     {
         guard
+            selectedProject != nil,
+            isSelectedProjectVerified,
             let labelsModel,
             let membersModel
         else {
@@ -454,6 +465,23 @@ final class GitLabIssueCreationModel {
         async let members: Void =
             membersModel.loadIfNeeded()
         _ = await (labels, members)
+    }
+
+    func loadNextAssignableMembersPageIfNeeded(
+        after member: GitLabProjectMember
+    ) async {
+        guard
+            let membersModel,
+            displayedAssignableMembers
+                .last?.id == member.id,
+            let rawTail = membersModel.items.last
+        else {
+            return
+        }
+        await membersModel
+            .loadNextPageIfNeeded(
+                after: rawTail
+            )
     }
 
     func toggleLabel(

@@ -93,11 +93,7 @@ struct GitLabIssueCreationView: View {
             .safeAreaInset(edge: .bottom) {
                 statusArea
             }
-            .interactiveDismissDisabled(
-                model.isSubmitting
-                    || model.failure
-                        == .draftStorage
-            )
+            .interactiveDismissDisabled(true)
             .task {
                 await model.restoreDraft()
                 guard !Task.isCancelled else {
@@ -1235,9 +1231,8 @@ private struct GitLabIssueCreationAssigneeList:
         } else {
             List {
                 ForEach(
-                    membersModel
-                        .displayedItems
-                        .filter(\.isActive)
+                    model
+                        .displayedAssignableMembers
                 ) { member in
                     Button {
                         model.toggleAssignee(
@@ -1309,8 +1304,8 @@ private struct GitLabIssueCreationAssigneeList:
                         : "Not selected"
                     )
                     .task {
-                        await membersModel
-                            .loadNextPageIfNeeded(
+                        await model
+                            .loadNextAssignableMembersPageIfNeeded(
                                 after: member
                             )
                     }

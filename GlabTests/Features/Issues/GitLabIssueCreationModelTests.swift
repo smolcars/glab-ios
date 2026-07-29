@@ -144,6 +144,18 @@ struct GitLabIssueCreationModelTests {
                 == .projectVerification(failure)
         )
 
+        await context.model
+            .loadSelectedProjectMetadata()
+
+        #expect(
+            await context.service
+                .labelProjectIDs.isEmpty
+        )
+        #expect(
+            await context.service
+                .memberProjectIDs.isEmpty
+        )
+
         context.model.title = "Keep editing"
 
         #expect(
@@ -159,6 +171,56 @@ struct GitLabIssueCreationModelTests {
         #expect(
             context.model
                 .isSelectedProjectVerified
+        )
+    }
+
+    @Test("Inactive page tail does not stop assignable member pagination")
+    @MainActor
+    func paginatesPastInactiveMemberTail()
+        async throws
+    {
+        let active = makeMember(id: 7)
+        let blocked = makeMember(
+            id: 8,
+            username: "blocked-user",
+            state: "blocked"
+        )
+        let next = makeMember(
+            id: 9,
+            username: "next-user"
+        )
+        let context = try CreationModelContext(
+            service:
+                RecordingIssueCreationService(
+                    members: [
+                        active,
+                        blocked,
+                    ],
+                    memberNext: [next]
+                )
+        )
+        await context.model.restoreDraft()
+        context.model.selectProject(
+            makeTestProject()
+        )
+        await context.model
+            .loadSelectedProjectMetadata()
+
+        #expect(
+            context.model
+                .displayedAssignableMembers
+                .map(\.id) == [7]
+        )
+
+        await context.model
+            .loadNextAssignableMembersPageIfNeeded(
+                after: active
+            )
+
+        #expect(
+            context.model
+                .displayedAssignableMembers
+                .map(\.id) == [7, 9]
         )
     }
 
@@ -1018,13 +1080,14 @@ private nonisolated func makeLabel(
 
 private nonisolated func makeMember(
     id: Int,
-    username: String = "octocat"
+    username: String = "octocat",
+    state: String = "active"
 ) -> GitLabProjectMember {
     GitLabProjectMember(
         id: id,
         username: username,
         name: username,
-        state: "active",
+        state: state,
         avatarURL: nil,
         webURL: nil,
         accessLevel: 30

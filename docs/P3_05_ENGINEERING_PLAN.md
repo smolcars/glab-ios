@@ -725,7 +725,52 @@ Record every material finding below before editing a repair. For each finding:
 
 ## Deep review findings
 
-Pending implementation.
+### Review pass 1 — findings and repair plan
+
+The first full review found three material issues. No production repair is
+made until this plan is recorded.
+
+1. **Interactive sheet dismissal can bypass the protected-draft flush.**
+   SwiftUI currently permits a downward swipe while the composer is editing.
+   Its asynchronous `onDisappear` save cannot keep an already-dismissed sheet
+   open if protected storage fails, which disagrees with the draft contract
+   and can lose the latest edit.
+   - Repair: disable interactive dismissal for the composer and keep Cancel as
+     the explicit exit. Cancel already waits for `persistForDismissal()` and
+     dismisses only after success. Retain the `onDisappear` call as a
+     best-effort lifecycle fallback.
+   - Regression verification: retain the model's failed-flush test, then use
+     the Simulator to confirm a swipe does not dismiss and Cancel still saves
+     and closes.
+
+2. **Restored-project metadata can start before project verification.**
+   Applying a stored selection creates label/member models immediately, and
+   the view's selected-project task can ask them to load while the exact
+   `GET /projects/:id` access check is still pending. An inaccessible project
+   therefore causes avoidable stale metadata reads and briefly exposes
+   unverified state.
+   - Repair: make `loadSelectedProjectMetadata()` require a verified selected
+     project. Keep metadata available immediately for a project the user
+     selects in the current session.
+   - Regression test: after a transient restored-project verification
+     failure, explicitly request metadata and prove the service receives zero
+     label/member requests.
+
+3. **An inactive member at the raw page tail can stop assignee pagination.**
+   The picker filters inactive members before attaching its row pagination
+   trigger, while the generic pager requires the triggering item to be the
+   unfiltered page tail. If the final decoded member is blocked, reaching the
+   final visible active member never loads the next page.
+   - Repair: let the creation model expose active displayed members and
+     translate the final visible member to the underlying raw tail before
+     asking the existing pager to continue. Keep inactive accounts
+     unselectable and avoid eager loading all pages.
+   - Regression test: use a first page whose raw tail is inactive and prove
+     reaching its final visible active member loads the next active member.
+
+The review found no duplicate create path, automatic POST retry, cross-account
+draft key, premature authoritative-success route, unsafe assignee tier
+fallback, forced crash/cast, debug logging, or credential/content disclosure.
 
 ## Ordered implementation
 
