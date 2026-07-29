@@ -2,7 +2,8 @@ import Foundation
 
 nonisolated enum GitLabIssueCreationEndpoints {
     static func labels(
-        projectID: Int
+        projectID: Int,
+        search: String? = nil
     ) -> GitLabAPIRequest<[GitLabProjectLabel]> {
         .get(
             requires: .read,
@@ -24,12 +25,16 @@ nonisolated enum GitLabIssueCreationEndpoints {
                     name: "per_page",
                     value: "20"
                 ),
-            ]
+            ] + searchQuery(
+                name: "search",
+                value: search
+            )
         )
     }
 
     static func members(
-        projectID: Int
+        projectID: Int,
+        search: String? = nil
     ) -> GitLabAPIRequest<[GitLabProjectMember]> {
         .get(
             requires: .read,
@@ -44,7 +49,32 @@ nonisolated enum GitLabIssueCreationEndpoints {
                     name: "per_page",
                     value: "20"
                 ),
-            ]
+            ] + searchQuery(
+                name: "query",
+                value: search
+            )
         )
+    }
+
+    private static func searchQuery(
+        name: String,
+        value: String?
+    ) -> [URLQueryItem] {
+        let normalized =
+            value?.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+        guard
+            let normalized,
+            !normalized.isEmpty
+        else {
+            return []
+        }
+        return [
+            URLQueryItem(
+                name: name,
+                value: normalized
+            ),
+        ]
     }
 }

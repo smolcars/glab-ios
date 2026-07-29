@@ -72,6 +72,66 @@ struct GitLabIssueCreationEndpointTests {
         )
     }
 
+    @Test("Builds normalized server metadata searches")
+    func buildsProjectMetadataSearches() throws {
+        let labels =
+            GitLabIssueCreationEndpoints.labels(
+                projectID: 42,
+                search: "  needs QA 👩🏽‍💻  "
+            )
+        let members =
+            GitLabIssueCreationEndpoints.members(
+                projectID: 42,
+                search: "  helper bot  "
+            )
+
+        #expect(
+            try buildRequest(labels).url?
+                .absoluteString
+                == "https://gitlab.example.com/api/v4/"
+                + "projects/42/labels"
+                + "?with_counts=false"
+                + "&include_ancestor_groups=true"
+                + "&per_page=20"
+                + "&search=needs%20QA%20%F0%9F%91%A9%F0%9F%8F%BD%E2%80%8D%F0%9F%92%BB"
+        )
+        #expect(
+            try buildRequest(members).url?
+                .absoluteString
+                == "https://gitlab.example.com/api/v4/"
+                + "projects/42/members/all"
+                + "?per_page=20"
+                + "&query=helper%20bot"
+        )
+    }
+
+    @Test("Omits blank metadata searches")
+    func omitsBlankMetadataSearches() throws {
+        let labels =
+            GitLabIssueCreationEndpoints.labels(
+                projectID: 42,
+                search: " \n "
+            )
+        let members =
+            GitLabIssueCreationEndpoints.members(
+                projectID: 42,
+                search: "\t"
+            )
+
+        #expect(
+            labels.queryItems
+                .contains(where: {
+                    $0.name == "search"
+                }) == false
+        )
+        #expect(
+            members.queryItems
+                .contains(where: {
+                    $0.name == "query"
+                }) == false
+        )
+    }
+
     @Test("Builds a minimal title-only issue")
     func buildsMinimalIssue() throws {
         let input = try GitLabIssueCreationInput(
