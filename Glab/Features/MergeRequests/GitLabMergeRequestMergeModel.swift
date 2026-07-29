@@ -66,6 +66,30 @@ nonisolated enum
             nil
         }
     }
+
+    var message: String {
+        switch self {
+        case .readOnly:
+            "This account has read-only API access."
+        case .accountChanged:
+            "The active GitLab account changed. Reopen this merge request and try again."
+        case .staleRevision:
+            "The source branch changed. Review the latest changes before trying again."
+        case .permissionDenied:
+            "GitLab did not allow this account to merge the request."
+        case .unavailable:
+            "This merge action is no longer available. Refresh the merge request and try again."
+        case .blocked:
+            "GitLab reports that this merge request is not ready to merge."
+        case .notApplied:
+            "GitLab did not apply the merge action. Review the current merge status before trying again."
+        case let .load(error),
+             let .rejected(error):
+            error.description
+        case let .reconciliation(error):
+            "Glab could not verify GitLab’s result. Check this merge request in GitLab before trying again. \(error.description)"
+        }
+    }
 }
 
 @MainActor

@@ -103,6 +103,8 @@ struct HomeView: View {
             & GitLabMergeRequestDiffSummaryLoading
     let mergeRequestApprovalService:
         any GitLabMergeRequestApprovalServing
+    let mergeRequestMergeService:
+        any GitLabMergeRequestMergeServing
     let pipelineLoader:
         any GitLabPipelineLoading
     let discussionLoader:
@@ -439,6 +441,8 @@ struct HomeView: View {
                 loader: mergeRequestLoader,
                 approvalService:
                     mergeRequestApprovalService,
+                mergeService:
+                    mergeRequestMergeService,
                 pipelineLoader:
                     pipelineLoader,
                 discussionLoader:
@@ -516,6 +520,8 @@ struct HomeView: View {
                 loader: mergeRequestLoader,
                 approvalService:
                     mergeRequestApprovalService,
+                mergeService:
+                    mergeRequestMergeService,
                 pipelineLoader:
                     pipelineLoader,
                 discussionLoader: discussionLoader,
@@ -538,6 +544,8 @@ struct HomeView: View {
                 loader: mergeRequestLoader,
                 approvalService:
                     mergeRequestApprovalService,
+                mergeService:
+                    mergeRequestMergeService,
                 pipelineLoader:
                     pipelineLoader,
                 discussionLoader: discussionLoader,

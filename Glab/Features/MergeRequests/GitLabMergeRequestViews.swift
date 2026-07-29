@@ -10,6 +10,8 @@ struct MergeRequestsView: View {
             & GitLabMergeRequestDiffSummaryLoading
     let approvalService:
         any GitLabMergeRequestApprovalServing
+    let mergeService:
+        any GitLabMergeRequestMergeServing
     let pipelineLoader:
         any GitLabPipelineLoading
     let discussionLoader:
@@ -36,6 +38,8 @@ struct MergeRequestsView: View {
                 & GitLabMergeRequestDiffSummaryLoading,
         approvalService:
             any GitLabMergeRequestApprovalServing,
+        mergeService:
+            any GitLabMergeRequestMergeServing,
         pipelineLoader:
             any GitLabPipelineLoading,
         discussionLoader:
@@ -59,6 +63,8 @@ struct MergeRequestsView: View {
         self.loader = loader
         self.approvalService =
             approvalService
+        self.mergeService =
+            mergeService
         self.pipelineLoader =
             pipelineLoader
         self.discussionLoader =
@@ -99,6 +105,8 @@ struct MergeRequestsView: View {
                     loader: loader,
                     approvalService:
                         approvalService,
+                    mergeService:
+                        mergeService,
                     pipelineLoader:
                         pipelineLoader,
                     discussionLoader:
@@ -625,6 +633,8 @@ struct GitLabMergeRequestDetailView: View {
         GitLabMergeRequestDetailModel
     @State private var approvalModel:
         GitLabMergeRequestApprovalModel
+    @State private var mergeModel:
+        GitLabMergeRequestMergeModel
     @State private var
         approvalManagementModel:
         GitLabMergeRequestApprovalManagementModel
@@ -662,6 +672,8 @@ struct GitLabMergeRequestDetailView: View {
                 & GitLabMergeRequestDiffSummaryLoading,
         approvalService:
             any GitLabMergeRequestApprovalServing,
+        mergeService:
+            any GitLabMergeRequestMergeServing,
         pipelineLoader:
             any GitLabPipelineLoading,
         discussionLoader:
@@ -760,6 +772,60 @@ struct GitLabMergeRequestDetailView: View {
             )
         _approvalModel = State(
             initialValue: approvalModel
+        )
+        _mergeModel = State(
+            initialValue:
+                GitLabMergeRequestMergeModel(
+                    accountID: accountID,
+                    route: route,
+                    apiAccess: apiAccess,
+                    service: mergeService,
+                    currentMergeRequest: {
+                        guard
+                            case let .loaded(
+                                mergeRequest
+                            ) = detailModel.state
+                        else {
+                            return nil
+                        }
+                        return mergeRequest
+                    },
+                    currentApprovalSummary: {
+                        guard
+                            case let .loaded(
+                                availability
+                            ) = approvalModel.state,
+                            case let .available(
+                                summary
+                            ) = availability
+                        else {
+                            return nil
+                        }
+                        return summary
+                    },
+                    isAccountCurrent: {
+                        appSession
+                            .activeAccountID
+                            == accountID
+                    },
+                    onMergeRequestReconciled: {
+                        _ =
+                            detailModel
+                            .reconcileAuthoritative(
+                                $0
+                            )
+                    },
+                    onApprovalSummaryReconciled: {
+                        _ =
+                            approvalModel
+                            .reconcileAuthoritative(
+                                .available($0)
+                            )
+                    },
+                    onResourceEdited: {
+                        onResourceEdited($0)
+                    }
+                )
         )
         _approvalManagementModel = State(
             initialValue:
@@ -936,6 +1002,7 @@ struct GitLabMergeRequestDetailView: View {
             .onDisappear {
                 taskToggleModel.cancel()
                 resolutionModel.cancelAll()
+                mergeModel.cancel()
             }
             .onChange(
                 of:
@@ -1054,6 +1121,49 @@ struct GitLabMergeRequestDetailView: View {
                     "This account has read-only API access. Sign in with OAuth or an API token with the api scope to post comments."
                 )
             }
+            .alert(
+                mergeConfirmationTitle,
+                isPresented:
+                    mergeConfirmationIsPresented
+            ) {
+                if let confirmation =
+                    mergeModel.confirmation
+                {
+                    Button(
+                        confirmation
+                            .action.title
+                    ) {
+                        Task {
+                            await mergeModel
+                                .confirm()
+                        }
+                    }
+                }
+                Button(
+                    "Cancel",
+                    role: .cancel
+                ) {
+                    mergeModel
+                        .dismissConfirmation()
+                }
+            } message: {
+                Text(mergeConfirmationMessage)
+            }
+            .alert(
+                "Couldn’t merge request",
+                isPresented:
+                    mergeFailureIsPresented
+            ) {
+                Button("OK", role: .cancel) {
+                    mergeModel.dismissFailure()
+                }
+            } message: {
+                Text(
+                    mergeModel.failure?
+                        .message
+                    ?? ""
+                )
+            }
     }
 
     @ViewBuilder
@@ -1110,6 +1220,7 @@ struct GitLabMergeRequestDetailView: View {
                     },
                     approvalManagementModel:
                         approvalManagementModel,
+                    mergeModel: mergeModel,
                     discussionModel:
                         discussionModel,
                     resolutionModel:
@@ -1157,6 +1268,8 @@ struct GitLabMergeRequestDetailView: View {
             ?? approvalModel
                 .authenticationFailure
             ?? approvalManagementModel
+                .authenticationFailure
+            ?? mergeModel
                 .authenticationFailure
             ?? discussionModel.authenticationFailure
             ?? resolutionModel
@@ -1446,6 +1559,65 @@ struct GitLabMergeRequestDetailView: View {
         )
     }
 
+    private var mergeConfirmationIsPresented:
+        Binding<Bool>
+    {
+        Binding(
+            get: {
+                mergeModel.confirmation != nil
+            },
+            set: {
+                if !$0 {
+                    mergeModel
+                        .dismissConfirmation()
+                }
+            }
+        )
+    }
+
+    private var mergeConfirmationTitle:
+        String
+    {
+        mergeModel.confirmation?
+            .action == .autoMerge
+            ? "Set auto-merge?"
+            : "Merge request?"
+    }
+
+    private var mergeConfirmationMessage:
+        String
+    {
+        guard
+            let confirmation =
+                mergeModel.confirmation
+        else {
+            return ""
+        }
+        let route =
+            "\(confirmation.sourceBranch) → \(confirmation.targetBranch)"
+        switch confirmation.action {
+        case .mergeNow:
+            return "Merge “\(confirmation.title)” from \(route)?"
+        case .autoMerge:
+            return "GitLab will merge “\(confirmation.title)” from \(route) after all checks pass and may use a merge train."
+        }
+    }
+
+    private var mergeFailureIsPresented:
+        Binding<Bool>
+    {
+        Binding(
+            get: {
+                mergeModel.failure != nil
+            },
+            set: {
+                if !$0 {
+                    mergeModel.dismissFailure()
+                }
+            }
+        )
+    }
+
     private var approvalError:
         GitLabSessionClientError?
     {
@@ -1512,6 +1684,8 @@ private struct GitLabMergeRequestDetailContent: View {
     let retryApproval: () -> Void
     let approvalManagementModel:
         GitLabMergeRequestApprovalManagementModel
+    let mergeModel:
+        GitLabMergeRequestMergeModel
     let discussionModel: GitLabDiscussionsModel
     let resolutionModel:
         GitLabDiscussionResolutionModel
@@ -1557,6 +1731,7 @@ private struct GitLabMergeRequestDetailContent: View {
                         ),
                     approvalError:
                         approvalError,
+                    mergeModel: mergeModel,
                     retryApproval:
                         retryApproval,
                     openPipelines:

@@ -5,6 +5,8 @@ struct GitLabMergeRequestReadinessView: View {
         GitLabMergeRequestReadiness
     let approvalError:
         GitLabSessionClientError?
+    let mergeModel:
+        GitLabMergeRequestMergeModel
     let retryApproval: () -> Void
     let openPipelines: () -> Void
     @State private var isExpanded = false
@@ -55,83 +57,158 @@ struct GitLabMergeRequestReadinessView: View {
     }
 
     private var summaryControl: some View {
-        Button {
-            isExpanded.toggle()
-        } label: {
-            HStack(spacing: 10) {
-                Image(
-                    systemName:
-                        readiness.overall
-                        .systemImage
-                )
-                .font(.body)
-                .foregroundStyle(
-                    readiness.overall.tint
-                )
-                .frame(width: 22)
-                .accessibilityHidden(true)
+        HStack(spacing: 0) {
+            Button {
+                isExpanded.toggle()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(
+                        systemName:
+                            readiness.overall
+                            .systemImage
+                    )
+                    .font(.body)
+                    .foregroundStyle(
+                        readiness.overall.tint
+                    )
+                    .frame(width: 22)
+                    .accessibilityHidden(true)
 
-                VStack(
-                    alignment: .leading,
-                    spacing: 1
-                ) {
-                    Text(
-                        readiness.overall.title
+                    VStack(
+                        alignment: .leading,
+                        spacing: 1
+                    ) {
+                        Text(
+                            readiness.overall.title
+                        )
+                        .font(
+                            .callout.weight(
+                                .semibold
+                            )
+                        )
+
+                        Text(
+                            readiness.compactSummary
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
+
+                    Image(
+                        systemName:
+                            isExpanded
+                            ? "chevron.up"
+                            : "chevron.down"
                     )
                     .font(
-                        .callout.weight(
-                            .semibold
-                        )
+                        .caption.weight(.semibold)
                     )
-
-                    Text(
-                        readiness.compactSummary
-                    )
-                    .font(.caption)
                     .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
                 }
-                .frame(
-                    maxWidth: .infinity,
-                    alignment: .leading
-                )
+                .padding(.leading, 12)
+                .padding(.trailing, 8)
+                .padding(.vertical, 9)
+                .frame(minHeight: 44)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(
+                children: .ignore
+            )
+            .accessibilityLabel(
+                readiness.accessibilityLabel
+            )
+            .accessibilityValue(
+                readiness.compactSummary
+                    + (isExpanded
+                        ? ", expanded"
+                        : ", collapsed")
+            )
+            .accessibilityHint(
+                isExpanded
+                    ? "Collapses merge readiness details."
+                    : "Expands merge readiness details."
+            )
+            .accessibilityIdentifier(
+                "mergeRequests.readiness.overall"
+            )
 
+            mergeActionControl
+                .padding(.trailing, 8)
+        }
+    }
+
+    @ViewBuilder
+    private var mergeActionControl:
+        some View
+    {
+        if mergeModel.isBusy {
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 44, height: 44)
+                .accessibilityLabel(
+                    "Checking merge request"
+                )
+        } else {
+            switch mergeModel.eligibility {
+            case .mergeNow:
+                mergeButton(for: .mergeNow)
+            case .autoMerge:
+                mergeButton(for: .autoMerge)
+            case .alreadyAutoMerging:
                 Image(
                     systemName:
-                        isExpanded
-                        ? "chevron.up"
-                        : "chevron.down"
+                        "clock.badge.checkmark"
                 )
-                .font(
-                    .caption.weight(.semibold)
+                .font(.body)
+                .foregroundStyle(.green)
+                .frame(width: 44, height: 44)
+                .accessibilityLabel(
+                    "Auto-merge is enabled"
                 )
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
+            case .blocked,
+                 .checking,
+                 .unavailable:
+                EmptyView()
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .frame(minHeight: 44)
-            .contentShape(.rect)
         }
-        .buttonStyle(.plain)
-        .accessibilityElement(
-            children: .ignore
-        )
-        .accessibilityLabel(
-            readiness.accessibilityLabel
-        )
-        .accessibilityValue(
-            readiness.compactSummary
-                + (isExpanded
-                    ? ", expanded"
-                    : ", collapsed")
-        )
+    }
+
+    private func mergeButton(
+        for action:
+            GitLabMergeRequestMergeAction
+    ) -> some View {
+        Button {
+            Task {
+                await mergeModel
+                    .request(action)
+            }
+        } label: {
+            Image(
+                systemName:
+                    action == .mergeNow
+                    ? "arrow.triangle.merge"
+                    : "clock.arrow.circlepath"
+            )
+            .font(.callout.weight(.semibold))
+        }
+        .buttonStyle(.glass)
+        .controlSize(.small)
+        .frame(width: 44, height: 44)
+        .contentShape(.rect)
+        .accessibilityLabel(action.title)
         .accessibilityHint(
-            isExpanded
-                ? "Collapses merge readiness details."
-                : "Expands merge readiness details."
+            action == .mergeNow
+                ? "Checks the latest state before asking for confirmation."
+                : "Checks the latest state before asking to merge after all checks pass."
         )
         .accessibilityIdentifier(
-            "mergeRequests.readiness.overall"
+            "mergeRequests.merge.action"
         )
     }
 
