@@ -867,7 +867,25 @@ struct GitLabMergeRequestDetailView: View {
                     route: route,
                     loader: pipelineLoader,
                     accountID: accountID,
-                    appSession: appSession
+                    appSession: appSession,
+                    apiAccess: apiAccess,
+                    isAccountCurrent: {
+                        appSession
+                            .activeAccountID
+                            == accountID
+                    },
+                    isMergeRequestOpen: {
+                        guard
+                            case let .loaded(
+                                mergeRequest
+                            ) = model.state
+                        else {
+                            return false
+                        }
+                        return mergeRequest
+                            .stateKind
+                            == .opened
+                    }
                 )
             }
             .toolbar {

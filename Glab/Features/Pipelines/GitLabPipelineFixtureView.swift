@@ -41,7 +41,11 @@
                     loader: loader,
                     accountID: accountID,
                     appSession: appSession,
+                    apiAccess: .readWrite,
                     isAccountCurrent: {
+                        true
+                    },
+                    isMergeRequestOpen: {
                         true
                     }
                 )

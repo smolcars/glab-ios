@@ -4,13 +4,20 @@ struct GitLabMergeRequestPipelinesView: View {
     let loader: any GitLabPipelineLoading
     let accountID: GitLabAccountID
     let appSession: AppSession
+    let apiAccess: GitLabAPIAccess
     let isAccountCurrent:
+        @MainActor () -> Bool
+    let isMergeRequestOpen:
         @MainActor () -> Bool
 
     @State private var model:
         GitLabMergeRequestPipelinesModel
+    @State private var creationModel:
+        GitLabMergeRequestPipelineCreationModel?
     @Environment(\.scenePhase)
     private var scenePhase
+    @Environment(\.gitLabPipelineActionService)
+    private var actionService
 
     init(
         route: GitLabMergeRequestRoute,
@@ -23,9 +30,19 @@ struct GitLabMergeRequestPipelinesView: View {
             loader: loader,
             accountID: accountID,
             appSession: appSession,
+            apiAccess:
+                appSession.accounts
+                .first {
+                    $0.id == accountID
+                }?
+                .apiAccess
+                ?? .readOnly,
             isAccountCurrent: {
                 appSession.activeAccountID
                     == accountID
+            },
+            isMergeRequestOpen: {
+                true
             }
         )
     }
@@ -35,14 +52,20 @@ struct GitLabMergeRequestPipelinesView: View {
         loader: any GitLabPipelineLoading,
         accountID: GitLabAccountID,
         appSession: AppSession,
+        apiAccess: GitLabAPIAccess,
         isAccountCurrent:
+            @escaping @MainActor () -> Bool,
+        isMergeRequestOpen:
             @escaping @MainActor () -> Bool
     ) {
         self.loader = loader
         self.accountID = accountID
         self.appSession = appSession
+        self.apiAccess = apiAccess
         self.isAccountCurrent =
             isAccountCurrent
+        self.isMergeRequestOpen =
+            isMergeRequestOpen
         _model = State(
             initialValue:
                 GitLabMergeRequestPipelinesModel(
@@ -62,6 +85,47 @@ struct GitLabMergeRequestPipelinesView: View {
         .listStyle(.plain)
         .navigationTitle("Pipelines")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if creationModel?.isCreating == true {
+                ToolbarItem(
+                    placement: .topBarTrailing
+                ) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel(
+                            "Creating pipeline"
+                        )
+                        .accessibilityIdentifier(
+                            "pipelines.history.create.progress"
+                        )
+                }
+            } else if
+                creationModel?.canCreate
+                    == true
+            {
+                ToolbarItem(
+                    placement: .topBarTrailing
+                ) {
+                    Button {
+                        creationModel?.request()
+                    } label: {
+                        Image(
+                            systemName:
+                                "plus"
+                        )
+                    }
+                    .accessibilityLabel(
+                        "Create merge request pipeline"
+                    )
+                    .accessibilityHint(
+                        "Shows a confirmation before creating a pipeline."
+                    )
+                    .accessibilityIdentifier(
+                        "pipelines.history.create"
+                    )
+                }
+            }
+        }
         .accessibilityIdentifier(
             "pipelines.history.list"
         )
@@ -70,11 +134,50 @@ struct GitLabMergeRequestPipelinesView: View {
             await handleAuthenticationFailure()
         }
         .task(id: scenePhase) {
+            prepareCreationModelIfNeeded()
             await model.runVisible(
                 isSceneActive:
                     scenePhase == .active
             )
             await handleAuthenticationFailure()
+        }
+        .alert(
+            "Create pipeline?",
+            isPresented:
+                creationConfirmationIsPresented
+        ) {
+            Button("Create") {
+                Task {
+                    await creationModel?
+                        .confirm()
+                    await handleAuthenticationFailure()
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                creationModel?
+                    .dismissConfirmation()
+            }
+        } message: {
+            Text(
+                "Create a new pipeline for this merge request. This can consume CI runner resources."
+            )
+        }
+        .alert(
+            "Couldn’t create pipeline",
+            isPresented:
+                creationFailureIsPresented
+        ) {
+            Button("OK") {
+                creationModel?
+                    .dismissFailure()
+            }
+        } message: {
+            Text(
+                creationModel?
+                    .failure?
+                    .localizedDescription
+                    ?? ""
+            )
         }
         .onChange(
             of: model.authenticationFailure
@@ -177,6 +280,8 @@ struct GitLabMergeRequestPipelinesView: View {
                             accountID: accountID,
                             appSession:
                                 appSession,
+                            apiAccess:
+                                apiAccess,
                             isAccountCurrent:
                                 isAccountCurrent
                         )
@@ -221,6 +326,62 @@ struct GitLabMergeRequestPipelinesView: View {
         }
     }
 
+    private var creationConfirmationIsPresented:
+        Binding<Bool>
+    {
+        Binding {
+            creationModel?
+                .showsConfirmation
+                == true
+        } set: { isPresented in
+            if !isPresented {
+                creationModel?
+                    .dismissConfirmation()
+            }
+        }
+    }
+
+    private var creationFailureIsPresented:
+        Binding<Bool>
+    {
+        Binding {
+            creationModel?.failure != nil
+        } set: { isPresented in
+            if !isPresented {
+                creationModel?
+                    .dismissFailure()
+            }
+        }
+    }
+
+    private func prepareCreationModelIfNeeded() {
+        guard creationModel == nil else {
+            return
+        }
+        let pipelinesModel = model
+        creationModel =
+            GitLabMergeRequestPipelineCreationModel(
+                accountID: accountID,
+                route: pipelinesModel.route,
+                apiAccess: apiAccess,
+                service: actionService,
+                isAccountCurrent:
+                    isAccountCurrent,
+                isMergeRequestOpen:
+                    isMergeRequestOpen,
+                reconcile: {
+                    pipelinesModel
+                        .reconcileCreatedPipeline(
+                            $0
+                        )
+                },
+                refresh: {
+                    await pipelinesModel
+                        .refresh()
+                }
+            )
+    }
+
     private func loadingRow(
         _ title: String
     ) -> some View {
@@ -238,7 +399,10 @@ struct GitLabMergeRequestPipelinesView: View {
     {
         guard
             let error =
-                model.authenticationFailure
+                creationModel?
+                .authenticationFailure
+                ?? model
+                .authenticationFailure
         else {
             return
         }

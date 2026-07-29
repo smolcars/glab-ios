@@ -62,6 +62,8 @@ struct SignedInShellView: View {
         any GitLabMergeRequestApprovalServing
     private let pipelineLoader:
         any GitLabPipelineLoading
+    private let pipelineActionService:
+        any GitLabPipelineActionServing
     private let jobTraceLoader:
         any GitLabJobTraceLoading
     private let discussionLoader:
@@ -131,6 +133,10 @@ struct SignedInShellView: View {
             LiveGitLabPipelineLoader(
                 client: client
             )
+        let pipelineActionService =
+            LiveGitLabPipelineActionService(
+                client: client
+            )
         let jobTraceLoader:
             any GitLabJobTraceLoading
         if
@@ -181,6 +187,8 @@ struct SignedInShellView: View {
         self.mergeRequestApprovalService =
             mergeRequestApprovalService
         self.pipelineLoader = pipelineLoader
+        self.pipelineActionService =
+            pipelineActionService
         self.jobTraceLoader =
             jobTraceLoader
         self.discussionLoader = discussionLoader
@@ -398,6 +406,10 @@ struct SignedInShellView: View {
         .environment(
             \.gitLabJobTraceLoader,
             jobTraceLoader
+        )
+        .environment(
+            \.gitLabPipelineActionService,
+            pipelineActionService
         )
         .accessibilityIdentifier("signedIn.tabView")
         .task(

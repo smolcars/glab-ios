@@ -4,11 +4,14 @@ struct GitLabPipelineDetailView: View {
     let loader: any GitLabPipelineLoading
     let accountID: GitLabAccountID
     let appSession: AppSession
+    let apiAccess: GitLabAPIAccess
     let isAccountCurrent:
         @MainActor () -> Bool
 
     @State private var model:
         GitLabPipelineDetailModel
+    @State private var actionModel:
+        GitLabPipelineActionModel?
     @State private var expandedStageIDs:
         Set<String> = []
     @State private var
@@ -17,6 +20,8 @@ struct GitLabPipelineDetailView: View {
     private var scenePhase
     @Environment(\.gitLabJobTraceLoader)
     private var jobTraceLoader
+    @Environment(\.gitLabPipelineActionService)
+    private var actionService
 
     init(
         route: GitLabPipelineRoute,
@@ -24,7 +29,8 @@ struct GitLabPipelineDetailView: View {
             GitLabPipelineCacheLifetime,
         loader: any GitLabPipelineLoading,
         accountID: GitLabAccountID,
-        appSession: AppSession
+        appSession: AppSession,
+        apiAccess: GitLabAPIAccess
     ) {
         self.init(
             route: route,
@@ -32,6 +38,7 @@ struct GitLabPipelineDetailView: View {
             loader: loader,
             accountID: accountID,
             appSession: appSession,
+            apiAccess: apiAccess,
             isAccountCurrent: {
                 appSession.activeAccountID
                     == accountID
@@ -46,12 +53,14 @@ struct GitLabPipelineDetailView: View {
         loader: any GitLabPipelineLoading,
         accountID: GitLabAccountID,
         appSession: AppSession,
+        apiAccess: GitLabAPIAccess,
         isAccountCurrent:
             @escaping @MainActor () -> Bool
     ) {
         self.loader = loader
         self.accountID = accountID
         self.appSession = appSession
+        self.apiAccess = apiAccess
         self.isAccountCurrent =
             isAccountCurrent
         _model = State(
@@ -81,14 +90,16 @@ struct GitLabPipelineDetailView: View {
         )
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if
-                let destination =
-                    model.pipeline?
-                    .safeWebURL
-            {
-                ToolbarItem(
-                    placement: .topBarTrailing
-                ) {
+            ToolbarItemGroup(
+                placement: .topBarTrailing
+            ) {
+                pipelineActionControl
+
+                if
+                    let destination =
+                        model.pipeline?
+                        .safeWebURL
+                {
                     Link(
                         destination:
                             destination
@@ -109,11 +120,66 @@ struct GitLabPipelineDetailView: View {
             await handleAuthenticationFailure()
         }
         .task(id: scenePhase) {
+            prepareActionModelIfNeeded()
             await model.runVisible(
                 isSceneActive:
                     scenePhase == .active
             )
             await handleAuthenticationFailure()
+        }
+        .alert(
+            actionModel?.confirmation?.title
+                ?? "Confirm pipeline action",
+            isPresented:
+                actionConfirmationIsPresented
+        ) {
+            Button(
+                actionModel?
+                    .confirmation?
+                    .action.title
+                    ?? "Continue",
+                role:
+                    actionModel?
+                    .confirmation?
+                    .action
+                    .consumesRunnerResources
+                    == true
+                    ? nil
+                    : .destructive
+            ) {
+                Task {
+                    await actionModel?
+                        .confirm()
+                    await handleAuthenticationFailure()
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                actionModel?
+                    .dismissConfirmation()
+            }
+        } message: {
+            Text(
+                actionModel?
+                    .confirmation?
+                    .message
+                    ?? ""
+            )
+        }
+        .alert(
+            "Couldn’t update pipeline",
+            isPresented:
+                actionFailureIsPresented
+        ) {
+            Button("OK") {
+                actionModel?.dismissFailure()
+            }
+        } message: {
+            Text(
+                actionModel?
+                    .failure?
+                    .localizedDescription
+                    ?? ""
+            )
         }
         .onChange(
             of: model.stages.map(\.id),
@@ -147,6 +213,43 @@ struct GitLabPipelineDetailView: View {
         .accessibilityIdentifier(
             "pipelines.detail.list"
         )
+    }
+
+    @ViewBuilder
+    private var pipelineActionControl:
+        some View
+    {
+        if actionModel?.isBusy == true {
+            ProgressView()
+                .controlSize(.small)
+                .accessibilityLabel(
+                    "Updating pipeline"
+                )
+                .accessibilityIdentifier(
+                    "pipelines.detail.action.progress"
+                )
+        } else if
+            let action =
+                actionModel?
+                .availablePipelineActions
+                .first
+        {
+            Button {
+                actionModel?.request(action)
+            } label: {
+                Image(
+                    systemName:
+                        action.systemImage
+                )
+            }
+            .accessibilityLabel(action.title)
+            .accessibilityHint(
+                "Shows a confirmation before changing this pipeline."
+            )
+            .accessibilityIdentifier(
+                "pipelines.detail.action.\(action.rawValue)"
+            )
+        }
     }
 
     @ViewBuilder
@@ -449,7 +552,7 @@ struct GitLabPipelineDetailView: View {
         _ row: GitLabPipelineStageRow
     ) -> some View {
         switch row.content {
-        case .job:
+        case let .job(job):
             if
                 let context =
                     row.jobTraceContext(
@@ -458,27 +561,39 @@ struct GitLabPipelineDetailView: View {
                             .projectID
                     )
             {
-                NavigationLink {
-                    GitLabJobTraceView(
-                        accountID:
-                            accountID,
-                        context: context,
-                        loader:
-                            jobTraceLoader,
-                        appSession:
-                            appSession,
-                        isAccountCurrent:
-                            isAccountCurrent
-                    )
-                } label: {
-                    GitLabPipelineJobRow(
-                        row: row
+                HStack(spacing: 8) {
+                    NavigationLink {
+                        GitLabJobTraceView(
+                            accountID:
+                                accountID,
+                            context: context,
+                            loader:
+                                jobTraceLoader,
+                            appSession:
+                                appSession,
+                            isAccountCurrent:
+                                isAccountCurrent
+                        )
+                    } label: {
+                        GitLabPipelineJobRow(
+                            row: row
+                        )
+                    }
+
+                    jobActionControl(
+                        job
                     )
                 }
             } else {
-                GitLabPipelineJobRow(
-                    row: row
-                )
+                HStack(spacing: 8) {
+                    GitLabPipelineJobRow(
+                        row: row
+                    )
+
+                    jobActionControl(
+                        job
+                    )
+                }
             }
         case let .triggerJob(triggerJob):
             if
@@ -497,11 +612,13 @@ struct GitLabPipelineDetailView: View {
                             downstreamPipeline
                             .detailCacheLifetime,
                         loader: loader,
-                        accountID:
-                            accountID,
-                        appSession:
-                            appSession,
-                        isAccountCurrent:
+                            accountID:
+                                accountID,
+                            appSession:
+                                appSession,
+                            apiAccess:
+                                apiAccess,
+                            isAccountCurrent:
                             isAccountCurrent
                     )
                 } label: {
@@ -534,6 +651,119 @@ struct GitLabPipelineDetailView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func jobActionControl(
+        _ job: GitLabPipelineJob
+    ) -> some View {
+        if
+            let action =
+                actionModel?
+                .availableJobActions(
+                    for: job
+                )
+                .first
+        {
+            Button {
+                actionModel?.request(
+                    action,
+                    job: job
+                )
+            } label: {
+                Image(
+                    systemName:
+                        action.systemImage
+                )
+            }
+            .buttonStyle(.glass)
+            .controlSize(.small)
+            .frame(
+                minWidth: 44,
+                minHeight: 44
+            )
+            .disabled(
+                actionModel?.isBusy
+                    == true
+            )
+            .accessibilityLabel(
+                "\(action.title), \(job.name)"
+            )
+            .accessibilityHint(
+                "Shows a confirmation before changing this job."
+            )
+            .accessibilityIdentifier(
+                "pipelines.detail.job.\(job.id).action.\(action.rawValue)"
+            )
+        }
+    }
+
+    private var actionConfirmationIsPresented:
+        Binding<Bool>
+    {
+        Binding {
+            actionModel?.confirmation != nil
+        } set: { isPresented in
+            if !isPresented {
+                actionModel?
+                    .dismissConfirmation()
+            }
+        }
+    }
+
+    private var actionFailureIsPresented:
+        Binding<Bool>
+    {
+        Binding {
+            actionModel?.failure != nil
+        } set: { isPresented in
+            if !isPresented {
+                actionModel?.dismissFailure()
+            }
+        }
+    }
+
+    private func prepareActionModelIfNeeded() {
+        guard actionModel == nil else {
+            return
+        }
+        let detailModel = model
+        actionModel =
+            GitLabPipelineActionModel(
+                accountID: accountID,
+                route: detailModel.route,
+                apiAccess: apiAccess,
+                service: actionService,
+                traceStore:
+                    appSession
+                    .jobTraceStore,
+                isAccountCurrent:
+                    isAccountCurrent,
+                currentPipeline: {
+                    detailModel.pipeline
+                },
+                currentJob: {
+                    jobID in
+                    detailModel.jobs.items
+                        .first {
+                            $0.id == jobID
+                        }
+                },
+                reconcilePipeline: {
+                    detailModel
+                        .reconcileActionPipeline(
+                            $0
+                        )
+                },
+                reconcileJob: {
+                    await detailModel
+                        .reconcileActionJob($0)
+                },
+                refresh: {
+                    await detailModel
+                        .refresh()
+                }
+            )
     }
 
     private func paginate(
@@ -571,7 +801,10 @@ struct GitLabPipelineDetailView: View {
     {
         guard
             let error =
-                model.authenticationFailure
+                actionModel?
+                .authenticationFailure
+                ?? model
+                .authenticationFailure
         else {
             return
         }
