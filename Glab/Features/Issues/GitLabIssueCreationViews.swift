@@ -550,6 +550,18 @@ struct GitLabIssueCreationView: View {
                 showsProgress: true,
                 action: nil
             )
+        } else if
+            model.isVerifyingRestoredProject,
+            !model.isSelectedProjectVerified
+        {
+            issueStatus(
+                title: "Checking project…",
+                message:
+                    "Confirming this account can still access the saved project.",
+                systemImage: "folder",
+                showsProgress: true,
+                action: nil
+            )
         } else if let failure = model.failure {
             let presentation =
                 GitLabIssueCreationFailurePresentation(
@@ -625,6 +637,8 @@ struct GitLabIssueCreationView: View {
         switch action {
         case .retryDraftStorage:
             "Try Saving Draft"
+        case .retryProjectVerification:
+            "Try Again"
         case .confirmCheckedGitLab:
             "I Checked GitLab"
         }
@@ -639,6 +653,9 @@ struct GitLabIssueCreationView: View {
             case .retryDraftStorage:
                 _ = await model
                     .persistForDismissal()
+            case .retryProjectVerification:
+                await model
+                    .verifyRestoredProject()
             case .confirmCheckedGitLab:
                 _ = await model
                     .acknowledgeDeliveryCheck()
@@ -687,6 +704,10 @@ struct GitLabIssueCreationView: View {
         }
         if model.selectedProject == nil {
             return "Choose a project first."
+        }
+        if !model.isSelectedProjectVerified {
+            return
+                "Wait for the saved project to be verified."
         }
         if
             model.title

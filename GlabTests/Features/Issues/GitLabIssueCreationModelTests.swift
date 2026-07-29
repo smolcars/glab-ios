@@ -46,6 +46,120 @@ struct GitLabIssueCreationModelTests {
         )
         #expect(context.model.draftRevision == 7)
         #expect(context.model.canCreate)
+        #expect(
+            await context.service
+                .resolvedProjectIDs == [42]
+        )
+    }
+
+    @Test("Inaccessible restored project is cleared without losing issue content")
+    @MainActor
+    func clearsInaccessibleRestoredProject()
+        async throws
+    {
+        let draft = makeDraft(revision: 7)
+        let store =
+            RecordingIssueCreationDraftStore(
+                draft: draft
+            )
+        let service =
+            RecordingIssueCreationService(
+                projectResult:
+                    .failure(.api(.notFound))
+            )
+        let context = try CreationModelContext(
+            service: service,
+            draftStore: store
+        )
+
+        await context.model.restoreDraft()
+        _ = await context.model
+            .persistForDismissal()
+
+        #expect(
+            context.model.selectedProject == nil
+        )
+        #expect(
+            context.model.selectedLabelNames
+                .isEmpty
+        )
+        #expect(
+            context.model.selectedAssigneeIDs
+                .isEmpty
+        )
+        #expect(
+            context.model.title == draft.title
+        )
+        #expect(
+            context.model.rawDescription
+                == draft.rawDescription
+        )
+        #expect(
+            context.model.failure
+                == .restoredProjectUnavailable
+        )
+        let persisted = await store.storedDraft
+        #expect(
+            persisted?.selectedProject == nil
+        )
+        #expect(
+            persisted?.title == draft.title
+        )
+    }
+
+    @Test("Transient restore verification keeps the project and blocks creation")
+    @MainActor
+    func keepsProjectAfterTransientVerificationFailure()
+        async throws
+    {
+        let draft = makeDraft(revision: 7)
+        let failure =
+            GitLabSessionClientError
+                .api(.server(statusCode: 503))
+        let context = try CreationModelContext(
+            service:
+                RecordingIssueCreationService(
+                    projectResult:
+                        .failure(failure)
+                ),
+            draftStore:
+                RecordingIssueCreationDraftStore(
+                    draft: draft
+                )
+        )
+
+        await context.model.restoreDraft()
+
+        #expect(
+            context.model.selectedProject
+                == draft.selectedProject
+        )
+        #expect(
+            !context.model
+                .isSelectedProjectVerified
+        )
+        #expect(!context.model.canCreate)
+        #expect(
+            context.model.failure
+                == .projectVerification(failure)
+        )
+
+        context.model.title = "Keep editing"
+
+        #expect(
+            context.model.failure
+                == .projectVerification(failure)
+        )
+
+        context.model.selectProject(
+            makeTestProject(id: 43)
+        )
+
+        #expect(context.model.failure == nil)
+        #expect(
+            context.model
+                .isSelectedProjectVerified
+        )
     }
 
     @Test("Changing projects preserves content and clears scoped choices")
@@ -589,6 +703,11 @@ private actor RecordingIssueCreationDraftStore:
 private actor RecordingIssueCreationService:
     GitLabIssueCreationServing
 {
+    private let projectResult:
+        Result<
+            GitLabProject,
+            GitLabSessionClientError
+        >
     private let projects: [GitLabProject]
     private let labels: [GitLabProjectLabel]
     private let labelNext:
@@ -611,6 +730,8 @@ private actor RecordingIssueCreationService:
 
     private(set) var projectSearches:
         [String?] = []
+    private(set) var resolvedProjectIDs:
+        [Int] = []
     private(set) var labelProjectIDs:
         [Int] = []
     private(set) var memberProjectIDs:
@@ -619,6 +740,11 @@ private actor RecordingIssueCreationService:
     private(set) var invalidationCount = 0
 
     init(
+        projectResult:
+            Result<
+                GitLabProject,
+                GitLabSessionClientError
+            > = .success(makeTestProject()),
         projects: [GitLabProject] = [
             makeTestProject(),
         ],
@@ -638,6 +764,7 @@ private actor RecordingIssueCreationService:
         ],
         holdsCreate: Bool = false
     ) {
+        self.projectResult = projectResult
         self.projects = projects
         self.labels = labels
         self.labelNext = labelNext
@@ -645,6 +772,15 @@ private actor RecordingIssueCreationService:
         self.memberNext = memberNext
         self.createResults = createResults
         self.holdsCreate = holdsCreate
+    }
+
+    func loadProject(
+        projectID: Int
+    ) throws(GitLabSessionClientError)
+        -> GitLabProject
+    {
+        resolvedProjectIDs.append(projectID)
+        return try projectResult.get()
     }
 
     func loadProjectsPage(

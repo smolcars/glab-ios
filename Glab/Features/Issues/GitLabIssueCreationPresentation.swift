@@ -5,6 +5,7 @@ nonisolated enum GitLabIssueCreationRecoveryAction:
     Sendable
 {
     case retryDraftStorage
+    case retryProjectVerification
     case confirmCheckedGitLab
 }
 
@@ -27,6 +28,22 @@ nonisolated struct GitLabIssueCreationFailurePresentation:
             systemImage =
                 "exclamationmark.triangle.fill"
             action = nil
+        case .restoredProjectUnavailable:
+            title = "Choose another project"
+            message =
+                "The saved project no longer exists or this account cannot access it. The rest of your draft is unchanged."
+            systemImage = "folder.badge.questionmark"
+            action = nil
+        case let .projectVerification(error):
+            title = "Couldn’t verify project"
+            message =
+                GitLabRecoveryPresentation(
+                    error: error
+                ).message
+            systemImage =
+                "wifi.exclamationmark"
+            action =
+                .retryProjectVerification
         case .readOnly:
             title = "Read-only account"
             message =

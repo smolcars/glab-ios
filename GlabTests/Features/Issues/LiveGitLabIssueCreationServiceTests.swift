@@ -29,6 +29,10 @@ struct LiveGitLabIssueCreationServiceTests {
                 client: client
             )
 
+        let resolvedProject =
+            try await service.loadProject(
+                projectID: 42
+            )
         let projectPage =
             try await service.loadProjectsPage(
                 search: "wallet",
@@ -84,6 +88,7 @@ struct LiveGitLabIssueCreationServiceTests {
                 await memberEvents.append($0)
             }
 
+        #expect(resolvedProject == project)
         #expect(projectPage.items == [project])
         #expect(projectNext.items == [project])
         #expect(labelPage.items == [label])
@@ -130,6 +135,18 @@ struct LiveGitLabIssueCreationServiceTests {
                     "initial:projects",
                     "initial:projects/42/labels",
                     "initial:projects/42/members/all",
+                ]
+        )
+        #expect(
+            await client.sentRequests
+                == [
+                    record(
+                        GitLabProjectEndpoints
+                            .project(
+                                pathWithNamespace:
+                                    "42"
+                            )
+                    ),
                 ]
         )
     }
@@ -310,6 +327,8 @@ private actor RecordingCreationClient:
         [GitLabCacheRefreshBehavior] = []
     private(set) var invalidatedRequests:
         [RecordedCreationRequest] = []
+    private(set) var sentRequests:
+        [RecordedCreationRequest] = []
     private(set) var sendCount = 0
 
     init(
@@ -353,11 +372,18 @@ private actor RecordingCreationClient:
         -> Response
     {
         sendCount += 1
-        guard Response.self == GitLabIssue.self else {
+        sentRequests.append(record(endpoint))
+        let value: Any
+        if Response.self == GitLabIssue.self {
+            value = try result(issueResult)
+        } else if Response.self
+            == GitLabProject.self
+        {
+            value = project
+        } else {
             throw .api(.invalidResponse)
         }
-        let issue = try result(issueResult)
-        guard let response = issue as? Response else {
+        guard let response = value as? Response else {
             throw .api(.invalidResponse)
         }
         return response

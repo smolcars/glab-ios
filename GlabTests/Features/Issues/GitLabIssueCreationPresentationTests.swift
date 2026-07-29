@@ -41,6 +41,30 @@ struct GitLabIssueCreationPresentationTests {
         #expect(presentation.action == nil)
     }
 
+    @Test("Project verification failure offers a safe read retry")
+    func projectVerification() {
+        let presentation =
+            GitLabIssueCreationFailurePresentation(
+                failure:
+                    .projectVerification(
+                        .api(
+                            .connectivity(
+                                .notConnectedToInternet
+                            )
+                        )
+                    )
+            )
+
+        #expect(
+            presentation.title
+                == "Couldn’t verify project"
+        )
+        #expect(
+            presentation.action
+                == .retryProjectVerification
+        )
+    }
+
     @Test("Validation exposes the focused field message")
     func validation() {
         let presentation =

@@ -11,6 +11,10 @@ nonisolated enum GitLabIssueCreationFailure:
     case validation(
         GitLabIssueCreationValidationError
     )
+    case restoredProjectUnavailable
+    case projectVerification(
+        GitLabSessionClientError
+    )
     case readOnly
     case draftStorage
     case mutation(
@@ -33,7 +37,17 @@ nonisolated enum GitLabIssueCreationFailure:
         GitLabSessionClientError?
     {
         guard
-            case let .mutation(error, _) = self,
+            let error =
+                switch self {
+                case let .projectVerification(
+                    error
+                ):
+                    error
+                case let .mutation(error, _):
+                    error
+                default:
+                    nil
+                },
             error.requiresReauthentication
         else {
             return nil
@@ -98,6 +112,10 @@ final class GitLabIssueCreationModel {
     private(set) var selectedAssigneeIDs:
         [Int] = []
     private(set) var hasRestoredDraft = false
+    private(set) var
+        isVerifyingRestoredProject = false
+    private(set) var
+        isSelectedProjectVerified = true
     private(set) var draftRevision = 0
     private(set) var isSubmitting = false
     private(set) var failure:
@@ -192,6 +210,7 @@ final class GitLabIssueCreationModel {
     var canCreate: Bool {
         guard
             hasRestoredDraft,
+            isSelectedProjectVerified,
             apiAccess.canWrite,
             !isSubmitting,
             !requiresDeliveryCheck,
@@ -279,6 +298,104 @@ final class GitLabIssueCreationModel {
                 (stored?.revision ?? -1) + 1
             )
             schedulePersistence()
+        } else {
+            await verifyRestoredProject()
+        }
+    }
+
+    func verifyRestoredProject() async {
+        guard
+            let expectedProjectID =
+                selectedProject?.id
+        else {
+            isSelectedProjectVerified = true
+            return
+        }
+        guard !isVerifyingRestoredProject else {
+            return
+        }
+
+        isVerifyingRestoredProject = true
+        isSelectedProjectVerified = false
+        defer {
+            isVerifyingRestoredProject = false
+        }
+
+        do {
+            let project = try await service
+                .loadProject(
+                    projectID:
+                        expectedProjectID
+                )
+            guard
+                !Task.isCancelled,
+                isAccountCurrent(),
+                selectedProject?.id
+                    == expectedProjectID
+            else {
+                return
+            }
+            guard
+                project.id
+                    == expectedProjectID
+            else {
+                failure =
+                    .projectVerification(
+                        .api(.invalidResponse)
+                    )
+                return
+            }
+
+            let refreshedSelection =
+                GitLabIssueCreationProjectSelection(
+                    project: project
+                )
+            let didRefreshSelection =
+                refreshedSelection
+                    != selectedProject
+            selectedProject =
+                refreshedSelection
+            isSelectedProjectVerified = true
+            if
+                case .projectVerification =
+                    failure
+            {
+                failure = nil
+            }
+            replaceMetadataModels(
+                projectID: project.id
+            )
+            if didRefreshSelection {
+                draftRevision += 1
+                schedulePersistence()
+            }
+        } catch {
+            guard
+                !Task.isCancelled,
+                isAccountCurrent(),
+                selectedProject?.id
+                    == expectedProjectID
+            else {
+                return
+            }
+
+            switch error {
+            case .api(.notFound),
+                 .api(.forbidden):
+                selectedProject = nil
+                selectedLabelNames.removeAll()
+                selectedAssigneeIDs.removeAll()
+                labelsModel = nil
+                membersModel = nil
+                isSelectedProjectVerified = true
+                failure =
+                    .restoredProjectUnavailable
+                draftRevision += 1
+                schedulePersistence()
+            default:
+                failure =
+                    .projectVerification(error)
+            }
         }
     }
 
@@ -304,6 +421,14 @@ final class GitLabIssueCreationModel {
             selectedProject?.id
                 != selection.id
         selectedProject = selection
+        isSelectedProjectVerified = true
+        switch failure {
+        case .restoredProjectUnavailable,
+             .projectVerification:
+            failure = nil
+        default:
+            break
+        }
         if changesProject {
             selectedLabelNames.removeAll()
             selectedAssigneeIDs.removeAll()
@@ -591,7 +716,9 @@ final class GitLabIssueCreationModel {
              .draftStorage,
              .mutation(_, .rejected):
             failure = nil
-        case .mutation(_, .deliveryUnknown),
+        case .restoredProjectUnavailable,
+             .projectVerification,
+             .mutation(_, .deliveryUnknown),
              .invalidAuthoritativeResponse,
              .deliveryCheckRequired,
              nil:
@@ -608,6 +735,8 @@ final class GitLabIssueCreationModel {
         isApplyingDraft = true
         selectedProject =
             draft.selectedProject
+        isSelectedProjectVerified =
+            selectedProject == nil
         title = draft.title
         rawDescription =
             draft.rawDescription

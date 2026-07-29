@@ -3,6 +3,11 @@ import Foundation
 nonisolated protocol GitLabIssueCreationServing:
     Sendable
 {
+    func loadProject(
+        projectID: Int
+    ) async throws(GitLabSessionClientError)
+        -> GitLabProject
+
     func loadProjectsPage(
         search: String?,
         after nextPageURL: URL?
@@ -81,6 +86,20 @@ nonisolated struct LiveGitLabIssueCreationService:
             any GitLabPaginatedSessionRequestSending
     ) {
         self.client = client
+    }
+
+    @concurrent
+    func loadProject(
+        projectID: Int
+    ) async throws(GitLabSessionClientError)
+        -> GitLabProject
+    {
+        try await client.send(
+            GitLabProjectEndpoints.project(
+                pathWithNamespace:
+                    String(projectID)
+            )
+        )
     }
 
     @concurrent
