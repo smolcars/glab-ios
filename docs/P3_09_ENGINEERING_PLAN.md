@@ -738,6 +738,100 @@ Record every material finding in this document. Before fixing one:
 P3-09 and its MVP checklist cannot be marked complete before that repeated
 review and exact verification evidence are recorded here.
 
+## Deep review findings and repair plan
+
+Review pass 1 began on July 29, 2026 after the focused model tests, compact
+Simulator flow, and Release build. The official Jobs API was checked again and
+still documents descending job-ID order and `include_retried=true`.
+
+### Finding 1 — retained-tail refresh can skip shifted pages
+
+Impact:
+
+- `GitLabPaginatedResourceModel` retains items that were outside the previous
+  first page, but excludes previous first-page identities and resumes from the
+  old tail's next-page URL.
+- If a new pipeline or job enters page one, an old first-page item can shift
+  to page two, disappear locally, and never be fetched because the model skips
+  the refreshed page-two link.
+- Items deleted from later pages can also remain indefinitely if the refreshed
+  chain ends before replacing the retained tail.
+
+Repair plan:
+
+1. Add failing pager regressions for an insertion that shifts the page
+   boundary and for a stale retained item absent from the refreshed complete
+   chain.
+2. Track the retained server tail separately from locally reconciled tail
+   items.
+3. Restart pagination from the refreshed first page's validated `Link`.
+4. Replace retained entries as refreshed pages arrive and discard unmatched
+   retained entries only after the authoritative page chain ends.
+5. Rerun the pager, pipeline model, and complete serialized test suites.
+
+### Finding 2 — next-page failures are rendered twice
+
+Impact:
+
+- A failed jobs or trigger-jobs next page satisfies both the general failure
+  section and the scoped next-page failure footer.
+- Users can see two retry rows for one failure, with one incorrectly described
+  as a refresh failure.
+
+Repair plan:
+
+1. Exclude `didFailNextPage` from the general jobs and trigger-jobs failure
+   sections.
+2. Keep the existing scoped next-page retry as the single presentation.
+3. Re-run the deterministic pipeline navigation flow and inspect the compact
+   layout.
+
+### Finding 3 — avoidable forced route unwrap
+
+Impact:
+
+- Pipeline-history navigation force unwraps a route that is valid under
+  current decoding invariants.
+- A later route-validation change could turn that assumption into a crash.
+
+Repair plan:
+
+1. Construct the route conditionally inside the row builder.
+2. Preserve the existing positive-ID route tests and navigation fixture.
+
+### Finding 4 — deprecated attributed `Text` composition
+
+Impact:
+
+- The Release build succeeds with five iOS 26 deprecation warnings from `Text`
+  concatenation.
+- Leaving warnings in new code makes future build diagnostics less useful.
+
+Repair plan:
+
+1. Replace concatenation with SwiftUI's interpolated `Text` fragments while
+   preserving status tint, monospaced SHA styling, and Dynamic Type wrapping.
+2. Require a warning-free Release build and visually recheck default and
+   accessibility-extra-large text.
+
+### Finding 5 — pipeline presentation file is too broad
+
+Impact:
+
+- `GitLabPipelineViews.swift` combines history state orchestration, detail
+  orchestration, navigation, rows, formatting, and status presentation in
+  1,238 lines.
+- This is a material review and maintenance problem for the safety-sensitive
+  polling, pagination, and account-boundary code.
+
+Repair plan:
+
+1. Mechanically split history, detail, and shared presentation components
+   without changing ownership or adding abstractions.
+2. Keep helpers internal only where the split requires cross-file access.
+3. Verify the focused tests, deterministic Simulator flow, and Release build
+   after the split.
+
 ## Implementation order
 
 1. Commit and push this plan and the two planning checklist updates without
