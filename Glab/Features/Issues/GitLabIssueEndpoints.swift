@@ -45,6 +45,44 @@ nonisolated enum GitLabIssueEndpoints {
             )
         )
     }
+
+    static func create(
+        _ input: GitLabIssueCreationInput
+    ) throws -> GitLabAPIRequest<GitLabIssue> {
+        try .post(
+            requires: .write,
+            path: [
+                "projects",
+                String(input.projectID),
+                "issues",
+            ],
+            body: GitLabIssueCreateBody(
+                title: input.title,
+                description:
+                    input.rawDescription.isEmpty
+                    ? nil
+                    : input.rawDescription,
+                labels:
+                    input.labelNames.isEmpty
+                    ? nil
+                    : input.labelNames.joined(
+                        separator: ","
+                    ),
+                assigneeID:
+                    input.assigneeIDs.count == 1
+                    ? input.assigneeIDs[0]
+                    : nil,
+                assigneeIDs:
+                    input.assigneeIDs.count > 1
+                    ? input.assigneeIDs
+                    : nil,
+                confidential:
+                    input.confidential,
+                dueDate:
+                    input.dueDate?.apiValue
+            )
+        )
+    }
 }
 
 private nonisolated struct GitLabIssueUpdateBody:
@@ -53,4 +91,30 @@ private nonisolated struct GitLabIssueUpdateBody:
 {
     let title: String?
     let description: String?
+}
+
+private nonisolated struct GitLabIssueCreateBody:
+    Encodable,
+    Sendable
+{
+    let title: String
+    let description: String?
+    let labels: String?
+    let assigneeID: Int?
+    let assigneeIDs: [Int]?
+    let confidential: Bool
+    let dueDate: String?
+
+    private enum CodingKeys:
+        String,
+        CodingKey
+    {
+        case title
+        case description
+        case labels
+        case assigneeID = "assignee_id"
+        case assigneeIDs = "assignee_ids"
+        case confidential
+        case dueDate = "due_date"
+    }
 }
