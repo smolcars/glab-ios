@@ -329,6 +329,36 @@ struct GitLabPipelineActionModelTests {
         )
     }
 
+    @Test(
+        "Displayed confirmation survives alert dismissal ordering"
+    )
+    func confirmsPresentedActionAfterDismissal()
+        async throws
+    {
+        let fixture = try fixture(
+            jobStatus: "manual"
+        )
+        fixture.model.request(
+            .playJob,
+            job: fixture.state.job
+        )
+        let presentedConfirmation =
+            try #require(
+                fixture.model.confirmation
+            )
+
+        fixture.model.dismissConfirmation()
+        await fixture.model.confirm(
+            presentedConfirmation
+        )
+
+        #expect(
+            await fixture.service.actions
+                == [.playJob]
+        )
+        #expect(fixture.model.failure == nil)
+    }
+
     private func fixture(
         pipelineStatus: String = "failed",
         jobStatus: String = "failed",

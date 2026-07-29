@@ -131,17 +131,14 @@ struct GitLabPipelineDetailView: View {
             actionModel?.confirmation?.title
                 ?? "Confirm pipeline action",
             isPresented:
-                actionConfirmationIsPresented
-        ) {
+                actionConfirmationIsPresented,
+            presenting:
+                actionModel?.confirmation
+        ) { confirmation in
             Button(
-                actionModel?
-                    .confirmation?
-                    .action.title
-                    ?? "Continue",
+                confirmation.action.title,
                 role:
-                    actionModel?
-                    .confirmation?
-                    .action
+                    confirmation.action
                     .consumesRunnerResources
                     == true
                     ? nil
@@ -149,7 +146,9 @@ struct GitLabPipelineDetailView: View {
             ) {
                 Task {
                     await actionModel?
-                        .confirm()
+                        .confirm(
+                            confirmation
+                        )
                     await handleAuthenticationFailure()
                 }
             }
@@ -157,12 +156,9 @@ struct GitLabPipelineDetailView: View {
                 actionModel?
                     .dismissConfirmation()
             }
-        } message: {
+        } message: { confirmation in
             Text(
-                actionModel?
-                    .confirmation?
-                    .message
-                    ?? ""
+                confirmation.message
             )
         }
         .alert(

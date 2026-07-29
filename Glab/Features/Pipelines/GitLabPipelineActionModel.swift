@@ -364,11 +364,18 @@ final class GitLabPipelineActionModel {
         failure = nil
     }
 
-    func confirm() async {
+    func confirm(
+        _ presentedConfirmation:
+            GitLabPipelineActionConfirmation? = nil
+    ) async {
         guard
             let pendingConfirmation =
-                confirmation,
-            activeAction == nil
+                presentedConfirmation
+                ?? confirmation,
+            activeAction == nil,
+            confirmation == nil
+                || confirmation
+                    == pendingConfirmation
         else {
             return
         }
