@@ -569,7 +569,7 @@ Todo:
   P3-08 verification, and repeat the deep code review until no material finding
   remains.
 
-### [ ] P3-09 — Browse merge-request pipelines and jobs
+### [x] P3-09 — Browse merge-request pipelines and jobs
 
 Outcome:
 
@@ -587,41 +587,41 @@ Todo:
   pipeline-jobs, retried-job, bridge/child-pipeline, pagination, polling, cache,
   navigation, state ownership, performance, tests, accessibility, and
   non-goals.
-- [ ] Define immutable pipeline, detailed-status, user, job, stage, runner, and
+- [x] Define immutable pipeline, detailed-status, user, job, stage, runner, and
   artifact-summary models that tolerate documented optional fields and unknown
   future status values.
-- [ ] Write failing endpoint and decoding tests for MR pipeline pagination,
+- [x] Write failing endpoint and decoding tests for MR pipeline pagination,
   pipeline detail, job pagination, retried jobs, empty pipelines, child or
   bridge information selected by the plan, unknown statuses, missing optional
   data, malformed responses, and untrusted next-page URLs.
-- [ ] Write failing model tests for first/next-page loading, deduplication,
+- [x] Write failing model tests for first/next-page loading, deduplication,
   refresh, retained content on failure, running-to-terminal transitions,
   visible-only polling, cancellation on navigation, stale responses, and
   account switching.
-- [ ] Add an independently owned MR pipeline history model and pipeline detail
+- [x] Add an independently owned MR pipeline history model and pipeline detail
   model with injected services. Do not make the MR detail model own job pages
   or polling tasks.
-- [ ] Open pipeline history from the MR readiness pipeline row or another
+- [x] Open pipeline history from the MR readiness pipeline row or another
   compact native control without blocking the existing MR detail if pipeline
   APIs fail.
-- [ ] Group jobs by server stage while preserving deterministic server order,
+- [x] Group jobs by server stage while preserving deterministic server order,
   status, duration, allowed failure, retry lineage, and manual state.
-- [ ] Poll only visible running content with a documented bounded interval and
+- [x] Poll only visible running content with a documented bounded interval and
   cancellation. Cache completed pipelines longer than active pipelines and
   isolate cache keys by account, project, pipeline, query, and page.
-- [ ] Verify empty, single, long, paginated, running, failed, manual, canceled,
+- [x] Verify empty, single, long, paginated, running, failed, manual, canceled,
   retried, partial-error, offline-cache, and account-switch states with
   deterministic fixtures and in the iPhone 17 Pro Simulator.
-- [ ] Run focused pipeline/job tests, pagination and cache tests, the complete
+- [x] Run focused pipeline/job tests, pagination and cache tests, the complete
   test suite, a Release Simulator build, Xcode static analysis, and
   credential/privacy scans.
-- [ ] Perform a deep code review of all code added or changed for P3-09. Look
+- [x] Perform a deep code review of all code added or changed for P3-09. Look
   for bugs, bad code, duplicated pagination or status mapping, lost or repeated
   jobs, unbounded polling, stale-account results, cache-key collisions,
   over-fetching, main-actor decoding, navigation ownership mistakes,
   concurrency or cancellation races, and code that needs refactoring. Record
   every finding in `docs/P3_09_ENGINEERING_PLAN.md`.
-- [ ] If the P3-09 review finds anything material, write a repair plan before
+- [x] If the P3-09 review finds anything material, write a repair plan before
   editing code, add regression and performance tests where applicable,
   implement every fix, rerun the complete P3-09 verification, and repeat the
   deep code review until no material finding remains.

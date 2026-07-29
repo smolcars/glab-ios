@@ -5,13 +5,13 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Models and endpoints: not started
-- Live read service: not started
-- Pipeline history model: not started
-- Pipeline detail and job model: not started
-- Native UI and navigation: not started
-- Simulator verification: not started
-- Deep review: not started
+- Models and endpoints: complete
+- Live read service: complete
+- Pipeline history model: complete
+- Pipeline detail and job model: complete
+- Native UI and navigation: complete
+- Simulator verification: complete
+- Deep review: complete after two passes
 
 Research date: July 29, 2026.
 
@@ -769,6 +769,14 @@ Repair plan:
    retained entries only after the authoritative page chain ends.
 5. Rerun the pager, pipeline model, and complete serialized test suites.
 
+Repair result:
+
+- Regressions now cover shifted page boundaries and stale retained tails.
+- Pagination restarts from the refreshed first-page `Link`, replaces retained
+  rows as authoritative pages arrive, and removes unmatched rows only when the
+  refreshed chain ends.
+- Implemented and pushed in `5ddb053`.
+
 ### Finding 2 — next-page failures are rendered twice
 
 Impact:
@@ -786,6 +794,12 @@ Repair plan:
 3. Re-run the deterministic pipeline navigation flow and inspect the compact
    layout.
 
+Repair result:
+
+- General failure rows now exclude next-page failures, leaving one scoped
+  retry row per failed page.
+- Implemented and pushed in `959bbda`.
+
 ### Finding 3 — avoidable forced route unwrap
 
 Impact:
@@ -798,6 +812,11 @@ Repair plan:
 
 1. Construct the route conditionally inside the row builder.
 2. Preserve the existing positive-ID route tests and navigation fixture.
+
+Repair result:
+
+- Pipeline history now constructs and unwraps its route conditionally.
+- Implemented and pushed in `959bbda`.
 
 ### Finding 4 — deprecated attributed `Text` composition
 
@@ -813,6 +832,14 @@ Repair plan:
    preserving status tint, monospaced SHA styling, and Dynamic Type wrapping.
 2. Require a warning-free Release build and visually recheck default and
    accessibility-extra-large text.
+
+Repair result:
+
+- Styled interpolation replaced every deprecated `Text` concatenation.
+- Release compilation emits no Swift source warnings. Xcode still emits its
+  project-wide informational metadata warning because the app has no
+  `AppIntents.framework` dependency.
+- Implemented and pushed in `959bbda`.
 
 ### Finding 5 — pipeline presentation file is too broad
 
@@ -831,6 +858,57 @@ Repair plan:
 2. Keep helpers internal only where the split requires cross-file access.
 3. Verify the focused tests, deterministic Simulator flow, and Release build
    after the split.
+
+Repair result:
+
+- History, detail, and shared presentation now live in separate focused files.
+- A mechanical comparison confirmed that the split changed no behavior beyond
+  findings 2–4 and the access required for cross-file reuse.
+- Implemented and pushed in `959bbda`.
+
+## Verification evidence and repeated review
+
+Final verification completed on July 29, 2026:
+
+- 71 focused pipeline, endpoint, service, stage-projection, readiness, and
+  shared-pagination tests passed.
+- The 5,000-row stage projection performance fixture completed in 0.038
+  seconds during the focused run.
+- The complete serialized iPhone 17 Pro Simulator suite passed with 985 tests
+  in 130 suites.
+- Xcode static analysis and the Release Simulator build both succeeded using
+  the shared `.deriveddata/Glab` directory. Release compilation had no Swift
+  source warnings; the only tool warning was the expected skipped App Intents
+  metadata extraction for an app that does not link App Intents.
+- The deterministic Maestro flow passed three times: dark/default, light/
+  default, and dark/accessibility-extra-large with Increase Contrast, Reduce
+  Motion, and Reduce Transparency enabled.
+- The flow inspected and tapped pipeline history, pipeline detail, collapsed
+  and expanded build/test/deploy stages, ordinary jobs, an earlier allowed
+  attempt, a trigger job, and its native child-pipeline destination. The final
+  accessibility hierarchy exposed complete pipeline, stage, job, duration,
+  status, and GitLab-link labels in logical order.
+- Endpoint, model, cache, and fixture tests cover empty, long, paginated,
+  active, terminal, failed, manual, canceled, scheduled, unknown, retried,
+  partial-error, cache-event, cancellation, and account-switch behavior.
+- `git diff --check` and both app property-list validations passed.
+- Every P3-09 endpoint is a `.get` request requiring `.read`; no live API
+  request or mutation was used during final verification.
+- No `.env` file or credential-shaped value is tracked. The Release app bundle
+  contains neither credential identifiers nor the debug pipeline fixture,
+  fixture launch argument, or fixture-only content.
+- The physical iPhone and `DEVOPS_DEMO_TOKEN` were not used. Generated
+  screenshots and logs were removed and all Simulators were shut down.
+
+Review pass 2 inspected every P3-09 production, test, fixture, integration, and
+document change after the repairs. It repeated the searches for duplicated
+pagination/status logic, lost or repeated IDs, unsafe next links, route/cache
+identity mistakes, unsupported trigger fallback, unbounded polling,
+main-actor decode/projection, stale-account publication, forced operations,
+credential leakage, and oversized or inaccessible UI. Test-only forced casts
+and failures remain confined to deterministic test doubles; the fixture's
+forced decoding is compiled only under `DEBUG` and is absent from the Release
+bundle. No additional material bug, duplication, or refactor was found.
 
 ## Implementation order
 
@@ -862,18 +940,18 @@ Repair plan:
   route ownership were inspected before planning.
 - [x] Current official GitLab API documentation was researched.
 - [x] This plan precedes every P3-09 production and test change.
-- [ ] Every endpoint is read-only and requires `.read`.
-- [ ] No live mutation, human mention, assignment, tag, or notification.
-- [ ] No automatic mutation or independent network retry path.
-- [ ] Pagination follows only validated GitLab `Link` URLs.
-- [ ] Polling is visible-only, bounded, structured, and cancelable.
-- [ ] Terminal and manual-only content does not poll indefinitely.
-- [ ] Account, project, MR, pipeline, query, and page cache identity is
+- [x] Every endpoint is read-only and requires `.read`.
+- [x] No live mutation, human mention, assignment, tag, or notification.
+- [x] No automatic mutation or independent network retry path.
+- [x] Pagination follows only validated GitLab `Link` URLs.
+- [x] Polling is visible-only, bounded, structured, and cancelable.
+- [x] Terminal and manual-only content does not poll indefinitely.
+- [x] Account, project, MR, pipeline, query, and page cache identity is
   isolated.
-- [ ] Completed content uses a longer cache policy than active content.
-- [ ] Trigger-job failure cannot fail ordinary jobs or pipeline metadata.
-- [ ] Unknown statuses remain visible and fail closed.
-- [ ] Stage projection and decoding remain off the main actor.
-- [ ] Simulator only; `.deriveddata/Glab` reused; generated artifacts removed.
-- [ ] Deep review and any repair plan are recorded before P3-09 is marked
+- [x] Completed content uses a longer cache policy than active content.
+- [x] Trigger-job failure cannot fail ordinary jobs or pipeline metadata.
+- [x] Unknown statuses remain visible and fail closed.
+- [x] Stage projection and decoding remain off the main actor.
+- [x] Simulator only; `.deriveddata/Glab` reused; generated artifacts removed.
+- [x] Deep review and any repair plan are recorded before P3-09 is marked
   complete.
