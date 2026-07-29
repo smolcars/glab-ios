@@ -231,6 +231,162 @@ struct LiveGitLabResourceEditServiceTests {
                 .isEmpty
         )
     }
+
+    @Test("Loads searchable paginated labels and effective members")
+    func loadsMetadataPages() async throws {
+        let label = GitLabProjectLabel(
+            id: 1,
+            name: "needs QA",
+            color: "#FF0000",
+            textColor: "#FFFFFF",
+            labelDescription: nil,
+            archived: false
+        )
+        let member = GitLabProjectMember(
+            id: 7,
+            username: "helper-bot",
+            name: "Helper Bot",
+            state: "active",
+            avatarURL: nil,
+            webURL: nil,
+            accessLevel: 30
+        )
+        let nextPageURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.example.com/api/v4/"
+                    + "projects/42/labels?page=2"
+            )
+        )
+        let client =
+            RecordingResourceEditClient(
+                labels: [label],
+                members: [member],
+                nextPageURL: nextPageURL
+            )
+        let service =
+            LiveGitLabResourceEditService(
+                client: client
+            )
+
+        let labels =
+            try await service.loadLabelsPage(
+                projectID: 42,
+                search: " needs QA ",
+                after: nil
+            )
+        let members =
+            try await service.loadMembersPage(
+                projectID: 42,
+                search: " helper ",
+                after: nil
+            )
+        let nextLabels =
+            try await service.loadLabelsPage(
+                projectID: 42,
+                search: "ignored",
+                after: nextPageURL
+            )
+
+        #expect(labels.items == [label])
+        #expect(members.items == [member])
+        #expect(nextLabels.items == [label])
+        #expect(
+            labels.nextPageURL == nextPageURL
+        )
+        #expect(
+            await client.pageRequests
+                == [
+                    "initial:projects/42/labels"
+                        + "?with_counts=false"
+                        + "&include_ancestor_groups=true"
+                        + "&per_page=20"
+                        + "&search=needs QA",
+                    "initial:projects/42/members/all"
+                        + "?per_page=20"
+                        + "&query=helper",
+                    "next:\(nextPageURL.absoluteString)",
+                ]
+        )
+    }
+
+    @Test("Updates issue and merge request metadata without invalidating early")
+    func updatesMetadata() async throws {
+        let issue = makeTestIssue()
+        let mergeRequest =
+            makeTestMergeRequest(
+                id: 202,
+                iid: 8,
+                projectID: 43
+            )
+        let client =
+            RecordingResourceEditClient(
+                issueResult: .success(issue),
+                mergeRequestResult:
+                    .success(mergeRequest)
+            )
+        let service =
+            LiveGitLabResourceEditService(
+                client: client
+            )
+
+        let issueResult =
+            try await service.updateMetadata(
+                .issue(issue.route),
+                changes:
+                    GitLabResourceMetadataChanges(
+                        stateEvent: .close
+                    )
+            )
+        let mergeRequestResult =
+            try await service.updateMetadata(
+                .mergeRequest(
+                    mergeRequest.route
+                ),
+                changes:
+                    GitLabResourceMetadataChanges(
+                        reviewerIDs: [7]
+                    )
+            )
+
+        #expect(issueResult == .issue(issue))
+        #expect(
+            mergeRequestResult
+                == .mergeRequest(mergeRequest)
+        )
+        #expect(
+            await client.sentRequests
+                == [
+                    recorded(
+                        try GitLabIssueEndpoints
+                            .updateMetadata(
+                                at: issue.route,
+                                changes:
+                                    GitLabResourceMetadataChanges(
+                                        stateEvent:
+                                            .close
+                                    )
+                            )
+                    ),
+                    recorded(
+                        try GitLabMergeRequestEndpoints
+                            .updateMetadata(
+                                at:
+                                    mergeRequest.route,
+                                changes:
+                                    GitLabResourceMetadataChanges(
+                                        reviewerIDs:
+                                            [7]
+                                    )
+                            )
+                    ),
+                ]
+        )
+        #expect(
+            await client.invalidatedRequests
+                .isEmpty
+        )
+    }
 }
 
 private nonisolated struct RecordedResourceEditRequest:
@@ -323,7 +479,7 @@ private nonisolated func todoInvalidations()
 }
 
 private actor RecordingResourceEditClient:
-    GitLabSessionRequestSending
+    GitLabPaginatedSessionRequestSending
 {
     private let issueResult:
         Result<
@@ -335,9 +491,14 @@ private actor RecordingResourceEditClient:
             GitLabMergeRequest,
             GitLabSessionClientError
         >
+    private let labels: [GitLabProjectLabel]
+    private let members: [GitLabProjectMember]
+    private let nextPageURL: URL?
 
     private(set) var sentRequests:
         [RecordedResourceEditRequest] = []
+    private(set) var pageRequests:
+        [String] = []
     private(set) var invalidatedRequests:
         [RecordedResourceEditRequest] = []
     private(set) var loadResponseCount = 0
@@ -356,11 +517,17 @@ private actor RecordingResourceEditClient:
                 GitLabSessionClientError
             > = .failure(
                 .api(.invalidResponse)
-            )
+            ),
+        labels: [GitLabProjectLabel] = [],
+        members: [GitLabProjectMember] = [],
+        nextPageURL: URL? = nil
     ) {
         self.issueResult = issueResult
         self.mergeRequestResult =
             mergeRequestResult
+        self.labels = labels
+        self.members = members
+        self.nextPageURL = nextPageURL
     }
 
     func send<Response>(
@@ -396,6 +563,60 @@ private actor RecordingResourceEditClient:
             return response
         }
         throw .api(.invalidResponse)
+    }
+
+    func sendPage<Response>(
+        _ page: GitLabAPIPageRequest<Response>
+    ) async throws(GitLabSessionClientError)
+        -> GitLabAPIResponse<Response>
+    {
+        switch page {
+        case let .initial(endpoint):
+            let query =
+                endpoint.queryItems
+                .map {
+                    "\($0.name)=\($0.value ?? "")"
+                }
+                .joined(separator: "&")
+            pageRequests.append(
+                "initial:"
+                    + endpoint.pathComponents
+                    .joined(separator: "/")
+                    + (query.isEmpty
+                        ? ""
+                        : "?\(query)")
+            )
+        case let .next(url):
+            pageRequests.append(
+                "next:\(url.absoluteString)"
+            )
+        }
+
+        let value: Any
+        if
+            Response.self
+                == [GitLabProjectLabel].self
+        {
+            value = labels
+        } else if
+            Response.self
+                == [GitLabProjectMember].self
+        {
+            value = members
+        } else {
+            throw .api(.invalidResponse)
+        }
+        guard
+            let response = value as? Response
+        else {
+            throw .api(.invalidResponse)
+        }
+        return GitLabAPIResponse(
+            value: response,
+            metadata: GitLabResponseMetadata(
+                nextPageURL: nextPageURL
+            )
+        )
     }
 
     func loadResponse<Response>(

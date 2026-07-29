@@ -48,4 +48,63 @@ nonisolated protocol GitLabResourceEditing:
     func invalidateAffectedReads(
         for target: GitLabResourceEditTarget
     ) async
+
+    func loadLabelsPage(
+        projectID: Int,
+        search: String?,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourcePage<
+            GitLabProjectLabel
+        >
+
+    func loadMembersPage(
+        projectID: Int,
+        search: String?,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourcePage<
+            GitLabProjectMember
+        >
+
+    func updateMetadata(
+        _ target: GitLabResourceEditTarget,
+        changes: GitLabResourceMetadataChanges
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourceEditResult
+}
+
+extension GitLabResourceEditing {
+    func loadLabelsPage(
+        projectID: Int,
+        search: String?,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourcePage<
+            GitLabProjectLabel
+        >
+    {
+        throw .api(.invalidResponse)
+    }
+
+    func loadMembersPage(
+        projectID: Int,
+        search: String?,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourcePage<
+            GitLabProjectMember
+        >
+    {
+        throw .api(.invalidResponse)
+    }
+
+    func updateMetadata(
+        _ target: GitLabResourceEditTarget,
+        changes: GitLabResourceMetadataChanges
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourceEditResult
+    {
+        throw .api(.invalidResponse)
+    }
 }
