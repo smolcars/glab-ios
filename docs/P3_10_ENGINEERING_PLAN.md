@@ -11,10 +11,9 @@
 - Observable model and navigation: complete
 - Virtualized native UI: complete; focused UIKit line surface selected by
   measurement
-- Performance and Simulator verification: in progress; file-oriented and
-  renderer Release gates pass
-- Deep review: in progress; four material findings and the device-validation
-  search repair are complete, final full gates remain
+- Performance and Simulator verification: complete
+- Deep review: complete; four material findings and the device-validation
+  search repair were planned, covered by regressions, and repaired
 
 Research date: July 29, 2026.
 
@@ -708,6 +707,13 @@ compact control pill were visually inspected. The repeat presentation review
 found no remaining material bottom-control overlap, unreachable action,
 duplicate search ownership, or necessary refactor.
 
+Final verification completed July 29, 2026. The focused P3-10 Release
+correctness and performance suites pass with one serialized Simulator worker.
+The 100 MiB index benchmark had one isolated 4.04-second sample in the combined
+run, then passed its immediate isolated retry; no production change was made
+for test-host contention. The current signed Release device build also
+completed and was installed at the user's explicit request.
+
 The network is not benchmarked with a fake latency claim. Transport tests
 measure bytes-to-protected-file overhead; UI metrics start from a deterministic
 local response file.
@@ -805,15 +811,16 @@ Record every material finding in this document. Before fixing one:
 - [x] Trace access is `GET` and `.read` only.
 - [x] No live mutation, human mention, assignment, tag, or notification.
 - [x] No undocumented range, append, cursor, or incremental trace behavior.
-- [ ] Network, disk, lines, decoded windows, search, and rendering are bounded.
+- [x] Network, disk, lines, decoded windows, search, and rendering are bounded.
 - [x] Cross-origin redirects cannot receive GitLab credentials or cookies.
 - [x] Partial and corrupt files cannot become published cache entries.
 - [x] Account removal purges protected trace data on every removal path.
-- [ ] File I/O, indexing, sanitization, and search remain off the main actor.
-- [ ] Cancellation removes partial work and stale generations cannot publish.
+- [x] File I/O, indexing, sanitization, and search remain off the main actor.
+- [x] Cancellation removes partial work and stale generations cannot publish.
 - [x] Refresh retains the prior complete cached trace until atomic replacement.
-- [ ] ANSI/control content cannot execute, link, copy, or affect the terminal.
-- [ ] The selected renderer creates and configures only bounded
+- [x] ANSI/control content cannot execute, link, copy, or affect the terminal.
+- [x] The selected renderer creates and configures only bounded
   visible/prefetch line windows.
-- [ ] Simulator only; `.deriveddata/Glab` reused; generated artifacts removed.
-- [ ] Deep review and every repair plan are recorded before P3-10 is complete.
+- [x] Automated verification used Simulator only; `.deriveddata/Glab` was
+  reused and generated artifacts were removed.
+- [x] Deep review and every repair plan are recorded before P3-10 is complete.

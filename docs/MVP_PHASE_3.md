@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-29
 
-Status: in progress. P3-01 through P3-08 are complete.
+Status: in progress. P3-01 through P3-10 are complete.
 
 ## Product goal
 
@@ -626,7 +626,7 @@ Todo:
   implement every fix, rerun the complete P3-09 verification, and repeat the
   deep code review until no material finding remains.
 
-### [ ] P3-10 — Build a performant pipeline job-log viewer
+### [x] P3-10 — Build a performant pipeline job-log viewer
 
 Outcome:
 
@@ -646,13 +646,13 @@ Todo:
   and limits, encoding and ANSI/control-sequence handling, line indexing,
   rendering approach, search, refresh behavior, performance budgets,
   security/privacy, tests, accessibility, and non-goals.
-- [ ] Do not assume undocumented byte-range, streaming, or incremental trace
+- [x] Do not assume undocumented byte-range, streaming, or incremental trace
   guarantees. Measure documented full-response behavior and make running-log
   refresh explicit and bounded.
-- [ ] Create small, medium, large, very-long-line, Unicode, invalid-UTF-8,
+- [x] Create small, medium, large, very-long-line, Unicode, invalid-UTF-8,
   CRLF, ANSI-colored, control-sequence, truncated, empty, erased, archived, and
   actively growing trace fixtures.
-- [ ] Write failing transport, storage, parser, search, cancellation, cache,
+- [x] Write failing transport, storage, parser, search, cancellation, cache,
   corruption, eviction, and account-isolation tests.
 - [x] Add the minimum authenticated raw-response path required for traces
   without weakening URL validation, authorization redaction, cancellation, or
@@ -662,28 +662,28 @@ Todo:
   retaining duplicate full-log strings in memory.
 - [x] Strip or safely interpret ANSI and terminal control sequences without
   executing links, escapes, or commands from untrusted job output.
-- [ ] Render only visible lines. Profile SwiftUI first, and use a focused UIKit
+- [x] Render only visible lines. Profile SwiftUI first, and use a focused UIKit
   collection view as the existing diff viewer does if measurement shows it is
   required; do not create a speculative general-purpose text framework.
-- [ ] Add bounded text search, next/previous match, a useful first-failure jump,
+- [x] Add bounded text search, next/previous match, a useful first-failure jump,
   scroll-to-end, and explicit refresh for non-terminal jobs.
-- [ ] Measure download-to-first-lines time, indexing time, search latency,
+- [x] Measure download-to-first-lines time, indexing time, search latency,
   memory, scrolling hitching, cancellation, repeated navigation, and cache
   eviction with every performance fixture.
-- [ ] Verify representative logs, huge logs, long lines, invalid data, search,
+- [x] Verify representative logs, huge logs, long lines, invalid data, search,
   refresh, cancellation, memory pressure, Dynamic Type, VoiceOver, Reduce
   Motion, and dark/light appearance in the iPhone 17 Pro Simulator.
-- [ ] Run focused correctness and performance tests, the complete test suite,
+- [x] Run focused correctness and performance tests, the complete test suite,
   a Release Simulator build, Xcode static analysis, and credential/privacy
   scans.
-- [ ] Perform a deep code review of all code added or changed for P3-10. Look
+- [x] Perform a deep code review of all code added or changed for P3-10. Look
   for bugs, bad code, duplicated transport or renderer logic, path traversal,
   credential or log leakage, unbounded memory/disk use, wrong line offsets,
   unsafe escape handling, main-actor file or parse work, stale-account data,
   cache corruption, concurrency or cancellation races, and code that needs
   refactoring. Record every finding in
   `docs/P3_10_ENGINEERING_PLAN.md`.
-- [ ] If the P3-10 review finds anything material, write a repair plan before
+- [x] If the P3-10 review finds anything material, write a repair plan before
   editing code, add regression and performance tests where applicable,
   implement every fix, rerun the complete P3-10 verification, and repeat the
   deep code review until no material finding remains.
