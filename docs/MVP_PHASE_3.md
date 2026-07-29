@@ -699,10 +699,10 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect P3-09 pipeline/job state, P3-10 logs, current mutation certainty,
+- [x] Inspect P3-09 pipeline/job state, P3-10 logs, current mutation certainty,
   API write-access gating, current user/session scope, polling, cache
   invalidation, and GitLab job/pipeline status values.
-- [ ] Before writing production code, create
+- [x] Before writing production code, create
   `docs/P3_11_ENGINEERING_PLAN.md`. Document retry-pipeline, retry-job,
   play-job, create-MR-pipeline, cancel-pipeline, and cancel-job contracts,
   valid source statuses, input/variable compatibility, confirmations,
