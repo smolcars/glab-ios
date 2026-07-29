@@ -152,13 +152,23 @@ where
     }
 
     func loadIfNeeded() async {
-        guard !hasLoaded else {
-            return
+        while
+            !hasLoaded,
+            !Task.isCancelled
+        {
+            if
+                isLoadingInitial
+                    || isRefreshing
+            {
+                await waitForOverlappingInitialLoad()
+            } else {
+                await replaceItems(
+                    showsInitialLoading: true,
+                    refreshBehavior: .ifStale
+                )
+                return
+            }
         }
-        await replaceItems(
-            showsInitialLoading: true,
-            refreshBehavior: .ifStale
-        )
     }
 
     func refresh() async {
@@ -318,6 +328,35 @@ where
         }
         contentRevision += 1
         return true
+    }
+
+    private func waitForOverlappingInitialLoad()
+        async
+    {
+        guard
+            !hasLoaded,
+            isLoadingInitial || isRefreshing
+        else {
+            return
+        }
+
+        for await state in Observations({
+            (
+                self.hasLoaded,
+                self.isLoadingInitial,
+                self.isRefreshing
+            )
+        }) {
+            guard !Task.isCancelled else {
+                return
+            }
+            if
+                state.0
+                    || (!state.1 && !state.2)
+            {
+                return
+            }
+        }
     }
 
     private func replaceItems(

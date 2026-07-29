@@ -308,6 +308,92 @@ struct GitLabPaginatedResourceModelTests {
         #expect(await loader.requestCount == 2)
     }
 
+    @Test("Concurrent initial callers wait for one request")
+    @MainActor
+    func joinsConcurrentInitialLoad() async {
+        let loader = CancellableInitialPageLoader()
+        let model = GitLabPaginatedResourceModel<
+            Int,
+            Int
+        >(
+            loadPage: {
+                (
+                    pageURL: URL?
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> GitLabResourcePage<Int> in
+                try await loader.load(pageURL)
+            },
+            identity: { $0 },
+            searchValues: { ["\($0)"] }
+        )
+        let secondFinished =
+            MainActorCompletionBox()
+
+        let firstLoad = Task {
+            await model.loadIfNeeded()
+        }
+        await loader.waitUntilInitialPageStarts()
+
+        let secondLoad = Task {
+            await model.loadIfNeeded()
+            secondFinished.didFinish = true
+        }
+        await Task.yield()
+
+        #expect(!secondFinished.didFinish)
+        #expect(await loader.requestCount == 1)
+
+        await loader.releaseInitialPage()
+        await firstLoad.value
+        await secondLoad.value
+
+        #expect(secondFinished.didFinish)
+        #expect(model.items == [1])
+        #expect(model.hasLoaded)
+        #expect(await loader.requestCount == 1)
+    }
+
+    @Test("Concurrent initial caller retries after owner cancellation")
+    @MainActor
+    func retriesCancelledInitialLoad() async {
+        let loader = CancellableInitialPageLoader()
+        let model = GitLabPaginatedResourceModel<
+            Int,
+            Int
+        >(
+            loadPage: {
+                (
+                    pageURL: URL?
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> GitLabResourcePage<Int> in
+                try await loader.load(pageURL)
+            },
+            identity: { $0 },
+            searchValues: { ["\($0)"] }
+        )
+
+        let firstLoad = Task {
+            await model.loadIfNeeded()
+        }
+        await loader.waitUntilInitialPageStarts()
+
+        let replacementLoad = Task {
+            await model.loadIfNeeded()
+        }
+        await Task.yield()
+        firstLoad.cancel()
+
+        await firstLoad.value
+        await replacementLoad.value
+
+        #expect(model.items == [1])
+        #expect(model.hasLoaded)
+        #expect(!model.isLoadingInitial)
+        #expect(await loader.requestCount == 2)
+    }
+
     @Test("Cancellation while waiting for the first page skips later pages")
     @MainActor
     func cancelsWhileWaitingForInitialPage() async {
@@ -459,6 +545,73 @@ struct GitLabPaginatedResourceModelTests {
             model.contentRevision
                 == revision + 1
         )
+    }
+}
+
+@MainActor
+private final class MainActorCompletionBox {
+    var didFinish = false
+}
+
+private actor CancellableInitialPageLoader {
+    private var didStartInitialPage = false
+    private var initialStartWaiters:
+        [CheckedContinuation<Void, Never>] = []
+    private var initialContinuation:
+        CheckedContinuation<Void, Never>?
+    private(set) var requestCount = 0
+
+    func load(
+        _ pageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourcePage<Int>
+    {
+        guard pageURL == nil else {
+            throw .api(.invalidResponse)
+        }
+
+        requestCount += 1
+        if requestCount == 1 {
+            didStartInitialPage = true
+            let waiters = initialStartWaiters
+            initialStartWaiters.removeAll()
+            waiters.forEach { $0.resume() }
+
+            do {
+                try await withTaskCancellationHandler {
+                    await withCheckedContinuation {
+                        initialContinuation = $0
+                    }
+                    try Task.checkCancellation()
+                } onCancel: {
+                    Task {
+                        await self.releaseInitialPage()
+                    }
+                }
+            } catch {
+                throw .api(.cancelled)
+            }
+        }
+
+        return GitLabResourcePage(
+            items: [1],
+            nextPageURL: nil,
+            totalCount: 1
+        )
+    }
+
+    func waitUntilInitialPageStarts() async {
+        guard !didStartInitialPage else {
+            return
+        }
+        await withCheckedContinuation {
+            initialStartWaiters.append($0)
+        }
+    }
+
+    func releaseInitialPage() {
+        initialContinuation?.resume()
+        initialContinuation = nil
     }
 }
 

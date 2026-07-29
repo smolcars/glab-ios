@@ -787,11 +787,15 @@ private struct GitLabIssueCreationProjectPicker:
             model.projectsModel
 
         if
-            projectsModel.isLoadingInitial,
-            projectsModel.items.isEmpty
+            projectsModel.items.isEmpty,
+            projectsModel.isLoadingInitial
+                || !projectsModel.hasLoaded
         {
             GitLabLoadingStateView(
                 message: "Loading projects"
+            )
+            .accessibilityIdentifier(
+                "issueCreation.projects.loading"
             )
         } else if
             projectsModel.items.isEmpty,
@@ -806,6 +810,9 @@ private struct GitLabIssueCreationProjectPicker:
                         .refresh()
                 }
             }
+            .accessibilityIdentifier(
+                "issueCreation.projects.error"
+            )
         } else if
             projectsModel.items.isEmpty,
             projectsModel.hasLoaded
@@ -813,6 +820,9 @@ private struct GitLabIssueCreationProjectPicker:
             ContentUnavailableView.search(
                 text:
                     model.projectSearchText
+            )
+            .accessibilityIdentifier(
+                "issueCreation.projects.empty"
             )
         } else {
             List {
@@ -871,6 +881,9 @@ private struct GitLabIssueCreationProjectPicker:
                 }
             }
             .listStyle(.insetGrouped)
+            .accessibilityIdentifier(
+                "issueCreation.projects.list"
+            )
         }
     }
 
