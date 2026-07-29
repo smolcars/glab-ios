@@ -7,10 +7,11 @@
 - Planning: complete
 - Raw authenticated file transport: complete
 - Account-scoped trace store: complete
-- Line index, sanitization, and search: not started
+- Line index, sanitization, and search: complete
 - Observable model and navigation: not started
 - Virtualized native UI: not started
-- Performance and Simulator verification: not started
+- Performance and Simulator verification: in progress; file-oriented Release
+  gates pass
 - Deep review: not started
 
 Research date: July 29, 2026.
@@ -526,6 +527,25 @@ never to hide a regression.
 - Total trace store after pruning: at most 256 MiB.
 - Repeated navigation and refresh leave no monotonic temp-file, task, or
   resident-memory growth.
+
+July 29, 2026 Release measurements on the iPhone 17 Pro Simulator running
+iOS 26.5:
+
+- 5 MiB index p95: 145.645 ms.
+- 100 MB index p95: 2,891.613 ms.
+- 100 MB indexing resident-memory delta: 42.734 MiB after warm-up.
+- Initial 200-line window p95: 3.682 ms.
+- Warm 200-line window p95: 0.054 ms.
+- 100 MB no-match search p95: 2,685.408 ms.
+- 100 MB fixture index size: 6,553,600 bytes.
+
+The initial 5 MiB implementation measured 3,307.386 ms because it sanitized
+every line while looking for a likely failure. A raw ASCII candidate gate now
+avoids that work for impossible candidates and still performs the complete
+terminal sanitizer before accepting a marker. The initial large search
+measured 3,148.942 ms; a single-pass printable-ASCII candidate gate brought it
+under budget while Unicode, invalid-byte, diacritic, and terminal-control lines
+continue through the complete sanitizer.
 
 The network is not benchmarked with a fake latency claim. Transport tests
 measure bytes-to-protected-file overhead; UI metrics start from a deterministic

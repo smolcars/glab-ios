@@ -146,6 +146,77 @@ struct GitLabJobTraceStoreTests {
         }
     }
 
+    @Test("Persists the first likely failure location")
+    func persistsLikelyFailure() async throws {
+        try await withFileStore { store, rootDirectory in
+            let key = try traceKey()
+            let location =
+                GitLabJobTraceFailureLocation(
+                    lineIndex: 1,
+                    category: .fatal
+                )
+            let descriptor =
+                try await prepareAndCommit(
+                    Data("ok\nfatal: failed".utf8),
+                    offsets: [0, 3],
+                    for: key,
+                    in: store,
+                    firstLikelyFailure:
+                        location
+                )
+
+            #expect(
+                descriptor
+                    .firstLikelyFailure
+                    == location
+            )
+            let restored =
+                await FileGitLabJobTraceStore(
+                    rootDirectory:
+                        rootDirectory
+                )
+                .descriptor(for: key)
+            #expect(
+                restored?
+                    .firstLikelyFailure
+                    == location
+            )
+        }
+    }
+
+    @Test("Rejects a likely failure outside the indexed lines")
+    func rejectsInvalidLikelyFailure() async throws {
+        try await withFileStore { store, _ in
+            let key = try traceKey()
+            let workspace =
+                try await store.beginImport(
+                    for: key
+                )
+            let prepared =
+                try writePreparedEntry(
+                    Data("one".utf8),
+                    offsets: [0],
+                    in: workspace,
+                    firstLikelyFailure:
+                        GitLabJobTraceFailureLocation(
+                            lineIndex: 1,
+                            category: .error
+                        )
+                )
+
+            await #expect(
+                throws:
+                    GitLabJobTraceStoreError
+                    .invalidEntry
+            ) {
+                try await store.commit(
+                    prepared,
+                    in: workspace
+                )
+            }
+        }
+    }
+
     @Test("Reads touch LRU metadata without rewriting stored content")
     func readsTouchAccessTime() async throws {
         let rootDirectory =
@@ -436,6 +507,7 @@ struct GitLabJobTraceStoreTests {
         arguments: [
             [UInt32(1)],
             [UInt32(0), UInt32(0)],
+            [UInt32(0), UInt32(2)],
             [UInt32(0), UInt32(8)],
         ]
     )
@@ -1101,7 +1173,10 @@ extension GitLabJobTraceStoreTests {
         in store: FileGitLabJobTraceStore,
         storedAt: Date = Date(
             timeIntervalSince1970: 2_000
-        )
+        ),
+        firstLikelyFailure:
+            GitLabJobTraceFailureLocation?
+            = nil
     ) async throws -> GitLabJobTraceDescriptor {
         let workspace = try await store.beginImport(
             for: key
@@ -1109,7 +1184,9 @@ extension GitLabJobTraceStoreTests {
         let prepared = try writePreparedEntry(
             trace,
             offsets: offsets,
-            in: workspace
+            in: workspace,
+            firstLikelyFailure:
+                firstLikelyFailure
         )
         return try await store.commit(
             prepared,
@@ -1123,7 +1200,10 @@ extension GitLabJobTraceStoreTests {
         offsets: [UInt32],
         in workspace:
             GitLabJobTraceImportWorkspace,
-        digestOverride: String? = nil
+        digestOverride: String? = nil,
+        firstLikelyFailure:
+            GitLabJobTraceFailureLocation?
+            = nil
     ) throws -> GitLabJobTracePreparedEntry {
         let traceURL = workspace.directoryURL.appending(
             path: "download.tmp",
@@ -1145,7 +1225,9 @@ extension GitLabJobTraceStoreTests {
                 digestOverride ?? digest(trace),
             indexFormatVersion:
                 GitLabJobTraceIndexFormat.currentVersion,
-            longLineCount: 0
+            longLineCount: 0,
+            firstLikelyFailure:
+                firstLikelyFailure
         )
     }
 
@@ -1321,7 +1403,9 @@ private extension GitLabJobTracePreparedEntry {
                 ?? self.indexFormatVersion,
             longLineCount:
                 longLineCount
-                ?? self.longLineCount
+                ?? self.longLineCount,
+            firstLikelyFailure:
+                firstLikelyFailure
         )
     }
 }

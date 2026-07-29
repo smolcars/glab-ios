@@ -654,13 +654,13 @@ Todo:
   actively growing trace fixtures.
 - [ ] Write failing transport, storage, parser, search, cancellation, cache,
   corruption, eviction, and account-isolation tests.
-- [ ] Add the minimum authenticated raw-response path required for traces
+- [x] Add the minimum authenticated raw-response path required for traces
   without weakening URL validation, authorization redaction, cancellation, or
   JSON request behavior.
-- [ ] Download trace data away from the main actor into an account-scoped
+- [x] Download trace data away from the main actor into an account-scoped
   file-backed store, derive immutable line offsets incrementally, and avoid
   retaining duplicate full-log strings in memory.
-- [ ] Strip or safely interpret ANSI and terminal control sequences without
+- [x] Strip or safely interpret ANSI and terminal control sequences without
   executing links, escapes, or commands from untrusted job output.
 - [ ] Render only visible lines. Profile SwiftUI first, and use a focused UIKit
   collection view as the existing diff viewer does if measurement shows it is

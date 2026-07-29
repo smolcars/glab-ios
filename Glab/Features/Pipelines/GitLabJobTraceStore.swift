@@ -10,6 +10,40 @@ nonisolated enum GitLabJobTraceIndexFormat {
         MemoryLayout<UInt32>.size
 }
 
+nonisolated enum
+    GitLabJobTraceFailureCategory:
+    String,
+    Codable,
+    CaseIterable,
+    Equatable,
+    Sendable
+{
+    case error
+    case fatal
+    case panic
+    case exception
+    case failed
+    case traceback
+}
+
+nonisolated struct
+    GitLabJobTraceFailureLocation:
+    Codable,
+    Equatable,
+    Sendable
+{
+    let lineIndex: Int
+    let category:
+        GitLabJobTraceFailureCategory
+
+    func isValid(
+        forLineCount lineCount: Int
+    ) -> Bool {
+        lineIndex >= 0
+            && lineIndex < lineCount
+    }
+}
+
 nonisolated struct GitLabJobTraceKey:
     Equatable,
     Hashable,
@@ -71,6 +105,34 @@ nonisolated struct GitLabJobTraceDescriptor:
     let storedAt: Date
     let rawContentDigest: String
     let longLineCount: Int
+    let firstLikelyFailure:
+        GitLabJobTraceFailureLocation?
+
+    init(
+        key: GitLabJobTraceKey,
+        traceFileURL: URL,
+        indexFileURL: URL,
+        byteCount: Int,
+        lineCount: Int,
+        storedAt: Date,
+        rawContentDigest: String,
+        longLineCount: Int,
+        firstLikelyFailure:
+            GitLabJobTraceFailureLocation?
+            = nil
+    ) {
+        self.key = key
+        self.traceFileURL = traceFileURL
+        self.indexFileURL = indexFileURL
+        self.byteCount = byteCount
+        self.lineCount = lineCount
+        self.storedAt = storedAt
+        self.rawContentDigest =
+            rawContentDigest
+        self.longLineCount = longLineCount
+        self.firstLikelyFailure =
+            firstLikelyFailure
+    }
 
     var hasLongLines: Bool {
         longLineCount > 0
@@ -127,6 +189,33 @@ nonisolated struct GitLabJobTracePreparedEntry:
     let rawContentDigest: String
     let indexFormatVersion: Int
     let longLineCount: Int
+    let firstLikelyFailure:
+        GitLabJobTraceFailureLocation?
+
+    init(
+        traceFileURL: URL,
+        indexFileURL: URL,
+        byteCount: Int,
+        lineCount: Int,
+        rawContentDigest: String,
+        indexFormatVersion: Int,
+        longLineCount: Int,
+        firstLikelyFailure:
+            GitLabJobTraceFailureLocation?
+            = nil
+    ) {
+        self.traceFileURL = traceFileURL
+        self.indexFileURL = indexFileURL
+        self.byteCount = byteCount
+        self.lineCount = lineCount
+        self.rawContentDigest =
+            rawContentDigest
+        self.indexFormatVersion =
+            indexFormatVersion
+        self.longLineCount = longLineCount
+        self.firstLikelyFailure =
+            firstLikelyFailure
+    }
 
     var description: String {
         "GitLabJobTracePreparedEntry(<redacted>)"

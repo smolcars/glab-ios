@@ -18,6 +18,8 @@ actor FileGitLabJobTraceStore:
         let rawContentDigest: String
         let indexContentDigest: String
         let longLineCount: Int
+        let firstLikelyFailure:
+            GitLabJobTraceFailureLocation?
         let storedAt: Date
     }
 
@@ -212,6 +214,9 @@ actor FileGitLabJobTraceStore:
                     validated.indexContentDigest,
                 longLineCount:
                     ownedPrepared.longLineCount,
+                firstLikelyFailure:
+                    ownedPrepared
+                    .firstLikelyFailure,
                 storedAt: entryStoredAt
             )
             let metadataURL =
@@ -355,7 +360,10 @@ actor FileGitLabJobTraceStore:
                             metadata
                             .indexFormatVersion,
                         longLineCount:
-                            metadata.longLineCount
+                            metadata.longLineCount,
+                        firstLikelyFailure:
+                            metadata
+                            .firstLikelyFailure
                     )
                 let validated =
                     try await GitLabJobTraceFileValidator
@@ -639,7 +647,10 @@ actor FileGitLabJobTraceStore:
             indexFormatVersion:
                 prepared.indexFormatVersion,
             longLineCount:
-                prepared.longLineCount
+                prepared.longLineCount,
+            firstLikelyFailure:
+                prepared
+                .firstLikelyFailure
         )
     }
 
@@ -1247,6 +1258,11 @@ actor FileGitLabJobTraceStore:
             metadata.longLineCount >= 0,
             metadata.longLineCount
                 <= metadata.lineCount,
+            metadata.firstLikelyFailure?
+                .isValid(
+                    forLineCount:
+                        metadata.lineCount
+                ) != false,
             (metadata.byteCount == 0)
                 == (metadata.lineCount == 0)
         else {
@@ -1297,7 +1313,10 @@ actor FileGitLabJobTraceStore:
             indexFormatVersion:
                 metadata.indexFormatVersion,
             longLineCount:
-                metadata.longLineCount
+                metadata.longLineCount,
+            firstLikelyFailure:
+                metadata
+                .firstLikelyFailure
         )
     }
 
@@ -1451,7 +1470,10 @@ actor FileGitLabJobTraceStore:
             rawContentDigest:
                 metadata.rawContentDigest,
             longLineCount:
-                metadata.longLineCount
+                metadata.longLineCount,
+            firstLikelyFailure:
+                metadata
+                .firstLikelyFailure
         )
     }
 
@@ -1562,6 +1584,11 @@ private nonisolated enum
                 prepared.longLineCount >= 0,
                 prepared.longLineCount
                     <= prepared.lineCount,
+                prepared.firstLikelyFailure?
+                    .isValid(
+                        forLineCount:
+                            prepared.lineCount
+                    ) != false,
                 prepared.indexFormatVersion
                     == GitLabJobTraceIndexFormat
                     .currentVersion,
@@ -1612,6 +1639,8 @@ private nonisolated enum
             let indexDigest = try validateIndex(
                 at: prepared.indexFileURL,
                 lineCount: prepared.lineCount,
+                traceFileURL:
+                    prepared.traceFileURL,
                 traceByteCount:
                     prepared.byteCount
             )
@@ -1695,88 +1724,157 @@ private nonisolated enum
     private static func validateIndex(
         at fileURL: URL,
         lineCount: Int,
+        traceFileURL: URL,
         traceByteCount: Int
     ) throws -> String {
-        let fileHandle = try FileHandle(
+        let indexHandle = try FileHandle(
             forReadingFrom: fileURL
         )
         defer {
-            try? fileHandle.close()
+            try? indexHandle.close()
         }
-        var hasher = SHA256()
+        let traceHandle = try FileHandle(
+            forReadingFrom: traceFileURL
+        )
+        defer {
+            try? traceHandle.close()
+        }
+        var offsets =
+            IndexOffsetReader(
+                fileHandle: indexHandle
+            )
+        var observedTraceByteCount = 0
         var observedLineCount = 0
-        var previousOffset: UInt32?
-        var pendingBytes: [UInt8] = []
 
+        func requireOffset(
+            _ expected: UInt32
+        ) throws {
+            guard
+                try offsets.next()
+                    == expected
+            else {
+                throw GitLabJobTraceStoreError
+                    .invalidEntry
+            }
+            observedLineCount += 1
+        }
+
+        if traceByteCount > 0 {
+            try requireOffset(0)
+        }
         while
-            let chunk = try fileHandle.read(
+            let chunk = try traceHandle.read(
                 upToCount: 64 * 1_024
             ),
             !chunk.isEmpty
         {
             try Task.checkCancellation()
-            hasher.update(data: chunk)
-            pendingBytes.append(
-                contentsOf: chunk
-            )
-
-            var index = 0
-            let completeByteCount =
-                pendingBytes.count
-                - pendingBytes.count
-                    % GitLabJobTraceIndexFormat
-                    .offsetByteCount
-            while index < completeByteCount {
-                let value =
-                    UInt32(pendingBytes[index])
-                    | UInt32(pendingBytes[index + 1])
-                        << 8
-                    | UInt32(pendingBytes[index + 2])
-                        << 16
-                    | UInt32(pendingBytes[index + 3])
-                        << 24
-                if observedLineCount == 0 {
-                    guard value == 0 else {
-                        throw GitLabJobTraceStoreError
-                            .invalidEntry
-                    }
-                } else {
-                    guard
-                        let previousOffset,
-                        value > previousOffset
-                    else {
-                        throw GitLabJobTraceStoreError
-                            .invalidEntry
-                    }
+            for byte in chunk {
+                observedTraceByteCount += 1
+                if
+                    byte == 0x0A,
+                    observedTraceByteCount
+                        < traceByteCount
+                {
+                    try requireOffset(
+                        UInt32(
+                            observedTraceByteCount
+                        )
+                    )
                 }
-                guard
-                    Int(value) < traceByteCount
-                else {
-                    throw GitLabJobTraceStoreError
-                        .invalidEntry
-                }
-                previousOffset = value
-                observedLineCount += 1
-                index +=
-                    GitLabJobTraceIndexFormat
-                    .offsetByteCount
-            }
-            if index > 0 {
-                pendingBytes.removeFirst(index)
             }
         }
         guard
-            pendingBytes.isEmpty,
-            observedLineCount == lineCount
+            observedTraceByteCount
+                == traceByteCount,
+            observedLineCount == lineCount,
+            try offsets.next() == nil
         else {
             throw GitLabJobTraceStoreError
                 .invalidEntry
         }
-        return hasher.finalize()
+        return offsets.digest()
+    }
+
+    private struct IndexOffsetReader {
+        let fileHandle: FileHandle
+        private var hasher = SHA256()
+        private var buffer = Data()
+        private var position = 0
+        private var reachedEnd = false
+
+        init(fileHandle: FileHandle) {
+            self.fileHandle = fileHandle
+        }
+
+        mutating func next()
+            throws -> UInt32?
+        {
+            while
+                buffer.count - position
+                    < GitLabJobTraceIndexFormat
+                    .offsetByteCount,
+                !reachedEnd
+            {
+                if position > 0 {
+                    buffer.removeFirst(
+                        position
+                    )
+                    position = 0
+                }
+                guard
+                    let chunk =
+                        try fileHandle.read(
+                            upToCount:
+                                64 * 1_024
+                        ),
+                    !chunk.isEmpty
+                else {
+                    reachedEnd = true
+                    break
+                }
+                try Task.checkCancellation()
+                hasher.update(data: chunk)
+                buffer.append(chunk)
+            }
+
+            let remaining =
+                buffer.count - position
+            guard remaining > 0 else {
+                return nil
+            }
+            guard
+                remaining
+                    >= GitLabJobTraceIndexFormat
+                    .offsetByteCount
+            else {
+                throw GitLabJobTraceStoreError
+                    .invalidEntry
+            }
+            let value =
+                UInt32(buffer[position])
+                | UInt32(
+                    buffer[position + 1]
+                ) << 8
+                | UInt32(
+                    buffer[position + 2]
+                ) << 16
+                | UInt32(
+                    buffer[position + 3]
+                ) << 24
+            position +=
+                GitLabJobTraceIndexFormat
+                .offsetByteCount
+            return value
+        }
+
+        func digest() -> String {
+            hasher.finalize()
             .map {
                 String(format: "%02x", $0)
             }
             .joined()
+        }
     }
 
     private static func isSHA256Digest(
@@ -1788,4 +1886,5 @@ private nonisolated enum
                     || ($0 >= 97 && $0 <= 102)
             }
     }
+
 }
