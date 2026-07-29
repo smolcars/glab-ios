@@ -54,6 +54,14 @@ where Item: Sendable {
     }
 }
 
+nonisolated enum GitLabFirstPageRefreshMode:
+    Equatable,
+    Sendable
+{
+    case replaceAll
+    case retainLoadedTail
+}
+
 @MainActor
 @Observable
 final class GitLabPaginatedResourceModel<Item, Identity>
@@ -85,6 +93,8 @@ where
 
     private var reconciledTailItems: [Item] = []
     private var loadedNextPageURLs: Set<URL> = []
+    private var firstPageIdentities:
+        Set<Identity> = []
     private let loadPage:
         @Sendable (URL?) async throws(GitLabSessionClientError)
             -> GitLabResourcePage<Item>
@@ -94,7 +104,9 @@ where
             @escaping @Sendable (
                 GitLabResourcePageEvent<Item>
             ) async -> Void
-        ) async throws(GitLabSessionClientError) -> Void)?
+            ) async throws(GitLabSessionClientError) -> Void)?
+    private let firstPageRefreshMode:
+        GitLabFirstPageRefreshMode
     private let identity: @Sendable (Item) -> Identity
     private let searchValues: @Sendable (Item) -> [String]
 
@@ -109,11 +121,15 @@ where
                     GitLabResourcePageEvent<Item>
                 ) async -> Void
             ) async throws(GitLabSessionClientError) -> Void)? = nil,
+        firstPageRefreshMode:
+            GitLabFirstPageRefreshMode = .replaceAll,
         identity: @escaping @Sendable (Item) -> Identity,
         searchValues: @escaping @Sendable (Item) -> [String]
     ) {
         self.loadPage = loadPage
         self.loadFirstPage = loadFirstPage
+        self.firstPageRefreshMode =
+            firstPageRefreshMode
         self.identity = identity
         self.searchValues = searchValues
     }
@@ -431,12 +447,38 @@ where
     private func applyFirstPage(
         _ event: GitLabResourcePageEvent<Item>
     ) {
-        loadedNextPageURLs.removeAll()
-        items = appendingServerItems(
+        let retainedTail =
+            firstPageRefreshMode
+                == .retainLoadedTail
+                && hasLoaded
+            ? items.filter {
+                !firstPageIdentities.contains(
+                    identity($0)
+                )
+            }
+            : []
+        let retainedNextPageURL =
+            retainedTail.isEmpty
+            ? nil
+            : nextPageURL
+
+        if retainedTail.isEmpty {
+            loadedNextPageURLs.removeAll()
+        }
+        let refreshedFirstPage =
+            appendingServerItems(
             event.page.items,
             to: []
         )
-        nextPageURL = event.page.nextPageURL
+        items = appending(
+            retainedTail,
+            to: refreshedFirstPage
+        )
+        firstPageIdentities =
+            Set(event.page.items.map(identity))
+        nextPageURL =
+            retainedNextPageURL
+            ?? event.page.nextPageURL
         totalItemCount = event.page.totalCount
         firstPageSource = event.source
         firstPageCacheStoredAt = event.cacheStoredAt

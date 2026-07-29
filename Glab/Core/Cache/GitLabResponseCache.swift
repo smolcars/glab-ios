@@ -122,7 +122,7 @@ nonisolated struct GitLabResponseCachePolicy:
     }
 }
 
-extension GitLabResponseCachePolicy {
+nonisolated extension GitLabResponseCachePolicy {
     static let home = Self(
         freshFor: 60,
         maximumAge: 24 * 60 * 60
@@ -165,6 +165,16 @@ extension GitLabResponseCachePolicy {
 
     static let mergeRequestDiffs = Self(
         freshFor: 60,
+        maximumAge: 24 * 60 * 60
+    )
+
+    static let pipelineActive = Self(
+        freshFor: 15,
+        maximumAge: 60 * 60
+    )
+
+    static let pipelineCompleted = Self(
+        freshFor: 5 * 60,
         maximumAge: 24 * 60 * 60
     )
 }

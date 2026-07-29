@@ -472,6 +472,45 @@ struct GitLabPaginatedResourceModelTests {
         #expect(await loader.requestCount == 2)
     }
 
+    @Test("Opt-in refresh retains loaded pages after the first page")
+    @MainActor
+    func retainsLoadedTailWhenRefreshingFirstPage()
+        async
+    {
+        let loader =
+            RetainedTailRefreshLoader()
+        let model = GitLabPaginatedResourceModel<
+            Int,
+            Int
+        >(
+            loadPage: {
+                await loader.load($0)
+            },
+            firstPageRefreshMode:
+                .retainLoadedTail,
+            identity: { $0 },
+            searchValues: { ["\($0)"] }
+        )
+
+        await model.loadIfNeeded()
+        await model.loadNextPageIfNeeded(
+            after: 2
+        )
+
+        let retainedFrontier =
+            model.nextPageURL
+        await model.refresh()
+
+        #expect(model.items == [5, 1, 3, 4])
+        #expect(
+            model.nextPageURL
+                == retainedFrontier
+        )
+        #expect(model.totalItemCount == 5)
+        #expect(!model.didFailRefresh)
+        #expect(await loader.requestCount == 3)
+    }
+
     @Test("Cancellation keeps already loaded pages")
     @MainActor
     func cancelsLoadAll() async {
@@ -729,6 +768,47 @@ private actor RepeatingNextPageLoader {
             items: [pageURL == nil ? 1 : 2],
             nextPageURL: repeatedURL,
             totalCount: 3
+        )
+    }
+}
+
+private actor RetainedTailRefreshLoader {
+    private(set) var requestCount = 0
+    private var firstPageRequestCount = 0
+    private let pageTwoURL = URL(
+        string:
+            "https://gitlab.example.com/items?page=2"
+    )
+    private let pageThreeURL = URL(
+        string:
+            "https://gitlab.example.com/items?page=3"
+    )
+
+    func load(
+        _ pageURL: URL?
+    ) -> GitLabResourcePage<Int> {
+        requestCount += 1
+
+        if pageURL == nil {
+            firstPageRequestCount += 1
+            if firstPageRequestCount == 1 {
+                return GitLabResourcePage(
+                    items: [1, 2],
+                    nextPageURL: pageTwoURL,
+                    totalCount: 4
+                )
+            }
+            return GitLabResourcePage(
+                items: [5, 1],
+                nextPageURL: pageTwoURL,
+                totalCount: 5
+            )
+        }
+
+        return GitLabResourcePage(
+            items: [3, 4],
+            nextPageURL: pageThreeURL,
+            totalCount: 4
         )
     }
 }
