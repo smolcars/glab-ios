@@ -11,6 +11,18 @@ name: Issue creation renders on first presentation
     id: issueCreation.project
 - assertVisible:
     id: issueCreation.title
+- waitForAnimationToEnd
 - takeScreenshot: issue-creation-first-open
+- tapOn:
+    id: issueCreation.cancel
+- assertVisible:
+    id: home.newIssueButton
+- tapOn:
+    id: home.newIssueButton
+- assertVisible: New Issue
+- assertVisible:
+    id: issueCreation.project
+- assertVisible:
+    id: issueCreation.title
 - tapOn:
     id: issueCreation.cancel

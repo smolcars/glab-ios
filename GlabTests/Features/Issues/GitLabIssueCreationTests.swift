@@ -330,7 +330,7 @@ struct GitLabIssueCreationMetadataTests {
                     "username": "octocat",
                     "name": "The Octocat",
                     "state": "active",
-                    "avatar_url": null,
+                    "avatar_url": "https://gitlab.example.com/uploads/-/system/user/avatar/7/octocat.png",
                     "web_url": "https://gitlab.example.com/octocat",
                     "access_level": 30
                   }
@@ -342,6 +342,13 @@ struct GitLabIssueCreationMetadataTests {
         #expect(members[0].id == 7)
         #expect(members[0].isActive)
         #expect(members[0].accessLevel == 30)
+        #expect(
+            members[0].avatarURL
+                == URL(
+                    string:
+                        "https://gitlab.example.com/uploads/-/system/user/avatar/7/octocat.png"
+                )
+        )
     }
 
     private var decoder: JSONDecoder {
