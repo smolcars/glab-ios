@@ -32,6 +32,16 @@ nonisolated struct
     let headSHA: String
 }
 
+nonisolated struct
+    GitLabMergeRequestApprovalRuleAdditionConfirmation:
+    Equatable,
+    Sendable
+{
+    let ruleID: Int
+    let ruleName: String
+    let member: GitLabProjectMember
+}
+
 nonisolated enum
     GitLabMergeRequestApprovalManagementFailure:
     Equatable,
@@ -49,6 +59,14 @@ nonisolated enum
     case approvalSyncing
     case permissionDenied
     case gitLabReauthenticationRequired
+    case unsafeRule(
+        GitLabMergeRequestApprovalRuleLockReason
+    )
+    case ruleChanged
+    case memberUnavailable
+    case memberOptions(
+        GitLabSessionClientError
+    )
     case rejected(
         GitLabSessionClientError
     )
@@ -64,6 +82,7 @@ nonisolated enum
     {
         switch self {
         case let .load(error),
+             let .memberOptions(error),
              let .reconciliation(error):
             error.requiresReauthentication
                 ? error
@@ -75,6 +94,9 @@ nonisolated enum
              .approvalSyncing,
              .permissionDenied,
              .gitLabReauthenticationRequired,
+             .unsafeRule,
+             .ruleChanged,
+             .memberUnavailable,
              .rejected,
              .deliveryUnknown,
              .authoritativeMismatch,
@@ -104,6 +126,16 @@ final class
         GitLabMergeRequestApprovalManagementFailure?
     private(set) var confirmation:
         GitLabMergeRequestApprovalConfirmation?
+    private(set) var selectedRule:
+        GitLabMergeRequestApprovalRule?
+    private(set) var availableMembers:
+        [GitLabProjectMember] = []
+    private(set) var ruleAdditionConfirmation:
+        GitLabMergeRequestApprovalRuleAdditionConfirmation?
+    private(set) var memberOptionsError:
+        GitLabSessionClientError?
+    private(set) var isLoadingRule = false
+    private(set) var isLoadingMembers = false
 
     let apiAccess: GitLabAPIAccess
 
@@ -138,6 +170,22 @@ final class
     @ObservationIgnored
     private var pendingMutation:
         PendingMutation?
+    @ObservationIgnored
+    private var selectedRuleBaseline:
+        GitLabMergeRequestApprovalRuleMutationSnapshot?
+    @ObservationIgnored
+    private var pendingRuleMutation:
+        PendingRuleMutation?
+    @ObservationIgnored
+    private var memberNextPageURL: URL?
+    @ObservationIgnored
+    private var memberSearch: String?
+    @ObservationIgnored
+    private var memberGeneration:
+        UInt64 = 0
+    @ObservationIgnored
+    private var ruleGeneration:
+        UInt64 = 0
     @ObservationIgnored
     private var operationGeneration:
         UInt64 = 0
@@ -187,6 +235,12 @@ final class
 
     var hasUnresolvedMutation: Bool {
         pendingMutation != nil
+            || pendingRuleMutation != nil
+    }
+
+    var canLoadMoreMembers: Bool {
+        memberNextPageURL != nil
+            && !isLoadingMembers
     }
 
     var authenticationFailure:
@@ -201,6 +255,245 @@ final class
 
     var canUnapprove: Bool {
         canRequest(.unapprove)
+    }
+
+    func beginAddingApprover(
+        to rule:
+            GitLabMergeRequestApprovalRule
+    ) async {
+        guard
+            phase == .idle,
+            !isLoadingRule,
+            pendingMutation == nil,
+            pendingRuleMutation == nil,
+            confirmation == nil,
+            ruleAdditionConfirmation == nil
+        else {
+            return
+        }
+        failure = nil
+        memberOptionsError = nil
+
+        guard isAccountCurrent() else {
+            failure = .accountChanged
+            return
+        }
+        guard apiAccess.canWrite else {
+            failure = .readOnly
+            return
+        }
+        let presentation =
+            GitLabMergeRequestApprovalRulePresentation(
+                rule: rule
+            )
+        guard
+            case .editable =
+                presentation.editability,
+            let ruleID = rule.id,
+            ruleID > 0
+        else {
+            failure =
+                Self.unsafeRuleFailure(
+                    presentation
+                        .editability
+                )
+            return
+        }
+
+        ruleGeneration &+= 1
+        let generation =
+            ruleGeneration
+        isLoadingRule = true
+        defer {
+            if
+                ruleGeneration
+                    == generation
+            {
+                isLoadingRule = false
+            }
+        }
+
+        let freshRule:
+            GitLabMergeRequestApprovalRule
+        do {
+            freshRule =
+                try await service
+                    .loadApprovalRule(
+                        at: route,
+                        ruleID: ruleID
+                    )
+        } catch {
+            guard canPublishRule(generation) else {
+                return
+            }
+            failure = .load(error)
+            return
+        }
+
+        guard canPublishRule(generation) else {
+            return
+        }
+        guard
+            freshRule.id == ruleID,
+            let baseline =
+                GitLabMergeRequestApprovalRuleMutationSnapshot(
+                    rule: freshRule
+                )
+        else {
+            failure = .ruleChanged
+            return
+        }
+
+        selectedRule = freshRule
+        selectedRuleBaseline = baseline
+        ruleAdditionConfirmation = nil
+        availableMembers = []
+        memberNextPageURL = nil
+        memberSearch = nil
+        await loadMembers(
+            search: nil
+        )
+    }
+
+    func searchMembers(
+        _ search: String
+    ) async {
+        await loadMembers(
+            search:
+                Self.normalizedSearch(
+                    search
+                )
+        )
+    }
+
+    func loadNextMembersPage() async {
+        guard
+            let memberNextPageURL,
+            let baseline =
+                selectedRuleBaseline,
+            !isLoadingMembers,
+            isAccountCurrent()
+        else {
+            return
+        }
+        let generation =
+            memberGeneration
+        let search = memberSearch
+        isLoadingMembers = true
+        defer {
+            if
+                memberGeneration
+                    == generation
+            {
+                isLoadingMembers = false
+            }
+        }
+
+        do {
+            let page =
+                try await service
+                    .loadMembersPage(
+                        projectID:
+                            route.projectID,
+                        search: search,
+                        after:
+                            memberNextPageURL
+                    )
+            guard
+                canPublishMembers(
+                    generation,
+                    baseline: baseline
+                )
+            else {
+                return
+            }
+            availableMembers =
+                Self.mergedMembers(
+                    availableMembers,
+                    candidates(
+                        from: page.items,
+                        baseline: baseline
+                    )
+                )
+            self.memberNextPageURL =
+                page.nextPageURL
+            memberOptionsError = nil
+            if case .memberOptions =
+                failure
+            {
+                failure = nil
+            }
+        } catch {
+            guard
+                canPublishMembers(
+                    generation,
+                    baseline: baseline
+                )
+            else {
+                return
+            }
+            memberOptionsError = error
+            failure = .memberOptions(error)
+        }
+    }
+
+    func selectApprover(
+        _ member: GitLabProjectMember
+    ) {
+        guard
+            phase == .idle,
+            pendingMutation == nil,
+            pendingRuleMutation == nil,
+            confirmation == nil,
+            let rule = selectedRule,
+            let ruleID = rule.id,
+            let ruleName = rule.name,
+            member.isActive,
+            availableMembers.contains(
+                where: {
+                    $0.id == member.id
+                }
+            )
+        else {
+            return
+        }
+
+        ruleAdditionConfirmation =
+            GitLabMergeRequestApprovalRuleAdditionConfirmation(
+                ruleID: ruleID,
+                ruleName: ruleName,
+                member: member
+            )
+    }
+
+    func cancelRuleAddition() {
+        guard
+            phase == .idle,
+            pendingRuleMutation == nil
+        else {
+            return
+        }
+        ruleAdditionConfirmation = nil
+        selectedRule = nil
+        selectedRuleBaseline = nil
+        availableMembers = []
+        memberNextPageURL = nil
+        memberSearch = nil
+        memberOptionsError = nil
+        isLoadingRule = false
+        isLoadingMembers = false
+        memberGeneration &+= 1
+        ruleGeneration &+= 1
+    }
+
+    func cancelRuleAdditionConfirmation() {
+        guard
+            phase == .idle,
+            pendingRuleMutation == nil
+        else {
+            return
+        }
+        ruleAdditionConfirmation = nil
     }
 
     func requestApprove() {
@@ -219,6 +512,7 @@ final class
         guard
             phase == .idle,
             pendingMutation == nil,
+            pendingRuleMutation == nil,
             let confirmation
         else {
             return
@@ -396,10 +690,182 @@ final class
         )
     }
 
+    func confirmRuleAddition() async {
+        guard
+            phase == .idle,
+            pendingMutation == nil,
+            pendingRuleMutation == nil,
+            confirmation == nil,
+            let confirmation =
+                ruleAdditionConfirmation,
+            let baseline =
+                selectedRuleBaseline,
+            baseline.ruleID
+                == confirmation.ruleID
+        else {
+            return
+        }
+        ruleAdditionConfirmation = nil
+        failure = nil
+
+        guard isAccountCurrent() else {
+            failure = .accountChanged
+            return
+        }
+        guard apiAccess.canWrite else {
+            failure = .readOnly
+            return
+        }
+
+        operationGeneration &+= 1
+        let generation =
+            operationGeneration
+        phase = .preflighting
+        defer {
+            if
+                operationGeneration
+                    == generation
+            {
+                phase = .idle
+            }
+        }
+
+        let freshRule:
+            GitLabMergeRequestApprovalRule
+        do {
+            freshRule =
+                try await service
+                    .loadApprovalRule(
+                        at: route,
+                        ruleID:
+                            confirmation
+                                .ruleID
+                    )
+        } catch {
+            publishReadFailure(
+                error,
+                generation: generation
+            )
+            return
+        }
+
+        guard canPublish(generation) else {
+            return
+        }
+        guard
+            let freshBaseline =
+                GitLabMergeRequestApprovalRuleMutationSnapshot(
+                    rule: freshRule
+                ),
+            baseline.hasSameBaseline(
+                as: freshBaseline
+            )
+        else {
+            selectedRule = freshRule
+            selectedRuleBaseline =
+                GitLabMergeRequestApprovalRuleMutationSnapshot(
+                    rule: freshRule
+                )
+            failure = .ruleChanged
+            return
+        }
+        guard
+            !freshBaseline.userIDs
+                .contains(
+                    confirmation.member.id
+                ),
+            !(freshRule
+                .eligibleApprovers
+                ?? [])
+                .contains(
+                    where: {
+                        $0.id
+                            == confirmation
+                            .member.id
+                    }
+                ),
+            let replacement =
+                freshBaseline
+                .replacement(
+                    adding:
+                        confirmation
+                            .member.id
+                )
+        else {
+            selectedRule = freshRule
+            selectedRuleBaseline =
+                freshBaseline
+            failure =
+                .memberUnavailable
+            return
+        }
+        guard
+            !Task.isCancelled,
+            isAccountCurrent()
+        else {
+            return
+        }
+
+        let pending =
+            PendingRuleMutation(
+                route: route,
+                baseline: freshBaseline,
+                member:
+                    confirmation.member
+            )
+        pendingRuleMutation = pending
+        failure = .deliveryUnknown
+        phase = .mutating
+
+        let response:
+            GitLabMergeRequestApprovalRule
+        do {
+            response =
+                try await service
+                    .updateApprovalRule(
+                        at: route,
+                        ruleID:
+                            freshBaseline
+                                .ruleID,
+                        replacement:
+                            replacement
+                    )
+        } catch {
+            handleRuleMutationFailure(
+                error,
+                generation: generation
+            )
+            return
+        }
+
+        guard canPublish(generation) else {
+            return
+        }
+        guard
+            freshBaseline.result(
+                for: response,
+                adding:
+                    confirmation.member.id
+            ) == .applied
+        else {
+            failure = .deliveryUnknown
+            return
+        }
+
+        phase = .reconciling
+        await reconcilePendingRuleMutation(
+            generation: generation
+        )
+    }
+
     func checkGitLab() async {
         guard
             phase == .idle,
-            pendingMutation != nil,
+            (
+                pendingMutation != nil
+                    || pendingRuleMutation
+                    != nil
+            ),
             isAccountCurrent()
         else {
             return
@@ -418,9 +884,15 @@ final class
             }
         }
 
-        await reconcilePendingMutation(
-            generation: generation
-        )
+        if pendingRuleMutation != nil {
+            await reconcilePendingRuleMutation(
+                generation: generation
+            )
+        } else {
+            await reconcilePendingMutation(
+                generation: generation
+            )
+        }
     }
 }
 
@@ -439,6 +911,17 @@ private extension
         let userID: Int
     }
 
+    nonisolated struct PendingRuleMutation:
+        Equatable,
+        Sendable
+    {
+        let route:
+            GitLabMergeRequestRoute
+        let baseline:
+            GitLabMergeRequestApprovalRuleMutationSnapshot
+        let member: GitLabProjectMember
+    }
+
     func request(
         _ action:
             GitLabMergeRequestApprovalManagementAction
@@ -446,7 +929,11 @@ private extension
         guard
             phase == .idle,
             confirmation == nil,
-            pendingMutation == nil
+            pendingMutation == nil,
+            pendingRuleMutation == nil,
+            selectedRule == nil,
+            ruleAdditionConfirmation
+                == nil
         else {
             return
         }
@@ -510,6 +997,10 @@ private extension
             phase == .idle,
             confirmation == nil,
             pendingMutation == nil,
+            pendingRuleMutation == nil,
+            selectedRule == nil,
+            ruleAdditionConfirmation
+                == nil,
             let mergeRequest =
                 currentMergeRequest(),
             mergeRequest.route == route,
@@ -528,6 +1019,215 @@ private extension
             action,
             summary: summary,
             userID: accountID.userID
+        )
+    }
+
+    func loadMembers(
+        search: String?
+    ) async {
+        guard
+            let baseline =
+                selectedRuleBaseline,
+            isAccountCurrent()
+        else {
+            return
+        }
+
+        memberGeneration &+= 1
+        let generation =
+            memberGeneration
+        memberSearch = search
+        memberNextPageURL = nil
+        availableMembers = []
+        isLoadingMembers = true
+        defer {
+            if
+                memberGeneration
+                    == generation
+            {
+                isLoadingMembers = false
+            }
+        }
+
+        do {
+            let page =
+                try await service
+                    .loadMembersPage(
+                        projectID:
+                            route.projectID,
+                        search: search,
+                        after: nil
+                    )
+            guard
+                canPublishMembers(
+                    generation,
+                    baseline: baseline
+                )
+            else {
+                return
+            }
+            availableMembers =
+                candidates(
+                    from: page.items,
+                    baseline: baseline
+                )
+            memberNextPageURL =
+                page.nextPageURL
+            memberOptionsError = nil
+            if case .memberOptions =
+                failure
+            {
+                failure = nil
+            }
+        } catch {
+            guard
+                canPublishMembers(
+                    generation,
+                    baseline: baseline
+                )
+            else {
+                return
+            }
+            memberOptionsError = error
+            failure = .memberOptions(error)
+        }
+    }
+
+    func candidates(
+        from members:
+            [GitLabProjectMember],
+        baseline:
+            GitLabMergeRequestApprovalRuleMutationSnapshot
+    ) -> [GitLabProjectMember] {
+        let eligibleIDs =
+            Set(
+                (
+                    selectedRule?
+                        .eligibleApprovers
+                        ?? []
+                ).map(\.id)
+            )
+        var seen: Set<Int> = []
+        return members.filter {
+            $0.id > 0
+                && $0.isActive
+                && !baseline.userIDs
+                    .contains($0.id)
+                && !eligibleIDs
+                    .contains($0.id)
+                && seen.insert($0.id)
+                    .inserted
+        }
+    }
+
+    func reconcilePendingRuleMutation(
+        generation: UInt64
+    ) async {
+        guard
+            let pending =
+                pendingRuleMutation
+        else {
+            return
+        }
+        guard
+            !Task.isCancelled,
+            isAccountCurrent()
+        else {
+            return
+        }
+
+        let rule:
+            GitLabMergeRequestApprovalRule
+        do {
+            rule =
+                try await service
+                    .loadApprovalRule(
+                        at: pending.route,
+                        ruleID:
+                            pending.baseline
+                                .ruleID
+                    )
+        } catch {
+            publishReconciliationFailure(
+                error,
+                generation: generation
+            )
+            return
+        }
+
+        guard canPublish(generation) else {
+            return
+        }
+        selectedRule = rule
+        selectedRuleBaseline =
+            GitLabMergeRequestApprovalRuleMutationSnapshot(
+                rule: rule
+            )
+
+        switch pending.baseline.result(
+            for: rule,
+            adding: pending.member.id
+        ) {
+        case .applied:
+            pendingRuleMutation = nil
+            availableMembers.removeAll {
+                $0.id == pending.member.id
+            }
+            failure = nil
+            await refreshApprovalOwners(
+                generation: generation
+            )
+        case .unapplied:
+            pendingRuleMutation = nil
+            failure = .notApplied
+        case .stale:
+            pendingRuleMutation = nil
+            failure = .ruleChanged
+        }
+    }
+
+    func refreshApprovalOwners(
+        generation: UInt64
+    ) async {
+        let mergeRequest:
+            GitLabMergeRequest
+        let summary:
+            GitLabMergeRequestApprovalSummary
+        do {
+            mergeRequest =
+                try await service
+                    .loadLatestMergeRequest(
+                        at: route
+                    )
+            summary =
+                try await service
+                    .loadApprovalSummary(
+                        at: route
+                    )
+        } catch {
+            guard canPublish(generation) else {
+                return
+            }
+            failure =
+                .reconciliation(error)
+            return
+        }
+
+        guard
+            canPublish(generation),
+            mergeRequest.route == route
+        else {
+            if canPublish(generation) {
+                failure =
+                    .authoritativeMismatch
+            }
+            return
+        }
+        onMergeRequestReconciled(
+            mergeRequest
+        )
+        onApprovalSummaryReconciled(
+            summary
         )
     }
 
@@ -697,12 +1397,119 @@ private extension
         }
     }
 
+    func handleRuleMutationFailure(
+        _ error:
+            GitLabSessionClientError,
+        generation: UInt64
+    ) {
+        guard
+            operationGeneration
+                == generation
+        else {
+            return
+        }
+        guard
+            !Task.isCancelled,
+            isAccountCurrent()
+        else {
+            return
+        }
+
+        switch error {
+        case .api(
+            .validation(
+                statusCode: 409
+            )
+        ):
+            pendingRuleMutation = nil
+            failure = .ruleChanged
+        case .api(.forbidden):
+            pendingRuleMutation = nil
+            failure = .permissionDenied
+        case .api(.unauthenticated):
+            pendingRuleMutation = nil
+            failure =
+                .gitLabReauthenticationRequired
+        default:
+            if
+                error.mutationDeliveryCertainty
+                    == .deliveryUnknown
+            {
+                failure = .deliveryUnknown
+            } else {
+                pendingRuleMutation = nil
+                failure = .rejected(error)
+            }
+        }
+    }
+
     func canPublish(
         _ generation: UInt64
     ) -> Bool {
         operationGeneration == generation
             && !Task.isCancelled
             && isAccountCurrent()
+    }
+
+    func canPublishRule(
+        _ generation: UInt64
+    ) -> Bool {
+        ruleGeneration == generation
+            && !Task.isCancelled
+            && isAccountCurrent()
+    }
+
+    func canPublishMembers(
+        _ generation: UInt64,
+        baseline:
+            GitLabMergeRequestApprovalRuleMutationSnapshot
+    ) -> Bool {
+        memberGeneration == generation
+            && selectedRuleBaseline
+                == baseline
+            && !Task.isCancelled
+            && isAccountCurrent()
+    }
+
+    nonisolated static func
+        unsafeRuleFailure(
+            _ editability:
+                GitLabMergeRequestApprovalRuleEditability
+        ) -> GitLabMergeRequestApprovalManagementFailure
+    {
+        switch editability {
+        case .editable:
+            .ruleChanged
+        case let .locked(reason):
+            .unsafeRule(reason)
+        }
+    }
+
+    nonisolated static func mergedMembers(
+        _ existing:
+            [GitLabProjectMember],
+        _ added:
+            [GitLabProjectMember]
+    ) -> [GitLabProjectMember] {
+        var seen =
+            Set(existing.map(\.id))
+        return existing
+            + added.filter {
+                seen.insert($0.id)
+                    .inserted
+            }
+    }
+
+    nonisolated static func normalizedSearch(
+        _ search: String
+    ) -> String? {
+        let normalized =
+            search.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        return normalized.isEmpty
+            ? nil
+            : normalized
     }
 
     nonisolated static func

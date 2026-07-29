@@ -431,3 +431,163 @@ nonisolated struct
             "remove_hidden_groups"
     }
 }
+
+nonisolated enum
+    GitLabMergeRequestApprovalRuleMutationResult:
+    Equatable,
+    Sendable
+{
+    case applied
+    case unapplied
+    case stale
+}
+
+nonisolated struct
+    GitLabMergeRequestApprovalRuleMutationSnapshot:
+    Equatable,
+    Sendable
+{
+    let ruleID: Int
+    let name: String
+    let approvalsRequired: Int
+    let userIDs: [Int]
+    let groupIDs: [Int]
+
+    init?(
+        rule:
+            GitLabMergeRequestApprovalRule
+    ) {
+        guard
+            let ruleID = rule.id,
+            ruleID > 0,
+            rule.ruleType?
+                .trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+                .lowercased()
+                == "regular",
+            let name = rule.name,
+            !name.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            ).isEmpty,
+            let approvalsRequired =
+                rule.approvalsRequired,
+            approvalsRequired >= 0,
+            let users = rule.users,
+            users.allSatisfy({
+                $0.id > 0
+            }),
+            let groups = rule.groups,
+            groups.allSatisfy({
+                $0.id > 0
+            }),
+            rule.containsHiddenGroups
+                == false
+        else {
+            return nil
+        }
+
+        self.ruleID = ruleID
+        self.name = name
+        self.approvalsRequired =
+            approvalsRequired
+        userIDs = Self.unique(
+            users.map(\.id)
+        )
+        groupIDs = Self.unique(
+            groups.map(\.id)
+        )
+    }
+
+    func replacement(
+        adding userID: Int
+    ) -> GitLabMergeRequestApprovalRuleReplacement?
+    {
+        guard
+            userID > 0,
+            !userIDs.contains(userID)
+        else {
+            return nil
+        }
+        return GitLabMergeRequestApprovalRuleReplacement(
+            name: name,
+            approvalsRequired:
+                approvalsRequired,
+            userIDs:
+                userIDs + [userID],
+            groupIDs: groupIDs
+        )
+    }
+
+    func hasSameBaseline(
+        as other: Self
+    ) -> Bool {
+        ruleID == other.ruleID
+            && name == other.name
+            && approvalsRequired
+                == other
+                .approvalsRequired
+            && Set(userIDs)
+                == Set(other.userIDs)
+            && Set(groupIDs)
+                == Set(other.groupIDs)
+    }
+
+    func result(
+        for rule:
+            GitLabMergeRequestApprovalRule,
+        adding userID: Int
+    ) -> GitLabMergeRequestApprovalRuleMutationResult {
+        guard
+            let current = Self(
+                rule: rule
+            ),
+            current.ruleID == ruleID,
+            current.name == name,
+            current.approvalsRequired
+                == approvalsRequired
+        else {
+            return .stale
+        }
+
+        let baselineUsers =
+            Set(userIDs)
+        let currentUsers =
+            Set(current.userIDs)
+        let baselineGroups =
+            Set(groupIDs)
+        let currentGroups =
+            Set(current.groupIDs)
+
+        if
+            currentUsers
+                .isSuperset(
+                    of: baselineUsers
+                ),
+            currentGroups
+                .isSuperset(
+                    of: baselineGroups
+                ),
+            currentUsers.contains(userID)
+        {
+            return .applied
+        }
+        if
+            currentUsers == baselineUsers,
+            currentGroups == baselineGroups,
+            !currentUsers.contains(userID)
+        {
+            return .unapplied
+        }
+        return .stale
+    }
+
+    private static func unique(
+        _ values: [Int]
+    ) -> [Int] {
+        var seen: Set<Int> = []
+        return values.filter {
+            seen.insert($0).inserted
+        }
+    }
+}

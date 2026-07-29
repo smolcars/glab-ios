@@ -8,6 +8,8 @@
 - Models and endpoints: complete
 - Live approval service: complete
 - Approve/unapprove state machine: complete
+- Rule-add state machine: complete
+- Rule-add slice review: complete
 - Test implementation: in progress
 - Production implementation: in progress
 - Simulator verification: not started
@@ -670,7 +672,34 @@ Use deterministic UI fixtures in the iPhone 17 Pro Simulator for:
 
 ## Deep-review record
 
-Not started. After implementation, review every P3-08 change for:
+The final whole-feature review has not started. The completed rule-add
+state-machine slice received an incremental review on July 29, 2026:
+
+1. Finding: canceling the add-approver picker while an exact-rule or member
+   request was in flight advanced the response generation but could leave
+   `isLoadingRule` or `isLoadingMembers` stuck because the superseded task
+   correctly refused to publish.
+   - Repair plan: synchronously clear both loading flags when canceling,
+     preserve the generation invalidation, and add a continuation-gated
+     regression test proving the late response publishes no state.
+   - Status: fixed and verified by
+     `cancelsInFlightPickerLoading`.
+2. Finding: a successful retry of member loading cleared the inline error
+   value but retained the equivalent feature failure, so recovered UI could
+   continue presenting an obsolete error.
+   - Repair plan: clear only the matching member-options failure after a
+     successful first or next page, and leave unrelated failures intact.
+   - Status: fixed and covered by the focused rule-management suite.
+3. Finding: approval confirmation and rule-add selection could be represented
+   at the same time through direct model calls, creating unnecessary
+   overlapping UI state.
+   - Repair plan: make both flows mutually exclusive at their model entry
+     points and provide a confirmation-only cancel operation that preserves
+     the member picker.
+   - Status: fixed and verified by
+     `cancelsOnlyRuleConfirmation` plus the existing rapid-action tests.
+
+The final review will inspect every P3-08 change for:
 
 - duplicated basic approval/readiness state;
 - incorrect Community versus Enterprise semantics;
