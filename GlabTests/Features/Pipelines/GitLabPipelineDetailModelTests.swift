@@ -312,20 +312,23 @@ struct GitLabPipelineDetailModelTests {
                     )
                 ),
                 .success(
-                    jobEvent([
-                        try job(
-                            id: 4,
-                            name: "lint",
-                            stage: "test",
-                            status: "success"
-                        ),
-                        try job(
-                            id: 2,
-                            name: "build",
-                            stage: "build",
-                            status: "success"
-                        ),
-                    ])
+                    jobEvent(
+                        [
+                            try job(
+                                id: 4,
+                                name: "lint",
+                                stage: "test",
+                                status: "success"
+                            ),
+                            try job(
+                                id: 2,
+                                name: "build",
+                                stage: "build",
+                                status: "success"
+                            ),
+                        ],
+                        nextPageURL: nextPageURL
+                    )
                 ),
             ],
             jobNextPageResults: [
@@ -375,7 +378,7 @@ struct GitLabPipelineDetailModelTests {
 
         #expect(
             context.model.jobs.items.map(\.id)
-                == [4, 2, 1]
+                == [4, 2, 3, 1]
         )
         #expect(
             context.model.stages.map(\.name)

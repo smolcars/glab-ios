@@ -43,7 +43,8 @@ struct GitLabMergeRequestPipelinesModelTests {
                                 id: 2,
                                 status: "success"
                             ),
-                        ]
+                        ],
+                        nextPageURL: nextPageURL
                     )
                 ),
             ],
@@ -72,7 +73,7 @@ struct GitLabMergeRequestPipelinesModelTests {
 
         #expect(
             context.model.pipelines.items.map(\.id)
-                == [4, 2, 1]
+                == [4, 2, 3, 1]
         )
         #expect(
             await loader.recordedRefreshBehaviors()
