@@ -173,6 +173,86 @@ nonisolated enum
 }
 
 nonisolated enum
+    GitLabMergeRequestApprovalSummaryStatus:
+    Equatable,
+    Sendable
+{
+    case notRequired
+    case complete
+    case remaining(Int)
+    case recorded(Int)
+    case none
+}
+
+nonisolated struct
+    GitLabMergeRequestApprovalSummaryPresentation:
+    Equatable,
+    Sendable
+{
+    let approvals:
+        [GitLabMergeRequestApproval]
+    let currentUserHasApproved: Bool
+    let status:
+        GitLabMergeRequestApprovalSummaryStatus
+
+    init(
+        summary:
+            GitLabMergeRequestApprovalSummary,
+        currentUserID: Int
+    ) {
+        var seen: Set<Int> = []
+        approvals =
+            summary.approvedBy.filter {
+                guard
+                    let user = $0.user,
+                    user.id > 0
+                else {
+                    return false
+                }
+                return seen.insert(user.id)
+                    .inserted
+            }
+        currentUserHasApproved =
+            currentUserID > 0
+            && approvals.contains {
+                $0.user?.id
+                    == currentUserID
+            }
+
+        if summary.approvalsRequired == 0 {
+            status = .notRequired
+        } else if
+            let remaining =
+                summary.approvalsLeft,
+            remaining > 0
+        {
+            status = .remaining(
+                remaining
+            )
+        } else if
+            summary.approved == true
+                || (
+                    summary.approvalsLeft
+                        == 0
+                        && (
+                            summary
+                                .approvalsRequired
+                                ?? 0
+                        ) > 0
+                )
+        {
+            status = .complete
+        } else if !approvals.isEmpty {
+            status = .recorded(
+                approvals.count
+            )
+        } else {
+            status = .none
+        }
+    }
+}
+
+nonisolated enum
     GitLabMergeRequestApprovalRuleState:
     Equatable,
     Sendable

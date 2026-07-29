@@ -20,6 +20,8 @@ struct HomeView: View {
             & GitLabMergeRequestApprovalLoading
             & GitLabMergeRequestDiffLoading
             & GitLabMergeRequestDiffSummaryLoading
+    let mergeRequestApprovalService:
+        any GitLabMergeRequestApprovalServing
     let discussionLoader:
         any GitLabDiscussionLoading
     let discussionMutator:
@@ -297,6 +299,8 @@ struct HomeView: View {
             GitLabMergeRequestDetailView(
                 route: mergeRequestRoute,
                 loader: mergeRequestLoader,
+                approvalService:
+                    mergeRequestApprovalService,
                 discussionLoader:
                     discussionLoader,
                 discussionMutator:
@@ -370,6 +374,8 @@ struct HomeView: View {
                 model:
                     assignedMergeRequestsModel,
                 loader: mergeRequestLoader,
+                approvalService:
+                    mergeRequestApprovalService,
                 discussionLoader: discussionLoader,
                 discussionMutator:
                     discussionMutator,
@@ -388,6 +394,8 @@ struct HomeView: View {
                 model:
                     reviewRequestsModel,
                 loader: mergeRequestLoader,
+                approvalService:
+                    mergeRequestApprovalService,
                 discussionLoader: discussionLoader,
                 discussionMutator:
                     discussionMutator,

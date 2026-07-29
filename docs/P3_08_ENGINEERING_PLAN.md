@@ -11,9 +11,10 @@
 - Rule-add state machine: complete
 - Rule-add slice review: complete
 - Detailed approval-state ownership: complete
+- Compact approval UI and member picker: complete
 - Test implementation: in progress
-- Production implementation: in progress
-- Simulator verification: not started
+- Production implementation: complete
+- Simulator verification: in progress
 - Deep review: not started
 
 Research date: July 29, 2026.
@@ -699,6 +700,16 @@ state-machine slice received an incremental review on July 29, 2026:
      the member picker.
    - Status: fixed and verified by
      `cancelsOnlyRuleConfirmation` plus the existing rapid-action tests.
+
+The compact UI slice was inspected and tapped on the iPhone 17 Pro Simulator
+in dark and light appearances at default and accessibility-extra-large Dynamic
+Type. The collapsed summary, expanded premium rules, approval confirmation,
+locked code-owner rule, member picker, fallback avatars, and member search all
+remained reachable without overlap. The accessibility-size run required the UI
+test to scroll to offscreen actions, as expected for content that reflows
+vertically. The remaining deterministic state variants and final VoiceOver
+audit are part of the in-progress simulator verification rather than treated
+as complete.
 
 The final review will inspect every P3-08 change for:
 

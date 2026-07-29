@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 @main
@@ -19,10 +20,7 @@ struct GlabApp: App {
 
     var body: some Scene {
         WindowGroup {
-            AppRootView(
-                incomingLinkModel:
-                    incomingLinkModel
-            )
+            rootContent
                 .environment(appSession)
                 .task {
                     await appSession.restore()
@@ -39,4 +37,42 @@ struct GlabApp: App {
                 }
         }
     }
+
+    @ViewBuilder
+    private var rootContent: some View {
+        #if DEBUG
+            if
+                usesP308ApprovalFixture
+            {
+                GitLabMergeRequestApprovalFixtureView()
+            } else {
+                AppRootView(
+                    incomingLinkModel:
+                        incomingLinkModel
+                )
+            }
+        #else
+            AppRootView(
+                incomingLinkModel:
+                    incomingLinkModel
+            )
+        #endif
+    }
+
+    #if DEBUG
+        private var
+            usesP308ApprovalFixture:
+            Bool
+        {
+            let arguments =
+                ProcessInfo.processInfo
+                    .arguments
+            return arguments.contains(
+                "p3_08_approval_fixture"
+            )
+                || arguments.contains(
+                    "-p3_08_approval_fixture"
+                )
+        }
+    #endif
 }

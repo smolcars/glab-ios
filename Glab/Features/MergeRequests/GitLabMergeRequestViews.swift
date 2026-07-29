@@ -8,6 +8,8 @@ struct MergeRequestsView: View {
             & GitLabMergeRequestApprovalLoading
             & GitLabMergeRequestDiffLoading
             & GitLabMergeRequestDiffSummaryLoading
+    let approvalService:
+        any GitLabMergeRequestApprovalServing
     let discussionLoader:
         any GitLabDiscussionLoading
     let discussionMutator:
@@ -30,6 +32,8 @@ struct MergeRequestsView: View {
                 & GitLabMergeRequestApprovalLoading
                 & GitLabMergeRequestDiffLoading
                 & GitLabMergeRequestDiffSummaryLoading,
+        approvalService:
+            any GitLabMergeRequestApprovalServing,
         discussionLoader:
             any GitLabDiscussionLoading,
         discussionMutator:
@@ -49,6 +53,8 @@ struct MergeRequestsView: View {
         self.mode = mode
         self.model = model
         self.loader = loader
+        self.approvalService =
+            approvalService
         self.discussionLoader =
             discussionLoader
         self.discussionMutator =
@@ -85,6 +91,8 @@ struct MergeRequestsView: View {
                 GitLabMergeRequestDetailView(
                     route: $0,
                     loader: loader,
+                    approvalService:
+                        approvalService,
                     discussionLoader:
                         discussionLoader,
                     discussionMutator:
@@ -606,6 +614,9 @@ struct GitLabMergeRequestDetailView: View {
         GitLabMergeRequestDetailModel
     @State private var approvalModel:
         GitLabMergeRequestApprovalModel
+    @State private var
+        approvalManagementModel:
+        GitLabMergeRequestApprovalManagementModel
     @State private var discussionModel:
         GitLabDiscussionsModel
     @State private var composerTarget:
@@ -637,6 +648,8 @@ struct GitLabMergeRequestDetailView: View {
                 & GitLabMergeRequestApprovalLoading
                 & GitLabMergeRequestDiffLoading
                 & GitLabMergeRequestDiffSummaryLoading,
+        approvalService:
+            any GitLabMergeRequestApprovalServing,
         discussionLoader:
             any GitLabDiscussionLoading,
         discussionMutator:
@@ -723,11 +736,67 @@ struct GitLabMergeRequestDetailView: View {
                     }
                 )
         )
+        let approvalModel =
+            GitLabMergeRequestApprovalModel(
+                route: route,
+                loader: loader
+            )
         _approvalModel = State(
+            initialValue: approvalModel
+        )
+        _approvalManagementModel = State(
             initialValue:
-                GitLabMergeRequestApprovalModel(
+                GitLabMergeRequestApprovalManagementModel(
                     route: route,
-                    loader: loader
+                    accountID: accountID,
+                    apiAccess: apiAccess,
+                    service:
+                        approvalService,
+                    currentMergeRequest: {
+                        guard
+                            case let .loaded(
+                                mergeRequest
+                            ) =
+                                detailModel.state
+                        else {
+                            return nil
+                        }
+                        return mergeRequest
+                    },
+                    currentApprovalSummary: {
+                        guard
+                            case let .loaded(
+                                availability
+                            ) =
+                                approvalModel.state,
+                            case let .available(
+                                summary
+                            ) =
+                                availability
+                        else {
+                            return nil
+                        }
+                        return summary
+                    },
+                    isAccountCurrent: {
+                        appSession
+                            .activeAccountID
+                            == accountID
+                    },
+                    onMergeRequestReconciled: {
+                        _ =
+                            detailModel
+                            .reconcileAuthoritative(
+                                $0
+                            )
+                    },
+                    onApprovalSummaryReconciled: {
+                        _ =
+                            approvalModel
+                            .reconcileAuthoritative(
+                                .available($0)
+                            )
+                    }
                 )
         )
         _discussionModel = State(
@@ -994,6 +1063,8 @@ struct GitLabMergeRequestDetailView: View {
                                 .retry()
                         }
                     },
+                    approvalManagementModel:
+                        approvalManagementModel,
                     discussionModel:
                         discussionModel,
                     resolutionModel:
@@ -1036,6 +1107,8 @@ struct GitLabMergeRequestDetailView: View {
     {
         model.authenticationFailure
             ?? approvalModel
+                .authenticationFailure
+            ?? approvalManagementModel
                 .authenticationFailure
             ?? discussionModel.authenticationFailure
             ?? resolutionModel
@@ -1347,11 +1420,15 @@ struct GitLabMergeRequestDetailView: View {
             model.loadIfNeeded()
         async let approval: Void =
             approvalModel.loadIfNeeded()
+        async let approvalDetails: Void =
+            approvalManagementModel
+            .loadDetailsIfNeeded()
         async let discussion: Void =
             discussionModel.loadIfNeeded()
         _ = await (
             detail,
             approval,
+            approvalDetails,
             discussion
         )
     }
@@ -1360,11 +1437,15 @@ struct GitLabMergeRequestDetailView: View {
         async let detail: Void = model.retry()
         async let approval: Void =
             approvalModel.retry()
+        async let approvalDetails: Void =
+            approvalManagementModel
+            .refreshDetails()
         async let discussion: Void =
             discussionModel.refresh()
         _ = await (
             detail,
             approval,
+            approvalDetails,
             discussion
         )
     }
@@ -1381,6 +1462,8 @@ private struct GitLabMergeRequestDetailContent: View {
     let hasReadinessRefreshFailure:
         Bool
     let retryApproval: () -> Void
+    let approvalManagementModel:
+        GitLabMergeRequestApprovalManagementModel
     let discussionModel: GitLabDiscussionsModel
     let resolutionModel:
         GitLabDiscussionResolutionModel
@@ -1427,6 +1510,14 @@ private struct GitLabMergeRequestDetailContent: View {
                         approvalError,
                     retryApproval:
                         retryApproval
+                )
+
+                GitLabMergeRequestApprovalManagementView(
+                    approvalState:
+                        approvalState,
+                    model:
+                        approvalManagementModel,
+                    accountID: accountID
                 )
 
                 GitLabEmojiReactionView(

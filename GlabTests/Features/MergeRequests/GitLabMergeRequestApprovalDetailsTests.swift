@@ -163,6 +163,116 @@ struct GitLabMergeRequestApprovalDetailsTests {
         )
     }
 
+    @Test("Presents global approvals once and preserves response order")
+    func presentsGlobalApprovals() {
+        let summary =
+            GitLabMergeRequestApprovalSummary(
+                approved: false,
+                approvalsRequired: 2,
+                approvalsLeft: 1,
+                approvedBy: [
+                    GitLabMergeRequestApproval(
+                        user: makeUser(7)
+                    ),
+                    GitLabMergeRequestApproval(
+                        user: nil
+                    ),
+                    GitLabMergeRequestApproval(
+                        user: makeUser(7)
+                    ),
+                    GitLabMergeRequestApproval(
+                        user: makeUser(8)
+                    ),
+                ]
+            )
+
+        let presentation =
+            GitLabMergeRequestApprovalSummaryPresentation(
+                summary: summary,
+                currentUserID: 7
+            )
+
+        #expect(
+            presentation.approvals
+                .compactMap(\.user?.id)
+                == [7, 8]
+        )
+        #expect(
+            presentation.currentUserHasApproved
+        )
+        #expect(
+            presentation.status
+                == .remaining(1)
+        )
+    }
+
+    @Test(
+        "Keeps concise global approval status semantic",
+        arguments: [
+            (
+                true as Bool?,
+                Optional(0),
+                Optional(0),
+                0,
+                GitLabMergeRequestApprovalSummaryStatus
+                    .notRequired
+            ),
+            (
+                true as Bool?,
+                Optional(2),
+                Optional(0),
+                2,
+                .complete
+            ),
+            (
+                false as Bool?,
+                Optional(2),
+                nil as Int?,
+                1,
+                .recorded(1)
+            ),
+            (
+                nil as Bool?,
+                nil as Int?,
+                nil as Int?,
+                0,
+                .none
+            ),
+        ]
+    )
+    func presentsGlobalStatus(
+        approved: Bool?,
+        required: Int?,
+        left: Int?,
+        approvalCount: Int,
+        expected:
+            GitLabMergeRequestApprovalSummaryStatus
+    ) {
+        let summary =
+            GitLabMergeRequestApprovalSummary(
+                approved: approved,
+                approvalsRequired: required,
+                approvalsLeft: left,
+                approvedBy:
+                    (0..<approvalCount)
+                    .map {
+                        GitLabMergeRequestApproval(
+                            user:
+                                makeUser(
+                                    $0 + 1
+                                )
+                        )
+                    }
+            )
+
+        #expect(
+            GitLabMergeRequestApprovalSummaryPresentation(
+                summary: summary,
+                currentUserID: 99
+            ).status == expected
+        )
+    }
+
     @Test(
         "Uses authoritative rule state before inconsistent counts",
         arguments: [

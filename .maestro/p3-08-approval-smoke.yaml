@@ -1,0 +1,36 @@
+appId: com.glab.ios
+name: P3-08 compact approval management
+---
+- launchApp:
+    arguments:
+      p3_08_approval_fixture: "true"
+- assertVisible: Approval UI fixture
+- assertVisible:
+    id: mergeRequests.approvals.summary
+- takeScreenshot: p3-08-approvals-collapsed
+- tapOn:
+    id: mergeRequests.approvals.summary
+- assertVisible: Security review
+- assertVisible: Ada Lovelace
+- scrollUntilVisible:
+    element:
+      id: mergeRequests.approvals.approve
+    direction: DOWN
+- assertVisible:
+    id: mergeRequests.approvals.approve
+- takeScreenshot: p3-08-approvals-expanded
+- tapOn:
+    id: mergeRequests.approvals.approve
+- assertVisible: Approve merge request?
+- tapOn: Cancel
+- scrollUntilVisible:
+    element:
+      id: mergeRequests.approvals.rule.add
+    direction: UP
+- tapOn:
+    id: mergeRequests.approvals.rule.add
+- assertVisible: Add approver
+- assertVisible: Margaret Hamilton
+- assertVisible: Katherine Johnson
+- takeScreenshot: p3-08-approver-picker
+- tapOn: Cancel

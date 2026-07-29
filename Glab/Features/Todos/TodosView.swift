@@ -8,6 +8,8 @@ struct TodosView: View {
             & GitLabMergeRequestApprovalLoading
             & GitLabMergeRequestDiffLoading
             & GitLabMergeRequestDiffSummaryLoading
+    let mergeRequestApprovalService:
+        any GitLabMergeRequestApprovalServing
     let discussionLoader:
         any GitLabDiscussionLoading
     let discussionMutator:
@@ -409,6 +411,8 @@ struct TodosView: View {
             GitLabMergeRequestDetailView(
                 route: mergeRequestRoute,
                 loader: mergeRequestLoader,
+                approvalService:
+                    mergeRequestApprovalService,
                 discussionLoader: discussionLoader,
                 discussionMutator:
                     discussionMutator,
