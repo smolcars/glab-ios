@@ -8,6 +8,8 @@ nonisolated struct LiveGitLabResourceEditService:
         any GitLabSessionRequestSending
     private let paginatedClient:
         (any GitLabPaginatedSessionRequestSending)?
+    private let readInvalidator:
+        GitLabResourceReadInvalidator
 
     init(
         client: any GitLabSessionRequestSending
@@ -16,6 +18,10 @@ nonisolated struct LiveGitLabResourceEditService:
         paginatedClient =
             client as?
                 any GitLabPaginatedSessionRequestSending
+        readInvalidator =
+            GitLabResourceReadInvalidator(
+                client: client
+            )
     }
 
     @concurrent
@@ -194,11 +200,13 @@ nonisolated struct LiveGitLabResourceEditService:
     ) async {
         switch target {
         case let .issue(route):
-            await invalidateIssueReads(
+            await readInvalidator
+                .invalidateIssueReads(
                 route: route
             )
         case let .mergeRequest(route):
-            await invalidateMergeRequestReads(
+            await readInvalidator
+                .invalidateMergeRequestReads(
                 route: route
             )
         }
@@ -214,69 +222,6 @@ nonisolated struct LiveGitLabResourceEditService:
                     projectID: projectID
                 )
         )
-    }
-
-    private func invalidateIssueReads(
-        route: GitLabIssueRoute
-    ) async {
-        await client.invalidateCachedResponse(
-            GitLabIssueEndpoints.issue(
-                at: route
-            )
-        )
-        await client.invalidateCachedResponse(
-            GitLabIssueEndpoints.assignedIssues
-        )
-        await client.invalidateCachedResponse(
-            HomeDashboardEndpoints
-                .assignedIssues
-        )
-        await invalidateTodoReads()
-    }
-
-    private func invalidateMergeRequestReads(
-        route: GitLabMergeRequestRoute
-    ) async {
-        await client.invalidateCachedResponse(
-            GitLabMergeRequestEndpoints
-                .mergeRequest(at: route)
-        )
-        await client.invalidateCachedResponse(
-            GitLabMergeRequestEndpoints
-                .mergeRequests(for: .assigned)
-        )
-        await client.invalidateCachedResponse(
-            GitLabMergeRequestEndpoints
-                .mergeRequests(
-                    for: .reviewRequested
-                )
-        )
-        await client.invalidateCachedResponse(
-            HomeDashboardEndpoints
-                .assignedMergeRequests
-        )
-        await client.invalidateCachedResponse(
-            HomeDashboardEndpoints
-                .reviewRequests
-        )
-        await invalidateTodoReads()
-    }
-
-    private func invalidateTodoReads() async {
-        for state in GitLabTodoState.allCases {
-            for targetFilter
-                in GitLabTodoTargetFilter.allCases
-            {
-                await client
-                    .invalidateCachedResponse(
-                        GitLabTodoEndpoints.todos(
-                            state: state,
-                            targetFilter:
-                                targetFilter
-                        )
-                    )
-            }
-        }
     }
 
     private func loadMetadataPage<Item>(
