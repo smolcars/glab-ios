@@ -14,8 +14,8 @@
 - Compact approval UI and member picker: complete
 - Test implementation: complete
 - Production implementation: complete
-- Simulator verification: in progress
-- Deep review: not started
+- Simulator verification: complete
+- Deep review: complete
 
 Research date: July 29, 2026.
 
@@ -655,27 +655,27 @@ Use deterministic UI fixtures in the iPhone 17 Pro Simulator for:
 
 ## Safety checklist
 
-- [ ] No P3-08 production code before this plan is committed and pushed.
-- [ ] No live approve, unapprove, rule update, or human notification.
-- [ ] Every write requires `.canWrite` and the same active account.
-- [ ] Approve always sends the exact fresh head SHA.
-- [ ] No automatic write retry.
-- [ ] Delivery-unknown state requires explicit reconciliation.
-- [ ] No optimistic approval or rule membership.
-- [ ] Only an exact fresh `regular` rule with explicitly visible membership is
+- [x] No P3-08 production code before this plan is committed and pushed.
+- [x] No live approve, unapprove, rule update, or human notification.
+- [x] Every write requires `.canWrite` and the same active account.
+- [x] Approve always sends the exact fresh head SHA.
+- [x] No automatic write retry.
+- [x] Delivery-unknown state requires explicit reconciliation.
+- [x] No optimistic approval or rule membership.
+- [x] Only an exact fresh `regular` rule with explicitly visible membership is
   editable.
-- [ ] Hidden, system-generated, incomplete, and unknown rules are locked.
-- [ ] Replacement payload includes every fresh visible direct user and group.
-- [ ] Reviewers and approvers remain separate in API and UI.
-- [ ] Unsupported detailed rules never fail basic approvals or MR detail.
-- [ ] Simulator only; reuse `.deriveddata/Glab`.
-- [ ] Deep review and any repair plan are recorded before P3-08 is marked
+- [x] Hidden, system-generated, incomplete, and unknown rules are locked.
+- [x] Replacement payload includes every fresh visible direct user and group.
+- [x] Reviewers and approvers remain separate in API and UI.
+- [x] Unsupported detailed rules never fail basic approvals or MR detail.
+- [x] Simulator only; reuse `.deriveddata/Glab`.
+- [x] Deep review and any repair plan are recorded before P3-08 is marked
   complete.
 
 ## Deep-review record
 
-The final whole-feature review has not started. The completed rule-add
-state-machine slice received an incremental review on July 29, 2026:
+The final whole-feature review completed on July 29, 2026. The rule-add
+state-machine slice first received an incremental review:
 
 1. Finding: canceling the add-approver picker while an exact-rule or member
    request was in flight advanced the response generation but could leave
@@ -725,18 +725,86 @@ state-machine slice received an incremental review on July 29, 2026:
      confirmation flow.
    - Status: fixed and verified by the deterministic rule-add confirmation
      flow, including the in-picker Check GitLab action.
+6. Finding: `GitLabMergeRequestApproval` relied on synthesized decoding for
+   its optional `user` and `approved_at` fields. A malformed optional user or
+   timestamp therefore failed the entire basic approval summary instead of
+   preserving the other valid approvals, contrary to the defensive basic
+   response contract above.
+   - Repair plan: decode those two optional fields independently and treat
+     malformed optional metadata as absent. Add regression fixtures containing
+     a malformed approval beside a valid approval and a malformed timestamp,
+     proving the remaining summary is retained without inventing data.
+   - Status: fixed and verified by
+     `decodesMalformedOptionalApprovalMetadata`.
+7. Finding: rule presentation treated an omitted `approved_by` array as an
+   authoritative empty array. When GitLab returned `approved == false` but
+   omitted the scoped people list, the UI displayed an exact remaining count
+   even though it could prove only that the rule was pending.
+   - Repair plan: calculate a numeric remaining count only when
+     `approved_by` is present. Preserve authoritative `approved == false` as
+     Pending with an unknown remaining count when the list is absent, and add
+     regression coverage for that partial response.
+   - Status: fixed and verified by `presentsPartialPendingRule`.
+8. Finding: per-rule progress and people de-duplication accepted nonpositive
+   user IDs. A malformed user with ID zero or below could be counted toward a
+   rule, make a derived rule appear satisfied, or render an invalid person
+   row, while the global approval projection already rejected those IDs.
+   - Repair plan: filter nonpositive IDs from rule progress and both approved
+     and eligible people before de-duplication. Add a regression test proving
+     invalid IDs neither satisfy the rule nor appear in its people list.
+   - Status: fixed and verified by `ignoresInvalidRulePeople`.
+9. Finding: every mutation `401` was classified as the
+   approve-specific GitLab reauthentication requirement. That behavior is
+   intentional only for the approve endpoint, whose official contract
+   supports project approval reauthentication. A `401` from unapprove or an
+   approval-rule update instead indicates an authentication failure, but the
+   current model neither reported it to the app session nor gave accurate
+   copy.
+   - Repair plan: retain the special non-session-invalidating state only for
+     approve. Classify unauthenticated unapprove and rule-update failures as
+     rejected authentication errors, expose them through
+   `authenticationFailure`, and add model tests for both paths.
+   - Status: fixed and verified by
+     `exposesUnapproveAuthenticationFailure`,
+     `exposesRuleUpdateAuthenticationFailure`, and the existing
+     approve-reauthentication test.
+10. Finding: the deterministic Simulator fixture exercised editable regular
+    and locked system rules, but did not render the distinct hidden-membership
+    and incomplete-rule lock states required by the P3-08 UI verification
+    matrix. Unit tests proved the projections, but that was not sufficient
+    evidence that their user-facing explanations remained visible and compact.
+    - Repair plan: add one hidden regular rule and one partial regular rule to
+      the debug-only fixture, assert both lock explanations in the Simulator
+      flow, and visually inspect the expanded layout without changing
+    production behavior.
+    - Status: fixed and verified by the compact approval Simulator flow in
+      dark/default and light/high-contrast/accessibility-extra-large
+      configurations.
+11. Finding: after a delivery-unknown rule update, the picker displayed its
+    recovery action but its Cancel control could not dismiss the sheet because
+    `cancelRuleAddition` rejected every unresolved rule mutation. This trapped
+    the user in the picker and contradicted the intended underlying-detail
+    recovery path. In addition, reconciliation always republished
+    `selectedRule`, so checking a dismissed intent would reopen the picker.
+    - Repair plan: permit an idle unresolved picker to dismiss while preserving
+      the pending mutation and failure. Reconcile the selected rule only when
+      the picker is still presented, keep the underlying Check GitLab action
+      authoritative, and add model plus Simulator assertions proving dismissal
+      does not lose the intent or reopen the picker.
+    - Status: fixed and verified by `dismissesUnknownRuleMutation` and the
+      delivery-unknown Simulator flow, including dismissal and underlying
+      Check GitLab reconciliation.
 
 The compact UI slice was inspected and tapped on the iPhone 17 Pro Simulator
 in dark and light appearances at default and accessibility-extra-large Dynamic
 Type. The collapsed summary, expanded premium rules, approval confirmation,
-locked code-owner rule, member picker, fallback avatars, and member search all
-remained reachable without overlap. The accessibility-size run required the UI
-test to scroll to offscreen actions, as expected for content that reflows
-vertically. The remaining deterministic state variants and final VoiceOver
-audit are part of the in-progress simulator verification rather than treated
-as complete.
+locked code-owner, hidden, and incomplete rules, member picker, fallback
+avatars, and member search all remained reachable without overlap. The
+accessibility-size run required the UI test to scroll to offscreen actions, as
+expected for content that reflows vertically. Deterministic state variants and
+the final accessibility-hierarchy audit also completed successfully.
 
-The final review will inspect every P3-08 change for:
+The final review inspected every P3-08 change for:
 
 - duplicated basic approval/readiness state;
 - incorrect Community versus Enterprise semantics;
@@ -755,5 +823,34 @@ The final review will inspect every P3-08 change for:
 - inaccessible or oversized UI;
 - unnecessary abstraction or duplicated code.
 
-Every material finding must be added below with a repair plan before its fix.
-The final repeated review must find no remaining material issue.
+Every material finding above was recorded with a repair plan before its fix.
+The repeated review after findings 6 through 11 found no remaining material
+approval defect, unsafe mutation path, duplicate authoritative state, or
+necessary refactor.
+
+## Final verification evidence
+
+Completed July 29, 2026:
+
+- Focused decoding, endpoint, service, readiness, approval-state, and rule
+  management suites pass.
+- The complete serialized iPhone 17 Pro Simulator suite passes with 939
+  logical tests, 1,231 executions, zero failures, and zero skips. Result:
+  `.deriveddata/Glab/Logs/Test/Test-Glab-2026.07.29_05-17-32--0400.xcresult`.
+- Debug and Release Simulator builds pass using only
+  `.deriveddata/Glab`; Release static analysis reports no issue.
+- Deterministic Simulator flows pass for basic and detailed approvals,
+  approve/unapprove confirmations, stale and rejected writes,
+  delivery-unknown reconciliation, editable/system/hidden/partial rules,
+  member selection, and dismissing unresolved rule state without losing it.
+- The compact collapsed and expanded layouts and picker were visually
+  inspected in dark/default and
+  light/high-contrast/accessibility-extra-large configurations. The
+  accessibility hierarchy exposes one labeled approval summary with its
+  expanded state and explicitly labeled actions.
+- Source and bundled privacy property lists pass `plutil`. `.env` is ignored
+  and untracked. Configured read and demo token values are absent from tracked
+  source and the Release app, credential environment identifiers are absent
+  from Release, and the debug-only P3-08 fixture is excluded from Release.
+- Verification used no live mutation, mention, assignment, tag, or
+  notification.

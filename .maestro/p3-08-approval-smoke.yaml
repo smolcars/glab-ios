@@ -7,6 +7,7 @@ name: P3-08 compact approval management
 - assertVisible: Approval UI fixture
 - assertVisible:
     id: mergeRequests.approvals.summary
+- waitForAnimationToEnd
 - takeScreenshot: p3-08-approvals-collapsed
 - tapOn:
     id: mergeRequests.approvals.summary
@@ -14,11 +15,26 @@ name: P3-08 compact approval management
 - assertVisible: Ada Lovelace
 - scrollUntilVisible:
     element:
+      text: GitLab manages this rule.
+    direction: DOWN
+- assertVisible: GitLab manages this rule.
+- scrollUntilVisible:
+    element:
+      text: Hidden group membership; manage this rule in GitLab.
+    direction: DOWN
+- assertVisible: Hidden group membership; manage this rule in GitLab.
+- scrollUntilVisible:
+    element:
+      text: Complete rule membership is unavailable.
+    direction: DOWN
+- assertVisible: Complete rule membership is unavailable.
+- scrollUntilVisible:
+    element:
       id: mergeRequests.approvals.approve
     direction: DOWN
 - assertVisible:
     id: mergeRequests.approvals.approve
-- assertVisible: GitLab manages this rule.
+- waitForAnimationToEnd
 - takeScreenshot: p3-08-approvals-expanded
 - tapOn:
     id: mergeRequests.approvals.approve

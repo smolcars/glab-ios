@@ -16,6 +16,23 @@ nonisolated struct GitLabMergeRequestApproval:
         self.approvedAt = approvedAt
     }
 
+    init(from decoder: any Decoder) throws {
+        let container =
+            try decoder.container(
+                keyedBy: CodingKeys.self
+            )
+        user =
+            try? container.decodeIfPresent(
+                GitLabAPIUser.self,
+                forKey: .user
+            )
+        approvedAt =
+            try? container.decodeIfPresent(
+                Date.self,
+                forKey: .approvedAt
+            )
+    }
+
     private enum CodingKeys:
         String,
         CodingKey

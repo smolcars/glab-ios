@@ -348,16 +348,23 @@ nonisolated struct
             return .notRequired
         }
 
-        let uniqueApprovedCount =
-            Set(
-                (rule.approvedBy ?? [])
-                    .map(\.id)
-            )
-            .count
-        let remaining = max(
-            required - uniqueApprovedCount,
-            0
-        )
+        let remaining =
+            rule.approvedBy.map {
+                approvedBy in
+                max(
+                    required
+                        - Set(
+                            approvedBy
+                                .lazy
+                                .filter {
+                                    $0.id > 0
+                                }
+                                .map(\.id)
+                        )
+                        .count,
+                    0
+                )
+            }
 
         if let approved = rule.approved {
             return approved
@@ -366,7 +373,7 @@ nonisolated struct
                     remaining: remaining
                 )
         }
-        guard rule.approvedBy != nil else {
+        guard let remaining else {
             return .unknown
         }
         return remaining == 0
@@ -388,7 +395,10 @@ nonisolated struct
         ] = []
 
         for user in rule.approvedBy ?? [] {
-            guard seen.insert(user.id).inserted else {
+            guard
+                user.id > 0,
+                seen.insert(user.id).inserted
+            else {
                 continue
             }
             result.append(
@@ -399,7 +409,10 @@ nonisolated struct
             )
         }
         for user in rule.eligibleApprovers ?? [] {
-            guard seen.insert(user.id).inserted else {
+            guard
+                user.id > 0,
+                seen.insert(user.id).inserted
+            else {
                 continue
             }
             result.append(

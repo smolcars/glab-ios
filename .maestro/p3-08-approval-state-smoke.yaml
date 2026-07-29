@@ -117,3 +117,13 @@ name: P3-08 approval fallback and mutation states
 - assertVisible:
     id: mergeRequests.approvals.rule.check
 - tapOn: Cancel
+- assertNotVisible: Add approver
+- scrollUntilVisible:
+    element:
+      id: mergeRequests.approvals.check
+    direction: DOWN
+- tapOn:
+    id: mergeRequests.approvals.check
+- waitForAnimationToEnd
+- assertVisible: GitLab did not apply the change.
+- assertNotVisible: Add approver

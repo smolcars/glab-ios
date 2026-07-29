@@ -501,6 +501,56 @@ struct GitLabMergeRequestApprovalManagementModelTests {
         }
     }
 
+    @Test("Treats an unapprove 401 as an account authentication failure")
+    func exposesUnapproveAuthenticationFailure() async {
+        let error =
+            GitLabSessionClientError
+                .api(.unauthenticated)
+        let approvedSummary =
+            makeApprovalSummary(
+                approvedUserIDs: [7]
+            )
+        let service =
+            RecordingApprovalManagementService(
+                mergeRequestResults: [
+                    .success(
+                        makeMergeRequest()
+                    ),
+                ],
+                summaryResults: [
+                    .success(
+                        approvedSummary
+                    ),
+                ],
+                unapproveResults: [
+                    .failure(error),
+                ]
+            )
+        let fixture = makeFixture(
+            service: service,
+            summary: approvedSummary
+        )
+
+        fixture.model.requestUnapprove()
+        await fixture.model.confirmAction()
+
+        #expect(
+            fixture.model.failure
+                == .rejected(error)
+        )
+        #expect(
+            fixture.model
+                .authenticationFailure
+                == error
+        )
+        #expect(
+            fixture.model
+                .hasUnresolvedMutation
+                == false
+        )
+        #expect(await service.unapproveCount == 1)
+    }
+
     @Test("Rapid confirmations send only one approval")
     func ignoresRapidConfirmations() async {
         let approved =

@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-29
 
-Status: in progress. P3-01 through P3-07 are complete.
+Status: in progress. P3-01 through P3-08 are complete.
 
 ## Product goal
 
@@ -504,7 +504,7 @@ Todo:
   P3-07 verification, and repeat the deep code review until no material finding
   remains.
 
-### [ ] P3-08 — Show and manage merge-request approvals
+### [x] P3-08 — Show and manage merge-request approvals
 
 Outcome:
 
@@ -527,44 +527,44 @@ Todo:
   update contracts, Free versus Premium/Ultimate behavior, rule membership
   replacement risks, hidden and system-generated rules, SHA safety,
   permissions, reconciliation, tests, accessibility, and non-goals.
-- [ ] Write failing decoding and presentation tests for approving users,
+- [x] Write failing decoding and presentation tests for approving users,
   approval timestamps, zero and multiple rules, overlapping eligible users,
   satisfied and pending rules, hidden groups, unavailable rule details,
   partial responses, and Community Edition semantics.
-- [ ] Write failing endpoint and model tests for approve with the current head
+- [x] Write failing endpoint and model tests for approve with the current head
   SHA, stale-SHA conflict, unapprove, rapid taps, approval resets, permission
   denial, read-only access, cancellation, ambiguous delivery, and
   authoritative reconciliation.
-- [ ] Write failing tests for adding an approver to an existing editable
+- [x] Write failing tests for adding an approver to an existing editable
   regular rule and, if deliberately included by the engineering plan, creating
   a new MR-level regular rule. Prove all visible existing users/groups and the
   required count are preserved in replacement payloads.
-- [ ] Reuse the existing approval loader for the basic approving-user list and
+- [x] Reuse the existing approval loader for the basic approving-user list and
   readiness summary. Add detailed rule loading as an independently failing,
   tier-gated enhancement.
-- [ ] Present Approved, Pending, and Eligible states per rule without implying
+- [x] Present Approved, Pending, and Eligible states per rule without implying
   every eligible user must approve when a rule requires fewer approvals.
-- [ ] Submit the MR head SHA when approving and reject stale responses after a
+- [x] Submit the MR head SHA when approving and reject stale responses after a
   new commit or account switch.
-- [ ] Treat reviewer assignment as P3-06 and approval-rule membership as
+- [x] Treat reviewer assignment as P3-06 and approval-rule membership as
   P3-08. Label both concepts accurately.
-- [ ] Never edit code-owner or report-approver rules. Disable unsafe rule
+- [x] Never edit code-owner or report-approver rules. Disable unsafe rule
   editing when hidden membership cannot be preserved, and explain the reason.
-- [ ] Refresh approval details and readiness after mutations while preserving
+- [x] Refresh approval details and readiness after mutations while preserving
   the rest of the MR detail if approval APIs fail.
-- [ ] Verify basic and detailed approvals, approve/unapprove, stale SHA,
+- [x] Verify basic and detailed approvals, approve/unapprove, stale SHA,
   editable and locked rules, hidden members, reviewers versus approvers,
   read-only and insufficient permissions, Dynamic Type, VoiceOver, and
   dark/light appearance in the iPhone 17 Pro Simulator.
-- [ ] Run focused approval tests, the complete test suite, a Release Simulator
+- [x] Run focused approval tests, the complete test suite, a Release Simulator
   build, Xcode static analysis, and credential/privacy scans.
-- [ ] Perform a deep code review of all code added or changed for P3-08. Look
+- [x] Perform a deep code review of all code added or changed for P3-08. Look
   for bugs, bad code, duplicated approval/readiness state, incorrect rule
   math, reviewer/approver confusion, omitted rule members, unsafe hidden-group
   updates, stale-SHA approvals, optimistic rollback errors, tier/permission
   mistakes, concurrency or cancellation races, and code that needs
   refactoring. Record every finding in `docs/P3_08_ENGINEERING_PLAN.md`.
-- [ ] If the P3-08 review finds anything material, write a repair plan before
+- [x] If the P3-08 review finds anything material, write a repair plan before
   editing code, add regression tests, implement every fix, rerun the complete
   P3-08 verification, and repeat the deep code review until no material finding
   remains.

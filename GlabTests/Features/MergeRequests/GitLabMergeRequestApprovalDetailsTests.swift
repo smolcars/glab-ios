@@ -42,6 +42,46 @@ struct GitLabMergeRequestApprovalDetailsTests {
         )
     }
 
+    @Test("Preserves valid approvals when optional metadata is malformed")
+    func decodesMalformedOptionalApprovalMetadata() throws {
+        let summary: GitLabMergeRequestApprovalSummary =
+            try decode(
+                """
+                {
+                  "approved": false,
+                  "approvals_required": 2,
+                  "approvals_left": 1,
+                  "approved_by": [
+                    {
+                      "user": {
+                        "id": "invalid",
+                        "username": "broken",
+                        "name": "Broken"
+                      },
+                      "approved_at": "not-a-date"
+                    },
+                    {
+                      "user": {
+                        "id": 8,
+                        "username": "grace",
+                        "name": "Grace Hopper",
+                        "avatar_url": null,
+                        "web_url": null
+                      },
+                      "approved_at": "2016-06-10T09:17:13.520Z"
+                    }
+                  ]
+                }
+                """
+            )
+
+        #expect(summary.approvedBy.count == 2)
+        #expect(summary.approvedBy[0].user == nil)
+        #expect(summary.approvedBy[0].approvedAt == nil)
+        #expect(summary.approvedBy[1].user?.id == 8)
+        #expect(summary.approvedBy[1].approvedAt != nil)
+    }
+
     @Test("Decodes zero and multiple detailed rules")
     func decodesDetailedRules() throws {
         let empty: GitLabMergeRequestApprovalDetails =
@@ -321,6 +361,53 @@ struct GitLabMergeRequestApprovalDetailsTests {
             GitLabMergeRequestApprovalRulePresentation(
                 rule: rule
             ).state == expected
+        )
+    }
+
+    @Test("Does not invent remaining progress when scoped approvals are absent")
+    func presentsPartialPendingRule() {
+        let rule = makeRule(
+            approvalsRequired: 2,
+            approvedBy: nil,
+            approved: false
+        )
+
+        #expect(
+            GitLabMergeRequestApprovalRulePresentation(
+                rule: rule
+            ).state == .pending(remaining: nil)
+        )
+    }
+
+    @Test("Ignores invalid user IDs in rule progress and people")
+    func ignoresInvalidRulePeople() {
+        let rule = makeRule(
+            eligibleApprovers: [
+                makeUser(0),
+                makeUser(8),
+                makeUser(-2),
+            ],
+            approvalsRequired: 2,
+            approvedBy: [
+                makeUser(0),
+                makeUser(-1),
+                makeUser(7),
+                makeUser(7),
+            ],
+            approved: nil
+        )
+        let presentation =
+            GitLabMergeRequestApprovalRulePresentation(
+                rule: rule
+            )
+
+        #expect(
+            presentation.state
+                == .pending(remaining: 1)
+        )
+        #expect(
+            presentation.people.map(\.user.id)
+                == [7, 8]
         )
     }
 

@@ -515,6 +515,58 @@ struct GitLabMergeRequestApprovalRuleManagementTests {
         #expect(await service.replacements.count == 1)
     }
 
+    @Test("Treats a rule-update 401 as an account authentication failure")
+    func exposesRuleUpdateAuthenticationFailure() async {
+        let baseline = makeEditableRule()
+        let error =
+            GitLabSessionClientError
+                .api(.unauthenticated)
+        let service =
+            RuleManagementService(
+                ruleResults: [
+                    .success(baseline),
+                    .success(baseline),
+                ],
+                memberResults: [
+                    .success(
+                        memberPage([
+                            makeMember(id: 9),
+                        ])
+                    ),
+                ],
+                updateResults: [
+                    .failure(error),
+                ]
+            )
+        let fixture = makeRuleFixture(
+            service: service
+        )
+
+        await selectMember(
+            id: 9,
+            rule: baseline,
+            fixture: fixture
+        )
+        await fixture.model
+            .confirmRuleAddition()
+
+        #expect(
+            fixture.model.failure
+                == .rejected(error)
+        )
+        #expect(
+            fixture.model
+                .authenticationFailure
+                == error
+        )
+        #expect(
+            fixture.model
+                .hasUnresolvedMutation
+                == false
+        )
+        #expect(await service.replacements.count == 1)
+    }
+
     @Test("Rapid confirmations send exactly one rule replacement")
     func ignoresRapidConfirmations() async {
         let baseline = makeEditableRule()
@@ -806,6 +858,73 @@ struct GitLabMergeRequestApprovalRuleManagementTests {
         #expect(
             fixture.model.selectedRule?
                 .users?.map(\.id) == [7, 9]
+        )
+    }
+
+    @Test("Dismisses an unknown rule update without losing or reopening it")
+    func dismissesUnknownRuleMutation() async {
+        let baseline = makeEditableRule()
+        let applied =
+            makeEditableRule(
+                users: [
+                    makeRuleUser(id: 7),
+                    makeRuleUser(id: 9),
+                ]
+            )
+        let service =
+            RuleManagementService(
+                ruleResults: [
+                    .success(baseline),
+                    .success(baseline),
+                    .success(applied),
+                ],
+                memberResults: [
+                    .success(
+                        memberPage([
+                            makeMember(id: 9),
+                        ])
+                    ),
+                ],
+                updateResults: [
+                    .failure(
+                        .api(
+                            .server(
+                                statusCode: 503
+                            )
+                        )
+                    ),
+                ]
+            )
+        let fixture = makeRuleFixture(
+            service: service
+        )
+
+        await selectMember(
+            id: 9,
+            rule: baseline,
+            fixture: fixture
+        )
+        await fixture.model
+            .confirmRuleAddition()
+        fixture.model.cancelRuleAddition()
+
+        #expect(fixture.model.selectedRule == nil)
+        #expect(
+            fixture.model.hasUnresolvedMutation
+        )
+        #expect(
+            fixture.model.failure
+                == .deliveryUnknown
+        )
+
+        await fixture.model.checkGitLab()
+
+        #expect(fixture.model.selectedRule == nil)
+        #expect(fixture.model.failure == nil)
+        #expect(
+            fixture.model
+                .hasUnresolvedMutation
+                == false
         )
     }
 

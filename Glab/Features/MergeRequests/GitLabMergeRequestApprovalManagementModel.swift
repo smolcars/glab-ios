@@ -83,6 +83,7 @@ nonisolated enum
         switch self {
         case let .load(error),
              let .memberOptions(error),
+             let .rejected(error),
              let .reconciliation(error):
             error.requiresReauthentication
                 ? error
@@ -97,7 +98,6 @@ nonisolated enum
              .unsafeRule,
              .ruleChanged,
              .memberUnavailable,
-             .rejected,
              .deliveryUnknown,
              .authoritativeMismatch,
              .notApplied:
@@ -522,10 +522,7 @@ final class
     }
 
     func cancelRuleAddition() {
-        guard
-            phase == .idle,
-            pendingRuleMutation == nil
-        else {
+        guard phase == .idle else {
             return
         }
         ruleAdditionConfirmation = nil
@@ -731,6 +728,8 @@ final class
         } catch {
             handleMutationFailure(
                 error,
+                action:
+                    confirmation.action,
                 generation: generation
             )
             return
@@ -1213,11 +1212,13 @@ private extension
         guard canPublish(generation) else {
             return
         }
-        selectedRule = rule
-        selectedRuleBaseline =
-            GitLabMergeRequestApprovalRuleMutationSnapshot(
-                rule: rule
-            )
+        if selectedRule != nil {
+            selectedRule = rule
+            selectedRuleBaseline =
+                GitLabMergeRequestApprovalRuleMutationSnapshot(
+                    rule: rule
+                )
+        }
 
         switch pending.baseline.result(
             for: rule,
@@ -1424,6 +1425,8 @@ private extension
     func handleMutationFailure(
         _ error:
             GitLabSessionClientError,
+        action:
+            GitLabMergeRequestApprovalManagementAction,
         generation: UInt64
     ) {
         guard
@@ -1453,7 +1456,9 @@ private extension
         case .api(.unauthenticated):
             pendingMutation = nil
             failure =
-                .gitLabReauthenticationRequired
+                action == .approve
+                ? .gitLabReauthenticationRequired
+                : .rejected(error)
         default:
             if
                 error.mutationDeliveryCertainty
@@ -1498,8 +1503,7 @@ private extension
             failure = .permissionDenied
         case .api(.unauthenticated):
             pendingRuleMutation = nil
-            failure =
-                .gitLabReauthenticationRequired
+            failure = .rejected(error)
         default:
             if
                 error.mutationDeliveryCertainty

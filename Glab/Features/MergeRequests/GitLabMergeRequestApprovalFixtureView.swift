@@ -286,6 +286,41 @@
                             approved: false,
                             overridden: false
                         ),
+                        GitLabMergeRequestApprovalRule(
+                            id: 43,
+                            name:
+                                "Private security group",
+                            ruleType:
+                                "regular",
+                            eligibleApprovers: [],
+                            approvalsRequired:
+                                1,
+                            users: [],
+                            groups: [],
+                            containsHiddenGroups:
+                                true,
+                            approvedBy: [],
+                            approved: false,
+                            overridden: false
+                        ),
+                        GitLabMergeRequestApprovalRule(
+                            id: 44,
+                            name:
+                                "Imported partial rule",
+                            ruleType:
+                                "regular",
+                            eligibleApprovers:
+                                nil,
+                            approvalsRequired:
+                                1,
+                            users: nil,
+                            groups: [],
+                            containsHiddenGroups:
+                                false,
+                            approvedBy: nil,
+                            approved: false,
+                            overridden: false
+                        ),
                     ]
                 )
             summary =
