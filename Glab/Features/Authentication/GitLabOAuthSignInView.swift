@@ -129,18 +129,26 @@ struct GitLabOAuthSignInView: View {
                     ? 24
                     : 8
         ) {
-            Image("GitLabLogo")
+            Image("GlabLogo")
                 .resizable()
                 .scaledToFit()
                 .frame(
                     width:
                         dynamicTypeSize.isAccessibilitySize
-                            ? 120
-                            : 220,
+                            ? 96
+                            : 144,
                     height:
                         dynamicTypeSize.isAccessibilitySize
-                            ? 120
-                            : 220
+                            ? 96
+                            : 144
+                )
+                .clipShape(
+                    .rect(
+                        cornerRadius:
+                            dynamicTypeSize.isAccessibilitySize
+                                ? 22
+                                : 32
+                    )
                 )
                 .accessibilityHidden(true)
 
@@ -246,6 +254,9 @@ struct GitLabOAuthSignInView: View {
             .buttonStyle(.plain)
             .disabled(model.isSubmitting)
             .accessibilityIdentifier("oauth.accessToken")
+
+            GlabAppFooter()
+                .padding(.top, 6)
         }
         .frame(maxWidth: .infinity)
     }

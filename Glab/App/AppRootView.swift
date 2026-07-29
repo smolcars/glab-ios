@@ -159,9 +159,11 @@ struct AppRootView: View {
 
     private var restoringView: some View {
         VStack(spacing: 16) {
-            Image(systemName: "chevron.left.forwardslash.chevron.right")
-                .font(.system(size: 38, weight: .semibold))
-                .foregroundStyle(.orange)
+            Image("GlabLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 96, height: 96)
+                .clipShape(.rect(cornerRadius: 22))
                 .accessibilityHidden(true)
             ProgressView("Restoring GitLab session…")
         }

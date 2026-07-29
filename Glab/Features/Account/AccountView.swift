@@ -26,6 +26,8 @@ struct AccountView: View {
                 if let accountActionError {
                     errorSection(accountActionError)
                 }
+
+                appFooter
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Account")
@@ -219,6 +221,15 @@ struct AccountView: View {
                     .foregroundStyle(.red)
             }
             .accessibilityIdentifier("account.error")
+        }
+    }
+
+    private var appFooter: some View {
+        Section {
+            GlabAppFooter()
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .listRowBackground(Color.clear)
         }
     }
 
