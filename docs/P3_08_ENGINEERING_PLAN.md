@@ -7,6 +7,7 @@
 - Planning: complete
 - Models and endpoints: complete
 - Live approval service: complete
+- Approve/unapprove state machine: complete
 - Test implementation: in progress
 - Production implementation: in progress
 - Simulator verification: not started
