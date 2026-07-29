@@ -7,8 +7,9 @@
 - Planning: complete
 - Test implementation: complete
 - Production implementation: complete
-- Verification: pending
-- Deep review: in progress — four material findings have committed repair plans
+- Verification: complete
+- Deep review: complete — five material findings repaired and the final repeat
+  review found no remaining material issue
 
 This plan must be committed and pushed before any P3-04 test or production
 code is changed.
@@ -624,7 +625,7 @@ here.
 
 ### DR-01 — HTTP 409 is incorrectly treated as delivery unknown
 
-Status: repair planned; production code not yet changed.
+Status: repaired and verified.
 
 The first deep-review pass found that `GitLabClient` maps only HTTP 400 and
 422 to `GitLabAPIError.validation`. A GitLab HTTP 409 response therefore
@@ -659,9 +660,16 @@ Repair plan, to be committed before production edits:
    presentation suites, then the complete P3-04 gates.
 6. Repeat the deep review and record the final result here.
 
+Repair evidence:
+
+- HTTP 409 now maps to the existing definite validation-rejection path.
+- Client, service, cache-invalidation, and resolution-model regression tests
+  prove rollback, no readiness refresh, and no ambiguous-delivery cache
+  invalidation.
+
 ### DR-02 — An enabled resolution control can silently ignore a tap
 
-Status: repair planned; production code not yet changed.
+Status: repaired and verified.
 
 The review also found a state-ownership race after an authoritative resolution
 response. `completeAuthoritative` reconciles the returned discussion and clears
@@ -691,9 +699,17 @@ Repair plan, to be committed before production edits:
    and Simulator interaction checks.
 6. Repeat the deep review and record the final result here.
 
+Repair evidence:
+
+- Confirmed mutations retain an explicit `refreshingReadiness` phase until the
+  trailing exact MR refresh completes.
+- Model and presentation tests prove the authoritative discussion remains
+  visible while the action is honestly busy and cannot silently discard an
+  enabled tap.
+
 ### DR-03 — Independent thread changes can race readiness refreshes
 
-Status: repair planned; production code not yet changed.
+Status: repaired and verified.
 
 The second deep-review pass found that successful mutations for two different
 discussion IDs can call the injected merge-request readiness refresh
@@ -724,9 +740,16 @@ Repair plan, to be committed before production edits:
    suites, then the complete P3-04 gates and Simulator checks.
 7. Repeat the deep review and record the final result here.
 
+Repair evidence:
+
+- Readiness refreshes are serialized in mutation-completion order without
+  serializing independent discussion writes.
+- Gated concurrency and cancellation tests prove refreshes do not overlap,
+  queued work is not dropped, and inactive accounts cannot publish late state.
+
 ### DR-04 — Review controls and readiness consume excessive space
 
-Status: repair planned; production code not yet changed.
+Status: repaired and verified.
 
 The Simulator and physical-device UI review found three presentation defects:
 
@@ -769,9 +792,22 @@ Repair plan, to be committed before production edits:
 7. Repeat the deep review and record the final result here before closing
    P3-04 or beginning P3-05.
 
+Repair evidence:
+
+- Merge readiness defaults to one compact summary strip and expands to the
+  five detailed checks on demand.
+- Resolve/Reopen retains a 44-point target with a smaller visible glass
+  control.
+- Each comment now exposes one bottom-leading Liquid Glass pill containing
+  independent icon-only Reply and React targets. The picker remains a compact
+  horizontal bottom-leading popover.
+- Focused readiness, discussion-presentation, and reaction tests passed.
+  Dark/regular and light/accessibility Simulator inspection verified layout,
+  labels, hit targets, expansion, and picker placement.
+
 ### DR-05 — The discussion scroll-stability gate regressed
 
-Status: diagnosis and repair planned; no code changed for this finding.
+Status: repaired and verified.
 
 The final serialized test run passed 734 of 735 tests but the existing
 MR-sized discussion scroll-stability test measured 239 points of offset drift
@@ -800,6 +836,62 @@ Repair plan, to be committed before diagnostic or production edits:
    single final full verification gate.
 6. Repeat the deep review and record exact evidence before closing P3-04 or
    beginning P3-05.
+
+Repair evidence:
+
+- Diagnostics proved that the outer `LazyVStack` replaced estimated off-screen
+  discussion heights with measured heights at the bottom of the scroll. The
+  content height shrank by 355 points and UIKit clamped the offset by 237–239
+  points; safe-area adjustment was not the cause.
+- The currently loaded discussions now use a measured `VStack`. The API still
+  requests only 20 discussions per page, and a visibility-driven one-point
+  anchor preserves incremental pagination.
+- The strict one-point offset budget was not weakened. The regression suite
+  also asserts one-point content-height stability, zero eager page loads at
+  the top, and exactly one next-page load when the anchor becomes visible.
+- All six discussion-performance tests passed, followed by the complete final
+  suite.
+
+## Final verification evidence
+
+- Final serialized test run: 736 tests in 106 suites passed on the iOS 26.5
+  iPhone 17 Pro Simulator in 33.339 seconds.
+- The six-test discussion-performance suite independently passed after DR-05.
+  Its stable-scroll test reported no offset or content-height drift beyond the
+  one-point budget, and its pagination test proved deferred exact-once loading
+  at the visible anchor.
+- Release iPhone Simulator build: succeeded.
+- Xcode Release static analysis: succeeded.
+- Simulator UI inspection verified compact readiness expansion/collapse, long
+  MR scrolling, the bottom-leading Reply/React pill, and the horizontal emoji
+  picker. Earlier dark/light and regular/accessibility-size checks remained
+  valid after the final repair because DR-05 changed only discussion container
+  measurement and pagination visibility.
+- The official MR-only whole-thread endpoint, opaque ID encoding, exact cache
+  invalidation, rollback, delivery-unknown reconciliation, permission
+  rejection, account isolation, cancellation, pagination, ordinary/inline
+  presentation, and readiness sequencing are covered by the final suite.
+- `git diff --check` passed. `PrivacyInfo.xcprivacy` is valid and present in
+  the Release bundle. Configured credential values are absent from tracked
+  files and the Release bundle, and no credential identifier is embedded in
+  the Release executable.
+- The P3-04 production diff contains no forced try, forced cast, fatal error,
+  debug print, or ad-hoc print operation.
+- No live write, human mention, assignment, review request, notification, or
+  pipeline action was performed during final verification.
+
+## Final deep-review result
+
+The required repeat review covered the complete P3-04 production and test diff
+after DR-05. It rechecked endpoint and permission assumptions, opaque
+discussion identity, optimistic/authoritative state boundaries, delivery
+certainty, cache scope, pagination, readiness ordering, cancellation, account
+isolation, ordinary/inline UI consistency, accessibility, credential safety,
+duplicated state, and unnecessary abstraction.
+
+All five recorded material findings are repaired. The final repeat review found
+no remaining material bug, bad code, duplication, or refactoring requirement.
+P3-04 is complete.
 
 ## Non-goals
 

@@ -278,7 +278,7 @@ Todo:
   implement every fix, rerun the complete P3-03 verification, and repeat the
   deep code review until no material finding remains.
 
-### [ ] P3-04 — Resolve and reopen merge-request discussions
+### [x] P3-04 — Resolve and reopen merge-request discussions
 
 Outcome:
 
@@ -289,46 +289,46 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect the existing discussion resource model, decoded `resolvable`,
+- [x] Inspect the existing discussion resource model, decoded `resolvable`,
   `resolved`, `resolved_by`, and `resolved_at` fields, discussion pagination,
   activity partitioning, inline diff index, mutation service, cache
   invalidation, and optimistic reaction behavior.
-- [ ] Before writing production code, create
+- [x] Before writing production code, create
   `docs/P3_04_ENGINEERING_PLAN.md`. Document the MR discussion resolution
   endpoint, eligibility and permission behavior, optimistic state,
   coalescing, rollback, authoritative reconciliation, cache invalidation,
   inline-thread updates, tests, accessibility, and non-goals.
-- [ ] Write failing endpoint tests for resolve and reopen bodies, path
+- [x] Write failing endpoint tests for resolve and reopen bodies, path
   encoding, write-access enforcement, updated discussion decoding, permission
   denial, not found, validation, cancellation, and ambiguous delivery.
-- [ ] Write failing model tests for resolvable and non-resolvable threads,
+- [x] Write failing model tests for resolvable and non-resolvable threads,
   already-resolved threads, rapid repeated taps, resolve followed by reopen,
   failed rollback, returned resolver metadata, pagination, stale responses,
   and account switching.
-- [ ] Extend the existing discussion mutator with one MR-only resolution
+- [x] Extend the existing discussion mutator with one MR-only resolution
   operation and reconcile the returned discussion into the current collection.
   Do not create a second discussion store.
-- [ ] Show resolved state and resolver metadata consistently in ordinary and
+- [x] Show resolved state and resolver metadata consistently in ordinary and
   inline threads while preserving the current compact discussion and activity
   presentation.
-- [ ] Coalesce an in-flight action per discussion, disable unavailable actions,
+- [x] Coalesce an in-flight action per discussion, disable unavailable actions,
   and present an honest state when the user's role cannot resolve the thread.
-- [ ] Invalidate only the affected MR discussion cache and refresh the MR
+- [x] Invalidate only the affected MR discussion cache and refresh the MR
   readiness discussion check after an authoritative change.
-- [ ] Verify resolve/reopen in ordinary and inline threads, rollback,
+- [x] Verify resolve/reopen in ordinary and inline threads, rollback,
   read-only access, insufficient role, outdated diffs, pagination, Dynamic
   Type, VoiceOver, Reduce Motion, and dark/light appearance in the iPhone 17
   Pro Simulator.
-- [ ] Run focused discussion mutation tests, the complete test suite, a
+- [x] Run focused discussion mutation tests, the complete test suite, a
   Release Simulator build, Xcode static analysis, and credential/privacy
   scans.
-- [ ] Perform a deep code review of all code added or changed for P3-04. Look
+- [x] Perform a deep code review of all code added or changed for P3-04. Look
   for bugs, bad code, duplicated discussion state, incorrect permission
   assumptions, wrong discussion identity, stale readiness state, optimistic
   rollback errors, cache over-invalidation, account leakage, concurrency or
   cancellation races, and code that needs refactoring. Record every finding in
   `docs/P3_04_ENGINEERING_PLAN.md`.
-- [ ] If the P3-04 review finds anything material, write a repair plan before
+- [x] If the P3-04 review finds anything material, write a repair plan before
   editing code, add regression tests, implement every fix, rerun the complete
   P3-04 verification, and repeat the deep code review until no material finding
   remains.
