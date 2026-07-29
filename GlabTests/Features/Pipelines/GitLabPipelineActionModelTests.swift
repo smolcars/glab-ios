@@ -151,6 +151,136 @@ struct GitLabPipelineActionModelTests {
         )
     }
 
+    @Test(
+        "Confirmed pipeline cancellation removes loaded nonterminal traces"
+    )
+    func cancelPipelineRemovesActiveTraces()
+        async throws
+    {
+        let fixture = try fixture(
+            pipelineStatus: "running",
+            jobStatus: "running",
+            responsePipelineStatus:
+                "canceling"
+        )
+        fixture.model.request(
+            .cancelPipeline
+        )
+
+        await fixture.model.confirm()
+
+        #expect(
+            await fixture.traceStore
+                .removedKeys
+                .map(\.route.jobID)
+                == [800]
+        )
+    }
+
+    @Test(
+        "Unknown pipeline-cancel delivery removes the captured traces"
+    )
+    func uncertainPipelineCancelRemovesTraces()
+        async throws
+    {
+        let fixture = try fixture(
+            pipelineStatus: "running",
+            jobStatus: "running",
+            serviceError:
+                .api(
+                    .server(
+                        statusCode: 503
+                    )
+                )
+        )
+        fixture.model.request(
+            .cancelPipeline
+        )
+
+        await fixture.model.confirm()
+
+        #expect(
+            await fixture.traceStore
+                .removedKeys
+                .map(\.route.jobID)
+                == [800]
+        )
+    }
+
+    @Test(
+        "Rejected pipeline cancellation preserves traces"
+    )
+    func rejectedPipelineCancelPreservesTraces()
+        async throws
+    {
+        let fixture = try fixture(
+            pipelineStatus: "running",
+            jobStatus: "running",
+            serviceError:
+                .api(.forbidden)
+        )
+        fixture.model.request(
+            .cancelPipeline
+        )
+
+        await fixture.model.confirm()
+
+        #expect(
+            await fixture.traceStore
+                .removedKeys.isEmpty
+        )
+    }
+
+    @Test(
+        "Pipeline cancellation preserves terminal job traces"
+    )
+    func pipelineCancelPreservesTerminalTraces()
+        async throws
+    {
+        let fixture = try fixture(
+            pipelineStatus: "running",
+            jobStatus: "success",
+            responsePipelineStatus:
+                "canceling"
+        )
+        fixture.model.request(
+            .cancelPipeline
+        )
+
+        await fixture.model.confirm()
+
+        #expect(
+            await fixture.traceStore
+                .removedKeys.isEmpty
+        )
+    }
+
+    @Test(
+        "Pipeline cancellation snapshots job traces when the POST begins"
+    )
+    func pipelineCancelRefreshesTraceSnapshot()
+        async throws
+    {
+        let fixture = try fixture(
+            pipelineStatus: "running",
+            jobStatus: "running",
+            responsePipelineStatus:
+                "canceling"
+        )
+        fixture.model.request(
+            .cancelPipeline
+        )
+        fixture.state.job =
+            try job(status: "success")
+
+        await fixture.model.confirm()
+
+        #expect(
+            await fixture.traceStore
+                .removedKeys.isEmpty
+        )
+    }
+
     @Test("Unknown delivery refreshes and remains visibly uncertain")
     func preservesUnknownDelivery() async throws {
         let error =
@@ -257,11 +387,8 @@ struct GitLabPipelineActionModelTests {
                 currentPipeline: {
                     state.pipeline
                 },
-                currentJob: {
-                    jobID in
-                    state.job.id == jobID
-                        ? state.job
-                        : nil
+                currentJobs: {
+                    [state.job]
                 },
                 reconcilePipeline: {
                     state.pipeline = $0

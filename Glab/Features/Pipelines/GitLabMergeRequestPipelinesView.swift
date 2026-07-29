@@ -23,34 +23,6 @@ struct GitLabMergeRequestPipelinesView: View {
         route: GitLabMergeRequestRoute,
         loader: any GitLabPipelineLoading,
         accountID: GitLabAccountID,
-        appSession: AppSession
-    ) {
-        self.init(
-            route: route,
-            loader: loader,
-            accountID: accountID,
-            appSession: appSession,
-            apiAccess:
-                appSession.accounts
-                .first {
-                    $0.id == accountID
-                }?
-                .apiAccess
-                ?? .readOnly,
-            isAccountCurrent: {
-                appSession.activeAccountID
-                    == accountID
-            },
-            isMergeRequestOpen: {
-                true
-            }
-        )
-    }
-
-    init(
-        route: GitLabMergeRequestRoute,
-        loader: any GitLabPipelineLoading,
-        accountID: GitLabAccountID,
         appSession: AppSession,
         apiAccess: GitLabAPIAccess,
         isAccountCurrent:

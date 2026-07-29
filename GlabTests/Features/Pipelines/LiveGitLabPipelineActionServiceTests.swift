@@ -63,9 +63,9 @@ struct LiveGitLabPipelineActionServiceTests {
         )
         #expect(
             await client.invalidatedKeys
-                == pipelineInvalidationKeys
-                    + pipelineInvalidationKeys
-                    + pipelineInvalidationKeys
+                == jobInvalidationKeys
+                    + jobInvalidationKeys
+                    + jobInvalidationKeys
         )
     }
 
@@ -146,6 +146,36 @@ struct LiveGitLabPipelineActionServiceTests {
         )
     }
 
+    @Test(
+        "Uncertain job delivery invalidates no trigger-job reads"
+    )
+    func uncertainJobInvalidationIsFocused()
+        async
+    {
+        let error =
+            GitLabSessionClientError.api(
+                .server(statusCode: 503)
+            )
+        let client =
+            RecordingPipelineActionClient(
+                error: error
+            )
+        let service =
+            LiveGitLabPipelineActionService(
+                client: client
+            )
+
+        await #expect(throws: error) {
+            _ = try await service
+                .playJob(at: jobRoute)
+        }
+
+        #expect(
+            await client.invalidatedKeys
+                == jobInvalidationKeys
+        )
+    }
+
     @Test("Rejects contradictory action responses")
     func rejectsMismatchedResponses() async {
         let client =
@@ -223,6 +253,15 @@ struct LiveGitLabPipelineActionServiceTests {
             "GET:projects/42/pipelines/501/jobs",
             "GET:projects/42/pipelines/501/trigger_jobs",
             "GET:projects/42/pipelines/501/bridges",
+        ]
+    }
+
+    private var jobInvalidationKeys:
+        [String]
+    {
+        [
+            "GET:projects/42/pipelines/501",
+            "GET:projects/42/pipelines/501/jobs",
         ]
     }
 }

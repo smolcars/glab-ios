@@ -742,12 +742,8 @@ struct GitLabPipelineDetailView: View {
                 currentPipeline: {
                     detailModel.pipeline
                 },
-                currentJob: {
-                    jobID in
+                currentJobs: {
                     detailModel.jobs.items
-                        .first {
-                            $0.id == jobID
-                        }
                 },
                 reconcilePipeline: {
                     detailModel

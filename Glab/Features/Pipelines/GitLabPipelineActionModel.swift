@@ -61,6 +61,7 @@ nonisolated struct
 {
     let action: GitLabPipelineActionKind
     let jobID: Int?
+    let affectedJobIDs: [Int]
     let resourceName: String
     let observedStatus: GitLabCIStatus
 
@@ -173,8 +174,8 @@ final class GitLabPipelineActionModel {
     private let currentPipeline:
         @MainActor () -> GitLabPipeline?
     @ObservationIgnored
-    private let currentJob:
-        @MainActor (Int) -> GitLabPipelineJob?
+    private let currentJobs:
+        @MainActor () -> [GitLabPipelineJob]
     @ObservationIgnored
     private let reconcilePipeline:
         @MainActor (GitLabPipeline) -> Void
@@ -197,8 +198,8 @@ final class GitLabPipelineActionModel {
             @escaping @MainActor () -> Bool,
         currentPipeline:
             @escaping @MainActor () -> GitLabPipeline?,
-        currentJob:
-            @escaping @MainActor (Int) -> GitLabPipelineJob?,
+        currentJobs:
+            @escaping @MainActor () -> [GitLabPipelineJob],
         reconcilePipeline:
             @escaping @MainActor (GitLabPipeline) -> Void,
         reconcileJob:
@@ -215,7 +216,7 @@ final class GitLabPipelineActionModel {
             isAccountCurrent
         self.currentPipeline =
             currentPipeline
-        self.currentJob = currentJob
+        self.currentJobs = currentJobs
         self.reconcilePipeline =
             reconcilePipeline
         self.reconcileJob = reconcileJob
@@ -321,6 +322,7 @@ final class GitLabPipelineActionModel {
                 GitLabPipelineActionConfirmation(
                     action: action,
                     jobID: nil,
+                    affectedJobIDs: [],
                     resourceName:
                         "pipeline #\(pipeline.iid ?? pipeline.id)",
                     observedStatus:
@@ -342,6 +344,7 @@ final class GitLabPipelineActionModel {
                 GitLabPipelineActionConfirmation(
                     action: action,
                     jobID: job.id,
+                    affectedJobIDs: [],
                     resourceName:
                         "job “\(job.name)”",
                     observedStatus:
@@ -363,7 +366,8 @@ final class GitLabPipelineActionModel {
 
     func confirm() async {
         guard
-            let confirmation,
+            let pendingConfirmation =
+                confirmation,
             activeAction == nil
         else {
             return
@@ -379,10 +383,19 @@ final class GitLabPipelineActionModel {
             failure = .readOnly
             return
         }
-        guard isCurrent(confirmation) else {
+        guard
+            isCurrent(
+                pendingConfirmation
+            )
+        else {
             failure = .stale
             return
         }
+        let confirmation =
+            snapshotAffectedJobs(
+                for:
+                    pendingConfirmation
+            )
 
         activeAction = confirmation.action
         defer {
@@ -403,14 +416,9 @@ final class GitLabPipelineActionModel {
             }
             let certainty =
                 error.mutationDeliveryCertainty
-            if
-                confirmation.action
-                    == .cancelJob,
-                certainty == .deliveryUnknown
-            {
-                await removeTrace(
-                    jobID:
-                        confirmation.jobID
+            if certainty == .deliveryUnknown {
+                await removeAffectedTraces(
+                    for: confirmation
                 )
             }
             await refresh()
@@ -450,7 +458,11 @@ private extension GitLabPipelineActionModel {
             confirmation.jobID
         {
             guard
-                let job = currentJob(jobID)
+                let job =
+                    currentJobs()
+                    .first(where: {
+                        $0.id == jobID
+                    })
             else {
                 return false
             }
@@ -479,6 +491,32 @@ private extension GitLabPipelineActionModel {
                 )
     }
 
+    func snapshotAffectedJobs(
+        for confirmation:
+            GitLabPipelineActionConfirmation
+    ) -> GitLabPipelineActionConfirmation {
+        guard
+            confirmation.action
+                == .cancelPipeline
+        else {
+            return confirmation
+        }
+        return GitLabPipelineActionConfirmation(
+            action: confirmation.action,
+            jobID: confirmation.jobID,
+            affectedJobIDs:
+                currentJobs()
+                .filter {
+                    !$0.status.isTerminal
+                }
+                .map(\.id),
+            resourceName:
+                confirmation.resourceName,
+            observedStatus:
+                confirmation.observedStatus
+        )
+    }
+
     func perform(
         _ confirmation:
             GitLabPipelineActionConfirmation
@@ -493,6 +531,11 @@ private extension GitLabPipelineActionModel {
             reconcilePipeline(
                 try await service
                     .cancelPipeline(at: route)
+            )
+            await removeTraces(
+                jobIDs:
+                    confirmation
+                    .affectedJobIDs
             )
         case .retryJob:
             await reconcileJob(
@@ -569,6 +612,39 @@ private extension GitLabPipelineActionModel {
                     route: route
                 )
         )
+    }
+
+    func removeAffectedTraces(
+        for confirmation:
+            GitLabPipelineActionConfirmation
+    ) async {
+        switch confirmation.action {
+        case .cancelPipeline:
+            await removeTraces(
+                jobIDs:
+                    confirmation
+                    .affectedJobIDs
+            )
+        case .cancelJob:
+            await removeTrace(
+                jobID:
+                    confirmation.jobID
+            )
+        case .retryPipeline,
+             .retryJob,
+             .playJob:
+            break
+        }
+    }
+
+    func removeTraces(
+        jobIDs: [Int]
+    ) async {
+        for jobID in jobIDs {
+            await removeTrace(
+                jobID: jobID
+            )
+        }
     }
 
     static func job(

@@ -204,7 +204,7 @@ private nonisolated extension
                     )
             },
             invalidate: {
-                await invalidatePipelineReads(
+                await invalidateJobReads(
                     at: route.pipelineRoute
                 )
             }
@@ -270,6 +270,20 @@ private nonisolated extension
         await client.invalidateCachedResponse(
             GitLabPipelineEndpoints
                 .legacyTriggerJobs(at: route)
+        )
+    }
+
+    @concurrent
+    func invalidateJobReads(
+        at route: GitLabPipelineRoute
+    ) async {
+        await client.invalidateCachedResponse(
+            GitLabPipelineEndpoints
+                .pipeline(at: route)
+        )
+        await client.invalidateCachedResponse(
+            GitLabPipelineEndpoints
+                .jobs(at: route)
         )
     }
 
