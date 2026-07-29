@@ -1,6 +1,7 @@
 # P3-07 Engineering Plan — GitLab Work-Item Status for Issues
 
-Status: planning complete; production code and tests have not started.
+Status: implementation in progress; typed domain and GraphQL contracts are
+complete, with service, model, and UI work remaining.
 
 Research date: July 28, 2026.
 
