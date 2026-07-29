@@ -161,6 +161,45 @@ struct GitLabMergeRequestTests {
         )
     }
 
+    @Test("Decodes merge permission and auto-merge state")
+    func decodesMergeActionFields() throws {
+        let mergeRequest = try decodeMergeRequest(
+            draftFields: #""draft": false,"#,
+            revisionFields:
+                """
+                "merge_when_pipeline_succeeds": true,
+                "user": {
+                  "can_merge": true
+                },
+                """
+        )
+
+        #expect(
+            mergeRequest
+                .mergeWhenPipelineSucceeds == true
+        )
+        #expect(
+            mergeRequest
+                .userPermissions?
+                .canMerge == true
+        )
+    }
+
+    @Test("Keeps older merge action fields optional")
+    func decodesMissingMergeActionFields() throws {
+        let mergeRequest = try decodeMergeRequest(
+            draftFields: #""draft": false,"#
+        )
+
+        #expect(
+            mergeRequest
+                .mergeWhenPipelineSucceeds == nil
+        )
+        #expect(
+            mergeRequest.userPermissions == nil
+        )
+    }
+
     @Test("Keeps missing and future readiness fields decodable")
     func decodesMissingReadinessFields() throws {
         let missing = try decodeMergeRequest(

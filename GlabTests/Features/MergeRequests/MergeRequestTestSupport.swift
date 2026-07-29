@@ -33,7 +33,10 @@ nonisolated func makeTestMergeRequest(
     hasConflicts: Bool? = nil,
     blockingDiscussionsResolved: Bool? = nil,
     headPipeline:
-        GitLabMergeRequestHeadPipeline? = nil
+        GitLabMergeRequestHeadPipeline? = nil,
+    mergeWhenPipelineSucceeds:
+        Bool? = nil,
+    userCanMerge: Bool? = nil
 ) -> GitLabMergeRequest {
     GitLabMergeRequest(
         id: id,
@@ -69,7 +72,15 @@ nonisolated func makeTestMergeRequest(
         hasConflicts: hasConflicts,
         blockingDiscussionsResolved:
             blockingDiscussionsResolved,
-        headPipeline: headPipeline
+        headPipeline: headPipeline,
+        mergeWhenPipelineSucceeds:
+            mergeWhenPipelineSucceeds,
+        userPermissions:
+            userCanMerge.map {
+                GitLabMergeRequestUserPermissions(
+                    canMerge: $0
+                )
+            }
     )
 }
 

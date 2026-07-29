@@ -134,6 +134,28 @@ nonisolated enum GitLabMergeRequestEndpoints {
         )
     }
 
+    static func merge(
+        at route: GitLabMergeRequestRoute,
+        sha: String,
+        autoMerge: Bool
+    ) throws -> GitLabAPIRequest<
+        GitLabMergeRequest
+    > {
+        try .put(
+            path:
+                mergeRequestPath(route)
+                + ["merge"],
+            body:
+                GitLabMergeRequestMergeBody(
+                    sha: sha,
+                    autoMerge:
+                        autoMerge
+                        ? true
+                        : nil
+                )
+        )
+    }
+
     static func unapprove(
         at route: GitLabMergeRequestRoute
     ) -> GitLabAPIRequest<
@@ -215,4 +237,18 @@ private nonisolated struct
     Sendable
 {
     let sha: String
+}
+
+private nonisolated struct
+    GitLabMergeRequestMergeBody:
+    Encodable,
+    Sendable
+{
+    let sha: String
+    let autoMerge: Bool?
+
+    private enum CodingKeys: String, CodingKey {
+        case sha
+        case autoMerge = "auto_merge"
+    }
 }

@@ -647,7 +647,13 @@
                 hasConflicts: false,
                 blockingDiscussionsResolved:
                     true,
-                headPipeline: nil
+                headPipeline: nil,
+                mergeWhenPipelineSucceeds:
+                    false,
+                userPermissions:
+                    GitLabMergeRequestUserPermissions(
+                        canMerge: true
+                    )
             )
         }
 

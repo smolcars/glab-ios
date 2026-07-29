@@ -151,6 +151,23 @@ nonisolated struct GitLabMergeRequestHeadPipeline:
     }
 }
 
+nonisolated struct
+    GitLabMergeRequestUserPermissions:
+    Decodable,
+    Equatable,
+    Sendable
+{
+    let canMerge: Bool?
+
+    init(canMerge: Bool?) {
+        self.canMerge = canMerge
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case canMerge = "can_merge"
+    }
+}
+
 nonisolated struct GitLabMergeRequest:
     Decodable,
     Equatable,
@@ -186,6 +203,9 @@ nonisolated struct GitLabMergeRequest:
     let blockingDiscussionsResolved: Bool?
     let headPipeline:
         GitLabMergeRequestHeadPipeline?
+    let mergeWhenPipelineSucceeds: Bool?
+    let userPermissions:
+        GitLabMergeRequestUserPermissions?
 
     var route: GitLabMergeRequestRoute {
         GitLabMergeRequestRoute(
@@ -282,6 +302,9 @@ nonisolated struct GitLabMergeRequest:
         case blockingDiscussionsResolved =
             "blocking_discussions_resolved"
         case headPipeline = "head_pipeline"
+        case mergeWhenPipelineSucceeds =
+            "merge_when_pipeline_succeeds"
+        case userPermissions = "user"
     }
 }
 

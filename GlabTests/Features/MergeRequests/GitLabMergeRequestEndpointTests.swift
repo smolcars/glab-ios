@@ -140,6 +140,65 @@ struct GitLabMergeRequestEndpointTests {
         )
     }
 
+    @Test("Builds an exact head-aware immediate merge request")
+    func buildsImmediateMergeRequest() throws {
+        let endpoint =
+            try GitLabMergeRequestEndpoints.merge(
+                at: route,
+                sha: "fresh-head-sha",
+                autoMerge: false
+            )
+        let request = try buildRequest(endpoint)
+        let json = try jsonAnyObject(request)
+
+        #expect(endpoint.method == .put)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(
+            endpoint.pathComponents
+                == routePath + ["merge"]
+        )
+        #expect(
+            json["sha"] as? String
+                == "fresh-head-sha"
+        )
+        #expect(json["auto_merge"] == nil)
+        #expect(
+            Set(json.keys) == ["sha"]
+        )
+    }
+
+    @Test("Builds an exact head-aware auto-merge request")
+    func buildsAutoMergeRequest() throws {
+        let endpoint =
+            try GitLabMergeRequestEndpoints.merge(
+                at: route,
+                sha: "fresh-head-sha",
+                autoMerge: true
+            )
+        let json = try jsonAnyObject(
+            buildRequest(endpoint)
+        )
+
+        #expect(endpoint.method == .put)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(
+            endpoint.pathComponents
+                == routePath + ["merge"]
+        )
+        #expect(
+            json["sha"] as? String
+                == "fresh-head-sha"
+        )
+        #expect(
+            json["auto_merge"] as? Bool
+                == true
+        )
+        #expect(
+            Set(json.keys)
+                == ["auto_merge", "sha"]
+        )
+    }
+
     @Test("Builds a current-user unapprove request")
     func buildsUnapproveRequest() {
         let endpoint =
