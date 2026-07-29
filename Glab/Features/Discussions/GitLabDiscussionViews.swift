@@ -67,7 +67,7 @@ struct GitLabDiscussionSection: View {
                     model.discussions
             )
 
-        return LazyVStack(
+        return VStack(
             alignment: .leading,
             spacing: 14
         ) {
@@ -140,20 +140,27 @@ struct GitLabDiscussionSection: View {
                     presentation
                         .paginationAnchor
             {
-                Color.clear
-                    .frame(height: 1)
-                    .accessibilityHidden(true)
-                    .task(
-                        id:
-                            model
-                                .contentRevision
-                    ) {
-                        await model
-                            .loadNextPageIfNeeded(
-                                after:
-                                    paginationAnchor
-                            )
-                    }
+                ZStack {
+                    Color.clear
+                        .id(model.contentRevision)
+                        .onScrollVisibilityChange(
+                            threshold: 0.01
+                        ) { isVisible in
+                            guard isVisible else {
+                                return
+                            }
+                            Task {
+                                await model
+                                    .loadNextPageIfNeeded(
+                                        after:
+                                            paginationAnchor
+                                    )
+                            }
+                        }
+                }
+                .frame(height: 1)
+                .id("discussion.pagination.anchor")
+                .accessibilityHidden(true)
             }
 
             if model.isLoadingNextPage {

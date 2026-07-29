@@ -223,6 +223,10 @@ struct GitLabDiscussionPerformanceTests {
         )
 
         var maximumDrift: CGFloat = 0
+        var maximumContentHeightDrift:
+            CGFloat = 0
+        let initialContentHeight =
+            scrollView.contentSize.height
         let steps =
             Array(1...12)
             + Array((0..<12).reversed())
@@ -247,11 +251,18 @@ struct GitLabDiscussionPerformanceTests {
             host.layout()
             await Task.yield()
             host.layout()
+            let drift =
+                scrollView.contentOffset.y
+                - targetOffset
             maximumDrift = max(
                 maximumDrift,
+                abs(drift)
+            )
+            maximumContentHeightDrift = max(
+                maximumContentHeightDrift,
                 abs(
-                    scrollView.contentOffset.y
-                        - targetOffset
+                    scrollView.contentSize.height
+                        - initialContentHeight
                 )
             )
         }
@@ -260,6 +271,71 @@ struct GitLabDiscussionPerformanceTests {
             maximumDrift <= 1,
             "The discussion scroll offset drifted by \(maximumDrift) points."
         )
+        #expect(
+            maximumContentHeightDrift <= 1,
+            "The discussion content height drifted by \(maximumContentHeightDrift) points."
+        )
+    }
+
+    @Test("Loads another discussion page only at the visible anchor")
+    @MainActor
+    func paginationAnchorVisibility() async throws {
+        let resource:
+            GitLabDiscussionResource =
+                .mergeRequest(
+                    GitLabMergeRequestRoute(
+                        projectID: 42,
+                        mergeRequestIID: 7
+                    )
+                )
+        let firstPage = try decode(
+            GitLabDiscussionPerformanceFixtures
+                .data(discussionCount: 20)
+        )
+        let nextPage = Array(
+            try decode(
+                GitLabDiscussionPerformanceFixtures
+                    .data(discussionCount: 40)
+            )
+            .suffix(20)
+        )
+        let loader = PerformanceDiscussionLoader(
+            firstPage: firstPage,
+            nextPage: nextPage,
+            firstPageSource: .network
+        )
+        let model = GitLabDiscussionsModel(
+            resource: resource,
+            loader: loader
+        )
+        await model.loadIfNeeded()
+
+        let host = try DiscussionScrollHost(
+            model: model,
+            resource: resource
+        )
+        defer {
+            host.tearDown()
+        }
+        let scrollView = try await host.prepare()
+
+        #expect(
+            await loader.pageLoadCallCount
+                == 0
+        )
+        #expect(model.discussions.count == 20)
+
+        host.scrollToPaginationAnchor()
+        for _ in 0..<20 {
+            host.layout()
+            await Task.yield()
+        }
+
+        #expect(
+            await loader.pageLoadCallCount
+                == 1
+        )
+        #expect(model.discussions.count == 40)
     }
 
     private func p95DecodeMilliseconds(
@@ -477,6 +553,7 @@ private actor PerformanceDiscussionLoader:
     let nextPage: [GitLabDiscussion]?
     let firstPageSource:
         GitLabAPIResponseSource
+    private(set) var pageLoadCallCount = 0
 
     init(
         firstPage: [GitLabDiscussion],
@@ -496,6 +573,7 @@ private actor PerformanceDiscussionLoader:
     ) async throws(GitLabSessionClientError)
         -> GitLabResourcePage<GitLabDiscussion>
     {
+        pageLoadCallCount += 1
         if nextPageURL == nil {
             return firstResourcePage
         }
@@ -567,6 +645,8 @@ private actor RecordingDiscussionParser {
 @MainActor
 private final class DiscussionScrollHost {
     let window: UIWindow
+    let scrollController:
+        DiscussionScrollController
     let controller:
         UIHostingController<
             DiscussionScrollTestView
@@ -583,6 +663,8 @@ private final class DiscussionScrollHost {
             host: host,
             userID: 1
         )
+        scrollController =
+            DiscussionScrollController()
         controller = UIHostingController(
             rootView:
                 DiscussionScrollTestView(
@@ -592,7 +674,9 @@ private final class DiscussionScrollHost {
                     appSession: AppSession(
                         credentialStore:
                             InMemoryGitLabCredentialStore()
-                    )
+                    ),
+                    scrollController:
+                        scrollController
                 )
         )
         guard
@@ -647,6 +731,11 @@ private final class DiscussionScrollHost {
         CATransaction.flush()
     }
 
+    func scrollToPaginationAnchor() {
+        scrollController
+            .scrollToPaginationAnchor()
+    }
+
     func tearDown() {
         window.isHidden = true
         window.rootViewController = nil
@@ -684,6 +773,8 @@ private struct DiscussionScrollTestView:
     let resource: GitLabDiscussionResource
     let accountID: GitLabAccountID
     let appSession: AppSession
+    let scrollController:
+        DiscussionScrollController
     private let reactions =
         EmptyDiscussionReactionService()
     private let renderer =
@@ -705,48 +796,71 @@ private struct DiscussionScrollTestView:
         )
 
     var body: some View {
-        ScrollView {
-            GitLabDetailScrollContent {
-                ForEach(0..<8, id: \.self) {
-                    index in
-                    Text(
-                        String(
-                            repeating:
-                                "Readiness item \(index). ",
-                            count: index + 1
+        ScrollViewReader { proxy in
+            ScrollView {
+                GitLabDetailScrollContent {
+                    ForEach(0..<8, id: \.self) {
+                        index in
+                        Text(
+                            String(
+                                repeating:
+                                    "Readiness item \(index). ",
+                                count: index + 1
+                            )
                         )
-                    )
-                    .frame(
-                        maxWidth: .infinity,
-                        alignment: .leading
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: .leading
+                        )
+                    }
+
+                    GitLabDiscussionSection(
+                        model: model,
+                        resource: resource,
+                        accountID: accountID,
+                        webURL: URL(
+                            string:
+                                "https://gitlab.example.com/"
+                                + "group/project/-/merge_requests/7"
+                        ),
+                        apiAccess: .readOnly,
+                        reactionService:
+                            reactions,
+                        resolutionModel: nil,
+                        appSession: appSession,
+                        launchComposer: { _ in }
                     )
                 }
-
-                GitLabDiscussionSection(
-                    model: model,
-                    resource: resource,
-                    accountID: accountID,
-                    webURL: URL(
-                        string:
-                            "https://gitlab.example.com/"
-                            + "group/project/-/merge_requests/7"
-                    ),
-                    apiAccess: .readOnly,
-                    reactionService:
-                        reactions,
-                    resolutionModel: nil,
-                    appSession: appSession,
-                    launchComposer: { _ in }
+            }
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: 76)
+            }
+            .onChange(
+                of:
+                    scrollController
+                        .paginationScrollGeneration
+            ) {
+                proxy.scrollTo(
+                    "discussion.pagination.anchor",
+                    anchor: .bottom
                 )
             }
-        }
-        .safeAreaInset(edge: .bottom) {
-            Color.clear.frame(height: 76)
         }
         .environment(
             \.gitLabMarkdownRenderer,
             renderer
         )
+    }
+}
+
+@MainActor
+@Observable
+private final class DiscussionScrollController {
+    private(set) var
+        paginationScrollGeneration = 0
+
+    func scrollToPaginationAnchor() {
+        paginationScrollGeneration += 1
     }
 }
 
