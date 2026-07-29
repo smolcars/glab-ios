@@ -769,6 +769,38 @@ Repair plan, to be committed before production edits:
 7. Repeat the deep review and record the final result here before closing
    P3-04 or beginning P3-05.
 
+### DR-05 — The discussion scroll-stability gate regressed
+
+Status: diagnosis and repair planned; no code changed for this finding.
+
+The final serialized test run passed 734 of 735 tests but the existing
+MR-sized discussion scroll-stability test measured 239 points of offset drift
+against its one-point budget. Running the complete discussion-performance
+suite reproduces the failure. Method-level test selection was discarded as
+invalid evidence after its result bundle proved that it executed zero tests.
+
+This failure is material because smooth scrolling is an explicit P3-04
+verification requirement and the user has previously reported visible
+discussion scrolling jumps. The assertion must not be weakened or removed.
+
+Repair plan, to be committed before diagnostic or production edits:
+
+1. Add temporary diagnostics to the existing performance harness for the
+   failing step, content size, bounds, adjusted insets, target offset, and
+   resulting offset.
+2. Reproduce the failure with the full five-test discussion-performance suite,
+   identify whether asynchronous content-height mutation, safe-area
+   adjustment, or view identity replacement causes the drift, and then remove
+   the temporary diagnostics.
+3. Add the smallest deterministic regression assertion that exposes the
+   identified root cause rather than merely tolerating its symptom.
+4. Repair the responsible production layout or lifecycle behavior without
+   changing the strict one-point offset budget.
+5. Rerun the discussion-performance suite, the focused P3-04 suites, and the
+   single final full verification gate.
+6. Repeat the deep review and record exact evidence before closing P3-04 or
+   beginning P3-05.
+
 ## Non-goals
 
 - Resolving issue, commit, snippet, epic, work-item, or design discussions.
