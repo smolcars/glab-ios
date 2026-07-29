@@ -311,6 +311,54 @@ where
     }
 
     @discardableResult
+    func reconcileItemAtStart(
+        _ item: Item,
+        countAdjustmentIfInserted: Int = 0
+    ) -> Bool {
+        let itemIdentity = identity(item)
+        let existingIndex =
+            items.firstIndex {
+                identity($0)
+                    == itemIdentity
+            }
+        if let existingIndex {
+            items.remove(at: existingIndex)
+        }
+        items.insert(item, at: 0)
+
+        reconciledTailItems.removeAll {
+            identity($0) == itemIdentity
+        }
+        if
+            let tailIndex =
+                retainedServerTailItems
+                .firstIndex(
+                    where: {
+                        identity($0)
+                            == itemIdentity
+                    }
+                )
+        {
+            retainedServerTailItems[
+                tailIndex
+            ] = item
+        }
+
+        if
+            existingIndex == nil,
+            let totalItemCount
+        {
+            self.totalItemCount = max(
+                0,
+                totalItemCount
+                    + countAdjustmentIfInserted
+            )
+        }
+        contentRevision += 1
+        return existingIndex == nil
+    }
+
+    @discardableResult
     func reconcileItemIfPresent(
         _ item: Item
     ) -> Bool {

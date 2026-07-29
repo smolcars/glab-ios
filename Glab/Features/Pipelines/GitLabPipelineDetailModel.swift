@@ -243,6 +243,45 @@ final class GitLabPipelineDetailModel {
         await projectStages()
     }
 
+    func reconcileActionPipeline(
+        _ pipeline: GitLabPipeline
+    ) {
+        guard
+            accountScope.check(),
+            pipeline.id == route.pipelineID,
+            pipeline.projectID == nil
+                || pipeline.projectID
+                    == route.projectID
+        else {
+            return
+        }
+        pipelineGeneration &+= 1
+        pipelineState = .loaded(pipeline)
+        pipelineRefreshError = nil
+        pipelineSource = .network
+        pipelineCacheStoredAt = nil
+    }
+
+    func reconcileActionJob(
+        _ job: GitLabPipelineJob
+    ) async {
+        guard
+            accountScope.check(),
+            Self.job(
+                job,
+                belongsTo: route
+            )
+        else {
+            return
+        }
+        jobs.reconcileItem(
+            job,
+            countAdjustmentIfInserted: 1,
+            keepsAtEndUntilLoaded: true
+        )
+        await projectStages()
+    }
+
     func runVisible(
         isSceneActive: Bool
     ) async {
@@ -688,5 +727,21 @@ final class GitLabPipelineDetailModel {
                 ]
             }
         )
+    }
+
+    private static func job(
+        _ job: GitLabPipelineJob,
+        belongsTo route:
+            GitLabPipelineRoute
+    ) -> Bool {
+        guard let pipeline = job.pipeline else {
+            return true
+        }
+        return pipeline.id == route.pipelineID
+            && (
+                pipeline.projectID == nil
+                    || pipeline.projectID
+                        == route.projectID
+            )
     }
 }

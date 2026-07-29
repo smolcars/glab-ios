@@ -180,7 +180,7 @@ final class GitLabPipelineActionModel {
         @MainActor (GitLabPipeline) -> Void
     @ObservationIgnored
     private let reconcileJob:
-        @MainActor (GitLabPipelineJob) -> Void
+        @MainActor (GitLabPipelineJob) async -> Void
     @ObservationIgnored
     private let refresh:
         @MainActor () async -> Void
@@ -202,7 +202,7 @@ final class GitLabPipelineActionModel {
         reconcilePipeline:
             @escaping @MainActor (GitLabPipeline) -> Void,
         reconcileJob:
-            @escaping @MainActor (GitLabPipelineJob) -> Void,
+            @escaping @MainActor (GitLabPipelineJob) async -> Void,
         refresh:
             @escaping @MainActor () async -> Void
     ) {
@@ -495,7 +495,7 @@ private extension GitLabPipelineActionModel {
                     .cancelPipeline(at: route)
             )
         case .retryJob:
-            reconcileJob(
+            await reconcileJob(
                 try await service.retryJob(
                     at:
                         try jobRoute(
@@ -506,7 +506,7 @@ private extension GitLabPipelineActionModel {
         case .cancelJob:
             let route =
                 try jobRoute(confirmation)
-            reconcileJob(
+            await reconcileJob(
                 try await service.cancelJob(
                     at: route
                 )
@@ -515,7 +515,7 @@ private extension GitLabPipelineActionModel {
                 jobID: route.jobID
             )
         case .playJob:
-            reconcileJob(
+            await reconcileJob(
                 try await service.playJob(
                     at:
                         try jobRoute(

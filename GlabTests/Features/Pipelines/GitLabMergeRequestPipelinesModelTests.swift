@@ -82,6 +82,65 @@ struct GitLabMergeRequestPipelinesModelTests {
     }
 
     @Test(
+        "A created pipeline is reconciled at the start without duplication"
+    )
+    func reconcilesCreatedPipelineAtStart()
+        async throws
+    {
+        let loader = PipelineHistoryLoader(
+            firstPageResults: [
+                .success(
+                    event(
+                        pipelines: [
+                            try pipeline(
+                                id: 3,
+                                status: "running"
+                            ),
+                            try pipeline(
+                                id: 2,
+                                status: "success"
+                            ),
+                        ]
+                    )
+                ),
+            ]
+        )
+        let context = makeModel(loader: loader)
+        await context.model.loadIfNeeded()
+
+        context.model
+            .reconcileCreatedPipeline(
+                try pipeline(
+                    id: 4,
+                    status: "pending"
+                )
+            )
+        context.model
+            .reconcileCreatedPipeline(
+                try pipeline(
+                    id: 2,
+                    status: "running"
+                )
+            )
+
+        #expect(
+            context.model.pipelines.items
+                .map(\.id)
+                == [2, 4, 3]
+        )
+        #expect(
+            context.model.pipelines.items
+                .filter { $0.id == 2 }
+                .count == 1
+        )
+        #expect(
+            context.model.pipelines.items
+                .first?.status.rawValue
+                == "running"
+        )
+    }
+
+    @Test(
         "Polls active history once and stops after it becomes terminal"
     )
     func activeToTerminalPolling() async throws {

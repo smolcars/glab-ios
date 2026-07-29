@@ -94,6 +94,23 @@ final class GitLabMergeRequestPipelinesModel {
         await pipelines.retryNextPage()
     }
 
+    func reconcileCreatedPipeline(
+        _ pipeline: GitLabPipeline
+    ) {
+        guard
+            accountScope.check(),
+            pipeline.projectID == nil
+                || pipeline.projectID
+                    == route.projectID
+        else {
+            return
+        }
+        pipelines.reconcileItemAtStart(
+            pipeline,
+            countAdjustmentIfInserted: 1
+        )
+    }
+
     func runVisible(
         isSceneActive: Bool
     ) async {

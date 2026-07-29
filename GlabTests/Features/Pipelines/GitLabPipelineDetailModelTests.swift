@@ -88,6 +88,81 @@ struct GitLabPipelineDetailModelTests {
     }
 
     @Test(
+        "Action responses replace pipeline and job state before refresh"
+    )
+    func reconcilesActionResponses()
+        async throws
+    {
+        let loader = PipelineDetailLoader(
+            pipelineResults: [
+                .success(
+                    pipelineEvent(
+                        try pipeline(
+                            status: "running"
+                        )
+                    )
+                ),
+            ],
+            jobFirstPageResults: [
+                .success(
+                    jobEvent([
+                        try job(
+                            id: 90,
+                            name: "unit tests",
+                            stage: "test",
+                            status: "running"
+                        ),
+                    ])
+                ),
+            ],
+            triggerFirstPageResults: [
+                .success(
+                    PipelineTriggerFirstPageResult(
+                        event:
+                            triggerEvent([]),
+                        selectedCapability:
+                            .preferred
+                    )
+                ),
+            ]
+        )
+        let context = makeModel(loader: loader)
+        await context.model.loadIfNeeded()
+
+        context.model
+            .reconcileActionPipeline(
+                try pipeline(
+                    status: "canceling"
+                )
+            )
+        await context.model
+            .reconcileActionJob(
+                try job(
+                    id: 90,
+                    name: "unit tests",
+                    stage: "test",
+                    status: "canceled"
+                )
+            )
+
+        #expect(
+            context.model.pipeline?.status
+                .rawValue == "canceling"
+        )
+        #expect(
+            context.model.jobs.items
+                .first?.status.rawValue
+                == "canceled"
+        )
+        #expect(
+            context.model.stages
+                .flatMap(\.rows)
+                .first?.status.rawValue
+                == "canceled"
+        )
+    }
+
+    @Test(
         "A job failure retains pipeline metadata and trigger jobs"
     )
     func jobFailureIsIndependent()
