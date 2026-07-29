@@ -82,6 +82,126 @@ struct GitLabMergeRequestEndpointTests {
         )
     }
 
+    @Test("Builds the premium merge request approval details route")
+    func buildsApprovalDetailsRoute() throws {
+        let endpoint =
+            GitLabMergeRequestEndpoints
+                .approvalDetails(at: route)
+
+        #expect(endpoint.method == .get)
+        #expect(endpoint.requiredAccess == .read)
+        #expect(
+            endpoint.pathComponents
+                == routePath
+                + ["approval_state"]
+        )
+    }
+
+    @Test("Builds an exact merge request approval rule route")
+    func buildsApprovalRuleRoute() throws {
+        let endpoint =
+            GitLabMergeRequestEndpoints
+                .approvalRule(
+                    at: route,
+                    ruleID: 41
+                )
+
+        #expect(endpoint.method == .get)
+        #expect(endpoint.requiredAccess == .read)
+        #expect(
+            endpoint.pathComponents
+                == routePath
+                + [
+                    "approval_rules",
+                    "41",
+                ]
+        )
+    }
+
+    @Test("Builds a head-aware approve request")
+    func buildsApproveRequest() throws {
+        let endpoint =
+            try GitLabMergeRequestEndpoints
+                .approve(
+                    at: route,
+                    sha: "fresh-head-sha"
+                )
+        let request = try buildRequest(endpoint)
+
+        #expect(endpoint.method == .post)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(
+            endpoint.pathComponents
+                == routePath + ["approve"]
+        )
+        #expect(
+            try jsonObject(request)
+                == ["sha": "fresh-head-sha"]
+        )
+    }
+
+    @Test("Builds a current-user unapprove request")
+    func buildsUnapproveRequest() {
+        let endpoint =
+            GitLabMergeRequestEndpoints
+                .unapprove(at: route)
+
+        #expect(endpoint.method == .post)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(
+            endpoint.pathComponents
+                == routePath + ["unapprove"]
+        )
+        #expect(endpoint.body == nil)
+    }
+
+    @Test("Builds a complete approval rule replacement")
+    func buildsApprovalRuleReplacement() throws {
+        let endpoint =
+            try GitLabMergeRequestEndpoints
+                .updateApprovalRule(
+                    at: route,
+                    ruleID: 41,
+                    replacement:
+                        GitLabMergeRequestApprovalRuleReplacement(
+                            name: "Security",
+                            approvalsRequired: 2,
+                            userIDs: [7, 8, 9],
+                            groupIDs: [19, 23]
+                        )
+                )
+        let json = try jsonAnyObject(
+            buildRequest(endpoint)
+        )
+
+        #expect(endpoint.method == .put)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(
+            endpoint.pathComponents
+                == routePath
+                + [
+                    "approval_rules",
+                    "41",
+                ]
+        )
+        #expect(json["name"] as? String == "Security")
+        #expect(
+            json["approvals_required"] as? Int == 2
+        )
+        #expect(
+            json["user_ids"] as? [Int]
+                == [7, 8, 9]
+        )
+        #expect(
+            json["group_ids"] as? [Int]
+                == [19, 23]
+        )
+        #expect(
+            json["remove_hidden_groups"] as? Bool
+                == false
+        )
+    }
+
     @Test("Builds a head-aware paginated diff route")
     func buildsDiffRoute() throws {
         let endpoint =
@@ -329,6 +449,22 @@ struct GitLabMergeRequestEndpointTests {
 }
 
 private extension GitLabMergeRequestEndpointTests {
+    var route: GitLabMergeRequestRoute {
+        GitLabMergeRequestRoute(
+            projectID: 42,
+            mergeRequestIID: 7
+        )
+    }
+
+    var routePath: [String] {
+        [
+            "projects",
+            "42",
+            "merge_requests",
+            "7",
+        ]
+    }
+
     nonisolated func requestURL<Response>(
         _ endpoint: GitLabAPIRequest<Response>
     ) throws -> URL {

@@ -6,6 +6,23 @@ nonisolated struct GitLabMergeRequestApproval:
     Sendable
 {
     let user: GitLabAPIUser?
+    let approvedAt: Date?
+
+    init(
+        user: GitLabAPIUser?,
+        approvedAt: Date? = nil
+    ) {
+        self.user = user
+        self.approvedAt = approvedAt
+    }
+
+    private enum CodingKeys:
+        String,
+        CodingKey
+    {
+        case user
+        case approvedAt = "approved_at"
+    }
 }
 
 nonisolated struct GitLabMergeRequestApprovalSummary:

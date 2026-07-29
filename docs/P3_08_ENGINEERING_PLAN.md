@@ -5,8 +5,8 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Test implementation: not started
-- Production implementation: not started
+- Test implementation: in progress
+- Production implementation: in progress
 - Simulator verification: not started
 - Deep review: not started
 

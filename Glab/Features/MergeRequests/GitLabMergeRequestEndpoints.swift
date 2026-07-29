@@ -86,6 +86,86 @@ nonisolated enum GitLabMergeRequestEndpoints {
         )
     }
 
+    static func approvalDetails(
+        at route: GitLabMergeRequestRoute
+    ) -> GitLabAPIRequest<
+        GitLabMergeRequestApprovalDetails
+    > {
+        .get(
+            requires: .read,
+            path:
+                mergeRequestPath(route)
+                + ["approval_state"]
+        )
+    }
+
+    static func approvalRule(
+        at route: GitLabMergeRequestRoute,
+        ruleID: Int
+    ) -> GitLabAPIRequest<
+        GitLabMergeRequestApprovalRule
+    > {
+        .get(
+            requires: .read,
+            path:
+                mergeRequestPath(route)
+                + [
+                    "approval_rules",
+                    String(ruleID),
+                ]
+        )
+    }
+
+    static func approve(
+        at route: GitLabMergeRequestRoute,
+        sha: String
+    ) throws -> GitLabAPIRequest<
+        GitLabMergeRequestApprovalSummary
+    > {
+        try .post(
+            requires: .write,
+            path:
+                mergeRequestPath(route)
+                + ["approve"],
+            body:
+                GitLabMergeRequestApprovalBody(
+                    sha: sha
+                )
+        )
+    }
+
+    static func unapprove(
+        at route: GitLabMergeRequestRoute
+    ) -> GitLabAPIRequest<
+        GitLabMergeRequestApprovalSummary
+    > {
+        .post(
+            requires: .write,
+            path:
+                mergeRequestPath(route)
+                + ["unapprove"]
+        )
+    }
+
+    static func updateApprovalRule(
+        at route: GitLabMergeRequestRoute,
+        ruleID: Int,
+        replacement:
+            GitLabMergeRequestApprovalRuleReplacement
+    ) throws -> GitLabAPIRequest<
+        GitLabMergeRequestApprovalRule
+    > {
+        try .put(
+            path:
+                mergeRequestPath(route)
+                + [
+                    "approval_rules",
+                    String(ruleID),
+                ],
+            body: replacement
+        )
+    }
+
     static func diffVersions(
         at route: GitLabMergeRequestRoute
     ) -> GitLabAPIRequest<
@@ -108,6 +188,17 @@ nonisolated enum GitLabMergeRequestEndpoints {
             ]
         )
     }
+
+    private static func mergeRequestPath(
+        _ route: GitLabMergeRequestRoute
+    ) -> [String] {
+        [
+            "projects",
+            String(route.projectID),
+            "merge_requests",
+            String(route.mergeRequestIID),
+        ]
+    }
 }
 
 private nonisolated struct GitLabMergeRequestUpdateBody:
@@ -116,4 +207,12 @@ private nonisolated struct GitLabMergeRequestUpdateBody:
 {
     let title: String?
     let description: String?
+}
+
+private nonisolated struct
+    GitLabMergeRequestApprovalBody:
+    Encodable,
+    Sendable
+{
+    let sha: String
 }
