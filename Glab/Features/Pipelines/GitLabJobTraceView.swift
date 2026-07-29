@@ -631,11 +631,11 @@ struct GitLabJobTraceView: View {
 }
 
 struct GitLabJobTraceLineSurface: View {
+    let document:
+        GitLabJobTraceDocument
     let selectedLineIndex: Int?
     let jump: GitLabJobTraceJump?
 
-    @State private var viewport:
-        GitLabJobTraceViewport
     @ScaledMetric(relativeTo: .caption)
     private var rowHeight: CGFloat = 22
     @ScaledMetric(relativeTo: .caption)
@@ -647,215 +647,23 @@ struct GitLabJobTraceLineSurface: View {
         selectedLineIndex: Int?,
         jump: GitLabJobTraceJump?
     ) {
+        self.document = document
         self.selectedLineIndex =
             selectedLineIndex
         self.jump = jump
-        _viewport = State(
-            initialValue:
-                GitLabJobTraceViewport(
-                    document: document
-                )
-        )
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(
-                [.horizontal, .vertical]
-            ) {
-                LazyVStack(
-                    alignment: .leading,
-                    spacing: 0
-                ) {
-                    ForEach(
-                        0..<viewport.lineCount,
-                        id: \.self
-                    ) { index in
-                        GitLabJobTraceLineRow(
-                            index: index,
-                            line:
-                                viewport.line(
-                                    at: index
-                                ),
-                            isSelected:
-                                selectedLineIndex
-                                == index,
-                            rowHeight:
-                                rowHeight,
-                            gutterWidth:
-                                gutterWidth,
-                            contentWidth:
-                                contentWidth
-                        )
-                        .id(index)
-                        .task {
-                            await viewport.load(
-                                around: index
-                            )
-                        }
-                    }
-                }
-                .frame(
-                    width: contentWidth,
-                    alignment: .leading
-                )
-            }
-            .defaultScrollAnchor(
-                .topLeading
-            )
-            .onChange(
-                of: jump
-            ) { _, jump in
-                guard
-                    let jump,
-                    jump.lineIndex >= 0,
-                    jump.lineIndex
-                        < viewport.lineCount
-                else {
-                    return
-                }
-                Task {
-                    await viewport.load(
-                        around:
-                            jump.lineIndex
-                    )
-                    guard !Task.isCancelled
-                    else {
-                        return
-                    }
-                    proxy.scrollTo(
-                        jump.lineIndex,
-                        anchor: .center
-                    )
-                }
-            }
-            .overlay(alignment: .top) {
-                if let error = viewport.error {
-                    Text(error.description)
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(
-                            .regularMaterial,
-                            in: .capsule
-                        )
-                        .padding(.top, 6)
-                }
-            }
-        }
-        .background(
-            Color(
-                uiColor:
-                    .systemBackground
-            )
+        GitLabJobTraceCollectionView(
+            document: document,
+            selectedLineIndex:
+                selectedLineIndex,
+            jump: jump,
+            rowHeight: rowHeight,
+            glyphWidth: glyphWidth
         )
-        .onDisappear {
-            viewport.cancel()
-        }
         .accessibilityIdentifier(
             "jobTrace.lines"
-        )
-    }
-
-    private var gutterWidth: CGFloat {
-        let digitCount = max(
-            1,
-            String(
-                max(
-                    1,
-                    viewport.lineCount
-                )
-            ).count
-        )
-        return CGFloat(digitCount + 2)
-            * glyphWidth
-    }
-
-    private var contentWidth: CGFloat {
-        GitLabJobTraceLayoutMetrics
-            .contentWidth(
-                renderedByteCount:
-                    viewport
-                    .maximumRenderedByteCount,
-                glyphWidth: glyphWidth,
-                lineCount:
-                    viewport.lineCount
-            )
-    }
-}
-
-private struct GitLabJobTraceLineRow:
-    View
-{
-    let index: Int
-    let line: GitLabJobTraceLine?
-    let isSelected: Bool
-    let rowHeight: CGFloat
-    let gutterWidth: CGFloat
-    let contentWidth: CGFloat
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Text(
-                String(index + 1)
-            )
-            .foregroundStyle(.tertiary)
-            .frame(
-                width: gutterWidth,
-                alignment: .trailing
-            )
-
-            if let line {
-                Text(line.text)
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .fixedSize(
-                        horizontal: true,
-                        vertical: false
-                    )
-            } else {
-                Color.clear
-                    .frame(width: 1)
-                    .accessibilityHidden(
-                        true
-                    )
-            }
-
-            Spacer(minLength: 0)
-        }
-        .font(
-            .system(
-                .caption,
-                design: .monospaced
-            )
-        )
-        .frame(
-            width: contentWidth,
-            height: rowHeight,
-            alignment: .leading
-        )
-        .padding(.horizontal, 4)
-        .background(
-            isSelected
-            ? Color.orange.opacity(0.18)
-            : Color.clear
-        )
-        .contentShape(.rect)
-        .accessibilityElement(
-            children: .ignore
-        )
-        .accessibilityLabel(
-            line.map {
-                GitLabJobTraceAccessibility
-                    .label(for: $0)
-            }
-            ?? "Line \(index + 1), loading"
-        )
-        .accessibilityAddTraits(
-            isSelected
-            ? [.isSelected]
-            : []
         )
     }
 }
