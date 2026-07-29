@@ -57,6 +57,9 @@ struct
                         .confirmAction()
                 }
             }
+            .accessibilityIdentifier(
+                "mergeRequests.approvals.confirm"
+            )
             Button(
                 "Cancel",
                 role: .cancel
@@ -726,12 +729,7 @@ struct
             get: {
                 model.confirmation != nil
             },
-            set: {
-                if !$0 {
-                    model
-                        .cancelConfirmation()
-                }
-            }
+            set: { _ in }
         )
     }
 
@@ -765,135 +763,18 @@ private struct
 
     var body: some View {
         NavigationStack {
-            Group {
+            VStack(spacing: 0) {
                 if
-                    model.availableMembers
-                        .isEmpty,
-                    model.isLoadingMembers
+                    let failure =
+                        model.failure,
+                    model.memberOptionsError
+                        == nil
                 {
-                    GitLabLoadingStateView(
-                        message:
-                            "Loading project members"
-                    )
-                } else if
-                    model.availableMembers
-                        .isEmpty,
-                    let error =
-                        model
-                        .memberOptionsError
-                {
-                    GitLabRetryStateView(
-                        error: error
-                    ) {
-                        Task {
-                            await model
-                                .searchMembers(
-                                    searchText
-                                )
-                        }
-                    }
-                } else if
-                    model.availableMembers
-                        .isEmpty
-                {
-                    ContentUnavailableView(
-                        "No available approvers",
-                        systemImage:
-                            "person.crop.circle.badge.xmark",
-                        description:
-                            Text(
-                                "Everyone shown by this rule is already included."
-                            )
-                    )
-                } else {
-                    List {
-                        ForEach(
-                            model.availableMembers
-                        ) { member in
-                            Button {
-                                model
-                                    .selectApprover(
-                                        member
-                                    )
-                            } label: {
-                                HStack(
-                                    spacing: 12
-                                ) {
-                                    GitLabUserAvatar(
-                                        user:
-                                            GitLabUserSummary(
-                                                id:
-                                                    member.id,
-                                                username:
-                                                    member
-                                                    .username,
-                                                name:
-                                                    member.name,
-                                                avatarURL:
-                                                    member
-                                                    .avatarURL
-                                            ),
-                                        size: 34
-                                    )
-                                    VStack(
-                                        alignment:
-                                            .leading,
-                                        spacing: 2
-                                    ) {
-                                        Text(
-                                            member
-                                                .name
-                                        )
-                                        .foregroundStyle(
-                                            .primary
-                                        )
-                                        Text(
-                                            "@\(member.username)"
-                                        )
-                                        .font(.caption)
-                                        .foregroundStyle(
-                                            .secondary
-                                        )
-                                    }
-                                    Spacer(
-                                        minLength: 0
-                                    )
-                                }
-                                .contentShape(.rect)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(
-                                "\(member.name), @\(member.username)"
-                            )
-                            .accessibilityHint(
-                                "Adds this person after confirmation."
-                            )
-                            .task {
-                                if
-                                    member.id
-                                        == model
-                                        .availableMembers
-                                        .last?.id
-                                {
-                                    await model
-                                        .loadNextMembersPage()
-                                }
-                            }
-                        }
-
-                        if model.isLoadingMembers {
-                            HStack {
-                                Spacer()
-                                ProgressView()
-                                Spacer()
-                            }
-                            .listRowSeparator(
-                                .hidden
-                            )
-                        }
-                    }
-                    .listStyle(.insetGrouped)
+                    pickerFailure(failure)
+                    Divider()
                 }
+
+                memberContent
             }
             .navigationTitle("Add approver")
             .navigationBarTitleDisplayMode(
@@ -954,6 +835,9 @@ private struct
                     }
                 }
             }
+            .accessibilityIdentifier(
+                "mergeRequests.approvals.rule.confirm"
+            )
             Button(
                 "Cancel",
                 role: .cancel
@@ -968,6 +852,197 @@ private struct
         }
     }
 
+    @ViewBuilder
+    private var memberContent: some View {
+        if
+            model.availableMembers
+                .isEmpty,
+            model.isLoadingMembers
+        {
+            GitLabLoadingStateView(
+                message:
+                    "Loading project members"
+            )
+        } else if
+            model.availableMembers
+                .isEmpty,
+            let error =
+                model
+                .memberOptionsError
+        {
+            GitLabRetryStateView(
+                error: error
+            ) {
+                Task {
+                    await model
+                        .searchMembers(
+                            searchText
+                        )
+                }
+            }
+        } else if
+            model.availableMembers
+                .isEmpty
+        {
+            ContentUnavailableView(
+                "No available approvers",
+                systemImage:
+                    "person.crop.circle.badge.xmark",
+                description:
+                    Text(
+                        "Everyone shown by this rule is already included."
+                    )
+            )
+        } else {
+            List {
+                ForEach(
+                    model.availableMembers
+                ) { member in
+                    Button {
+                        model
+                            .selectApprover(
+                                member
+                            )
+                    } label: {
+                        HStack(
+                            spacing: 12
+                        ) {
+                            GitLabUserAvatar(
+                                user:
+                                    GitLabUserSummary(
+                                        id:
+                                            member.id,
+                                        username:
+                                            member
+                                            .username,
+                                        name:
+                                            member.name,
+                                        avatarURL:
+                                            member
+                                            .avatarURL
+                                    ),
+                                size: 34
+                            )
+                            VStack(
+                                alignment:
+                                    .leading,
+                                spacing: 2
+                            ) {
+                                Text(
+                                    member
+                                        .name
+                                )
+                                .foregroundStyle(
+                                    .primary
+                                )
+                                Text(
+                                    "@\(member.username)"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(
+                                    .secondary
+                                )
+                            }
+                            Spacer(
+                                minLength: 0
+                            )
+                        }
+                        .contentShape(.rect)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(
+                        "\(member.name), @\(member.username)"
+                    )
+                    .accessibilityHint(
+                        "Adds this person after confirmation."
+                    )
+                    .task {
+                        if
+                            member.id
+                                == model
+                                .availableMembers
+                                .last?.id
+                        {
+                            await model
+                                .loadNextMembersPage()
+                        }
+                    }
+                }
+
+                if model.isLoadingMembers {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                        Spacer()
+                    }
+                    .listRowSeparator(
+                        .hidden
+                    )
+                }
+            }
+            .listStyle(.insetGrouped)
+        }
+    }
+
+    private func pickerFailure(
+        _ failure:
+            GitLabMergeRequestApprovalManagementFailure
+    ) -> some View {
+        HStack(spacing: 8) {
+            Image(
+                systemName:
+                    "exclamationmark.circle"
+            )
+            .foregroundStyle(.orange)
+
+            Text(failure.userMessage)
+                .font(.caption)
+                .foregroundStyle(
+                    .secondary
+                )
+                .frame(
+                    maxWidth: .infinity,
+                    alignment: .leading
+                )
+
+            if model.hasUnresolvedMutation {
+                Button {
+                    Task {
+                        await model
+                            .checkGitLab()
+                    }
+                } label: {
+                    if model.isBusy {
+                        ProgressView()
+                            .controlSize(
+                                .small
+                            )
+                    } else {
+                        Image(
+                            systemName:
+                                "arrow.triangle.2.circlepath"
+                        )
+                    }
+                }
+                .buttonStyle(.glass)
+                .controlSize(.small)
+                .frame(
+                    width: 44,
+                    height: 44
+                )
+                .disabled(model.isBusy)
+                .accessibilityLabel(
+                    "Check GitLab"
+                )
+                .accessibilityIdentifier(
+                    "mergeRequests.approvals.rule.check"
+                )
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+
     private var additionConfirmationIsPresented:
         Binding<Bool>
     {
@@ -977,12 +1052,7 @@ private struct
                     .ruleAdditionConfirmation
                     != nil
             },
-            set: {
-                if !$0 {
-                    model
-                        .cancelRuleAdditionConfirmation()
-                }
-            }
+            set: { _ in }
         )
     }
 }

@@ -1,0 +1,119 @@
+appId: com.glab.ios
+name: P3-08 approval fallback and mutation states
+---
+- launchApp:
+    arguments:
+      p3_08_approval_fixture: "true"
+      p3_08_approval_fixture_mode: basic
+- assertVisible: Basic approvals
+- tapOn:
+    id: mergeRequests.approvals.summary
+- assertVisible: Ada Lovelace
+- assertNotVisible: Security review
+- assertNotVisible:
+    id: mergeRequests.approvals.approve
+
+- launchApp:
+    arguments:
+      p3_08_approval_fixture: "true"
+      p3_08_approval_fixture_mode: approved
+- assertVisible: Current user approved
+- tapOn:
+    id: mergeRequests.approvals.summary
+- scrollUntilVisible:
+    element:
+      id: mergeRequests.approvals.unapprove
+    direction: DOWN
+- tapOn:
+    id: mergeRequests.approvals.unapprove
+- assertVisible: Remove your approval?
+- tapOn: Cancel
+
+- launchApp:
+    arguments:
+      p3_08_approval_fixture: "true"
+      p3_08_approval_fixture_mode: detailsFailure
+- assertVisible: Rule refresh failure
+- tapOn:
+    id: mergeRequests.approvals.summary
+- assertVisible: Ada Lovelace
+- assertVisible: Rules couldn’t be refreshed.
+- assertVisible: Retry approval rules
+
+- launchApp:
+    arguments:
+      p3_08_approval_fixture: "true"
+      p3_08_approval_fixture_mode: stale
+- assertVisible: Stale revision
+- tapOn:
+    id: mergeRequests.approvals.summary
+- scrollUntilVisible:
+    element:
+      id: mergeRequests.approvals.approve
+    direction: DOWN
+- tapOn:
+    id: mergeRequests.approvals.approve
+- assertVisible: Approve merge request?
+- tapOn:
+    id: mergeRequests.approvals.confirm
+- waitForAnimationToEnd
+- assertVisible: The merge request revision changed. Refresh before trying again.
+
+- launchApp:
+    arguments:
+      p3_08_approval_fixture: "true"
+      p3_08_approval_fixture_mode: permissionDenied
+- assertVisible: Permission denied
+- tapOn:
+    id: mergeRequests.approvals.summary
+- scrollUntilVisible:
+    element:
+      id: mergeRequests.approvals.approve
+    direction: DOWN
+- tapOn:
+    id: mergeRequests.approvals.approve
+- assertVisible: Approve merge request?
+- tapOn:
+    id: mergeRequests.approvals.confirm
+- waitForAnimationToEnd
+- assertVisible: GitLab did not allow this approval change.
+
+- launchApp:
+    arguments:
+      p3_08_approval_fixture: "true"
+      p3_08_approval_fixture_mode: deliveryUnknown
+- assertVisible: Unknown delivery
+- tapOn:
+    id: mergeRequests.approvals.summary
+- scrollUntilVisible:
+    element:
+      id: mergeRequests.approvals.approve
+    direction: DOWN
+- tapOn:
+    id: mergeRequests.approvals.approve
+- assertVisible: Approve merge request?
+- tapOn:
+    id: mergeRequests.approvals.confirm
+- waitForAnimationToEnd
+- assertVisible: GitLab may have received the change. Check GitLab before trying again.
+- assertVisible:
+    id: mergeRequests.approvals.check
+
+- launchApp:
+    arguments:
+      p3_08_approval_fixture: "true"
+      p3_08_approval_fixture_mode: premium
+- assertVisible: Premium rules
+- tapOn:
+    id: mergeRequests.approvals.summary
+- tapOn:
+    id: mergeRequests.approvals.rule.add
+- tapOn: Margaret Hamilton
+- assertVisible: Add approver?
+- tapOn:
+    id: mergeRequests.approvals.rule.confirm
+- waitForAnimationToEnd
+- assertVisible: GitLab may have received the change. Check GitLab before trying again.
+- assertVisible:
+    id: mergeRequests.approvals.rule.check
+- tapOn: Cancel

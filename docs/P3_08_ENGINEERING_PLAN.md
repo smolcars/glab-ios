@@ -12,7 +12,7 @@
 - Rule-add slice review: complete
 - Detailed approval-state ownership: complete
 - Compact approval UI and member picker: complete
-- Test implementation: in progress
+- Test implementation: complete
 - Production implementation: complete
 - Simulator verification: in progress
 - Deep review: not started
@@ -700,6 +700,31 @@ state-machine slice received an incremental review on July 29, 2026:
      the member picker.
    - Status: fixed and verified by
      `cancelsOnlyRuleConfirmation` plus the existing rapid-action tests.
+4. Finding: the SwiftUI alert bindings treated every presentation dismissal
+   as cancellation. SwiftUI dismisses an alert before running its asynchronous
+   button action, so the binding setter cleared the approval or rule-add
+   confirmation before `confirmAction` or `confirmRuleAddition` could read it.
+   The visible confirmation therefore closed without sending or preflighting
+   the requested action.
+   - Repair plan: make alert presentation setters passive, retain explicit
+     cancellation in each Cancel button, and extend deterministic Simulator
+     flows to prove approval confirmation reaches stale, rejected, and
+     delivery-unknown model states. Exercise the rule-add Add button through
+     the same fixture boundary before closing P3-08.
+   - Status: fixed and verified by the deterministic stale-revision,
+     permission-denied, and delivery-unknown confirmation flows.
+5. Finding: a failed or delivery-unknown rule update keeps the approver picker
+   open, but its failure row and Check GitLab action were rendered only behind
+   the sheet. The user therefore received no visible result at the point of
+   action and could not safely reconcile an uncertain write without first
+   dismissing the picker.
+   - Repair plan: render the model's compact failure message inside the picker
+     and expose Check GitLab there whenever a rule mutation remains
+     unresolved. Keep the underlying detail failure presentation for after
+     dismissal, and verify the picker state with the deterministic rule-add
+     confirmation flow.
+   - Status: fixed and verified by the deterministic rule-add confirmation
+     flow, including the in-picker Check GitLab action.
 
 The compact UI slice was inspected and tapped on the iPhone 17 Pro Simulator
 in dark and light appearances at default and accessibility-extra-large Dynamic

@@ -18,6 +18,7 @@ name: P3-08 compact approval management
     direction: DOWN
 - assertVisible:
     id: mergeRequests.approvals.approve
+- assertVisible: GitLab manages this rule.
 - takeScreenshot: p3-08-approvals-expanded
 - tapOn:
     id: mergeRequests.approvals.approve

@@ -9,13 +9,20 @@
             GitLabAccountID
         private let summary:
             GitLabMergeRequestApprovalSummary
+        private let mode:
+            GitLabMergeRequestApprovalFixtureMode
         @State private var model:
             GitLabMergeRequestApprovalManagementModel
 
         @MainActor
         init() {
+            let mode =
+                GitLabMergeRequestApprovalFixtureMode
+                .current
             let fixture =
-                GitLabMergeRequestApprovalFixture()
+                GitLabMergeRequestApprovalFixture(
+                    mode: mode
+                )
             let accountID =
                 GitLabAccountID(
                     host:
@@ -26,6 +33,7 @@
                 )
             self.accountID = accountID
             summary = fixture.summary
+            self.mode = mode
             _model = State(
                 initialValue:
                     GitLabMergeRequestApprovalManagementModel(
@@ -35,7 +43,8 @@
                             .route,
                         accountID:
                             accountID,
-                        apiAccess: .readWrite,
+                        apiAccess:
+                            mode.apiAccess,
                         service: fixture,
                         currentMergeRequest: {
                             fixture
@@ -72,6 +81,12 @@
                             alignment: .leading
                         )
 
+                        Text(mode.title)
+                            .font(.caption)
+                            .foregroundStyle(
+                                .secondary
+                            )
+
                         GitLabMergeRequestApprovalManagementView(
                             approvalState:
                                 .loaded(
@@ -105,11 +120,84 @@
         }
     }
 
+    private nonisolated enum
+        GitLabMergeRequestApprovalFixtureMode:
+        String,
+        Sendable
+    {
+        case premium
+        case basic
+        case approved
+        case readOnly
+        case stale
+        case permissionDenied
+        case deliveryUnknown
+        case detailsFailure
+
+        static var current: Self {
+            let arguments =
+                ProcessInfo.processInfo
+                    .arguments
+            guard
+                let keyIndex =
+                    arguments.firstIndex(
+                        of:
+                            "-p3_08_approval_fixture_mode"
+                    ),
+                arguments.indices.contains(
+                    keyIndex + 1
+                ),
+                let mode =
+                    Self(
+                        rawValue:
+                            arguments[
+                                keyIndex + 1
+                            ]
+                    )
+            else {
+                return .premium
+            }
+            return mode
+        }
+
+        var apiAccess:
+            GitLabAPIAccess
+        {
+            self == .readOnly
+                || self == .basic
+                ? .readOnly
+                : .readWrite
+        }
+
+        var title: String {
+            switch self {
+            case .premium:
+                "Premium rules"
+            case .basic:
+                "Basic approvals"
+            case .approved:
+                "Current user approved"
+            case .readOnly:
+                "Read-only account"
+            case .stale:
+                "Stale revision"
+            case .permissionDenied:
+                "Permission denied"
+            case .deliveryUnknown:
+                "Unknown delivery"
+            case .detailsFailure:
+                "Rule refresh failure"
+            }
+        }
+    }
+
     private nonisolated struct
         GitLabMergeRequestApprovalFixture:
         GitLabMergeRequestApprovalServing,
         Sendable
     {
+        let mode:
+            GitLabMergeRequestApprovalFixtureMode
         let mergeRequest:
             GitLabMergeRequest
         let summary:
@@ -121,7 +209,11 @@
         let members:
             [GitLabProjectMember]
 
-        init() {
+        init(
+            mode:
+                GitLabMergeRequestApprovalFixtureMode
+        ) {
+            self.mode = mode
             let currentUser =
                 Self.user(
                     id: 7,
@@ -198,74 +290,37 @@
                 )
             summary =
                 GitLabMergeRequestApprovalSummary(
-                    approved: false,
+                    approved:
+                        mode == .approved,
                     approvalsRequired: 2,
-                    approvalsLeft: 1,
-                    approvedBy: [
-                        GitLabMergeRequestApproval(
-                            user: approver,
-                            approvedAt:
-                                Date(
-                                    timeIntervalSince1970:
-                                        1_785_328_496
-                                )
-                        ),
-                    ]
+                    approvalsLeft:
+                        mode == .approved
+                        ? 0
+                        : 1,
+                    approvedBy:
+                        (
+                            mode == .approved
+                            ? [
+                                currentUser,
+                                approver,
+                            ]
+                            : [approver]
+                        )
+                        .map {
+                            GitLabMergeRequestApproval(
+                                user: $0,
+                                approvedAt:
+                                    Date(
+                                        timeIntervalSince1970:
+                                            1_785_328_496
+                                    )
+                            )
+                        }
                 )
             mergeRequest =
-                GitLabMergeRequest(
-                    id: 101,
-                    iid: 7,
-                    projectID: 42,
-                    title:
-                        "Harden approval handling",
-                    description: nil,
-                    state: "opened",
-                    draft: false,
-                    legacyWorkInProgress:
-                        nil,
-                    labels: [],
+                Self.mergeRequest(
                     author: currentUser,
-                    assignees: [],
-                    reviewers: [],
-                    sourceBranch:
-                        "approval-ui",
-                    targetBranch: "main",
-                    userNotesCount: 2,
-                    createdAt:
-                        Date(
-                            timeIntervalSince1970:
-                                1_785_000_000
-                        ),
-                    updatedAt:
-                        Date(
-                            timeIntervalSince1970:
-                                1_785_328_496
-                        ),
-                    closedAt: nil,
-                    mergedAt: nil,
-                    webURL:
-                        URL(
-                            string:
-                                "https://gitlab.example.com/group/project/-/merge_requests/7"
-                        ),
-                    references:
-                        GitLabMergeRequestReferences(
-                            short: "!7",
-                            relative:
-                                "project!7",
-                            full:
-                                "group/project!7"
-                        ),
-                    sha: "fixture-head",
-                    diffRefs: nil,
-                    changesCount: "3",
-                    detailedMergeStatus:
-                        "mergeable",
-                    hasConflicts: false,
-                    blockingDiscussionsResolved:
-                        true,
-                    headPipeline: nil
+                    headSHA: "fixture-head"
                 )
             members = [
                 Self.member(
@@ -292,7 +347,15 @@
         ) async throws(
             GitLabSessionClientError
         ) -> GitLabMergeRequest {
-            mergeRequest
+            if mode == .stale {
+                return Self.mergeRequest(
+                    author:
+                        mergeRequest.author,
+                    headSHA:
+                        "new-fixture-head"
+                )
+            }
+            return mergeRequest
         }
 
         @concurrent
@@ -316,7 +379,17 @@
         )
             -> GitLabMergeRequestApprovalDetailsAvailability
         {
-            .available(details)
+            if mode == .detailsFailure {
+                throw .api(
+                    .server(
+                        statusCode: 500
+                    )
+                )
+            }
+            if mode == .basic {
+                return .unavailable
+            }
+            return .available(details)
         }
 
         @concurrent
@@ -334,10 +407,19 @@
         ) async throws(
             GitLabSessionClientError
         ) {
+            if mode == .detailsFailure {
+                throw .api(
+                    .server(
+                        statusCode: 500
+                    )
+                )
+            }
             await onResponse(
                 GitLabAPIResponseEvent(
                     value:
-                        .available(
+                        mode == .basic
+                        ? .unavailable
+                        : .available(
                             details
                         ),
                     metadata:
@@ -416,7 +498,17 @@
         )
             -> GitLabMergeRequestApprovalSummary
         {
-            summary
+            if mode == .permissionDenied {
+                throw .api(.forbidden)
+            }
+            if mode == .deliveryUnknown {
+                throw .api(
+                    .connectivity(
+                        .networkConnectionLost
+                    )
+                )
+            }
+            return summary
         }
 
         @concurrent
@@ -444,6 +536,66 @@
             -> GitLabMergeRequestApprovalRule
         {
             rule
+        }
+
+        private static func mergeRequest(
+            author: GitLabAPIUser,
+            headSHA: String
+        ) -> GitLabMergeRequest {
+            GitLabMergeRequest(
+                id: 101,
+                iid: 7,
+                projectID: 42,
+                title:
+                    "Harden approval handling",
+                description: nil,
+                state: "opened",
+                draft: false,
+                legacyWorkInProgress:
+                    nil,
+                labels: [],
+                author: author,
+                assignees: [],
+                reviewers: [],
+                sourceBranch:
+                    "approval-ui",
+                targetBranch: "main",
+                userNotesCount: 2,
+                createdAt:
+                    Date(
+                        timeIntervalSince1970:
+                            1_785_000_000
+                    ),
+                updatedAt:
+                    Date(
+                        timeIntervalSince1970:
+                            1_785_328_496
+                    ),
+                closedAt: nil,
+                mergedAt: nil,
+                webURL:
+                    URL(
+                        string:
+                            "https://gitlab.example.com/group/project/-/merge_requests/7"
+                    ),
+                references:
+                    GitLabMergeRequestReferences(
+                        short: "!7",
+                        relative:
+                            "project!7",
+                        full:
+                            "group/project!7"
+                    ),
+                sha: headSHA,
+                diffRefs: nil,
+                changesCount: "3",
+                detailedMergeStatus:
+                    "mergeable",
+                hasConflicts: false,
+                blockingDiscussionsResolved:
+                    true,
+                headPipeline: nil
+            )
         }
 
         private static func user(
