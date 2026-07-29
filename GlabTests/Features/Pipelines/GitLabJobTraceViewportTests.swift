@@ -137,8 +137,13 @@ struct GitLabJobTraceViewportTests {
                 around: 9_000
             )
         }
+        for _ in 0..<100
+        where await reader.callCount < 2 {
+            await Task.yield()
+        }
+        #expect(await reader.callCount == 2)
+
         await reader.release()
-        await reader.waitUntilCallCount(2)
         await first.value
         await second.value
 

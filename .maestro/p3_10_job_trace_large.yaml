@@ -1,0 +1,61 @@
+appId: com.glab.ios
+name: P3-10 large and child pipeline job traces
+---
+- launchApp:
+    clearState: true
+    arguments:
+      p3_09_pipeline_fixture: p3_09_pipeline_fixture
+- tapOn:
+    id: pipelines.history.row.501
+- extendedWaitUntil:
+    visible:
+      id: pipelines.detail.list
+    timeout: 10000
+- tapOn:
+    id: pipelines.detail.stage.test
+- tapOn:
+    id: pipelines.detail.job.907
+- extendedWaitUntil:
+    visible:
+      text: ".*50,000 lines.*"
+    timeout: 30000
+- assertVisible:
+    id: jobTrace.lines
+- tapOn:
+    id: jobTrace.firstFailure
+- swipe:
+    start: 90%, 45%
+    end: 20%, 45%
+    duration: 500
+- tapOn:
+    id: jobTrace.scrollToEnd
+- launchApp:
+    clearState: true
+    arguments:
+      p3_09_pipeline_fixture: p3_09_pipeline_fixture
+- tapOn:
+    id: pipelines.history.row.501
+- extendedWaitUntil:
+    visible:
+      id: pipelines.detail.list
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: pipelines.detail.stage.deploy
+    direction: DOWN
+- tapOn:
+    id: pipelines.detail.stage.deploy
+- tapOn:
+    id: pipelines.detail.triggerJob.904
+- extendedWaitUntil:
+    visible:
+      id: pipelines.detail.list
+    timeout: 10000
+- tapOn:
+    id: pipelines.detail.job.1001
+- extendedWaitUntil:
+    visible:
+      text: ".*4 lines.*"
+    timeout: 30000
+- assertVisible:
+    id: jobTrace.lines

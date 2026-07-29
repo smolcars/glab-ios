@@ -319,7 +319,7 @@ struct GitLabJobTraceDocumentTests {
             )
             #expect(
                 result.selectedMatchPosition
-                    == 0
+                    == nil
             )
             #expect(
                 !result.hasAdditionalMatches

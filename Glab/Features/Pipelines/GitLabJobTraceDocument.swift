@@ -306,6 +306,11 @@ actor GitLabJobTraceDocument {
         }
     }
 
+    func cancelVisibleLineLoad() {
+        windowLoad?.task.cancel()
+        windowLoad = nil
+    }
+
     func search(
         _ query: String
     ) async throws
@@ -903,10 +908,7 @@ nonisolated struct GitLabJobTraceFileReader:
             try Task.checkCancellation()
             return GitLabJobTraceSearchResult(
                 lineIndexes: matches,
-                selectedMatchPosition:
-                    matches.isEmpty
-                    ? nil
-                    : 0,
+                selectedMatchPosition: nil,
                 hasAdditionalMatches:
                     didFindAdditional
             )

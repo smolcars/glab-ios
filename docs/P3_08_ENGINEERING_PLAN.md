@@ -16,6 +16,7 @@
 - Production implementation: complete
 - Simulator verification: complete
 - Deep review: complete
+- Post-completion device-validation repair: in progress
 
 Research date: July 29, 2026.
 
@@ -827,6 +828,60 @@ Every material finding above was recorded with a repair plan before its fix.
 The repeated review after findings 6 through 11 found no remaining material
 approval defect, unsafe mutation path, duplicate authoritative state, or
 necessary refactor.
+
+## Post-completion device-validation repair
+
+### UV-01 — Approval actions ignore GitLab's current-user capability
+
+Status: planned; regression tests and repair pending.
+
+Physical-device validation found that the Approve action is shown on every
+open merge request whose basic approval response does not already list the
+current user. That is not an eligibility check. GitLab's approval response
+also contains the current-user-specific `user_can_approve` and
+`user_has_approved` fields, but Glab does not decode either one. This causes
+three visible defects:
+
+- an MR author or other ineligible reviewer can see an action GitLab will
+  reject;
+- a current user's approval state depends only on scanning `approved_by`,
+  despite GitLab already publishing it explicitly; and
+- mutation feedback is rendered after every detailed rule, so a rejected tap
+  can appear to do nothing when the rule list is long.
+
+Reviewer assignment remains intentionally separate. GitLab documents that a
+reviewer can approve only when that user is also eligible under the project's
+rules and approval settings. Adding a reviewer must not be presented as adding
+an eligible approver.
+
+The same response can expose the legacy `require_password_to_approve` flag and
+newer `require_reauthentication_to_approve` flag. When either is true, Glab
+cannot complete approval with its bearer credential alone and must direct the
+user to GitLab rather than offering a predictably failing API action. A
+fallback `401` from an approve request must say that GitLab requires
+reauthentication; the current “This project requires approval in GitLab” copy
+incorrectly describes the merge requirement rather than the failed action.
+
+Repair plan, to be committed before production edits:
+
+1. Add defensive decoding tests for `user_can_approve`,
+   `user_has_approved`, `require_password_to_approve`, and
+   `require_reauthentication_to_approve`, including partial older responses.
+2. Add state-machine regressions proving Approve appears only when GitLab
+   explicitly returns `user_can_approve == true`, Remove approval follows
+   `user_has_approved` with `approved_by` as an older-response fallback, and a
+   fresh preflight capability change sends no write.
+3. Add presentation coverage for an approval that requires GitLab
+   reauthentication and for concise, accurate fallback `401` wording.
+4. Decode the four optional fields without changing readiness semantics.
+   Missing capability data must fail closed for approval rather than infer
+   permission from reviewer, membership, or rule rows.
+5. Put the compact approval action and any mutation failure immediately after
+   the global approving-user list, before detailed rules, so the result of a
+   tap remains visible.
+6. Run the focused approval suites, inspect and tap eligible, ineligible,
+   already-approved, and reauthentication fixture states in the iPhone 17 Pro
+   Simulator, and then repeat the P3-08 review.
 
 ## Final verification evidence
 

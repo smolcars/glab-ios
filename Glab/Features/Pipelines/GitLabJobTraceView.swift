@@ -60,6 +60,75 @@ nonisolated struct GitLabJobTraceJump:
     }
 }
 
+nonisolated struct
+    GitLabJobTraceStatusPresentation:
+    Equatable,
+    Sendable
+{
+    let text: String?
+    let isWarning: Bool
+
+    init(
+        refreshError:
+            GitLabJobTraceLoadError?,
+        searchError:
+            GitLabJobTraceDocumentError?,
+        isSearching: Bool,
+        searchText: String,
+        searchResult:
+            GitLabJobTraceSearchResult,
+        longLineCount: Int?
+    ) {
+        if let refreshError {
+            text =
+                refreshError == .noTrace
+                ? "Cached log kept · GitLab no longer returned a log"
+                : "Cached log kept · \(refreshError.description)"
+            isWarning = true
+            return
+        }
+        if let searchError {
+            text =
+                "Search unavailable · \(searchError.description)"
+            isWarning = true
+            return
+        }
+        if isSearching {
+            text = "Searching…"
+            isWarning = false
+            return
+        }
+        if
+            !searchText
+            .trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+            .isEmpty
+        {
+            let suffix =
+                searchResult
+                .hasAdditionalMatches
+                ? "+"
+                : ""
+            text =
+                "\(searchResult.lineIndexes.count.formatted())\(suffix) matches"
+            isWarning = false
+            return
+        }
+        if
+            let longLineCount,
+            longLineCount > 0
+        {
+            text =
+                "\(longLineCount.formatted()) long lines truncated for display"
+            isWarning = false
+            return
+        }
+        text = nil
+        isWarning = false
+    }
+}
+
 struct GitLabJobTraceView: View {
     let accountID: GitLabAccountID
     let appSession: AppSession
@@ -324,17 +393,19 @@ struct GitLabJobTraceView: View {
     }
 
     private var bottomBar: some View {
-        VStack(
+        let status = statusPresentation
+
+        return VStack(
             alignment: .trailing,
             spacing: 4
         ) {
-            if let statusText {
-                Text(statusText)
+            if let text = status.text {
+                Text(text)
                     .font(.caption2)
                     .foregroundStyle(
-                        model.refreshError == nil
-                        ? Color.secondary
-                        : Color.orange
+                        status.isWarning
+                        ? Color.orange
+                        : Color.secondary
                     )
                     .lineLimit(2)
                     .padding(.horizontal, 10)
@@ -526,35 +597,23 @@ struct GitLabJobTraceView: View {
             .lineIndexes[position]
     }
 
-    private var statusText: String? {
-        if let error = model.refreshError {
-            return error == .noTrace
-                ? "Cached log kept · GitLab no longer returned a log"
-                : "Cached log kept · \(error.description)"
-        }
-        if model.isSearching {
-            return "Searching…"
-        }
-        if !searchText.isEmpty {
-            let count =
-                model.searchResult
-                .lineIndexes.count
-            let suffix =
-                model.searchResult
-                .hasAdditionalMatches
-                ? "+"
-                : ""
-            return "\(count.formatted())\(suffix) matches"
-        }
-        if
-            let longLineCount =
+    private var statusPresentation:
+        GitLabJobTraceStatusPresentation
+    {
+        GitLabJobTraceStatusPresentation(
+            refreshError:
+                model.refreshError,
+            searchError:
+                model.searchError,
+            isSearching:
+                model.isSearching,
+            searchText: searchText,
+            searchResult:
+                model.searchResult,
+            longLineCount:
                 model.descriptor?
-                .longLineCount,
-            longLineCount > 0
-        {
-            return "\(longLineCount.formatted()) long lines truncated for display"
-        }
-        return nil
+                .longLineCount
+        )
     }
 
     private func updateSearch() async {

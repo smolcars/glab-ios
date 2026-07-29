@@ -146,6 +146,54 @@ struct GitLabJobTraceStoreTests {
         }
     }
 
+    @Test("Commit has no fallible metadata work after publication")
+    func completesMetadataBeforePublishing() async throws {
+        let rootDirectory =
+            FileManager.default.temporaryDirectory
+            .appending(
+                path:
+                    "GlabJobTraceStoreTests-"
+                    + UUID().uuidString,
+                directoryHint: .isDirectory
+            )
+        defer {
+            try? FileManager.default.removeItem(
+                at: rootDirectory
+            )
+        }
+        let fileManager =
+            FinalEntryTimestampRejectingFileManager()
+        let store = FileGitLabJobTraceStore(
+            rootDirectory: rootDirectory,
+            fileManager: fileManager
+        )
+        let key = try traceKey()
+        let trace = Data("published\n".utf8)
+
+        let committed = try await prepareAndCommit(
+            trace,
+            offsets: [0],
+            for: key,
+            in: store,
+            storedAt:
+                Date(
+                    timeIntervalSince1970:
+                        1_000
+                )
+        )
+        let restored = try #require(
+            await store.descriptor(for: key)
+        )
+
+        #expect(committed == restored)
+        #expect(
+            try Data(
+                contentsOf:
+                    restored.traceFileURL
+            ) == trace
+        )
+    }
+
     @Test("Persists the first likely failure location")
     func persistsLikelyFailure() async throws {
         try await withFileStore { store, rootDirectory in
@@ -1379,6 +1427,33 @@ private actor TestGate {
     func open() {
         continuation?.resume()
         continuation = nil
+    }
+}
+
+private nonisolated final class
+    FinalEntryTimestampRejectingFileManager:
+    FileManager,
+    @unchecked Sendable
+{
+    override func setAttributes(
+        _ attributes:
+            [FileAttributeKey: Any],
+        ofItemAtPath path: String
+    ) throws {
+        if
+            attributes[
+                .modificationDate
+            ] != nil,
+            path.hasSuffix(".entry")
+        {
+            throw CocoaError(
+                .fileWriteNoPermission
+            )
+        }
+        try super.setAttributes(
+            attributes,
+            ofItemAtPath: path
+        )
     }
 }
 

@@ -231,6 +231,11 @@ actor FileGitLabJobTraceStore:
             try protectAndExcludeFromBackup(
                 workspace.directoryURL
             )
+            try fileManager.setAttributes(
+                [.modificationDate: entryStoredAt],
+                ofItemAtPath:
+                    workspace.directoryURL.path
+            )
             try Task.checkCancellation()
 
             let entryURL = self.entryDirectory(
@@ -239,10 +244,6 @@ actor FileGitLabJobTraceStore:
             try publish(
                 workspace.directoryURL,
                 at: entryURL
-            )
-            try fileManager.setAttributes(
-                [.modificationDate: entryStoredAt],
-                ofItemAtPath: entryURL.path
             )
             activeWorkspaceDirectories.remove(
                 workspace.directoryURL

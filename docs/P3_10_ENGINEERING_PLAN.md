@@ -13,7 +13,8 @@
   measurement
 - Performance and Simulator verification: in progress; file-oriented and
   renderer Release gates pass
-- Deep review: not started
+- Deep review: in progress; four material findings repaired, repeat review and
+  device-validation search repair remain
 
 Research date: July 29, 2026.
 
@@ -628,6 +629,71 @@ repeat the same light/accessibility/increased-contrast search and jump flow.
 The regression and focused UI flow now pass; indexed bytes and bounded search
 remain unchanged, while the already-reported long-line truncation makes the
 display cap explicit to the user.
+
+The post-implementation deep review found four material correctness and
+responsiveness issues:
+
+1. A visible-window request for a distant line awaited the currently running
+   file read even after its viewport task was superseded. Rapid scrolls and
+   jumps could therefore stall behind obsolete work. The smallest repair is
+   for the document to keep coalescing overlapping reads, but cancel and
+   replace a disjoint in-flight read. A regression must prove the replacement
+   read starts before the obsolete gated read is released and only the new
+   window publishes.
+2. The file-backed search marked its first result selected before the model
+   performed the initial next-match jump. The UI consequently jumped to the
+   second result whenever more than one match existed. The smallest repair is
+   to return search matches with no selection and let the model remain the
+   single owner of selection. File-reader and model regressions must prove the
+   first jump selects the first match and subsequent navigation wraps.
+3. Search failures were retained by the model but the compact status strip
+   ignored them and displayed `0 matches`. The smallest repair is a pure,
+   testable status projection that gives refresh errors first priority, shows
+   a concise warning for search failures, and treats whitespace-only input as
+   no search. The SwiftUI status strip will use the projection for both text
+   and warning color.
+4. A cache commit set its recency timestamp after atomically publishing the
+   new entry. If that final metadata operation failed, the caller received a
+   storage failure even though the new entry had already replaced the prior
+   complete cache. The smallest repair is to apply every required timestamp
+   to the staged directory before the atomic publish so no throwing operation
+   remains between publication and returning the descriptor. A fault-injected
+   store regression must reject final-entry timestamp changes and still prove
+   commit success and restoration.
+
+These repairs are limited to the existing document, search presentation, and
+store boundaries. They do not change transport behavior, cache identity,
+search bounds, renderer architecture, or automatic-refresh policy. After the
+regressions pass, the complete P3-10 correctness, Release performance,
+Simulator UI, static-analysis, build, bundle, privacy, and credential checks
+must be repeated, followed by another review pass.
+
+The first repeat-review pass found that canceling every disjoint request
+inside the document was too broad: a one-line search-selection read could
+cancel an unrelated visible-window read and briefly publish a false viewport
+error. The revised repair keeps the document's existing overlapping-request
+coalescing and adds a narrow cancellation entry point used only when the
+viewport itself supersedes its own operation. The replacement viewport task
+must cancel the obsolete document read before requesting the new range, while
+an ordinary independent document consumer continues to coalesce rather than
+cancel another owner. The same gated supersession regression will prove the
+new read starts before the old read is released.
+
+Physical-device validation found one additional presentation defect: SwiftUI's
+navigation search field stays at the top of a multi-thousand-line log, so a
+user who has scrolled through output must return to line one before starting a
+search. Search is a log-navigation control and belongs with the existing
+bottom jump controls.
+
+The repair plan is to remove the navigation `.searchable` surface, add an
+icon-only Search action to the existing compact bottom glass group, and reveal
+a focused bottom search field only while search is active. Closing the field
+clears the query and bounded results. The field, clear action, match
+navigation, status, failure jump, end jump, and active-log refresh must remain
+reachable above the home/todos bar without covering trace lines. Focused
+presentation and deterministic Simulator regressions must prove search can be
+opened after jumping to the end, dismissed, and reopened without scrolling to
+the top.
 
 The network is not benchmarked with a fake latency claim. Transport tests
 measure bytes-to-protected-file overhead; UI metrics start from a deterministic

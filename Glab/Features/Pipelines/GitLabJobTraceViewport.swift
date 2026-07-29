@@ -181,6 +181,8 @@ final class GitLabJobTraceViewport {
             return
         }
 
+        let supersedesVisibleLoad =
+            operation != nil
         operation?.task.cancel()
         let range =
             GitLabJobTraceViewportWindow
@@ -199,6 +201,12 @@ final class GitLabJobTraceViewport {
                 Never
             > = Task {
             do {
+                if supersedesVisibleLoad {
+                    await document
+                        .cancelVisibleLineLoad()
+                    try Task
+                        .checkCancellation()
+                }
                 return Result.success(
                     try await document.lines(
                         in: range
