@@ -760,11 +760,11 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect the MR readiness summary, approval and pipeline refresh,
+- [x] Inspect the MR readiness summary, approval and pipeline refresh,
   detailed merge status, head SHA lifecycle, existing detail actions,
   mutation certainty, cache invalidation, and native navigation after a state
   change.
-- [ ] Before writing production code, create
+- [x] Before writing production code, create
   `docs/P3_12_ENGINEERING_PLAN.md`. Document the current merge API, SHA
   requirement, immediate versus auto-merge behavior, merge trains, squash and
   source-branch choices deliberately included or excluded, eligibility,
