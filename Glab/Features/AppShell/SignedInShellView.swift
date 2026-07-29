@@ -62,6 +62,8 @@ struct SignedInShellView: View {
         any GitLabMergeRequestApprovalServing
     private let pipelineLoader:
         any GitLabPipelineLoading
+    private let jobTraceLoader:
+        any GitLabJobTraceLoading
     private let discussionLoader:
         any GitLabDiscussionLoading
     private let discussionMutator:
@@ -129,6 +131,23 @@ struct SignedInShellView: View {
             LiveGitLabPipelineLoader(
                 client: client
             )
+        let jobTraceLoader:
+            any GitLabJobTraceLoading
+        if
+            let jobTraceStore =
+                appSession.jobTraceStore
+                as? any
+                    GitLabJobTraceImportStoring
+        {
+            jobTraceLoader =
+                LiveGitLabJobTraceLoader(
+                    session: client,
+                    store: jobTraceStore
+                )
+        } else {
+            jobTraceLoader =
+                UnavailableGitLabJobTraceLoader()
+        }
         let projectLoader = LiveGitLabProjectLoader(
             client: client
         )
@@ -162,6 +181,8 @@ struct SignedInShellView: View {
         self.mergeRequestApprovalService =
             mergeRequestApprovalService
         self.pipelineLoader = pipelineLoader
+        self.jobTraceLoader =
+            jobTraceLoader
         self.discussionLoader = discussionLoader
         discussionMutator = discussionLoader
         self.reactionService =
@@ -373,6 +394,10 @@ struct SignedInShellView: View {
         .environment(
             \.gitLabDiffRenderer,
             diffRenderer
+        )
+        .environment(
+            \.gitLabJobTraceLoader,
+            jobTraceLoader
         )
         .accessibilityIdentifier("signedIn.tabView")
         .task(

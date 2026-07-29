@@ -15,6 +15,8 @@ struct GitLabPipelineDetailView: View {
         didInitializeStageExpansion = false
     @Environment(\.scenePhase)
     private var scenePhase
+    @Environment(\.gitLabJobTraceLoader)
+    private var jobTraceLoader
 
     init(
         route: GitLabPipelineRoute,
@@ -448,7 +450,36 @@ struct GitLabPipelineDetailView: View {
     ) -> some View {
         switch row.content {
         case .job:
-            GitLabPipelineJobRow(row: row)
+            if
+                let context =
+                    row.jobTraceContext(
+                        projectID:
+                            model.route
+                            .projectID
+                    )
+            {
+                NavigationLink {
+                    GitLabJobTraceView(
+                        accountID:
+                            accountID,
+                        context: context,
+                        loader:
+                            jobTraceLoader,
+                        appSession:
+                            appSession,
+                        isAccountCurrent:
+                            isAccountCurrent
+                    )
+                } label: {
+                    GitLabPipelineJobRow(
+                        row: row
+                    )
+                }
+            } else {
+                GitLabPipelineJobRow(
+                    row: row
+                )
+            }
         case let .triggerJob(triggerJob):
             if
                 let downstreamRoute =
