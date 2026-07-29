@@ -65,6 +65,37 @@ nonisolated enum GitLabAPIError:
         description
     }
 
+    static func httpStatus(
+        _ statusCode: Int,
+        retryAfterSeconds: Int? = nil
+    ) -> Self {
+        switch statusCode {
+        case 400, 409, 422:
+            .validation(
+                statusCode: statusCode
+            )
+        case 401:
+            .unauthenticated
+        case 403:
+            .forbidden
+        case 404:
+            .notFound
+        case 429:
+            .rateLimited(
+                retryAfterSeconds:
+                    retryAfterSeconds
+            )
+        case 500...599:
+            .server(
+                statusCode: statusCode
+            )
+        default:
+            .http(
+                statusCode: statusCode
+            )
+        }
+    }
+
     private static func connectivityDescription(for code: URLError.Code) -> String {
         switch code {
         case .notConnectedToInternet:

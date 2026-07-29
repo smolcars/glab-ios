@@ -445,11 +445,11 @@ where
         {
             let retrySession: GitLabStoredSession
 
-            if session.credential != attemptedSession.credential {
-                retrySession = session
-            } else {
-                retrySession = try await refresh(attemptedSession)
-            }
+            retrySession = try await
+                oauthRetrySession(
+                    afterUnauthenticated:
+                        attemptedSession
+                )
 
             do {
                 return try await client(
@@ -594,6 +594,23 @@ where
         }
     }
 
+    private func oauthRetrySession(
+        afterUnauthenticated attemptedSession:
+            GitLabStoredSession
+    ) async throws(GitLabSessionClientError)
+        -> GitLabStoredSession
+    {
+        if
+            session.credential
+                != attemptedSession.credential
+        {
+            return session
+        }
+        return try await refresh(
+            attemptedSession
+        )
+    }
+
     private func client(
         for session: GitLabStoredSession
     ) -> GitLabClient<Transport> {
@@ -609,3 +626,237 @@ where
 
 extension GitLabSessionClient: GitLabSessionRequestSending {}
 extension GitLabSessionClient: GitLabPaginatedSessionRequestSending {}
+
+extension GitLabSessionClient
+where Transport: GitLabHTTPFileDownloading {
+    func downloadRawFile(
+        _ endpoint: GitLabRawAPIRequest,
+        maximumByteCount: Int,
+        temporaryDirectory: URL
+    ) async throws(GitLabRawFileSessionError)
+        -> GitLabHTTPDownloadedFile
+    {
+        guard !Task.isCancelled else {
+            throw .session(
+                .api(.cancelled)
+            )
+        }
+        do {
+            try ensureAccess(for: endpoint)
+            try await refreshExpiredOAuthSession()
+        } catch {
+            throw .session(error)
+        }
+        guard !Task.isCancelled else {
+            throw .session(
+                .api(.cancelled)
+            )
+        }
+
+        let attemptedSession = session
+
+        do {
+            return try await downloadRawFile(
+                endpoint,
+                session: attemptedSession,
+                maximumByteCount:
+                    maximumByteCount,
+                temporaryDirectory:
+                    temporaryDirectory
+            )
+        } catch
+            where
+                Self
+                .isUnauthenticatedFileError(
+                    error
+                )
+                && attemptedSession
+                    .credentialKind
+                    == .oauth
+        {
+            guard !Task.isCancelled else {
+                throw .session(
+                    .api(.cancelled)
+                )
+            }
+            let retrySession:
+                GitLabStoredSession
+            do {
+                retrySession = try await
+                    oauthRetrySession(
+                        afterUnauthenticated:
+                            attemptedSession
+                    )
+            } catch {
+                throw .session(error)
+            }
+            guard !Task.isCancelled else {
+                throw .session(
+                    .api(.cancelled)
+                )
+            }
+
+            do {
+                return try await downloadRawFile(
+                    endpoint,
+                    session: retrySession,
+                    maximumByteCount:
+                        maximumByteCount,
+                    temporaryDirectory:
+                        temporaryDirectory
+                )
+            } catch {
+                throw Self
+                    .rawFileSessionError(
+                        from: error
+                    )
+            }
+        } catch {
+            throw Self.rawFileSessionError(
+                from: error
+            )
+        }
+    }
+
+    private func ensureAccess(
+        for endpoint: GitLabRawAPIRequest
+    ) throws(GitLabSessionClientError) {
+        guard
+            endpoint.requiredAccess == .read
+                || session.apiAccess.canWrite
+        else {
+            throw .insufficientAccess(
+                required:
+                    endpoint.requiredAccess
+            )
+        }
+    }
+
+    private func downloadRawFile(
+        _ endpoint: GitLabRawAPIRequest,
+        session: GitLabStoredSession,
+        maximumByteCount: Int,
+        temporaryDirectory: URL
+    ) async throws -> GitLabHTTPDownloadedFile {
+        let request: URLRequest
+        do {
+            request = try GitLabRequestBuilder(
+                host: session.host,
+                authorization:
+                    session.credential
+                    .authorization
+            )
+            .build(endpoint)
+        } catch {
+            throw GitLabSessionClientError
+                .api(
+                    .invalidRequest(error)
+                )
+        }
+
+        let file = try await transport.download(
+            for: request,
+            maximumByteCount:
+                maximumByteCount,
+            temporaryDirectory:
+                temporaryDirectory
+        )
+        guard !Task.isCancelled else {
+            try? FileManager.default
+                .removeItem(
+                    at: file.fileURL
+                )
+            throw CancellationError()
+        }
+        return file
+    }
+
+    private static func
+        isUnauthenticatedFileError(
+            _ error: any Error
+        ) -> Bool
+    {
+        error as? GitLabHTTPFileDownloadError
+            == .unsuccessfulStatus(401)
+    }
+
+    private static func rawFileSessionError(
+        from error: any Error
+    ) -> GitLabRawFileSessionError {
+        if let error =
+            error as?
+                GitLabRawFileSessionError
+        {
+            return error
+        }
+        if let error =
+            error as?
+                GitLabSessionClientError
+        {
+            return .session(error)
+        }
+        if error is CancellationError {
+            return .session(
+                .api(.cancelled)
+            )
+        }
+        if let error = error as? URLError {
+            if error.code == .cancelled {
+                return .session(
+                    .api(.cancelled)
+                )
+            }
+            return .session(
+                .api(
+                    .connectivity(error.code)
+                )
+            )
+        }
+        if
+            error
+                is GitLabHTTPFileRedirectError
+        {
+            return .unsafeRedirect
+        }
+        guard
+            let error =
+                error as?
+                    GitLabHTTPFileDownloadError
+        else {
+            return .session(
+                .api(.transport)
+            )
+        }
+
+        switch error {
+        case .invalidConfiguration,
+             .networkFailure:
+            return .session(
+                .api(.transport)
+            )
+        case .invalidResponse:
+            return .session(
+                .api(.invalidResponse)
+            )
+        case .responseTooLarge:
+            return .responseTooLarge
+        case .incompleteResponse:
+            return .incompleteResponse
+        case let .unsuccessfulStatus(
+            status
+        ):
+            return .session(
+                .api(
+                    GitLabAPIError
+                    .httpStatus(status)
+                )
+            )
+        case .storageFailure:
+            return .storageFailure
+        }
+    }
+}
+
+extension GitLabSessionClient:
+    GitLabRawFileSessionDownloading
+where Transport: GitLabHTTPFileDownloading {}

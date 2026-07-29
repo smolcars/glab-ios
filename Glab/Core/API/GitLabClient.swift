@@ -189,22 +189,13 @@ nonisolated struct GitLabClient<Transport>: Sendable where Transport: GitLabHTTP
     }
 
     private static func error(for response: HTTPURLResponse) -> GitLabAPIError {
-        switch response.statusCode {
-        case 400, 409, 422:
-            .validation(statusCode: response.statusCode)
-        case 401:
-            .unauthenticated
-        case 403:
-            .forbidden
-        case 404:
-            .notFound
-        case 429:
-            .rateLimited(retryAfterSeconds: retryAfterSeconds(from: response))
-        case 500...599:
-            .server(statusCode: response.statusCode)
-        default:
-            .http(statusCode: response.statusCode)
-        }
+        GitLabAPIError.httpStatus(
+            response.statusCode,
+            retryAfterSeconds:
+                retryAfterSeconds(
+                    from: response
+                )
+        )
     }
 
     private static func retryAfterSeconds(from response: HTTPURLResponse) -> Int? {
