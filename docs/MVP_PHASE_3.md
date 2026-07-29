@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-28
 
-Status: in progress. P3-01 and P3-02 are complete.
+Status: in progress. P3-01 through P3-05 are complete.
 
 ## Product goal
 
@@ -333,7 +333,7 @@ Todo:
   P3-04 verification, and repeat the deep code review until no material finding
   remains.
 
-### [ ] P3-05 — Create new issues
+### [x] P3-05 — Create new issues
 
 Outcome:
 
@@ -345,47 +345,47 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect project search and routing, project identity, issue models,
+- [x] Inspect project search and routing, project identity, issue models,
   account-scoped drafts, Markdown preview, project labels, project members,
   mutation delivery certainty, and native issue-detail navigation.
-- [ ] Before writing production code, create
+- [x] Before writing production code, create
   `docs/P3_05_ENGINEERING_PLAN.md`. Document project selection, create-issue
   endpoint and tier differences, form state, validation, draft identity,
   project metadata loading, ambiguous delivery, successful routing, cache
   updates, rate limits, tests, accessibility, and non-goals.
-- [ ] Write failing endpoint tests for minimal and complete issue bodies,
+- [x] Write failing endpoint tests for minimal and complete issue bodies,
   Unicode and Markdown, labels, Free versus paid assignee shapes,
   confidentiality, due date, validation errors, permissions, rate limiting,
   cancellation, and ambiguous delivery.
-- [ ] Write failing form-model tests for project changes, required title,
+- [x] Write failing form-model tests for project changes, required title,
   metadata loading and pagination, draft restoration and isolation, failed
   submission, duplicate-tap prevention, uncertain submission, authoritative
   success, and account switching.
-- [ ] Add project-scoped label and member loaders using documented paginated
+- [x] Add project-scoped label and member loaders using documented paginated
   endpoints, cache them by account and project, and cancel or reject results
   when the selected project changes.
-- [ ] Build a native creation flow available from a clear Home action, with
+- [x] Build a native creation flow available from a clear Home action, with
   project search, Markdown editing and preview, validation, saved draft, and
   accurate read-only or permission messaging.
-- [ ] Never automatically retry issue creation. On an uncertain result,
+- [x] Never automatically retry issue creation. On an uncertain result,
   preserve the form and help the user refresh or search before attempting a
   duplicate submission.
-- [ ] Route a confirmed result to its native issue detail, invalidate affected
+- [x] Route a confirmed result to its native issue detail, invalidate affected
   issue/project caches, and clear the draft only after authoritative success.
-- [ ] Verify minimal and complete creation forms with deterministic stubs,
+- [x] Verify minimal and complete creation forms with deterministic stubs,
   project switching, long Markdown, draft recovery, failures, uncertain
   delivery, read-only access, keyboard behavior, Dynamic Type, VoiceOver, and
   dark/light appearance in the iPhone 17 Pro Simulator.
-- [ ] Run focused creation, metadata, draft, and routing tests, the complete
+- [x] Run focused creation, metadata, draft, and routing tests, the complete
   test suite, a Release Simulator build, Xcode static analysis, and
   credential/privacy scans.
-- [ ] Perform a deep code review of all code added or changed for P3-05. Look
+- [x] Perform a deep code review of all code added or changed for P3-05. Look
   for bugs, bad code, duplicated editor or project-picker logic, invalid tier
   assumptions, duplicate creation, lost drafts, stale project metadata,
   incorrect cache updates, account leakage, concurrency or cancellation races,
   and code that needs refactoring. Record every finding in
   `docs/P3_05_ENGINEERING_PLAN.md`.
-- [ ] If the P3-05 review finds anything material, write a repair plan before
+- [x] If the P3-05 review finds anything material, write a repair plan before
   editing code, add regression tests, implement every fix, rerun the complete
   P3-05 verification, and repeat the deep code review until no material finding
   remains.

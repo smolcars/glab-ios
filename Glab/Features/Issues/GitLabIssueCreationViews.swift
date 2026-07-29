@@ -1200,6 +1200,8 @@ private struct GitLabIssueCreationAssigneeList:
             .task {
                 await membersModel
                     .loadIfNeeded()
+                await model
+                    .loadUntilAssignableMemberVisibleIfNeeded()
                 await handleAuthenticationFailure()
             }
     }
@@ -1308,6 +1310,7 @@ private struct GitLabIssueCreationAssigneeList:
                             .loadNextAssignableMembersPageIfNeeded(
                                 after: member
                             )
+                        await handleAuthenticationFailure()
                     }
                 }
 

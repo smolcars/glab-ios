@@ -5,10 +5,10 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Test implementation: pending
-- Production implementation: pending
-- Verification: pending
-- Deep review: pending
+- Test implementation: complete
+- Production implementation: complete
+- Verification: complete
+- Deep review: complete
 
 This plan must be committed and pushed before any P3-05 test or production
 code is changed.
@@ -767,10 +767,45 @@ made until this plan is recorded.
      unselectable and avoid eager loading all pages.
    - Regression test: use a first page whose raw tail is inactive and prove
      reaching its final visible active member loads the next active member.
+   - Repair review found a related empty-page edge before closure: when every
+     member on a loaded page is inactive, there is no visible row to trigger
+     pagination at all. Extend the repair with a bounded, on-picker-open loop
+     that advances only while no active member is available and the trusted
+     next-page URL changes. Add a regression test with an all-inactive first
+     page and an active member on page two.
 
 The review found no duplicate create path, automatic POST retry, cross-account
 draft key, premature authoritative-success route, unsafe assignee tier
 fallback, forced crash/cast, debug logging, or credential/content disclosure.
+
+### Review pass 2 — clean
+
+All three findings and the related all-inactive-page edge were repaired with
+regression coverage. The second complete review found no remaining material
+bug, duplication, unsafe delivery behavior, account or project leakage,
+invalid tier assumption, lost-draft path, or refactor required before P3-05
+can close.
+
+## Verification results
+
+- Focused endpoint, service, protected-draft, model, and presentation tests
+  passed. The final creation-model run included 16 tests and both inactive
+  member pagination regressions.
+- The complete serialized Simulator suite passed: 787 tests in 113 suites.
+- Release built successfully for the iPhone 17 Pro Simulator with the reused
+  `.deriveddata/Glab` directory.
+- Xcode static analysis completed with `ANALYZE SUCCEEDED`.
+- The packaged `PrivacyInfo.xcprivacy` passed `plutil -lint`.
+- Tracked-source and Release-bundle scans found none of the configured token
+  values or credential identifiers.
+- Production-source review found no forced crashes, forced casts, debug
+  output, accidental content logging, `TODO`, or `FIXME` markers.
+- Simulator interaction passed in normal light appearance and dark
+  accessibility-extra-extra-large text. The composer remained readable and
+  scrollable, interactive swipe dismissal stayed blocked, and Cancel saved
+  and closed the sheet.
+- Live read-only self-managed metadata was used without sending a production
+  write mutation. The physical iPhone was not used for feature testing.
 
 ## Ordered implementation
 

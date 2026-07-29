@@ -484,6 +484,42 @@ final class GitLabIssueCreationModel {
             )
     }
 
+    func loadUntilAssignableMemberVisibleIfNeeded()
+        async
+    {
+        guard
+            let membersModel,
+            membersModel.searchText
+                .trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+                .isEmpty
+        else {
+            return
+        }
+
+        while
+            displayedAssignableMembers.isEmpty,
+            let previousNextPageURL =
+                membersModel.nextPageURL,
+            let rawTail =
+                membersModel.items.last,
+            !Task.isCancelled
+        {
+            await membersModel
+                .loadNextPageIfNeeded(
+                    after: rawTail
+                )
+            guard
+                membersModel.nextPageURL
+                    != previousNextPageURL,
+                membersModel.loadError == nil
+            else {
+                return
+            }
+        }
+    }
+
     func toggleLabel(
         _ label: GitLabProjectLabel
     ) {

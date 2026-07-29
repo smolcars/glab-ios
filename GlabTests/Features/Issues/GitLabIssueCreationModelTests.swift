@@ -224,6 +224,52 @@ struct GitLabIssueCreationModelTests {
         )
     }
 
+    @Test("All-inactive member page advances until an assignee is visible")
+    @MainActor
+    func paginatesPastAllInactiveMemberPage()
+        async throws
+    {
+        let next = makeMember(
+            id: 9,
+            username: "next-user"
+        )
+        let context = try CreationModelContext(
+            service:
+                RecordingIssueCreationService(
+                    members: [
+                        makeMember(
+                            id: 8,
+                            username:
+                                "blocked-user",
+                            state: "blocked"
+                        ),
+                    ],
+                    memberNext: [next]
+                )
+        )
+        await context.model.restoreDraft()
+        context.model.selectProject(
+            makeTestProject()
+        )
+        await context.model
+            .loadSelectedProjectMetadata()
+
+        #expect(
+            context.model
+                .displayedAssignableMembers
+                .isEmpty
+        )
+
+        await context.model
+            .loadUntilAssignableMemberVisibleIfNeeded()
+
+        #expect(
+            context.model
+                .displayedAssignableMembers
+                .map(\.id) == [9]
+        )
+    }
+
     @Test("Changing projects preserves content and clears scoped choices")
     @MainActor
     func changesProjectSafely() async throws {
