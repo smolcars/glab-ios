@@ -514,6 +514,7 @@ Outcome:
 - A sufficiently privileged user can deliberately add an approver to a
   selected editable MR approval rule when its full membership can be preserved
   safely.
+- Ability to approve an MR that you are an approver for.
 
 Todo:
 
