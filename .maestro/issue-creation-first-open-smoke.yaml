@@ -1,6 +1,7 @@
 appId: com.glab.ios
 name: Issue creation renders on first presentation
 ---
+- stopApp
 - launchApp
 - assertVisible:
     id: home.newIssueButton
@@ -11,6 +12,7 @@ name: Issue creation renders on first presentation
     id: issueCreation.project
 - assertVisible:
     id: issueCreation.title
+- takeScreenshot: issue-creation-first-open
 - tapOn:
     id: issueCreation.project
 - assertVisible: Project
@@ -23,6 +25,17 @@ name: Issue creation renders on first presentation
     id: issueCreation.title
 - tapOn:
     id: issueCreation.cancel
+- assertVisible:
+    id: home.accountButton
+- tapOn:
+    id: home.accountButton
+- assertVisible: Account
+- assertVisible:
+    id: account.doneButton
+- tapOn:
+    id: account.doneButton
+- assertVisible:
+    id: home.newIssueButton
 - assertVisible:
     id: home.newIssueButton
 - tapOn:
