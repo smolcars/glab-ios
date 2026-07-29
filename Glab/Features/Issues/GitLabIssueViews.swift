@@ -441,6 +441,8 @@ struct GitLabIssueDetailView: View {
         String?
     @State private var issueStatusModel:
         GitLabIssueStatusModel?
+    @State private var statusRefreshCoordinator:
+        GitLabIssueStatusRefreshCoordinator
     @State private var statusFailureMessage:
         String?
     @State private var taskToggleModel:
@@ -497,6 +499,13 @@ struct GitLabIssueDetailView: View {
                 }?
                 .apiAccess
             ?? .readOnly
+        let statusRefreshCoordinator =
+            GitLabIssueStatusRefreshCoordinator()
+        _statusRefreshCoordinator =
+            State(
+                initialValue:
+                    statusRefreshCoordinator
+            )
         _taskToggleModel = State(
             initialValue:
                 GitLabDescriptionTaskToggleModel(
@@ -525,6 +534,12 @@ struct GitLabIssueDetailView: View {
                             return
                         }
                         onResourceEdited(result)
+                        Task {
+                            await statusRefreshCoordinator
+                                .refreshAfterIssueMutation(
+                                    updatedIssue
+                                )
+                        }
                     },
                     onStale: {
                         await detailModel.retry()
@@ -940,6 +955,12 @@ struct GitLabIssueDetailView: View {
                     }
                     taskToggleModel.cancel()
                     onResourceEdited(result)
+                    Task {
+                        await statusRefreshCoordinator
+                            .refreshAfterIssueMutation(
+                                updatedIssue
+                            )
+                    }
                 }
             )
         showsEditor = true
@@ -1055,7 +1076,7 @@ struct GitLabIssueDetailView: View {
                 taskToggleModel.cancel()
                 onResourceEdited(result)
                 Task {
-                    await issueStatusModel?
+                    await statusRefreshCoordinator
                         .refreshAfterIssueMutation(
                             updatedIssue
                         )
@@ -1327,6 +1348,14 @@ struct GitLabIssueDetailView: View {
                     )
                 }
             )
+        statusRefreshCoordinator.register {
+            [weak statusModel]
+            updatedIssue in
+            await statusModel?
+                .refreshAfterIssueMutation(
+                    updatedIssue
+                )
+        }
         issueStatusModel = statusModel
         await statusModel.load()
     }

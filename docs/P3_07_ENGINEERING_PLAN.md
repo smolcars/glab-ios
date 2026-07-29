@@ -566,7 +566,38 @@ For each material finding:
 
 ## Deep review findings
 
-Pending implementation.
+### Finding 1 — Some P3-06 success paths did not refresh status
+
+Impact and reproduction:
+
+- Metadata and REST Close/Reopen success refreshed work-item status, but the
+  title/description editor and description-checklist toggle success callbacks
+  did not.
+- A P3-06 mutation can change the issue revision while a compatible GitLab
+  instance independently applies lifecycle behavior. Leaving those callbacks
+  unwired could preserve stale status until a manual pull-to-refresh.
+
+Repair plan:
+
+1. Add a detail-scoped status-refresh coordinator with a focused test proving
+   that it is a safe no-op before registration and forwards each later
+   authoritative issue exactly once.
+2. Register the P3-07 model before its initial load.
+3. Route checklist, title/description, and metadata/state success callbacks
+   through the same coordinator after the complete REST issue is accepted.
+4. Rerun status, editor, checklist, and metadata model suites, then repeat the
+   integration review.
+
+Repair:
+
+- Added one detail-scoped coordinator, registered it with the status model
+  before the model's initial read, and routed checklist, title/description,
+  metadata, and state success callbacks through it.
+- The coordinator regression test and the focused status, editor, checklist,
+  and metadata model suites pass.
+
+Status: repaired; integration review repeated with no remaining instance of
+this gap.
 
 ## Verification evidence
 
