@@ -19,10 +19,16 @@ struct LiveGitLabIssueLoaderTests {
         )
         let loader = LiveGitLabIssueLoader(client: client)
 
-        let initialPage = try await loader.loadAssignedIssuesPage(
+        let initialPage = try await loader.loadIssuesPage(
+            for: .assigned,
             after: nil
         )
-        let nextPage = try await loader.loadAssignedIssuesPage(
+        let createdPage = try await loader.loadIssuesPage(
+            for: .created,
+            after: nil
+        )
+        let nextPage = try await loader.loadIssuesPage(
+            for: .assigned,
             after: nextPageURL
         )
         let projectPage =
@@ -53,6 +59,7 @@ struct LiveGitLabIssueLoaderTests {
 
         #expect(initialPage.issues == [issue])
         #expect(initialPage.nextPageURL == nextPageURL)
+        #expect(createdPage.issues == [issue])
         #expect(nextPage.issues == [issue])
         #expect(projectPage.items == [issue])
         #expect(projectPage.totalCount == 3)
@@ -82,6 +89,7 @@ struct LiveGitLabIssueLoaderTests {
             await client.pageSources
                 == [
                     "initial:issues",
+                    "initial:issues",
                     "next:\(nextPageURL.absoluteString)",
                     "initial:projects/42/issues",
                     "initial:projects/42/issues",
@@ -90,6 +98,13 @@ struct LiveGitLabIssueLoaderTests {
         #expect(
             await client.projectStates
                 == ["opened", "closed"]
+        )
+        #expect(
+            await client.listScopes
+                == [
+                    "assigned_to_me",
+                    "created_by_me",
+                ]
         )
         #expect(
             await client.detailPaths
@@ -110,6 +125,8 @@ private extension LiveGitLabIssueLoaderTests {
         private(set) var pageSources: [String] = []
         private(set) var detailPaths: [[String]] = []
         private(set) var projectStates:
+            [String] = []
+        private(set) var listScopes:
             [String] = []
         private(set) var cachePolicies:
             [GitLabResponseCachePolicy] = []
@@ -152,6 +169,17 @@ private extension LiveGitLabIssueLoaderTests {
                         .value
                 {
                     projectStates.append(state)
+                } else if
+                    endpoint.pathComponents
+                        == ["issues"],
+                    let scope =
+                        endpoint.queryItems
+                        .first(where: {
+                            $0.name == "scope"
+                        })?
+                        .value
+                {
+                    listScopes.append(scope)
                 }
             case let .next(url):
                 pageSources.append("next:\(url.absoluteString)")

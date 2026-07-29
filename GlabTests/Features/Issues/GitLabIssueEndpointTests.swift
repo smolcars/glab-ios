@@ -4,16 +4,33 @@ import Testing
 
 @Suite("GitLab issue endpoints")
 struct GitLabIssueEndpointTests {
-    @Test("Builds the assigned open issues query")
-    func buildsAssignedIssuesQuery() throws {
+    @Test(
+        "Builds open issue list scopes",
+        arguments: [
+            (
+                GitLabIssueListMode.assigned,
+                "assigned_to_me"
+            ),
+            (
+                GitLabIssueListMode.created,
+                "created_by_me"
+            ),
+        ]
+    )
+    func buildsIssuesQuery(
+        mode: GitLabIssueListMode,
+        scope: String
+    ) throws {
         let url = try requestURL(
-            GitLabIssueEndpoints.assignedIssues
+            GitLabIssueEndpoints.issues(
+                for: mode
+            )
         )
 
         #expect(
             url.absoluteString
                 == "https://gitlab.example.com/api/v4/issues"
-                + "?scope=assigned_to_me&state=opened"
+                + "?scope=\(scope)&state=opened"
                 + "&order_by=updated_at&sort=desc&per_page=20"
         )
     }

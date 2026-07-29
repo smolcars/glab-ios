@@ -5,6 +5,30 @@ import Testing
 @Suite("Assigned issues model")
 @MainActor
 struct AssignedIssuesModelTests {
+    @Test("Loads created issues with an independent scope")
+    func loadsCreatedScope() async {
+        let issue = makeTestIssue()
+        let loader = StubIssueLoader(
+            pageResults: [
+                .success(
+                    GitLabIssuePage(
+                        issues: [issue],
+                        nextPageURL: nil
+                    )
+                ),
+            ]
+        )
+        let model = IssuesModel(
+            mode: .created,
+            loader: loader
+        )
+
+        await model.loadIfNeeded()
+
+        #expect(model.issues == [issue])
+        #expect(await loader.modes == [.created])
+    }
+
     @Test("Appends pages without duplicate issue routes")
     func appendsPagesWithoutDuplicates() async throws {
         let first = makeTestIssue(
@@ -552,7 +576,8 @@ private actor StaleIssueDetailLoader:
         self.storedAt = storedAt
     }
 
-    func loadAssignedIssuesPage(
+    func loadIssuesPage(
+        for mode: GitLabIssueListMode,
         after nextPageURL: URL?
     ) async throws(GitLabSessionClientError)
         -> GitLabIssuePage
@@ -597,6 +622,8 @@ private actor StubIssueLoader: GitLabIssueLoading {
         Result<GitLabIssue, GitLabSessionClientError>
     ]
     private(set) var pageRequestURLs: [URL?] = []
+    private(set) var modes:
+        [GitLabIssueListMode] = []
     private(set) var issueRoutes: [GitLabIssueRoute] = []
 
     init(
@@ -611,9 +638,11 @@ private actor StubIssueLoader: GitLabIssueLoading {
         self.issueResults = issueResults
     }
 
-    func loadAssignedIssuesPage(
+    func loadIssuesPage(
+        for mode: GitLabIssueListMode,
         after nextPageURL: URL?
     ) async throws(GitLabSessionClientError) -> GitLabIssuePage {
+        modes.append(mode)
         pageRequestURLs.append(nextPageURL)
         guard !pageResults.isEmpty else {
             throw .api(.invalidResponse)

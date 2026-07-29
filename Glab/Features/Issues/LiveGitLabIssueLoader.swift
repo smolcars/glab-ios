@@ -1,11 +1,13 @@
 import Foundation
 
 nonisolated protocol GitLabIssueLoading: Sendable {
-    func loadAssignedIssuesPage(
+    func loadIssuesPage(
+        for mode: GitLabIssueListMode,
         after nextPageURL: URL?
     ) async throws(GitLabSessionClientError) -> GitLabIssuePage
 
-    func loadAssignedIssuesFirstPage(
+    func loadIssuesFirstPage(
+        for mode: GitLabIssueListMode,
         refreshBehavior: GitLabCacheRefreshBehavior,
         onPage:
             @escaping @Sendable (
@@ -48,6 +50,30 @@ nonisolated protocol GitLabIssueLoading: Sendable {
 }
 
 extension GitLabIssueLoading {
+    func loadIssuesFirstPage(
+        for mode: GitLabIssueListMode,
+        refreshBehavior: GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<GitLabIssue>
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        let page = try await loadIssuesPage(
+            for: mode,
+            after: nil
+        )
+        await onPage(
+            GitLabResourcePageEvent(
+                page: GitLabResourcePage(
+                    items: page.issues,
+                    nextPageURL:
+                        page.nextPageURL
+                ),
+                source: .network
+            )
+        )
+    }
+
     func loadProjectIssuesPage(
         projectID: Int,
         state: GitLabProjectIssueState,
@@ -83,27 +109,6 @@ extension GitLabIssueLoading {
         )
     }
 
-    func loadAssignedIssuesFirstPage(
-        refreshBehavior: GitLabCacheRefreshBehavior,
-        onPage:
-            @escaping @Sendable (
-                GitLabResourcePageEvent<GitLabIssue>
-            ) async -> Void
-    ) async throws(GitLabSessionClientError) {
-        let page = try await loadAssignedIssuesPage(
-            after: nil
-        )
-        await onPage(
-            GitLabResourcePageEvent(
-                page: GitLabResourcePage(
-                    items: page.issues,
-                    nextPageURL: page.nextPageURL
-                ),
-                source: .network
-            )
-        )
-    }
-
     func loadIssue(
         at route: GitLabIssueRoute,
         refreshBehavior: GitLabCacheRefreshBehavior,
@@ -133,14 +138,19 @@ nonisolated struct LiveGitLabIssueLoader:
     }
 
     @concurrent
-    func loadAssignedIssuesPage(
+    func loadIssuesPage(
+        for mode: GitLabIssueListMode,
         after nextPageURL: URL?
     ) async throws(GitLabSessionClientError) -> GitLabIssuePage {
         let request: GitLabAPIPageRequest<[GitLabIssue]> =
             if let nextPageURL {
                 .next(nextPageURL)
             } else {
-                .initial(GitLabIssueEndpoints.assignedIssues)
+                .initial(
+                    GitLabIssueEndpoints.issues(
+                        for: mode
+                    )
+                )
             }
         let response = try await client.sendPage(request)
 
@@ -151,7 +161,8 @@ nonisolated struct LiveGitLabIssueLoader:
     }
 
     @concurrent
-    func loadAssignedIssuesFirstPage(
+    func loadIssuesFirstPage(
+        for mode: GitLabIssueListMode,
         refreshBehavior: GitLabCacheRefreshBehavior,
         onPage:
             @escaping @Sendable (
@@ -160,7 +171,9 @@ nonisolated struct LiveGitLabIssueLoader:
     ) async throws(GitLabSessionClientError) {
         try await client.loadPage(
             .initial(
-                GitLabIssueEndpoints.assignedIssues
+                GitLabIssueEndpoints.issues(
+                    for: mode
+                )
             ),
             cachePolicy: .workList,
             refreshBehavior: refreshBehavior

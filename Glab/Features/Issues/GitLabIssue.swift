@@ -8,6 +8,53 @@ nonisolated struct GitLabIssueRoute:
     let issueIID: Int
 }
 
+nonisolated enum GitLabIssueListMode:
+    String,
+    CaseIterable,
+    Equatable,
+    Hashable,
+    Sendable
+{
+    case assigned
+    case created
+
+    var scope: String {
+        switch self {
+        case .assigned:
+            "assigned_to_me"
+        case .created:
+            "created_by_me"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .assigned:
+            "Assigned"
+        case .created:
+            "Created"
+        }
+    }
+
+    var emptyTitle: String {
+        switch self {
+        case .assigned:
+            "No assigned issues"
+        case .created:
+            "No created issues"
+        }
+    }
+
+    var emptyMessage: String {
+        switch self {
+        case .assigned:
+            "Open issues assigned to you will appear here."
+        case .created:
+            "Open issues you created will appear here."
+        }
+    }
+}
+
 nonisolated enum GitLabIssueStateKind:
     Equatable,
     Sendable

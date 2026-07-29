@@ -1,24 +1,30 @@
 import Foundation
 
-typealias AssignedIssuesModel =
+typealias IssuesModel =
     GitLabPaginatedResourceModel<
         GitLabIssue,
         GitLabIssueRoute
     >
+
+typealias AssignedIssuesModel = IssuesModel
 
 extension GitLabPaginatedResourceModel
 where
     Item == GitLabIssue,
     Identity == GitLabIssueRoute
 {
-    convenience init(loader: any GitLabIssueLoading) {
+    convenience init(
+        mode: GitLabIssueListMode,
+        loader: any GitLabIssueLoading
+    ) {
         self.init(
             loadPage: {
                 (nextPageURL: URL?) async throws(
                     GitLabSessionClientError
                 ) -> GitLabResourcePage<GitLabIssue> in
                 let page = try await loader
-                    .loadAssignedIssuesPage(
+                    .loadIssuesPage(
+                        for: mode,
                         after: nextPageURL
                     )
                 return GitLabResourcePage(
@@ -40,7 +46,8 @@ where
                     GitLabSessionClientError
                 ) -> Void in
                 try await loader
-                    .loadAssignedIssuesFirstPage(
+                    .loadIssuesFirstPage(
+                        for: mode,
                         refreshBehavior:
                             refreshBehavior,
                         onPage: onPage
@@ -57,6 +64,15 @@ where
                         [$0.name, $0.username]
                     }
             }
+        )
+    }
+
+    convenience init(
+        loader: any GitLabIssueLoading
+    ) {
+        self.init(
+            mode: .assigned,
+            loader: loader
         )
     }
 
@@ -82,6 +98,23 @@ where
         }
         return removeItemIfPresent(issue)
     }
+
+    @discardableResult
+    func reconcileIssue(
+        _ issue: GitLabIssue,
+        mode: GitLabIssueListMode,
+        currentUserID: Int
+    ) -> Bool {
+        if issue.isOpenWork(
+            for: mode,
+            userID: currentUserID
+        ) {
+            return reconcileItemIfPresent(
+                issue
+            )
+        }
+        return removeItemIfPresent(issue)
+    }
 }
 
 extension GitLabIssue {
@@ -92,5 +125,23 @@ extension GitLabIssue {
             && assignees.contains {
                 $0.id == userID
             }
+    }
+
+    func isOpenWork(
+        for mode: GitLabIssueListMode,
+        userID: Int
+    ) -> Bool {
+        guard stateKind == .opened else {
+            return false
+        }
+
+        switch mode {
+        case .assigned:
+            return assignees.contains {
+                $0.id == userID
+            }
+        case .created:
+            return author.id == userID
+        }
     }
 }

@@ -298,7 +298,8 @@ private actor ProjectIssueLoaderStub:
         self.pages = pages
     }
 
-    func loadAssignedIssuesPage(
+    func loadIssuesPage(
+        for mode: GitLabIssueListMode,
         after nextPageURL: URL?
     ) async throws(GitLabSessionClientError)
         -> GitLabIssuePage
