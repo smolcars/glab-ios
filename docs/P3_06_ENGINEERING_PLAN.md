@@ -665,7 +665,90 @@ Record every material finding below before editing a repair. For each finding:
 
 ## Deep-review findings
 
-Pending implementation and verification.
+### Review pass 1 — repair required
+
+The first complete production review on 2026-07-28 found the following
+material issues before P3-06 could be closed:
+
+1. **Partial and stale metadata loads.** The initial label/member load
+   discarded both results when either request failed. Search failures did not
+   reject stale query generations, and an older next-page response could merge
+   into a newer search. Repeated last-row appearance could also start the same
+   page more than once.
+   - Impact: a healthy picker could disappear because the other endpoint
+     failed, or labels/people from a prior query could appear in the current
+     query.
+   - Repair plan: test independent initial-page success, stale success/failure
+     rejection, and duplicate pagination; add query generations and
+     per-resource in-flight page guards while preserving the successful
+     picker.
+
+2. **A cancelled or superseded preflight could still write.** After the fresh
+   detail read, the mutation path did not re-check task cancellation or active
+   account identity before sending `PUT`.
+   - Impact: dismissing/switching accounts during preflight could allow an
+     unwanted mutation.
+   - Repair plan: add cancellation and account-switch regression tests, then
+     require both checks immediately before mutation transport.
+
+3. **Incompatible fresh state was not rejected.** An opened MR could become
+   merged or locked after the editor opened, but a stale Close action would
+   still submit `state_event=close`.
+   - Impact: Glab could send a transition that its own UI no longer permits.
+   - Repair plan: test fresh incompatible states, reconcile the authoritative
+     resource without a `PUT`, and report that the requested transition was
+     not applied.
+
+4. **Authoritative no-op/conflict reconciliation was incomplete.** A
+   preflight that showed the requested change was already applied invalidated
+   all affected caches unnecessarily. Delivery checks and incompatible-state
+   results updated only the editor baseline, leaving detail/list owners stale.
+   - Impact: avoidable cache churn and stale visible owners.
+   - Repair plan: separate mutation success from read-only authoritative
+     reconciliation, invoke owner reconciliation for both, and invalidate
+     cached reads only after a confirmed mutation.
+
+5. **Current-user seed eligibility was too permissive.** Detail users were
+   synthesized as active project members. A current assignee/reviewer missing
+   from the active membership result could be removed and then re-added.
+   Conflict reconciliation also did not merge newly authoritative users into
+   the picker.
+   - Impact: an inactive or no-longer-assignable user could be restored, or a
+     newly observed server user could remain unidentifiable in the picker.
+   - Repair plan: test remove-only seed behavior, track IDs confirmed active
+     by project membership pages, and merge authoritative seed users after
+     reconciliation.
+
+6. **Confirmed new labels did not refresh project label metadata.** The model
+   did not distinguish a confirmed Create Label action from selecting an
+   existing label, and the service invalidated resource/list caches only.
+   The create action could also be offered for a differently-cased selected
+   label absent from the loaded page.
+   - Impact: a new project label could remain absent from later pickers, and
+     duplicate-looking creation could be offered.
+   - Repair plan: test explicit-new-label cache invalidation, track confirmed
+     names, invalidate the project label first page only after confirmed
+     mutation success, and compare loaded plus selected names before offering
+     Create.
+
+7. **Query-owned lists did not remove ineligible resources.** Close,
+   unassignment, or reviewer removal replaced rows in assigned/review lists
+   and Home previews even when the resource no longer matched the server
+   query.
+   - Impact: closed or no-longer-assigned work remained visibly stale until a
+     refresh.
+   - Repair plan: add generic tested remove-if-present reconciliation, apply
+     state/current-user eligibility in assigned issue and MR owners, remove
+     ineligible Home previews, and trigger one bounded Home refresh only when
+     a displayed preview is removed.
+
+8. **The required model and owner regression matrix was incomplete.** The
+   initial focused model tests covered core rebase and delivery uncertainty
+   but not the races and owner transitions above.
+   - Impact: the documented P3-06 safety guarantees were not frozen against
+     regression.
+   - Repair plan: add focused tests for every finding before its production
+     repair, then run the full quality gates and repeat this review.
 
 ## Ordered implementation
 
