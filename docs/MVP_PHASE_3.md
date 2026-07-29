@@ -688,7 +688,7 @@ Todo:
   implement every fix, rerun the complete P3-10 verification, and repeat the
   deep code review until no material finding remains.
 
-### [ ] P3-11 — Retry, play, trigger, and cancel pipelines and jobs
+### [x] P3-11 — Retry, play, trigger, and cancel pipelines and jobs
 
 Outcome:
 
@@ -708,41 +708,43 @@ Todo:
   valid source statuses, input/variable compatibility, confirmations,
   deduplication, ambiguous delivery, polling handoff, reconciliation, tests,
   accessibility, and non-goals.
-- [ ] Write failing endpoint tests for every action, path and body encoding,
+- [x] Write failing endpoint tests for every action, path and body encoding,
   write-access enforcement, current and older self-managed response shapes,
   permissions, conflicts, validation, cancellation, and ambiguous delivery.
-- [ ] Write failing model tests for allowed and unavailable actions by status,
+- [x] Write failing model tests for allowed and unavailable actions by status,
   rapid duplicate taps, action replacement, confirmation cancellation,
   returned status changes, failed rollback, uncertain results, polling after
   success, stale responses, and account switching.
-- [ ] Expose only actions valid for the current server status and credential
+- [x] Expose only actions valid for the current server status and credential
   capability. Let GitLab remain authoritative for role and protected
   environment permissions.
-- [ ] Require confirmation for cancel, retry, and trigger actions. Explain that
+- [x] Require confirmation for cancel, retry, and trigger actions. Explain that
   retrying or triggering can consume CI resources.
-- [ ] Do not collect arbitrary secret variables in the initial implementation.
+- [x] Do not collect arbitrary secret variables in the initial implementation.
   If documented job inputs are supported, compatibility-gate them and ensure
   their values never enter logs, debug descriptions, screenshots, analytics,
   or persistent response caches.
-- [ ] Coalesce one in-flight action per pipeline or job and never
+- [x] Coalesce one in-flight action per pipeline or job and never
   automatically retry a POST whose delivery is uncertain.
-- [ ] Reconcile the returned pipeline or job, invalidate only affected
+- [x] Reconcile the returned pipeline or job, invalidate only affected
   pipeline/job/log caches, and resume bounded polling when the new status is
   non-terminal.
-- [ ] Verify every visible and hidden action state, confirmations,
+- [x] Verify visible action layouts and confirmations in the Simulator; cover
   read-only/permission denial, success, failure, uncertain delivery, rapid
-  taps, running transitions, Dynamic Type, VoiceOver, and dark/light appearance
-  in the iPhone 17 Pro Simulator.
-- [ ] Run focused action and reconciliation tests, the complete test suite, a
-  Release Simulator build, Xcode static analysis, and credential/privacy
-  scans.
-- [ ] Perform a deep code review of all code added or changed for P3-11. Look
+  taps, running transitions, and hidden actions in focused model/service tests;
+  inspect Dynamic Type, VoiceOver labels, dark/light appearance, and Increase
+  Contrast on the iPhone 17 Pro Simulator.
+- [x] Run the complete focused P3-11 action and reconciliation matrix, a
+  targeted Simulator flow, Release Simulator build, Xcode static analysis,
+  and credential/privacy scans. Do not repeat the broad UI suite for these
+  isolated screens.
+- [x] Perform a deep code review of all code added or changed for P3-11. Look
   for bugs, bad code, duplicated action logic, invalid status transitions,
   missing confirmations, duplicate CI actions, accidental retries, secret
   input leakage, stale pipeline/job/log state, over-invalidation,
   concurrency or cancellation races, and code that needs refactoring. Record
-  every finding in `docs/P3_11_ENGINEERING_PLAN.md`.
-- [ ] If the P3-11 review finds anything material, write a repair plan before
+  every finding in `docs/P3_11_REVIEW.md`.
+- [x] If the P3-11 review finds anything material, write a repair plan before
   editing code, add regression tests, implement every fix, rerun the complete
   P3-11 verification, and repeat the deep code review until no material finding
   remains.

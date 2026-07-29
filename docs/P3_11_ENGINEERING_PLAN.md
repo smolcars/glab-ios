@@ -5,9 +5,9 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Implementation: not started
-- Simulator verification: not started
-- Deep review: not started
+- Implementation: complete
+- Simulator verification: complete
+- Deep review: complete
 
 Research date: July 29, 2026.
 
@@ -291,14 +291,41 @@ P3-11 gates, and repeat this review.
 - [x] Current official GitLab pipeline, job, and MR-pipeline action contracts
   and version history were researched.
 - [x] This plan precedes every P3-11 production and test change.
-- [ ] Every action requires `.write` and is sent exactly once.
-- [ ] Arbitrary variables, inputs, files, and secrets are out of scope.
-- [ ] Valid positive routes and response identity are enforced.
-- [ ] Confirmation, single-flight state, and stale-account rejection are
+- [x] Every action requires `.write` and is sent exactly once.
+- [x] Arbitrary variables, inputs, files, and secrets are out of scope.
+- [x] Valid positive routes and response identity are enforced.
+- [x] Confirmation, single-flight state, and stale-account rejection are
   covered by tests.
-- [ ] Unknown delivery never causes an automatic retry.
-- [ ] Cache and trace invalidation is targeted and account-scoped.
-- [ ] Existing bounded polling owns reconciliation after action handoff.
-- [ ] Deterministic Simulator verification precedes any optional live action.
-- [ ] No human mention, assignment, membership, tag, or notification action.
-- [ ] Deep review and every repair plan are recorded before P3-11 is complete.
+- [x] Unknown delivery never causes an automatic retry.
+- [x] Cache and trace invalidation is targeted and account-scoped.
+- [x] Existing bounded polling owns reconciliation after action handoff.
+- [x] Deterministic Simulator verification precedes any optional live action.
+- [x] No human mention, assignment, membership, tag, or notification action.
+- [x] Deep review and every repair plan are recorded before P3-11 is complete.
+
+## Completion
+
+Completed July 29, 2026.
+
+- The seven focused P3-11 endpoint, action-service, action-model, MR creation,
+  pipeline-detail, pipeline-history, and trace-store suites pass serially on
+  the iPhone 17 Pro Simulator.
+- The targeted Simulator flow opened MR pipeline history, confirmed and
+  canceled pipeline creation, opened an active pipeline, confirmed and
+  canceled pipeline cancellation, expanded an active stage, and confirmed and
+  canceled an ordinary-job retry. Stable accessibility identifiers and labels
+  were present throughout.
+- Dark/default and light/accessibility-extra-large with Increase Contrast were
+  visually inspected. The controls remain compact and the large layout remains
+  scrollable without covering actions.
+- The Release Simulator build and Xcode static analysis pass using the shared
+  `.deriveddata/Glab`. The final P3-11 Release build emits no Swift warning.
+- Both source and Release app property lists pass validation. No `.env`,
+  credential file, debug pipeline fixture, or P3-11 document is present in the
+  Release app bundle.
+- The physical iPhone, `DEVOPS_DEMO_TOKEN`, and live mutation endpoints were
+  not used for P3-11 verification. No person was mentioned, assigned, tagged,
+  or notified.
+- The review and repair plans are recorded in `docs/P3_11_REVIEW.md`. After
+  the four repairs and regressions, the repeat review found no remaining
+  material bug, duplication, or necessary refactor.

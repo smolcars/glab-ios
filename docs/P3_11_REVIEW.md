@@ -25,7 +25,7 @@ Repair plan:
 4. Add focused model regressions for success, unknown delivery, rejection, and
    cross-job isolation.
 
-Status: planned.
+Status: repaired and verified.
 
 ### P3-11-R2 — Job actions invalidate unrelated trigger-job caches
 
@@ -42,7 +42,7 @@ Repair plan:
    jobs.
 4. Update service tests to assert exact cache keys for both action classes.
 
-Status: planned.
+Status: repaired and verified.
 
 ### P3-11-R3 — A convenience initializer assumes every MR is open
 
@@ -57,7 +57,7 @@ Repair plan:
    account currency, and current MR state.
 3. Rebuild the affected screens to ensure no implicit caller remains.
 
-Status: planned.
+Status: repaired and verified.
 
 ### P3-11-R4 — Redundant typed-error cast emits a Release warning
 
@@ -70,7 +70,7 @@ Repair plan:
 1. Preserve the already typed caught error directly.
 2. Re-run the creation-model tests and Release simulator build.
 
-Status: planned.
+Status: repaired and verified.
 
 ## Review areas with no material finding
 
@@ -97,3 +97,23 @@ Status: planned.
 - Run a Release simulator build and static analysis once at P3-11 closure.
 - Repeat this review against the repaired diff; P3-11 remains open until no
   material finding remains.
+
+## Repeat review
+
+Completed July 29, 2026.
+
+- Pipeline cancellation now snapshots loaded nonterminal ordinary-job IDs at
+  POST dispatch and removes only those account/project trace keys on success
+  or unknown delivery. Terminal traces and rejected cancellations remain
+  untouched.
+- Ordinary-job mutations invalidate only pipeline detail and ordinary jobs;
+  pipeline-wide mutations still invalidate both trigger-job variants.
+- Every pipeline-history caller now supplies the current MR state explicitly.
+- The redundant typed-error cast was removed; focused tests and the warning-free
+  Release Simulator build pass.
+
+The repeat review rechecked write access, single dispatch, status eligibility,
+confirmation snapshots, duplicate taps, response identity, account scope,
+delivery certainty, polling handoff, trace/cache scope, trigger-job isolation,
+secret/log exposure, compact layout, and accessibility. No additional material
+bug, bad duplication, or necessary refactor remains.
