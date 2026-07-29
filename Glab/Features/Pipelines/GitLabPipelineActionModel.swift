@@ -13,6 +13,7 @@ nonisolated enum GitLabPipelineActionKind:
     case retryJob
     case cancelJob
     case playJob
+    case playTriggerJob
 
     var title: String {
         switch self {
@@ -26,6 +27,8 @@ nonisolated enum GitLabPipelineActionKind:
             "Cancel job"
         case .playJob:
             "Run job"
+        case .playTriggerJob:
+            "Run child pipeline"
         }
     }
 
@@ -35,7 +38,7 @@ nonisolated enum GitLabPipelineActionKind:
             "arrow.clockwise"
         case .cancelPipeline, .cancelJob:
             "stop.circle"
-        case .playJob:
+        case .playJob, .playTriggerJob:
             "play.fill"
         }
     }
@@ -44,7 +47,8 @@ nonisolated enum GitLabPipelineActionKind:
         switch self {
         case .retryPipeline,
              .retryJob,
-             .playJob:
+             .playJob,
+             .playTriggerJob:
             true
         case .cancelPipeline,
              .cancelJob:
@@ -89,6 +93,8 @@ nonisolated struct
             case .cancelJob:
                 "Stop \(resourceName)."
             case .playJob:
+                "Run \(resourceName)."
+            case .playTriggerJob:
                 "Run \(resourceName)."
             }
         if action.consumesRunnerResources {
@@ -177,11 +183,17 @@ final class GitLabPipelineActionModel {
     private let currentJobs:
         @MainActor () -> [GitLabPipelineJob]
     @ObservationIgnored
+    private let currentTriggerJobs:
+        @MainActor () -> [GitLabPipelineTriggerJob]
+    @ObservationIgnored
     private let reconcilePipeline:
         @MainActor (GitLabPipeline) -> Void
     @ObservationIgnored
     private let reconcileJob:
         @MainActor (GitLabPipelineJob) async -> Void
+    @ObservationIgnored
+    private let reconcileTriggerJob:
+        @MainActor (GitLabPipelineTriggerJob) async -> Void
     @ObservationIgnored
     private let refresh:
         @MainActor () async -> Void
@@ -200,10 +212,14 @@ final class GitLabPipelineActionModel {
             @escaping @MainActor () -> GitLabPipeline?,
         currentJobs:
             @escaping @MainActor () -> [GitLabPipelineJob],
+        currentTriggerJobs:
+            @escaping @MainActor () -> [GitLabPipelineTriggerJob],
         reconcilePipeline:
             @escaping @MainActor (GitLabPipeline) -> Void,
         reconcileJob:
             @escaping @MainActor (GitLabPipelineJob) async -> Void,
+        reconcileTriggerJob:
+            @escaping @MainActor (GitLabPipelineTriggerJob) async -> Void,
         refresh:
             @escaping @MainActor () async -> Void
     ) {
@@ -217,9 +233,13 @@ final class GitLabPipelineActionModel {
         self.currentPipeline =
             currentPipeline
         self.currentJobs = currentJobs
+        self.currentTriggerJobs =
+            currentTriggerJobs
         self.reconcilePipeline =
             reconcilePipeline
         self.reconcileJob = reconcileJob
+        self.reconcileTriggerJob =
+            reconcileTriggerJob
         self.refresh = refresh
     }
 
@@ -292,6 +312,24 @@ final class GitLabPipelineActionModel {
         }
     }
 
+    func availableTriggerJobActions(
+        for triggerJob:
+            GitLabPipelineTriggerJob
+    ) -> [GitLabPipelineActionKind] {
+        guard
+            canOfferActions,
+            Self.triggerJob(
+                triggerJob,
+                belongsTo: route
+            ),
+            triggerJob.status.rawValue
+                == "manual"
+        else {
+            return []
+        }
+        return [.playTriggerJob]
+    }
+
     func request(
         _ action: GitLabPipelineActionKind,
         job: GitLabPipelineJob? = nil
@@ -350,7 +388,42 @@ final class GitLabPipelineActionModel {
                     observedStatus:
                         job.status
                 )
+        case .playTriggerJob:
+            failure = preflightFailure
         }
+    }
+
+    func request(
+        _ action: GitLabPipelineActionKind,
+        triggerJob:
+            GitLabPipelineTriggerJob
+    ) {
+        guard
+            confirmation == nil,
+            activeAction == nil
+        else {
+            return
+        }
+        failure = nil
+        guard
+            action == .playTriggerJob,
+            availableTriggerJobActions(
+                for: triggerJob
+            ).contains(action)
+        else {
+            failure = preflightFailure
+            return
+        }
+        confirmation =
+            GitLabPipelineActionConfirmation(
+                action: action,
+                jobID: triggerJob.id,
+                affectedJobIDs: [],
+                resourceName:
+                    "child pipeline “\(triggerJob.name)”",
+                observedStatus:
+                    triggerJob.status
+            )
     }
 
     func dismissConfirmation() {
@@ -464,6 +537,29 @@ private extension GitLabPipelineActionModel {
         if let jobID =
             confirmation.jobID
         {
+            if
+                confirmation.action
+                    == .playTriggerJob
+            {
+                guard
+                    let triggerJob =
+                        currentTriggerJobs()
+                        .first(where: {
+                            $0.id == jobID
+                        })
+                else {
+                    return false
+                }
+                return
+                    triggerJob.status
+                        == confirmation
+                        .observedStatus
+                    && availableTriggerJobActions(
+                        for: triggerJob
+                    ).contains(
+                        confirmation.action
+                    )
+            }
             guard
                 let job =
                     currentJobs()
@@ -573,6 +669,16 @@ private extension GitLabPipelineActionModel {
                         )
                 )
             )
+        case .playTriggerJob:
+            await reconcileTriggerJob(
+                try await service
+                    .playTriggerJob(
+                        at:
+                            try jobRoute(
+                                confirmation
+                            )
+                    )
+            )
         }
     }
 
@@ -639,7 +745,8 @@ private extension GitLabPipelineActionModel {
             )
         case .retryPipeline,
              .retryJob,
-             .playJob:
+             .playJob,
+             .playTriggerJob:
             break
         }
     }
@@ -663,6 +770,27 @@ private extension GitLabPipelineActionModel {
             return true
         }
         return pipeline.id == route.pipelineID
+            && (
+                pipeline.projectID == nil
+                    || pipeline.projectID
+                        == route.projectID
+            )
+    }
+
+    static func triggerJob(
+        _ triggerJob:
+            GitLabPipelineTriggerJob,
+        belongsTo route:
+            GitLabPipelineRoute
+    ) -> Bool {
+        guard
+            let pipeline =
+                triggerJob.pipeline
+        else {
+            return true
+        }
+        return pipeline.id
+            == route.pipelineID
             && (
                 pipeline.projectID == nil
                     || pipeline.projectID

@@ -482,7 +482,7 @@ struct GitLabPipelineDetailView: View {
                 HStack(spacing: 8) {
                     Text(stage.name)
                         .font(
-                            .subheadline
+                            .headline
                                 .weight(.semibold)
                         )
                         .foregroundStyle(.primary)
@@ -491,7 +491,7 @@ struct GitLabPipelineDetailView: View {
                         "\(stage.rows.count)"
                     )
                     .font(
-                        .caption
+                        .subheadline
                             .monospacedDigit()
                     )
                     .foregroundStyle(.secondary)
@@ -513,11 +513,19 @@ struct GitLabPipelineDetailView: View {
                             ? "chevron.up"
                             : "chevron.down"
                     )
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(.primary)
+                    .frame(
+                        width: 32,
+                        height: 32
+                    )
+                    .background(
+                        .fill.tertiary,
+                        in: .circle
+                    )
                     .accessibilityHidden(true)
                 }
-                .frame(minHeight: 36)
+                .frame(minHeight: 44)
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
@@ -600,26 +608,32 @@ struct GitLabPipelineDetailView: View {
                     triggerJob
                     .downstreamPipeline
             {
-                NavigationLink {
-                    GitLabPipelineDetailView(
-                        route:
-                            downstreamRoute,
-                        cacheLifetime:
-                            downstreamPipeline
-                            .detailCacheLifetime,
-                        loader: loader,
-                            accountID:
-                                accountID,
-                            appSession:
-                                appSession,
-                            apiAccess:
-                                apiAccess,
-                            isAccountCurrent:
-                            isAccountCurrent
-                    )
-                } label: {
-                    GitLabPipelineJobRow(
-                        row: row
+                HStack(spacing: 8) {
+                    NavigationLink {
+                        GitLabPipelineDetailView(
+                            route:
+                                downstreamRoute,
+                            cacheLifetime:
+                                downstreamPipeline
+                                .detailCacheLifetime,
+                            loader: loader,
+                                accountID:
+                                    accountID,
+                                appSession:
+                                    appSession,
+                                apiAccess:
+                                    apiAccess,
+                                isAccountCurrent:
+                                isAccountCurrent
+                        )
+                    } label: {
+                        GitLabPipelineJobRow(
+                            row: row
+                        )
+                    }
+
+                    triggerJobActionControl(
+                        triggerJob
                     )
                 }
             } else {
@@ -644,6 +658,10 @@ struct GitLabPipelineDetailView: View {
                             "Open child pipeline in GitLab"
                         )
                     }
+
+                    triggerJobActionControl(
+                        triggerJob
+                    )
                 }
             }
         }
@@ -661,37 +679,78 @@ struct GitLabPipelineDetailView: View {
                 )
                 .first
         {
-            Button {
+            pipelineActionButton(
+                action: action,
+                resourceName: job.name,
+                accessibilityIdentifier:
+                    "pipelines.detail.job.\(job.id).action.\(action.rawValue)"
+            ) {
                 actionModel?.request(
                     action,
                     job: job
                 )
-            } label: {
-                Image(
-                    systemName:
-                        action.systemImage
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func triggerJobActionControl(
+        _ triggerJob:
+            GitLabPipelineTriggerJob
+    ) -> some View {
+        if
+            let action =
+                actionModel?
+                .availableTriggerJobActions(
+                    for: triggerJob
+                )
+                .first
+        {
+            pipelineActionButton(
+                action: action,
+                resourceName:
+                    triggerJob.name,
+                accessibilityIdentifier:
+                    "pipelines.detail.triggerJob.\(triggerJob.id).action.\(action.rawValue)"
+            ) {
+                actionModel?.request(
+                    action,
+                    triggerJob: triggerJob
                 )
             }
-            .buttonStyle(.glass)
-            .controlSize(.small)
-            .frame(
-                minWidth: 44,
-                minHeight: 44
-            )
-            .disabled(
-                actionModel?.isBusy
-                    == true
-            )
-            .accessibilityLabel(
-                "\(action.title), \(job.name)"
-            )
-            .accessibilityHint(
-                "Shows a confirmation before changing this job."
-            )
-            .accessibilityIdentifier(
-                "pipelines.detail.job.\(job.id).action.\(action.rawValue)"
+        }
+    }
+
+    private func pipelineActionButton(
+        action: GitLabPipelineActionKind,
+        resourceName: String,
+        accessibilityIdentifier: String,
+        request: @escaping () -> Void
+    ) -> some View {
+        Button(action: request) {
+            Image(
+                systemName:
+                    action.systemImage
             )
         }
+        .buttonStyle(.glass)
+        .controlSize(.small)
+        .frame(
+            minWidth: 44,
+            minHeight: 44
+        )
+        .disabled(
+            actionModel?.isBusy == true
+        )
+        .accessibilityLabel(
+            "\(action.title), \(resourceName)"
+        )
+        .accessibilityHint(
+            "Shows a confirmation before changing this pipeline job."
+        )
+        .accessibilityIdentifier(
+            accessibilityIdentifier
+        )
     }
 
     private var actionConfirmationIsPresented:
@@ -741,6 +800,10 @@ struct GitLabPipelineDetailView: View {
                 currentJobs: {
                     detailModel.jobs.items
                 },
+                currentTriggerJobs: {
+                    detailModel
+                        .triggerJobs.items
+                },
                 reconcilePipeline: {
                     detailModel
                         .reconcileActionPipeline(
@@ -750,6 +813,12 @@ struct GitLabPipelineDetailView: View {
                 reconcileJob: {
                     await detailModel
                         .reconcileActionJob($0)
+                },
+                reconcileTriggerJob: {
+                    await detailModel
+                        .reconcileActionTriggerJob(
+                            $0
+                        )
                 },
                 refresh: {
                     await detailModel

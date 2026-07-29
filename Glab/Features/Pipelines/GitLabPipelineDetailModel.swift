@@ -282,6 +282,27 @@ final class GitLabPipelineDetailModel {
         await projectStages()
     }
 
+    func reconcileActionTriggerJob(
+        _ triggerJob:
+            GitLabPipelineTriggerJob
+    ) async {
+        guard
+            accountScope.check(),
+            Self.triggerJob(
+                triggerJob,
+                belongsTo: route
+            )
+        else {
+            return
+        }
+        triggerJobs.reconcileItem(
+            triggerJob,
+            countAdjustmentIfInserted: 1,
+            keepsAtEndUntilLoaded: true
+        )
+        await projectStages()
+    }
+
     func runVisible(
         isSceneActive: Bool
     ) async {
@@ -738,6 +759,27 @@ final class GitLabPipelineDetailModel {
             return true
         }
         return pipeline.id == route.pipelineID
+            && (
+                pipeline.projectID == nil
+                    || pipeline.projectID
+                        == route.projectID
+            )
+    }
+
+    private static func triggerJob(
+        _ triggerJob:
+            GitLabPipelineTriggerJob,
+        belongsTo route:
+            GitLabPipelineRoute
+    ) -> Bool {
+        guard
+            let pipeline =
+                triggerJob.pipeline
+        else {
+            return true
+        }
+        return pipeline.id
+            == route.pipelineID
             && (
                 pipeline.projectID == nil
                     || pipeline.projectID

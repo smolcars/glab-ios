@@ -9,7 +9,8 @@ struct GitLabPipelineActionModelTests {
     func exposesStatusValidActions() throws {
         let fixture = try fixture(
             pipelineStatus: "failed",
-            jobStatus: "manual"
+            jobStatus: "manual",
+            triggerJobStatus: "manual"
         )
 
         #expect(
@@ -22,11 +23,18 @@ struct GitLabPipelineActionModelTests {
                 for: fixture.state.job
             ) == [.playJob]
         )
+        #expect(
+            fixture.model.availableTriggerJobActions(
+                for: fixture.state.triggerJob
+            ) == [.playTriggerJob]
+        )
 
         fixture.state.pipeline =
             try pipeline(status: "running")
         fixture.state.job =
             try job(status: "running")
+        fixture.state.triggerJob =
+            try triggerJob(status: "success")
 
         #expect(
             fixture.model
@@ -37,6 +45,11 @@ struct GitLabPipelineActionModelTests {
             fixture.model.availableJobActions(
                 for: fixture.state.job
             ) == [.cancelJob]
+        )
+        #expect(
+            fixture.model.availableTriggerJobActions(
+                for: fixture.state.triggerJob
+            ).isEmpty
         )
     }
 
@@ -58,6 +71,63 @@ struct GitLabPipelineActionModelTests {
             replaced.model
                 .availablePipelineActions
                 .isEmpty
+        )
+        #expect(
+            readOnly.model.availableTriggerJobActions(
+                for: readOnly.state.triggerJob
+            ).isEmpty
+        )
+        #expect(
+            replaced.model.availableTriggerJobActions(
+                for: replaced.state.triggerJob
+            ).isEmpty
+        )
+    }
+
+    @Test("Confirmed child trigger reconciles and refreshes once")
+    func playsTriggerJob() async throws {
+        let fixture = try fixture(
+            triggerJobStatus: "manual",
+            responseTriggerJobStatus: "pending"
+        )
+        fixture.model.request(
+            .playTriggerJob,
+            triggerJob: fixture.state.triggerJob
+        )
+
+        await fixture.model.confirm()
+
+        #expect(
+            await fixture.service.actions
+                == [.playTriggerJob]
+        )
+        #expect(
+            fixture.state.triggerJob.status.rawValue
+                == "pending"
+        )
+        #expect(
+            fixture.state.refreshCount == 1
+        )
+        #expect(fixture.model.failure == nil)
+    }
+
+    @Test("Child trigger rejects a stale status without sending")
+    func rejectsStaleTriggerJob() async throws {
+        let fixture = try fixture(
+            triggerJobStatus: "manual"
+        )
+        fixture.model.request(
+            .playTriggerJob,
+            triggerJob: fixture.state.triggerJob
+        )
+        fixture.state.triggerJob =
+            try triggerJob(status: "pending")
+
+        await fixture.model.confirm()
+
+        #expect(fixture.model.failure == .stale)
+        #expect(
+            await fixture.service.actions.isEmpty
         )
     }
 
@@ -362,9 +432,12 @@ struct GitLabPipelineActionModelTests {
     private func fixture(
         pipelineStatus: String = "failed",
         jobStatus: String = "failed",
+        triggerJobStatus: String = "failed",
         responsePipelineStatus:
             String = "pending",
         responseJobStatus:
+            String = "pending",
+        responseTriggerJobStatus:
             String = "pending",
         apiAccess: GitLabAPIAccess = .readWrite,
         isAccountCurrent: Bool = true,
@@ -386,7 +459,11 @@ struct GitLabPipelineActionModelTests {
                         status: pipelineStatus
                     ),
                 job:
-                    try job(status: jobStatus)
+                    try job(status: jobStatus),
+                triggerJob:
+                    try triggerJob(
+                        status: triggerJobStatus
+                    )
             )
         let service =
             RecordingPipelineActionService(
@@ -399,6 +476,11 @@ struct GitLabPipelineActionModelTests {
                     try job(
                         status:
                             responseJobStatus
+                    ),
+                triggerJob:
+                    try triggerJob(
+                        status:
+                            responseTriggerJobStatus
                     ),
                 error: serviceError
             )
@@ -420,11 +502,17 @@ struct GitLabPipelineActionModelTests {
                 currentJobs: {
                     [state.job]
                 },
+                currentTriggerJobs: {
+                    [state.triggerJob]
+                },
                 reconcilePipeline: {
                     state.pipeline = $0
                 },
                 reconcileJob: {
                     state.job = $0
+                },
+                reconcileTriggerJob: {
+                    state.triggerJob = $0
                 },
                 refresh: {
                     state.refreshCount += 1
@@ -491,6 +579,29 @@ struct GitLabPipelineActionModelTests {
         )
     }
 
+    private func triggerJob(
+        status: String
+    ) throws -> GitLabPipelineTriggerJob {
+        try JSONDecoder().decode(
+            GitLabPipelineTriggerJob.self,
+            from:
+                Data(
+                    """
+                    {
+                      "id": 801,
+                      "name": "optional deployment",
+                      "stage": "deploy",
+                      "status": "\(status)",
+                      "pipeline": {
+                        "id": 501,
+                        "project_id": 42
+                      }
+                    }
+                    """.utf8
+                )
+        )
+    }
+
     private struct Fixture {
         let model: GitLabPipelineActionModel
         let service:
@@ -506,14 +617,17 @@ struct GitLabPipelineActionModelTests {
 private final class PipelineActionState {
     var pipeline: GitLabPipeline
     var job: GitLabPipelineJob
+    var triggerJob: GitLabPipelineTriggerJob
     var refreshCount = 0
 
     init(
         pipeline: GitLabPipeline,
-        job: GitLabPipelineJob
+        job: GitLabPipelineJob,
+        triggerJob: GitLabPipelineTriggerJob
     ) {
         self.pipeline = pipeline
         self.job = job
+        self.triggerJob = triggerJob
     }
 }
 
@@ -522,6 +636,8 @@ private actor RecordingPipelineActionService:
 {
     private let pipeline: GitLabPipeline
     private let job: GitLabPipelineJob
+    private let triggerJob:
+        GitLabPipelineTriggerJob
     private let error:
         GitLabSessionClientError?
     private(set) var actions:
@@ -530,11 +646,13 @@ private actor RecordingPipelineActionService:
     init(
         pipeline: GitLabPipeline,
         job: GitLabPipelineJob,
+        triggerJob: GitLabPipelineTriggerJob,
         error:
             GitLabSessionClientError?
     ) {
         self.pipeline = pipeline
         self.job = job
+        self.triggerJob = triggerJob
         self.error = error
     }
 
@@ -588,7 +706,8 @@ private actor RecordingPipelineActionService:
     ) throws(GitLabSessionClientError)
         -> GitLabPipelineTriggerJob
     {
-        throw .api(.invalidResponse)
+        try record(.playTriggerJob)
+        return triggerJob
     }
 
     func createMergeRequestPipeline(

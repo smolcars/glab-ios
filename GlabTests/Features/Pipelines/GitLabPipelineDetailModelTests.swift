@@ -119,7 +119,14 @@ struct GitLabPipelineDetailModelTests {
                 .success(
                     PipelineTriggerFirstPageResult(
                         event:
-                            triggerEvent([]),
+                            triggerEvent([
+                                try triggerJob(
+                                    id: 91,
+                                    name: "deploy child",
+                                    stage: "deploy",
+                                    status: "manual"
+                                ),
+                            ]),
                         selectedCapability:
                             .preferred
                     )
@@ -144,6 +151,15 @@ struct GitLabPipelineDetailModelTests {
                     status: "canceled"
                 )
             )
+        await context.model
+            .reconcileActionTriggerJob(
+                try triggerJob(
+                    id: 91,
+                    name: "deploy child",
+                    stage: "deploy",
+                    status: "pending"
+                )
+            )
 
         #expect(
             context.model.pipeline?.status
@@ -155,10 +171,15 @@ struct GitLabPipelineDetailModelTests {
                 == "canceled"
         )
         #expect(
+            context.model.triggerJobs.items
+                .first?.status.rawValue
+                == "pending"
+        )
+        #expect(
             context.model.stages
                 .flatMap(\.rows)
-                .first?.status.rawValue
-                == "canceled"
+                .map(\.status.rawValue)
+                == ["canceled", "pending"]
         )
     }
 
