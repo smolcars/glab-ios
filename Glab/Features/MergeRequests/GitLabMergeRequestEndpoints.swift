@@ -51,6 +51,24 @@ nonisolated enum GitLabMergeRequestEndpoints {
         )
     }
 
+    static func updateMetadata(
+        at route: GitLabMergeRequestRoute,
+        changes: GitLabResourceMetadataChanges
+    ) throws -> GitLabAPIRequest<GitLabMergeRequest> {
+        try .put(
+            path: [
+                "projects",
+                String(route.projectID),
+                "merge_requests",
+                String(route.mergeRequestIID),
+            ],
+            body:
+                changes.updateBody(
+                    allowsReviewers: true
+                )
+        )
+    }
+
     static func approvals(
         at route: GitLabMergeRequestRoute
     ) -> GitLabAPIRequest<

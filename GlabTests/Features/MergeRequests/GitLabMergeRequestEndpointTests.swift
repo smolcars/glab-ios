@@ -196,6 +196,136 @@ struct GitLabMergeRequestEndpointTests {
         )
         #expect(!body.contains("description"))
     }
+
+    @Test("Builds merge request label deltas with exact values")
+    func buildsMergeRequestLabelDelta() throws {
+        let endpoint =
+            try GitLabMergeRequestEndpoints
+                .updateMetadata(
+                    at: GitLabMergeRequestRoute(
+                        projectID: 42,
+                        mergeRequestIID: 7
+                    ),
+                    changes:
+                        GitLabResourceMetadataChanges(
+                            labels:
+                                .delta(
+                                    add: [
+                                        "status::ready",
+                                        "mobile UI 👩🏽‍💻",
+                                    ],
+                                    remove: [
+                                        "needs/triage & docs",
+                                    ]
+                                )
+                        )
+                )
+        let request = try buildRequest(endpoint)
+        let json = try jsonAnyObject(request)
+
+        #expect(endpoint.method == .put)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(
+            json["add_labels"] as? String
+                == "status::ready,mobile UI 👩🏽‍💻"
+        )
+        #expect(
+            json["remove_labels"] as? String
+                == "needs/triage & docs"
+        )
+    }
+
+    @Test("Builds merge request people and close fields together")
+    func buildsMergeRequestPeopleAndState() throws {
+        let endpoint =
+            try GitLabMergeRequestEndpoints
+                .updateMetadata(
+                    at: GitLabMergeRequestRoute(
+                        projectID: 42,
+                        mergeRequestIID: 7
+                    ),
+                    changes:
+                        GitLabResourceMetadataChanges(
+                            assigneeIDs: [17, 23],
+                            reviewerIDs: [31, 37],
+                            stateEvent: .close
+                        )
+                )
+        let json = try jsonAnyObject(
+            buildRequest(endpoint)
+        )
+
+        #expect(
+            json["assignee_ids"] as? [Int]
+                == [17, 23]
+        )
+        #expect(
+            json["reviewer_ids"] as? [Int]
+                == [31, 37]
+        )
+        #expect(
+            json["state_event"] as? String == "close"
+        )
+        #expect(json["assignee_id"] == nil)
+    }
+
+    @Test("Builds explicit empty merge request people arrays")
+    func buildsEmptyMergeRequestPeople() throws {
+        let endpoint =
+            try GitLabMergeRequestEndpoints
+                .updateMetadata(
+                    at: GitLabMergeRequestRoute(
+                        projectID: 42,
+                        mergeRequestIID: 7
+                    ),
+                    changes:
+                        GitLabResourceMetadataChanges(
+                            assigneeIDs: [],
+                            reviewerIDs: []
+                        )
+                )
+        let json = try jsonAnyObject(
+            buildRequest(endpoint)
+        )
+
+        #expect(
+            json["assignee_ids"] as? [Int] == []
+        )
+        #expect(
+            json["reviewer_ids"] as? [Int] == []
+        )
+    }
+
+    @Test("Builds an explicit complete merge request label replacement")
+    func buildsMergeRequestLabelReplacement() throws {
+        let endpoint =
+            try GitLabMergeRequestEndpoints
+                .updateMetadata(
+                    at: GitLabMergeRequestRoute(
+                        projectID: 42,
+                        mergeRequestIID: 7
+                    ),
+                    changes:
+                        GitLabResourceMetadataChanges(
+                            labels:
+                                .replacement(
+                                    [
+                                        "team::iOS",
+                                        "QA \"passed\" ✅",
+                                    ]
+                                )
+                        )
+                )
+
+        let json = try jsonAnyObject(
+            buildRequest(endpoint)
+        )
+
+        #expect(
+            json["labels"] as? String
+                == "team::iOS,QA \"passed\" ✅"
+        )
+    }
 }
 
 private extension GitLabMergeRequestEndpointTests {
@@ -225,6 +355,17 @@ private extension GitLabMergeRequestEndpointTests {
             JSONSerialization.jsonObject(
                 with: body
             ) as? [String: String]
+        )
+    }
+
+    nonisolated func jsonAnyObject(
+        _ request: URLRequest
+    ) throws -> [String: Any] {
+        let body = try #require(request.httpBody)
+        return try #require(
+            JSONSerialization.jsonObject(
+                with: body
+            ) as? [String: Any]
         )
     }
 }

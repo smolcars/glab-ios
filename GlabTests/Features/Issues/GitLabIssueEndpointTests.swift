@@ -96,6 +96,141 @@ struct GitLabIssueEndpointTests {
         )
         #expect(!body.contains("title"))
     }
+
+    @Test("Builds additive issue label changes with exact special characters")
+    func buildsIssueLabelDelta() throws {
+        let endpoint =
+            try GitLabIssueEndpoints
+                .updateMetadata(
+                    at: GitLabIssueRoute(
+                        projectID: 42,
+                        issueIID: 7
+                    ),
+                    changes:
+                        GitLabResourceMetadataChanges(
+                            labels:
+                                .delta(
+                                    add: [
+                                        "team::iOS",
+                                        "needs \"QA\" 👩🏽‍💻",
+                                    ],
+                                    remove: [
+                                        "old/label & stale",
+                                    ]
+                                )
+                        )
+                )
+        let request = try buildRequest(endpoint)
+        let json = try jsonAnyObject(request)
+
+        #expect(endpoint.method == .put)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(
+            json["add_labels"] as? String
+                == "team::iOS,needs \"QA\" 👩🏽‍💻"
+        )
+        #expect(
+            json["remove_labels"] as? String
+                == "old/label & stale"
+        )
+    }
+
+    @Test("Builds an explicit complete issue label removal")
+    func buildsIssueLabelReplacement() throws {
+        let endpoint =
+            try GitLabIssueEndpoints
+                .updateMetadata(
+                    at: GitLabIssueRoute(
+                        projectID: 42,
+                        issueIID: 7
+                    ),
+                    changes:
+                        GitLabResourceMetadataChanges(
+                            labels:
+                                .replacement([])
+                        )
+                )
+
+        let json = try jsonAnyObject(
+            buildRequest(endpoint)
+        )
+
+        #expect(json["labels"] as? String == "")
+    }
+
+    @Test("Builds documented issue assignee replacement shapes")
+    func buildsIssueAssignees() throws {
+        let empty = try issueAssigneeJSON(ids: [])
+        #expect(empty["assignee_ids"] as? [Int] == [])
+        #expect(empty["assignee_id"] == nil)
+
+        let single = try issueAssigneeJSON(ids: [17])
+        #expect(single["assignee_id"] as? Int == 17)
+        #expect(single["assignee_ids"] == nil)
+
+        let multiple = try issueAssigneeJSON(
+            ids: [17, 23]
+        )
+        #expect(
+            multiple["assignee_ids"] as? [Int]
+                == [17, 23]
+        )
+        #expect(multiple["assignee_id"] == nil)
+    }
+
+    @Test(
+        "Builds issue close and reopen state events",
+        arguments: [
+            GitLabResourceStateEvent.close,
+            GitLabResourceStateEvent.reopen,
+        ]
+    )
+    func buildsIssueStateEvent(
+        event: GitLabResourceStateEvent
+    ) throws {
+        let endpoint =
+            try GitLabIssueEndpoints
+                .updateMetadata(
+                    at: GitLabIssueRoute(
+                        projectID: 42,
+                        issueIID: 7
+                    ),
+                    changes:
+                        GitLabResourceMetadataChanges(
+                            stateEvent: event
+                        )
+                )
+
+        let json = try jsonAnyObject(
+            buildRequest(endpoint)
+        )
+
+        #expect(
+            json["state_event"] as? String
+                == event.rawValue
+        )
+    }
+
+    @Test("Rejects merge-request-only reviewers for an issue")
+    func rejectsIssueReviewers() {
+        #expect(
+            throws:
+                GitLabResourceMetadataValidationError
+                    .reviewersUnsupported
+        ) {
+            try GitLabIssueEndpoints
+                .updateMetadata(
+                    at: GitLabIssueRoute(
+                        projectID: 42,
+                        issueIID: 7
+                    ),
+                    changes:
+                        GitLabResourceMetadataChanges(
+                            reviewerIDs: [17]
+                        )
+                )
+        }
+    }
 }
 
 private extension GitLabIssueEndpointTests {
@@ -125,6 +260,38 @@ private extension GitLabIssueEndpointTests {
             JSONSerialization.jsonObject(
                 with: body
             ) as? [String: String]
+        )
+    }
+
+    nonisolated func jsonAnyObject(
+        _ request: URLRequest
+    ) throws -> [String: Any] {
+        let body = try #require(request.httpBody)
+        return try #require(
+            JSONSerialization.jsonObject(
+                with: body
+            ) as? [String: Any]
+        )
+    }
+
+    nonisolated func issueAssigneeJSON(
+        ids: [Int]
+    ) throws -> [String: Any] {
+        let endpoint =
+            try GitLabIssueEndpoints
+                .updateMetadata(
+                    at: GitLabIssueRoute(
+                        projectID: 42,
+                        issueIID: 7
+                    ),
+                    changes:
+                        GitLabResourceMetadataChanges(
+                            assigneeIDs: ids
+                        )
+                )
+
+        return try jsonAnyObject(
+            buildRequest(endpoint)
         )
     }
 }

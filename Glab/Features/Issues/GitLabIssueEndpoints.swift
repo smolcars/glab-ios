@@ -46,6 +46,24 @@ nonisolated enum GitLabIssueEndpoints {
         )
     }
 
+    static func updateMetadata(
+        at route: GitLabIssueRoute,
+        changes: GitLabResourceMetadataChanges
+    ) throws -> GitLabAPIRequest<GitLabIssue> {
+        try .put(
+            path: [
+                "projects",
+                String(route.projectID),
+                "issues",
+                String(route.issueIID),
+            ],
+            body:
+                changes.updateBody(
+                    allowsReviewers: false
+                )
+        )
+    }
+
     static func create(
         _ input: GitLabIssueCreationInput
     ) throws -> GitLabAPIRequest<GitLabIssue> {
