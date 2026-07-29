@@ -8,7 +8,8 @@
 - Raw authenticated file transport: complete
 - Account-scoped trace store: complete
 - Line index, sanitization, and search: complete
-- Observable model and navigation: not started
+- Observable model and navigation: in progress; cache-first model, typed live
+  loader, cancellation, and ordinary-versus-trigger routing contract complete
 - Virtualized native UI: not started
 - Performance and Simulator verification: in progress; file-oriented Release
   gates pass
@@ -546,6 +547,19 @@ terminal sanitizer before accepting a marker. The initial large search
 measured 3,148.942 ms; a single-pass printable-ASCII candidate gate brought it
 under budget while Unicode, invalid-byte, diacritic, and terminal-control lines
 continue through the complete sanitizer.
+
+The cache-first observable-model slice now has deterministic coverage for
+cached terminal and active traces, a single no-cache download, explicit
+refresh with retained content, empty `200`, missing-trace `404`, size and
+authentication failures, stale-account suppression, cancellation, bounded
+search navigation, and ordinary-versus-trigger routing. The live facade tests
+also prove download/index/commit success and workspace cleanup for `404`, line
+overflow, and cancellation. Its focused Simulator run passed 15 tests; a
+follow-up review added two regressions and repairs so cancellation returns the
+model to a retryable idle state and a descriptor for another route fails
+closed instead of leaving an endless loading state. Native row navigation
+will be completed with the viewer in implementation step 9 so no incomplete
+destination is shipped.
 
 The network is not benchmarked with a fake latency claim. Transport tests
 measure bytes-to-protected-file overhead; UI metrics start from a deterministic

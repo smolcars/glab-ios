@@ -269,6 +269,47 @@ nonisolated protocol GitLabJobTraceStoring:
     ) async
 }
 
+nonisolated protocol
+    GitLabJobTraceImportStoring:
+    GitLabJobTraceStoring
+{
+    func beginImport(
+        for key: GitLabJobTraceKey
+    ) async throws
+        -> GitLabJobTraceImportWorkspace
+
+    func commit(
+        _ prepared:
+            GitLabJobTracePreparedEntry,
+        in workspace:
+            GitLabJobTraceImportWorkspace,
+        storedAt: Date?
+    ) async throws
+        -> GitLabJobTraceDescriptor
+
+    func discard(
+        _ workspace:
+            GitLabJobTraceImportWorkspace
+    ) async
+}
+
+extension GitLabJobTraceImportStoring {
+    func commit(
+        _ prepared:
+            GitLabJobTracePreparedEntry,
+        in workspace:
+            GitLabJobTraceImportWorkspace
+    ) async throws
+        -> GitLabJobTraceDescriptor
+    {
+        try await commit(
+            prepared,
+            in: workspace,
+            storedAt: nil
+        )
+    }
+}
+
 actor InMemoryGitLabJobTraceStore:
     GitLabJobTraceStoring
 {

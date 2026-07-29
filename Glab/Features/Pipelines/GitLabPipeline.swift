@@ -625,6 +625,7 @@ nonisolated struct GitLabPipelineJob:
     let startedAt: Date?
     let finishedAt: Date?
     let erasedAt: Date?
+    let archived: Bool?
     let duration: TimeInterval?
     let queuedDuration: TimeInterval?
     let ref: String?
@@ -684,6 +685,10 @@ nonisolated struct GitLabPipelineJob:
             Date.self,
             forKey: .erasedAt
         )
+        archived = container.decodeLossy(
+            Bool.self,
+            forKey: .archived
+        )
         duration =
             container.decodeNonnegativeDoubleIfPresent(
                 forKey: .duration
@@ -740,6 +745,7 @@ nonisolated struct GitLabPipelineJob:
         case startedAt = "started_at"
         case finishedAt = "finished_at"
         case erasedAt = "erased_at"
+        case archived
         case duration
         case queuedDuration = "queued_duration"
         case ref

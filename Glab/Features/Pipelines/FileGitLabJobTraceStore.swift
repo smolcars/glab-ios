@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 
 actor FileGitLabJobTraceStore:
-    GitLabJobTraceStoring
+    GitLabJobTraceImportStoring
 {
     private struct StoredMetadata:
         Codable,

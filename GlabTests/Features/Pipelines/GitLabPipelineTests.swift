@@ -284,6 +284,7 @@ struct GitLabPipelineTests {
                   "stage": "test",
                   "status": "failed",
                   "allow_failure": true,
+                  "archived": true,
                   "failure_reason": "script_failure",
                   "created_at": "2026-07-29T01:05:07Z",
                   "started_at": "2026-07-29T01:05:14Z",
@@ -349,6 +350,7 @@ struct GitLabPipelineTests {
         #expect(job.stage == "test")
         #expect(job.status.title == "Failed")
         #expect(job.allowFailure)
+        #expect(job.archived == true)
         #expect(job.pipeline?.id == 501)
         #expect(job.pipeline?.projectID == 42)
         #expect(job.runner?.id == 32)
@@ -380,6 +382,7 @@ struct GitLabPipelineTests {
         #expect(job.status.title == "Manual")
         #expect(!job.allowFailure)
         #expect(job.duration == nil)
+        #expect(job.archived == nil)
         #expect(job.user == nil)
         #expect(job.runner == nil)
         #expect(job.artifactSummary.artifacts.isEmpty)
