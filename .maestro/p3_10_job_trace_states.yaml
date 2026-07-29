@@ -1,0 +1,90 @@
+appId: com.glab.ios
+name: P3-10 pipeline job trace states
+---
+- launchApp:
+    clearState: true
+    arguments:
+      p3_09_pipeline_fixture: p3_09_pipeline_fixture
+- assertVisible:
+    id: pipelines.history.list
+- tapOn:
+    id: pipelines.history.row.501
+- extendedWaitUntil:
+    visible:
+      id: pipelines.detail.list
+    timeout: 10000
+- tapOn:
+    id: pipelines.detail.stage.test
+- tapOn:
+    id: pipelines.detail.job.908
+- extendedWaitUntil:
+    visible:
+      id: jobTrace.summary
+    timeout: 30000
+- assertVisible:
+    text: ".*121 lines.*"
+- tapOn:
+    id: jobTrace.refresh
+- extendedWaitUntil:
+    visible:
+      text: ".*422 lines.*"
+    timeout: 30000
+- launchApp:
+    clearState: true
+    arguments:
+      p3_09_pipeline_fixture: p3_09_pipeline_fixture
+- tapOn:
+    id: pipelines.history.row.501
+- extendedWaitUntil:
+    visible:
+      id: pipelines.detail.list
+    timeout: 10000
+- tapOn:
+    id: pipelines.detail.stage.test
+- tapOn:
+    id: pipelines.detail.job.909
+- extendedWaitUntil:
+    visible: "Empty job log"
+    timeout: 30000
+- launchApp:
+    clearState: true
+    arguments:
+      p3_09_pipeline_fixture: p3_09_pipeline_fixture
+- tapOn:
+    id: pipelines.history.row.501
+- extendedWaitUntil:
+    visible:
+      id: pipelines.detail.list
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: pipelines.detail.stage.verify
+    direction: DOWN
+- tapOn:
+    id: pipelines.detail.stage.verify
+- tapOn:
+    id: pipelines.detail.job.906
+- extendedWaitUntil:
+    visible: "No job log"
+    timeout: 30000
+- launchApp:
+    clearState: true
+    arguments:
+      p3_09_pipeline_fixture: p3_09_pipeline_fixture
+- tapOn:
+    id: pipelines.history.row.501
+- extendedWaitUntil:
+    visible:
+      id: pipelines.detail.list
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: pipelines.detail.stage.deploy
+    direction: DOWN
+- tapOn:
+    id: pipelines.detail.stage.deploy
+- tapOn:
+    id: pipelines.detail.job.905
+- extendedWaitUntil:
+    visible: "Job log too large"
+    timeout: 30000

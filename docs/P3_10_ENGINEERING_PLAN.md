@@ -610,6 +610,25 @@ frame, 6.859 MiB visible-memory delta, and a bounded
 2,000-line/129,350-byte decoded cache. This accepts the focused UIKit surface;
 the failed SwiftUI renderer is not retained in production.
 
+The first deterministic navigation run rendered the cached 1,208-line fixture
+correctly but found the outer `jobTrace.view` accessibility identifier was
+propagating through SwiftUI and replacing the identifiers of the summary,
+line surface, status, and individual controls. The repair is to remove only
+that nonessential container identifier and retain the granular identifiers
+that describe actionable or meaningful elements. The focused navigation flow
+must then distinguish and activate the failure and end controls.
+
+The light-mode accessibility-extra-large pass exposed a rendering failure on
+the 40,000-byte line fixture: the 32 KiB rendered-line bound multiplied by the
+scaled glyph width created a collection cell over 600,000 points wide. UIKit
+kept the line text in the accessibility tree but Core Animation did not draw
+the label. The repair plan was to add a failing pathological-width regression,
+cap the horizontal canvas at 8,000 points like the existing diff viewer, and
+repeat the same light/accessibility/increased-contrast search and jump flow.
+The regression and focused UI flow now pass; indexed bytes and bounded search
+remain unchanged, while the already-reported long-line truncation makes the
+display cap explicit to the user.
+
 The network is not benchmarked with a fake latency claim. Transport tests
 measure bytes-to-protected-file overhead; UI metrics start from a deterministic
 local response file.

@@ -1,0 +1,41 @@
+appId: com.glab.ios
+name: P3-10 pipeline job trace smoke
+---
+- launchApp:
+    clearState: true
+    arguments:
+      p3_09_pipeline_fixture: p3_09_pipeline_fixture
+- assertVisible:
+    id: pipelines.history.list
+- tapOn:
+    id: pipelines.history.row.501
+- extendedWaitUntil:
+    visible:
+      id: pipelines.detail.list
+    timeout: 10000
+- tapOn:
+    id: pipelines.detail.job.910
+- extendedWaitUntil:
+    visible:
+      id: jobTrace.summary
+    timeout: 30000
+- assertVisible:
+    id: jobTrace.lines
+- tapOn: "Search job log"
+- inputText: "deterministic fixture failure"
+- extendedWaitUntil:
+    visible:
+      id: jobTrace.nextMatch
+    timeout: 10000
+- assertVisible:
+    id: jobTrace.previousMatch
+- tapOn:
+    id: jobTrace.nextMatch
+- tapOn:
+    id: jobTrace.previousMatch
+- assertVisible:
+    id: jobTrace.firstFailure
+- tapOn:
+    id: jobTrace.firstFailure
+- tapOn:
+    id: jobTrace.scrollToEnd

@@ -42,6 +42,8 @@ nonisolated enum GitLabJobTraceLayoutMetrics {
         16
     static let minimumTextColumnWidth:
         CGFloat = 320
+    static let maximumContentWidth:
+        CGFloat = 8_000
 
     static func contentWidth(
         renderedByteCount: Int,
@@ -67,9 +69,12 @@ nonisolated enum GitLabJobTraceLayoutMetrics {
             CGFloat(boundedByteCount)
                 * max(1, glyphWidth)
         )
-        return gutterWidth
-            + horizontalPadding
-            + textWidth
+        return min(
+            gutterWidth
+                + horizontalPadding
+                + textWidth,
+            maximumContentWidth
+        )
     }
 }
 

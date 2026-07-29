@@ -165,9 +165,6 @@ struct GitLabJobTraceView: View {
                     bottomBar
                 }
             }
-            .accessibilityIdentifier(
-                "jobTrace.view"
-            )
     }
 
     @ViewBuilder

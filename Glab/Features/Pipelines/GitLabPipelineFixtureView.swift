@@ -12,6 +12,8 @@
             )
         private let loader =
             GitLabPipelineFixtureLoader()
+        private let jobTraceLoader =
+            GitLabPipelineFixtureJobTraceLoader()
         @State private var appSession =
             AppSession(
                 credentialStore:
@@ -44,6 +46,10 @@
                     }
                 )
             }
+            .environment(
+                \.gitLabJobTraceLoader,
+                jobTraceLoader
+            )
         }
     }
 
@@ -321,6 +327,7 @@
                     "stage": "build",
                     "status": "success",
                     "duration": 73,
+                    "web_url": "https://gitlab.example.com/group/project/-/jobs/910",
                     "pipeline": {"id": 501, "project_id": 42}
                   },
                   {
@@ -329,6 +336,7 @@
                     "stage": "test",
                     "status": "success",
                     "duration": 12,
+                    "web_url": "https://gitlab.example.com/group/project/-/jobs/909",
                     "pipeline": {"id": 501, "project_id": 42}
                   },
                   {
@@ -338,6 +346,7 @@
                     "status": "running",
                     "allow_failure": false,
                     "duration": 41,
+                    "web_url": "https://gitlab.example.com/group/project/-/jobs/908",
                     "pipeline": {"id": 501, "project_id": 42}
                   },
                   {
@@ -347,6 +356,7 @@
                     "status": "failed",
                     "allow_failure": true,
                     "duration": 39,
+                    "web_url": "https://gitlab.example.com/group/project/-/jobs/907",
                     "pipeline": {"id": 501, "project_id": 42}
                   },
                   {
@@ -355,6 +365,7 @@
                     "stage": "verify",
                     "status": "manual",
                     "allow_failure": true,
+                    "web_url": "https://gitlab.example.com/group/project/-/jobs/906",
                     "pipeline": {"id": 501, "project_id": 42}
                   },
                   {
@@ -362,6 +373,7 @@
                     "name": "publish",
                     "stage": "deploy",
                     "status": "pending",
+                    "web_url": "https://gitlab.example.com/group/project/-/jobs/905",
                     "pipeline": {"id": 501, "project_id": 42}
                   }
                 ]
@@ -379,6 +391,7 @@
                     "stage": "package",
                     "status": "success",
                     "duration": 28,
+                    "web_url": "https://gitlab.example.com/group/project/-/jobs/1001",
                     "pipeline": {"id": 601, "project_id": 42}
                   }
                 ]

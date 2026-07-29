@@ -204,13 +204,19 @@ struct GitLabJobTraceViewportTests {
         #expect(
             pathological
                 == GitLabJobTraceLayoutMetrics
+                .maximumContentWidth
+        )
+        #expect(
+            GitLabJobTraceLayoutMetrics
                 .contentWidth(
                     renderedByteCount:
                         GitLabJobTraceIndexer
                         .maximumRenderedLineByteCount,
-                    glyphWidth: 8,
-                    lineCount: 50_000
+                    glyphWidth: 24,
+                    lineCount: 5_000_000
                 )
+                == GitLabJobTraceLayoutMetrics
+                .maximumContentWidth
         )
     }
 
