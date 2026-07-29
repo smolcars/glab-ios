@@ -5,6 +5,8 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
+- Models and endpoints: complete
+- Live approval service: complete
 - Test implementation: in progress
 - Production implementation: in progress
 - Simulator verification: not started
