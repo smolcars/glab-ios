@@ -1,0 +1,38 @@
+appId: com.glab.ios
+name: P3-06 compact metadata editor read-only smoke
+---
+- launchApp
+- assertVisible:
+    id: home.shortcut.assignedIssues
+- tapOn:
+    id: home.shortcut.assignedIssues
+- assertVisible: Assigned Issues
+- tapOn: LND reporting pending funds, but already swept
+- assertVisible: Issue
+- tapOn:
+    id: resource.edit
+- assertVisible: Labels & people
+- tapOn: Labels & people
+- assertVisible: Labels & People
+- assertVisible: Read-only account
+- assertVisible:
+    id: metadata.save
+    enabled: false
+- assertVisible:
+    id: metadata.labels
+- assertVisible:
+    id: metadata.assignees
+- takeScreenshot: p3-06-issue-metadata-summary
+- tapOn:
+    id: metadata.labels
+- assertVisible: Project Labels
+- takeScreenshot: p3-06-issue-labels
+- tapOn:
+    point: 10%,12%
+- tapOn:
+    id: metadata.assignees
+- assertVisible: Assignees
+- takeScreenshot: p3-06-issue-assignees
+- tapOn:
+    point: 10%,12%
+- tapOn: Cancel

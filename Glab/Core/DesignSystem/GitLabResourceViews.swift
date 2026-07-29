@@ -201,6 +201,11 @@ struct GitLabResourceDetailToolbarActions:
     let canEdit: Bool
     let canComment: Bool
     let edit: () -> Void
+    let editMetadata: () -> Void
+    let stateEvent:
+        GitLabResourceStateEvent?
+    let changeState:
+        (GitLabResourceStateEvent) -> Void
     let addComment: () -> Void
 
     var body: some ToolbarContent {
@@ -222,8 +227,51 @@ struct GitLabResourceDetailToolbarActions:
                 )
             }
 
-            Button {
-                edit()
+            Menu {
+                Button {
+                    edit()
+                } label: {
+                    Label(
+                        "Title & description",
+                        systemImage:
+                            "doc.text"
+                    )
+                }
+
+                Button {
+                    editMetadata()
+                } label: {
+                    Label(
+                        "Labels & people",
+                        systemImage:
+                            "person.2"
+                    )
+                }
+
+                if let stateEvent {
+                    Divider()
+
+                    Button(
+                        role:
+                            stateEvent == .close
+                            ? .destructive
+                            : nil
+                    ) {
+                        changeState(
+                            stateEvent
+                        )
+                    } label: {
+                        Label(
+                            stateEvent == .close
+                                ? "Close"
+                                : "Reopen",
+                            systemImage:
+                                stateEvent == .close
+                                ? "xmark.circle"
+                                : "arrow.uturn.backward.circle"
+                        )
+                    }
+                }
             } label: {
                 Label(
                     "Edit",
@@ -236,7 +284,7 @@ struct GitLabResourceDetailToolbarActions:
             )
             .accessibilityHint(
                 canEdit
-                    ? "Opens title and Markdown description editing. Read-only accounts can keep a local draft but cannot save to GitLab."
+                    ? "Shows compact editing actions."
                     : "Wait for the current task update to finish."
             )
 

@@ -114,6 +114,9 @@ final class GitLabResourceMetadataEditorModel {
     private var labelSearch: String?
     @ObservationIgnored
     private var memberSearch: String?
+    @ObservationIgnored
+    private var seedMembers:
+        [GitLabProjectMember]
 
     init(
         accountID: GitLabAccountID,
@@ -143,6 +146,11 @@ final class GitLabResourceMetadataEditorModel {
             values?.assigneeIDs ?? []
         selectedReviewerIDs =
             values?.reviewerIDs ?? []
+        seedMembers =
+            Self.members(
+                from: baseline
+            )
+        members = seedMembers
         supportsReviewers =
             if case .mergeRequest = baseline {
                 true
@@ -241,6 +249,36 @@ final class GitLabResourceMetadataEditorModel {
             return
         }
         selectedLabelNames.append(normalized)
+        clearEditableFailure()
+    }
+
+    func removeLabel(named name: String) {
+        guard !isBusy else {
+            return
+        }
+        selectedLabelNames.removeAll {
+            $0 == name
+        }
+        clearEditableFailure()
+    }
+
+    func removeAssignee(id: Int) {
+        guard !isBusy else {
+            return
+        }
+        selectedAssigneeIDs.removeAll {
+            $0 == id
+        }
+        clearEditableFailure()
+    }
+
+    func removeReviewer(id: Int) {
+        guard !isBusy else {
+            return
+        }
+        selectedReviewerIDs.removeAll {
+            $0 == id
+        }
         clearEditableFailure()
     }
 
@@ -639,6 +677,10 @@ final class GitLabResourceMetadataEditorModel {
             values?.assigneeIDs ?? []
         selectedReviewerIDs =
             values?.reviewerIDs ?? []
+        seedMembers =
+            Self.members(
+                from: result
+            )
         failure = nil
         didSucceed = true
         onSuccess(result)
@@ -694,6 +736,10 @@ final class GitLabResourceMetadataEditorModel {
             return
         }
         baseline = result
+        seedMembers =
+            Self.members(
+                from: result
+            )
         selectedLabelNames =
             intent.rebasedLabels(
                 onto: values.labels
@@ -730,7 +776,11 @@ final class GitLabResourceMetadataEditorModel {
                 GitLabProjectMember
             >
     ) {
-        members = page.items.filter(\.isActive)
+        members = Self.merged(
+            seedMembers,
+            page.items.filter(\.isActive),
+            identity: \.id
+        )
         memberNextPageURL =
             page.nextPageURL
         optionsError = nil
@@ -782,6 +832,38 @@ final class GitLabResourceMetadataEditorModel {
         return normalized.isEmpty
             ? nil
             : normalized
+    }
+
+    private static func members(
+        from result:
+            GitLabResourceEditResult
+    ) -> [GitLabProjectMember] {
+        let users:
+            [GitLabAPIUser] =
+                switch result {
+                case let .issue(issue):
+                    issue.assignees
+                case let .mergeRequest(
+                    mergeRequest
+                ):
+                    mergeRequest.assignees
+                        + mergeRequest.reviewers
+                }
+        return merged(
+            [],
+            users.map {
+                GitLabProjectMember(
+                    id: $0.id,
+                    username: $0.username,
+                    name: $0.name,
+                    state: "active",
+                    avatarURL: $0.avatarURL,
+                    webURL: $0.webURL,
+                    accessLevel: 0
+                )
+            },
+            identity: \.id
+        )
     }
 
     private static func merged<Item, ID>(

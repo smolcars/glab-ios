@@ -423,6 +423,16 @@ struct GitLabIssueDetailView: View {
     @State private var editorModel:
         GitLabResourceEditorModel?
     @State private var showsEditor = false
+    @State private var metadataEditorModel:
+        GitLabResourceMetadataEditorModel?
+    @State private var
+        showsMetadataEditor = false
+    @State private var pendingStateEvent:
+        GitLabResourceStateEvent?
+    @State private var
+        showsStateConfirmation = false
+    @State private var stateFailureMessage:
+        String?
     @State private var taskToggleModel:
         GitLabDescriptionTaskToggleModel
 
@@ -530,10 +540,23 @@ struct GitLabIssueDetailView: View {
                             "issues.openInGitLab",
                         canEdit:
                             !taskToggleModel
-                                .isBusy,
+                                .isBusy
+                            && !(
+                                metadataEditorModel?
+                                    .isBusy
+                                ?? false
+                            ),
                         canComment:
                             apiAccess.canWrite,
                         edit: launchEditor,
+                        editMetadata:
+                            launchMetadataEditor,
+                        stateEvent:
+                            apiAccess.canWrite
+                            ? availableStateEvent
+                            : nil,
+                        changeState:
+                            requestStateChange,
                         addComment: {
                             launchComposer(
                                 .newDiscussion
@@ -605,6 +628,63 @@ struct GitLabIssueDetailView: View {
                         .visible
                     )
                 }
+            }
+            .sheet(
+                isPresented:
+                    $showsMetadataEditor,
+                onDismiss: {
+                    metadataEditorModel = nil
+                }
+            ) {
+                if let metadataEditorModel {
+                    GitLabResourceMetadataEditorView(
+                        model:
+                            metadataEditorModel,
+                        accountID: accountID,
+                        appSession: appSession
+                    )
+                    .presentationDragIndicator(
+                        .visible
+                    )
+                }
+            }
+            .alert(
+                stateConfirmationTitle,
+                isPresented:
+                    $showsStateConfirmation
+            ) {
+                Button(
+                    stateConfirmationActionTitle,
+                    role:
+                        pendingStateEvent == .close
+                        ? .destructive
+                        : nil
+                ) {
+                    performStateChange()
+                }
+                Button(
+                    "Cancel",
+                    role: .cancel
+                ) {
+                    pendingStateEvent = nil
+                }
+            } message: {
+                Text(
+                    stateConfirmationMessage
+                )
+            }
+            .alert(
+                "Couldn’t update issue",
+                isPresented:
+                    stateFailureIsPresented
+            ) {
+                Button("OK", role: .cancel) {
+                    stateFailureMessage = nil
+                }
+            } message: {
+                Text(
+                    stateFailureMessage ?? ""
+                )
             }
             .alert(
                 "Commenting unavailable",
@@ -794,6 +874,154 @@ struct GitLabIssueDetailView: View {
                 }
             )
         showsEditor = true
+    }
+
+    private func launchMetadataEditor() {
+        guard
+            !taskToggleModel.isBusy,
+            case let .loaded(issue) =
+                model.state
+        else {
+            return
+        }
+        metadataEditorModel =
+            makeMetadataEditor(
+                for: .issue(issue)
+            )
+        showsMetadataEditor = true
+    }
+
+    private func requestStateChange(
+        _ event: GitLabResourceStateEvent
+    ) {
+        guard
+            apiAccess.canWrite,
+            !taskToggleModel.isBusy,
+            case let .loaded(issue) =
+                model.state
+        else {
+            return
+        }
+        metadataEditorModel =
+            makeMetadataEditor(
+                for: .issue(issue)
+            )
+        pendingStateEvent = event
+        showsStateConfirmation = true
+    }
+
+    private func performStateChange() {
+        guard
+            let event = pendingStateEvent,
+            let metadataEditorModel
+        else {
+            return
+        }
+        pendingStateEvent = nil
+        Task {
+            await metadataEditorModel
+                .changeState(event)
+            guard !metadataEditorModel.didSucceed else {
+                self.metadataEditorModel = nil
+                return
+            }
+            if
+                metadataEditorModel
+                    .requiresDeliveryCheck
+            {
+                showsMetadataEditor = true
+            } else {
+                stateFailureMessage =
+                    metadataEditorModel
+                        .failure?
+                        .description
+            }
+        }
+    }
+
+    private func makeMetadataEditor(
+        for baseline:
+            GitLabResourceEditResult
+    ) -> GitLabResourceMetadataEditorModel {
+        GitLabResourceMetadataEditorModel(
+            accountID: accountID,
+            baseline: baseline,
+            apiAccess: apiAccess,
+            service: editService,
+            isAccountCurrent: {
+                appSession.activeAccountID
+                    == accountID
+            },
+            onSuccess: {
+                result in
+                guard
+                    case let .issue(
+                        updatedIssue
+                    ) = result,
+                    model.reconcileAuthoritative(
+                        updatedIssue
+                    )
+                else {
+                    return
+                }
+                taskToggleModel.cancel()
+                onResourceEdited(result)
+            }
+        )
+    }
+
+    private var availableStateEvent:
+        GitLabResourceStateEvent?
+    {
+        guard
+            case let .loaded(issue) =
+                model.state
+        else {
+            return nil
+        }
+        return switch issue.stateKind {
+        case .opened:
+            .close
+        case .closed:
+            .reopen
+        case .unknown:
+            nil
+        }
+    }
+
+    private var stateConfirmationTitle: String {
+        pendingStateEvent == .close
+            ? "Close issue?"
+            : "Reopen issue?"
+    }
+
+    private var stateConfirmationActionTitle:
+        String
+    {
+        pendingStateEvent == .close
+            ? "Close"
+            : "Reopen"
+    }
+
+    private var stateConfirmationMessage: String {
+        pendingStateEvent == .close
+            ? "This will close the issue on GitLab."
+            : "This will reopen the issue on GitLab."
+    }
+
+    private var stateFailureIsPresented:
+        Binding<Bool>
+    {
+        Binding(
+            get: {
+                stateFailureMessage != nil
+            },
+            set: {
+                if !$0 {
+                    stateFailureMessage = nil
+                }
+            }
+        )
     }
 
     private func load() async {

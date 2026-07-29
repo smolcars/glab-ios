@@ -1,0 +1,24 @@
+appId: com.glab.ios
+name: P3-06 merge request reviewer picker read-only smoke
+---
+- launchApp
+- assertVisible:
+    id: home.shortcut.assignedMergeRequests
+- tapOn:
+    id: home.shortcut.assignedMergeRequests
+- assertVisible: Assigned Merge Requests
+- tapOn: Add regtest Lightning setup script
+- assertVisible: Merge Request
+- tapOn:
+    id: resource.edit
+- assertVisible: Labels & people
+- tapOn: Labels & people
+- assertVisible: Labels & People
+- assertVisible:
+    id: metadata.reviewers
+- takeScreenshot: p3-06-mr-metadata-summary
+- tapOn:
+    id: metadata.reviewers
+- assertVisible: Reviewers
+- assertVisible: Reviewers are separate from approval-rule approvers.
+- takeScreenshot: p3-06-mr-reviewers
