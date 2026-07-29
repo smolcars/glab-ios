@@ -257,14 +257,23 @@ nonisolated struct LiveGitLabIssueCreationService:
     func invalidateAffectedReads(
         projectID: Int
     ) async {
-        await client.invalidateCachedResponse(
-            GitLabIssueEndpoints
-                .assignedIssues
-        )
-        await client.invalidateCachedResponse(
+        for mode in GitLabIssueListMode.allCases {
+            await client.invalidateCachedResponse(
+                GitLabIssueEndpoints
+                    .issues(for: mode)
+            )
+        }
+        for endpoint in [
             HomeDashboardEndpoints
-                .assignedIssues
-        )
+                .assignedIssues,
+            HomeDashboardEndpoints
+                .createdIssues,
+        ] {
+            await client
+                .invalidateCachedResponse(
+                    endpoint
+                )
+        }
         await client.invalidateCachedResponse(
             GitLabProjectEndpoints
                 .projects(for: .recent)

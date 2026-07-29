@@ -26,6 +26,33 @@ nonisolated enum GitLabMergeRequestEndpoints {
         )
     }
 
+    static func projectMergeRequests(
+        projectID: Int,
+        state: GitLabProjectMergeRequestState
+    ) -> GitLabAPIRequest<[GitLabMergeRequest]> {
+        .get(
+            requires: .read,
+            path: [
+                "projects",
+                String(projectID),
+                "merge_requests",
+            ],
+            query: [
+                .init(name: "scope", value: "all"),
+                .init(
+                    name: "state",
+                    value: state.rawValue
+                ),
+                .init(
+                    name: "order_by",
+                    value: "updated_at"
+                ),
+                .init(name: "sort", value: "desc"),
+                .init(name: "per_page", value: "20"),
+            ]
+        )
+    }
+
     static func mergeRequest(
         at route: GitLabMergeRequestRoute
     ) -> GitLabAPIRequest<GitLabMergeRequest> {

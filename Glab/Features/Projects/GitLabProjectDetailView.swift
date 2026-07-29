@@ -5,6 +5,17 @@ struct GitLabProjectDetailView: View {
     let apiAccess: GitLabAPIAccess
     let issueLoader:
         any GitLabIssueLoading
+    let mergeRequestLoader:
+        any GitLabMergeRequestLoading
+            & GitLabMergeRequestApprovalLoading
+            & GitLabMergeRequestDiffLoading
+            & GitLabMergeRequestDiffSummaryLoading
+    let mergeRequestApprovalService:
+        any GitLabMergeRequestApprovalServing
+    let mergeRequestMergeService:
+        any GitLabMergeRequestMergeServing
+    let pipelineLoader:
+        any GitLabPipelineLoading
     let discussionLoader:
         any GitLabDiscussionLoading
     let discussionMutator:
@@ -34,6 +45,17 @@ struct GitLabProjectDetailView: View {
         apiAccess: GitLabAPIAccess,
         issueLoader:
             any GitLabIssueLoading,
+        mergeRequestLoader:
+            any GitLabMergeRequestLoading
+                & GitLabMergeRequestApprovalLoading
+                & GitLabMergeRequestDiffLoading
+                & GitLabMergeRequestDiffSummaryLoading,
+        mergeRequestApprovalService:
+            any GitLabMergeRequestApprovalServing,
+        mergeRequestMergeService:
+            any GitLabMergeRequestMergeServing,
+        pipelineLoader:
+            any GitLabPipelineLoading,
         discussionLoader:
             any GitLabDiscussionLoading,
         discussionMutator:
@@ -57,6 +79,14 @@ struct GitLabProjectDetailView: View {
         self.route = route
         self.apiAccess = apiAccess
         self.issueLoader = issueLoader
+        self.mergeRequestLoader =
+            mergeRequestLoader
+        self.mergeRequestApprovalService =
+            mergeRequestApprovalService
+        self.mergeRequestMergeService =
+            mergeRequestMergeService
+        self.pipelineLoader =
+            pipelineLoader
         self.discussionLoader =
             discussionLoader
         self.discussionMutator =
@@ -189,9 +219,20 @@ struct GitLabProjectDetailView: View {
                 GitLabDetailSection(
                     title: "Work"
                 ) {
-                    projectIssuesRow(
-                        project
-                    )
+                    VStack(
+                        alignment: .leading,
+                        spacing: 12
+                    ) {
+                        projectIssuesRow(
+                            project
+                        )
+
+                        Divider()
+
+                        projectMergeRequestsRow(
+                            project
+                        )
+                    }
                 }
 
                 if
@@ -383,6 +424,84 @@ struct GitLabProjectDetailView: View {
             )
             .accessibilityIdentifier(
                 "project.issues"
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func projectMergeRequestsRow(
+        _ project: GitLabProject
+    ) -> some View {
+        if
+            project.mergeRequestsAccessLevel?
+                .isDisabled == true
+        {
+            HStack(spacing: 12) {
+                Label(
+                    "Merge Requests",
+                    systemImage:
+                        "arrow.triangle.branch"
+                )
+                Spacer(minLength: 8)
+                Text("Disabled")
+                    .font(.subheadline)
+                    .foregroundStyle(
+                        .secondary
+                    )
+            }
+            .accessibilityElement(
+                children: .combine
+            )
+            .accessibilityIdentifier(
+                "project.mergeRequests.disabled"
+            )
+        } else {
+            NavigationLink {
+                GitLabProjectMergeRequestsView(
+                    project: project,
+                    loader:
+                        mergeRequestLoader,
+                    approvalService:
+                        mergeRequestApprovalService,
+                    mergeService:
+                        mergeRequestMergeService,
+                    pipelineLoader:
+                        pipelineLoader,
+                    discussionLoader:
+                        discussionLoader,
+                    discussionMutator:
+                        discussionMutator,
+                    reactionService:
+                        reactionService,
+                    editService:
+                        editService,
+                    accountID: accountID,
+                    appSession: appSession,
+                    onResourceEdited:
+                        onResourceEdited
+                )
+            } label: {
+                HStack(spacing: 12) {
+                    Label(
+                        "Merge Requests",
+                        systemImage:
+                            "arrow.triangle.branch"
+                    )
+                    Spacer(minLength: 8)
+                    Text("Browse")
+                        .font(.subheadline)
+                        .foregroundStyle(
+                            .secondary
+                        )
+                }
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(
+                "Shows merge requests in this project."
+            )
+            .accessibilityIdentifier(
+                "project.mergeRequests"
             )
         }
     }

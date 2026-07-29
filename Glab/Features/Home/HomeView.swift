@@ -42,7 +42,10 @@ struct HomeView: View {
     let appSession: AppSession
     let model: HomeDashboardModel
     let assignedIssuesModel: AssignedIssuesModel
+    let createdIssuesModel: IssuesModel
     let assignedMergeRequestsModel:
+        MergeRequestsModel
+    let createdMergeRequestsModel:
         MergeRequestsModel
     let reviewRequestsModel:
         MergeRequestsModel
@@ -112,7 +115,7 @@ struct HomeView: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(.init())
                     } else {
-                        ForEach(HomeDashboardSection.allCases, id: \.self) {
+                        ForEach(HomeDashboardSection.displayedCases, id: \.self) {
                             section in
                             NavigationLink(value: section) {
                                 HomeWorkShortcutRow(
@@ -366,6 +369,14 @@ struct HomeView: View {
                     session.apiAccess,
                 issueLoader:
                     issueLoader,
+                mergeRequestLoader:
+                    mergeRequestLoader,
+                mergeRequestApprovalService:
+                    mergeRequestApprovalService,
+                mergeRequestMergeService:
+                    mergeRequestMergeService,
+                pipelineLoader:
+                    pipelineLoader,
                 discussionLoader:
                     discussionLoader,
                 discussionMutator:
@@ -464,8 +475,11 @@ struct HomeView: View {
     ) -> some View {
         switch section {
         case .assignedIssues:
-            AssignedIssuesView(
-                model: assignedIssuesModel,
+            YourIssuesView(
+                assignedModel:
+                    assignedIssuesModel,
+                createdModel:
+                    createdIssuesModel,
                 loader: issueLoader,
                 discussionLoader: discussionLoader,
                 discussionMutator:
@@ -482,33 +496,12 @@ struct HomeView: View {
                     onResourceEdited
             )
         case .assignedMergeRequests:
-            MergeRequestsView(
-                mode: .assigned,
-                model:
+            YourMergeRequestsView(
+                assignedModel:
                     assignedMergeRequestsModel,
-                loader: mergeRequestLoader,
-                approvalService:
-                    mergeRequestApprovalService,
-                mergeService:
-                    mergeRequestMergeService,
-                pipelineLoader:
-                    pipelineLoader,
-                discussionLoader: discussionLoader,
-                discussionMutator:
-                    discussionMutator,
-                reactionService:
-                    reactionService,
-                editService:
-                    editService,
-                accountID: accountID,
-                appSession: appSession,
-                onResourceEdited:
-                    onResourceEdited
-            )
-        case .reviewRequests:
-            MergeRequestsView(
-                mode: .reviewRequested,
-                model:
+                createdModel:
+                    createdMergeRequestsModel,
+                reviewsModel:
                     reviewRequestsModel,
                 loader: mergeRequestLoader,
                 approvalService:

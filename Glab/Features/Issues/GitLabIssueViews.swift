@@ -61,6 +61,32 @@ struct GitLabIssueListConfiguration {
     let accessibilityIdentifier: String
     let referenceStyle:
         GitLabIssueReferenceStyle
+    let prefersInlineTitle: Bool
+
+    init(
+        title: String,
+        loadingMessage: String,
+        emptyTitle: String,
+        emptyMessage: String,
+        accessibilityIdentifier:
+            String,
+        referenceStyle:
+            GitLabIssueReferenceStyle,
+        prefersInlineTitle:
+            Bool = false
+    ) {
+        self.title = title
+        self.loadingMessage =
+            loadingMessage
+        self.emptyTitle = emptyTitle
+        self.emptyMessage = emptyMessage
+        self.accessibilityIdentifier =
+            accessibilityIdentifier
+        self.referenceStyle =
+            referenceStyle
+        self.prefersInlineTitle =
+            prefersInlineTitle
+    }
 }
 
 struct GitLabIssueListView: View {
@@ -153,8 +179,10 @@ struct GitLabIssueListView: View {
                 configuration.title
             )
             .navigationBarTitleDisplayMode(
-                dynamicTypeSize
-                    .isAccessibilitySize
+                configuration
+                    .prefersInlineTitle
+                    || dynamicTypeSize
+                        .isAccessibilitySize
                     ? .inline
                     : .large
             )

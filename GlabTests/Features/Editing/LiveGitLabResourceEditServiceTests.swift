@@ -450,12 +450,22 @@ private nonisolated func issueInvalidations(
                 at: route
             )
         ),
-        recorded(
-            GitLabIssueEndpoints.assignedIssues
-        ),
+    ]
+        + GitLabIssueListMode.allCases
+        .map {
+            recorded(
+                GitLabIssueEndpoints
+                    .issues(for: $0)
+            )
+        }
+        + [
         recorded(
             HomeDashboardEndpoints
                 .assignedIssues
+        ),
+        recorded(
+            HomeDashboardEndpoints
+                .createdIssues
         ),
     ]
         + GitLabProjectIssueState.allCases
@@ -480,25 +490,42 @@ private nonisolated func mergeRequestInvalidations(
             GitLabMergeRequestEndpoints
                 .mergeRequest(at: route)
         ),
-        recorded(
-            GitLabMergeRequestEndpoints
-                .mergeRequests(for: .assigned)
-        ),
-        recorded(
-            GitLabMergeRequestEndpoints
-                .mergeRequests(
-                    for: .reviewRequested
-                )
-        ),
+    ]
+        + GitLabMergeRequestListMode
+        .allCases
+        .map {
+            recorded(
+                GitLabMergeRequestEndpoints
+                    .mergeRequests(for: $0)
+            )
+        }
+        + [
         recorded(
             HomeDashboardEndpoints
                 .assignedMergeRequests
         ),
         recorded(
             HomeDashboardEndpoints
+                .createdMergeRequests
+        ),
+        recorded(
+            HomeDashboardEndpoints
                 .reviewRequests
         ),
-    ] + todoInvalidations()
+    ]
+        + GitLabProjectMergeRequestState
+        .allCases
+        .map {
+            recorded(
+                GitLabMergeRequestEndpoints
+                    .projectMergeRequests(
+                        projectID:
+                            route.projectID,
+                        state: $0
+                    )
+            )
+        }
+        + todoInvalidations()
 }
 
 private nonisolated func todoInvalidations()

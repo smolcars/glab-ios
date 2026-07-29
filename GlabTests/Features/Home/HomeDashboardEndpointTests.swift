@@ -12,13 +12,19 @@ struct HomeDashboardEndpointTests {
         #expect(URLComponents(url: url, resolvingAgainstBaseURL: false)?.query == nil)
     }
 
-    @Test("Builds assigned issue preview sorting")
-    func buildsAssignedIssueRequest() throws {
-        let url = try requestURL(HomeDashboardEndpoints.assignedIssues)
+    @Test("Builds assigned and created issue previews")
+    func buildsIssueRequests() throws {
+        let assignedURL = try requestURL(
+            HomeDashboardEndpoints.assignedIssues
+        )
+        let createdURL = try requestURL(
+            HomeDashboardEndpoints.createdIssues
+        )
 
-        #expect(url.path == "/company/api/v4/issues")
+        #expect(assignedURL.path == "/company/api/v4/issues")
+        #expect(createdURL.path == "/company/api/v4/issues")
         #expect(
-            query(from: url)
+            query(from: assignedURL)
                 == [
                     "scope": "assigned_to_me",
                     "state": "opened",
@@ -27,23 +33,47 @@ struct HomeDashboardEndpointTests {
                     "per_page": "3",
                 ]
         )
+        #expect(
+            query(from: createdURL)
+                == [
+                    "scope": "created_by_me",
+                    "state": "opened",
+                    "order_by": "updated_at",
+                    "sort": "desc",
+                    "per_page": "3",
+                ]
+        )
     }
 
-    @Test("Builds assigned and review-requested merge request previews")
+    @Test("Builds assigned, created, and review-requested MR previews")
     func buildsMergeRequestRequests() throws {
         let assignedURL = try requestURL(
             HomeDashboardEndpoints.assignedMergeRequests
+        )
+        let createdURL = try requestURL(
+            HomeDashboardEndpoints.createdMergeRequests
         )
         let reviewURL = try requestURL(
             HomeDashboardEndpoints.reviewRequests
         )
 
         #expect(assignedURL.path == "/company/api/v4/merge_requests")
+        #expect(createdURL.path == "/company/api/v4/merge_requests")
         #expect(reviewURL.path == "/company/api/v4/merge_requests")
         #expect(
             query(from: assignedURL)
                 == [
                     "scope": "assigned_to_me",
+                    "state": "opened",
+                    "order_by": "updated_at",
+                    "sort": "desc",
+                    "per_page": "3",
+                ]
+        )
+        #expect(
+            query(from: createdURL)
+                == [
+                    "scope": "created_by_me",
                     "state": "opened",
                     "order_by": "updated_at",
                     "sort": "desc",

@@ -39,6 +39,34 @@ struct GitLabMergeRequestEndpointTests {
         )
     }
 
+    @Test(
+        "Builds a state-filtered project merge request query",
+        arguments:
+            GitLabProjectMergeRequestState
+                .allCases
+    )
+    func buildsProjectListQuery(
+        _ state:
+            GitLabProjectMergeRequestState
+    ) throws {
+        let url = try requestURL(
+            GitLabMergeRequestEndpoints
+                .projectMergeRequests(
+                    projectID: 42,
+                    state: state
+                )
+        )
+
+        #expect(
+            url.absoluteString
+                == "https://gitlab.example.com/api/v4/projects/42"
+                + "/merge_requests?scope=all"
+                + "&state=\(state.rawValue)"
+                + "&order_by=updated_at"
+                + "&sort=desc&per_page=20"
+        )
+    }
+
     @Test("Builds a project merge request detail route")
     func buildsDetailRoute() throws {
         let url = try requestURL(

@@ -62,6 +62,49 @@ nonisolated enum GitLabMergeRequestListMode:
             "No review requests"
         }
     }
+
+    var emptySystemImage: String {
+        switch self {
+        case .assigned:
+            "arrow.triangle.branch"
+        case .created:
+            "square.and.pencil"
+        case .reviewRequested:
+            "person.crop.circle.badge.checkmark"
+        }
+    }
+}
+
+nonisolated enum GitLabProjectMergeRequestState:
+    String,
+    CaseIterable,
+    Equatable,
+    Hashable,
+    Sendable
+{
+    case opened
+    case merged
+
+    var title: String {
+        switch self {
+        case .opened:
+            "Open"
+        case .merged:
+            "Merged"
+        }
+    }
+
+    func contains(
+        _ mergeRequest: GitLabMergeRequest
+    ) -> Bool {
+        switch (self, mergeRequest.stateKind) {
+        case (.opened, .opened),
+             (.merged, .merged):
+            true
+        default:
+            false
+        }
+    }
 }
 
 nonisolated enum GitLabMergeRequestStateKind:

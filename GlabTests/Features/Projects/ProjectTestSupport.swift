@@ -24,6 +24,9 @@ nonisolated func makeTestProject(
     ),
     issuesAccessLevel:
         GitLabProjectFeatureAccessLevel? =
+            .enabled,
+    mergeRequestsAccessLevel:
+        GitLabProjectFeatureAccessLevel? =
             .enabled
 ) -> GitLabProject {
     GitLabProject(
@@ -38,6 +41,8 @@ nonisolated func makeTestProject(
         visibility: visibility,
         namespace: namespace,
         issuesAccessLevel:
-            issuesAccessLevel
+            issuesAccessLevel,
+        mergeRequestsAccessLevel:
+            mergeRequestsAccessLevel
     )
 }

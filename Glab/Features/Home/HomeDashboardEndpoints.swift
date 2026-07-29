@@ -14,11 +14,25 @@ nonisolated enum HomeDashboardEndpoints {
             query: workQuery(scope: "assigned_to_me")
         )
 
+    static let createdIssues:
+        GitLabAPIRequest<[GitLabHomeIssue]> = .get(
+            requires: .read,
+            path: ["issues"],
+            query: workQuery(scope: "created_by_me")
+        )
+
     static let assignedMergeRequests:
         GitLabAPIRequest<[GitLabHomeMergeRequest]> = .get(
             requires: .read,
             path: ["merge_requests"],
             query: workQuery(scope: "assigned_to_me")
+        )
+
+    static let createdMergeRequests:
+        GitLabAPIRequest<[GitLabHomeMergeRequest]> = .get(
+            requires: .read,
+            path: ["merge_requests"],
+            query: workQuery(scope: "created_by_me")
         )
 
     static let reviewRequests:
@@ -78,13 +92,15 @@ nonisolated struct GitLabHomeIssue:
     let title: String
     let webURL: URL?
     let references: GitLabHomeReference?
+    let updatedAt: Date?
 
     var workItem: GitLabHomeWorkItem {
         GitLabHomeWorkItem(
             id: "issue:\(projectID):\(iid)",
             title: title,
             detail: references?.full ?? "#\(iid)",
-            webURL: webURL
+            webURL: webURL,
+            updatedAt: updatedAt
         )
     }
 
@@ -95,6 +111,7 @@ nonisolated struct GitLabHomeIssue:
         case title
         case webURL = "web_url"
         case references
+        case updatedAt = "updated_at"
     }
 }
 
@@ -109,13 +126,15 @@ nonisolated struct GitLabHomeMergeRequest:
     let title: String
     let webURL: URL?
     let references: GitLabHomeReference?
+    let updatedAt: Date?
 
     var workItem: GitLabHomeWorkItem {
         GitLabHomeWorkItem(
             id: "merge-request:\(projectID):\(iid)",
             title: title,
             detail: references?.full ?? "!\(iid)",
-            webURL: webURL
+            webURL: webURL,
+            updatedAt: updatedAt
         )
     }
 
@@ -126,6 +145,7 @@ nonisolated struct GitLabHomeMergeRequest:
         case title
         case webURL = "web_url"
         case references
+        case updatedAt = "updated_at"
     }
 }
 

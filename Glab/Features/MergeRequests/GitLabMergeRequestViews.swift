@@ -81,13 +81,154 @@ struct MergeRequestsView: View {
     }
 
     var body: some View {
+        GitLabMergeRequestListView(
+            model: model,
+            configuration:
+                GitLabMergeRequestListConfiguration(
+                    title: mode.title,
+                    loadingMessage:
+                        "Loading \(mode.title.lowercased())",
+                    emptyTitle:
+                        mode.emptyTitle,
+                    emptyMessage:
+                        mode.emptyMessage,
+                    emptySystemImage:
+                        mode.emptySystemImage,
+                    accessibilityIdentifier:
+                        "mergeRequests.\(mode.rawValue).list"
+                ),
+            loader: loader,
+            approvalService:
+                approvalService,
+            mergeService:
+                mergeService,
+            pipelineLoader:
+                pipelineLoader,
+            discussionLoader:
+                discussionLoader,
+            discussionMutator:
+                discussionMutator,
+            reactionService:
+                reactionService,
+            editService:
+                editService,
+            accountID: accountID,
+            appSession: appSession,
+            onResourceEdited:
+                onResourceEdited
+        )
+    }
+}
+
+struct GitLabMergeRequestListConfiguration {
+    let title: String
+    let loadingMessage: String
+    let emptyTitle: String
+    let emptyMessage: String
+    let emptySystemImage: String
+    let accessibilityIdentifier: String
+}
+
+struct GitLabMergeRequestListView: View {
+    let model:
+        GitLabPaginatedResourceModel<
+            GitLabMergeRequest,
+            GitLabMergeRequestRoute
+        >
+    let configuration:
+        GitLabMergeRequestListConfiguration
+    let loader:
+        any GitLabMergeRequestLoading
+            & GitLabMergeRequestApprovalLoading
+            & GitLabMergeRequestDiffLoading
+            & GitLabMergeRequestDiffSummaryLoading
+    let approvalService:
+        any GitLabMergeRequestApprovalServing
+    let mergeService:
+        any GitLabMergeRequestMergeServing
+    let pipelineLoader:
+        any GitLabPipelineLoading
+    let discussionLoader:
+        any GitLabDiscussionLoading
+    let discussionMutator:
+        any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
+    let editService:
+        any GitLabResourceEditing
+    let accountID: GitLabAccountID
+    let appSession: AppSession
+    let onResourceEdited:
+        (GitLabResourceEditResult) -> Void
+
+    init(
+        model:
+            GitLabPaginatedResourceModel<
+                GitLabMergeRequest,
+                GitLabMergeRequestRoute
+            >,
+        configuration:
+            GitLabMergeRequestListConfiguration,
+        loader:
+            any GitLabMergeRequestLoading
+                & GitLabMergeRequestApprovalLoading
+                & GitLabMergeRequestDiffLoading
+                & GitLabMergeRequestDiffSummaryLoading,
+        approvalService:
+            any GitLabMergeRequestApprovalServing,
+        mergeService:
+            any GitLabMergeRequestMergeServing,
+        pipelineLoader:
+            any GitLabPipelineLoading,
+        discussionLoader:
+            any GitLabDiscussionLoading,
+        discussionMutator:
+            any GitLabDiscussionMutating,
+        reactionService:
+            any GitLabEmojiReactionLoading
+                & GitLabEmojiReactionMutating,
+        editService:
+            any GitLabResourceEditing,
+        accountID: GitLabAccountID,
+        appSession: AppSession,
+        onResourceEdited:
+            @escaping (
+                GitLabResourceEditResult
+            ) -> Void
+    ) {
+        self.model = model
+        self.configuration = configuration
+        self.loader = loader
+        self.approvalService =
+            approvalService
+        self.mergeService =
+            mergeService
+        self.pipelineLoader =
+            pipelineLoader
+        self.discussionLoader =
+            discussionLoader
+        self.discussionMutator =
+            discussionMutator
+        self.reactionService =
+            reactionService
+        self.editService = editService
+        self.accountID = accountID
+        self.appSession = appSession
+        self.onResourceEdited =
+            onResourceEdited
+    }
+
+    var body: some View {
         @Bindable var model = model
 
         content
             .background(
                 Color(uiColor: .systemGroupedBackground)
             )
-            .navigationTitle(mode.title)
+            .navigationTitle(
+                configuration.title
+            )
             .navigationBarTitleDisplayMode(.inline)
             .searchable(
                 text: $model.searchText,
@@ -97,36 +238,12 @@ struct MergeRequestsView: View {
                     ),
                 prompt: "Search loaded merge requests"
             )
-            .navigationDestination(
-                for: GitLabMergeRequestRoute.self
-            ) {
-                GitLabMergeRequestDetailView(
-                    route: $0,
-                    loader: loader,
-                    approvalService:
-                        approvalService,
-                    mergeService:
-                        mergeService,
-                    pipelineLoader:
-                        pipelineLoader,
-                    discussionLoader:
-                        discussionLoader,
-                    discussionMutator:
-                        discussionMutator,
-                    reactionService:
-                        reactionService,
-                    editService:
-                        editService,
-                    accountID: accountID,
-                    appSession: appSession,
-                    onResourceEdited:
-                        onResourceEdited
-                )
-            }
             .refreshable {
                 await refresh()
             }
-            .task {
+            .task(
+                id: ObjectIdentifier(model)
+            ) {
                 await model.loadIfNeeded()
                 await handleAuthenticationFailure()
             }
@@ -137,7 +254,9 @@ struct MergeRequestsView: View {
         if model.isLoadingInitial {
             ScrollView {
                 GitLabLoadingStateView(
-                    message: "Loading \(mode.title.lowercased())"
+                    message:
+                        configuration
+                        .loadingMessage
                 )
                 .padding(20)
             }
@@ -160,11 +279,15 @@ struct MergeRequestsView: View {
         {
             GitLabContentStateScrollView {
                 GitLabEmptyStateView(
-                    title: mode.emptyTitle,
-                    message: mode.emptyMessage,
-                    systemImage: mode == .assigned
-                        ? "arrow.triangle.branch"
-                        : "person.crop.circle.badge.checkmark"
+                    title:
+                        configuration
+                        .emptyTitle,
+                    message:
+                        configuration
+                        .emptyMessage,
+                    systemImage:
+                        configuration
+                        .emptySystemImage
                 )
             }
         } else {
@@ -205,9 +328,12 @@ struct MergeRequestsView: View {
                 ForEach(
                     model.displayedMergeRequests
                 ) { mergeRequest in
-                    NavigationLink(
-                        value: mergeRequest.route
-                    ) {
+                    NavigationLink {
+                        mergeRequestDetail(
+                            route:
+                                mergeRequest.route
+                        )
+                    } label: {
                         GitLabMergeRequestRow(
                             mergeRequest: mergeRequest
                         )
@@ -255,7 +381,8 @@ struct MergeRequestsView: View {
         }
         .listStyle(.insetGrouped)
         .accessibilityIdentifier(
-            "mergeRequests.\(mode.rawValue).list"
+            configuration
+                .accessibilityIdentifier
         )
     }
 
@@ -273,6 +400,33 @@ struct MergeRequestsView: View {
         await appSession.handleAuthenticationFailure(
             error,
             for: accountID
+        )
+    }
+
+    private func mergeRequestDetail(
+        route: GitLabMergeRequestRoute
+    ) -> some View {
+        GitLabMergeRequestDetailView(
+            route: route,
+            loader: loader,
+            approvalService:
+                approvalService,
+            mergeService:
+                mergeService,
+            pipelineLoader:
+                pipelineLoader,
+            discussionLoader:
+                discussionLoader,
+            discussionMutator:
+                discussionMutator,
+            reactionService:
+                reactionService,
+            editService:
+                editService,
+            accountID: accountID,
+            appSession: appSession,
+            onResourceEdited:
+                onResourceEdited
         )
     }
 }

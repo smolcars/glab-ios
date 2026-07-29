@@ -107,14 +107,14 @@ struct HomeDashboardModelTests {
         await model.loadIfNeeded()
 
         let presentation = model.presentation(
-            for: .reviewRequests
+            for: .assignedMergeRequests
         )
         #expect(
-            model.state(for: .reviewRequests)
+            model.state(for: .assignedMergeRequests)
                 == .loaded([])
         )
         #expect(presentation.status == .empty)
-        #expect(presentation.subtitle == "No open review requests")
+        #expect(presentation.subtitle == "No open merge requests")
         #expect(!model.hasTotalWorkFailure)
     }
 
@@ -224,7 +224,7 @@ struct HomeDashboardModelTests {
                         loadResult(
                             successes: allEmptySections(
                                 replacing: [
-                                    .reviewRequests: [first, second],
+                                    .assignedMergeRequests: [first, second],
                                 ]
                             )
                         )
@@ -236,7 +236,7 @@ struct HomeDashboardModelTests {
         await model.loadIfNeeded()
 
         let presentation = model.presentation(
-            for: .reviewRequests
+            for: .assignedMergeRequests
         )
         #expect(presentation.status == .content)
         #expect(presentation.subtitle == "First review")
@@ -282,9 +282,6 @@ struct HomeDashboardModelTests {
                                 replacing: [
                                     .assignedIssues: [issueItem],
                                     .assignedMergeRequests: [
-                                        mergeRequestItem,
-                                    ],
-                                    .reviewRequests: [
                                         mergeRequestItem,
                                     ],
                                 ]
@@ -341,10 +338,6 @@ struct HomeDashboardModelTests {
                 == "Edited merge request"
         )
         #expect(
-            model.presentation(for: .reviewRequests).subtitle
-                == "Edited merge request"
-        )
-        #expect(
             model.state(for: .recentProjects) == .loaded([])
         )
     }
@@ -374,9 +367,6 @@ struct HomeDashboardModelTests {
                                         .assignedMergeRequests: [
                                             mergeRequestItem,
                                         ],
-                                        .reviewRequests: [
-                                            mergeRequestItem,
-                                        ],
                                     ]
                                 )
                         )
@@ -395,7 +385,7 @@ struct HomeDashboardModelTests {
                 ),
                 currentUserID: 2
             )
-        let removedAssignedMR =
+        let keptReviewEligibleMR =
             model.reconcileEditedResource(
                 .mergeRequest(
                     makeTestMergeRequest(
@@ -412,26 +402,20 @@ struct HomeDashboardModelTests {
             )
 
         #expect(removedIssue)
-        #expect(removedAssignedMR)
+        #expect(!keptReviewEligibleMR)
         #expect(
             model.state(
                 for: .assignedIssues
             ) == .loaded([])
         )
         #expect(
-            model.state(
+            model.presentation(
                 for:
                     .assignedMergeRequests
-            ) == .loaded([])
-        )
-        #expect(
-            model.presentation(
-                for: .reviewRequests
             ).subtitle
                 == "Review pagination"
         )
-
-        let removedReview =
+        let removedMergeRequest =
             model.reconcileEditedResource(
                 .mergeRequest(
                     makeTestMergeRequest(
@@ -442,10 +426,11 @@ struct HomeDashboardModelTests {
                 currentUserID: 2
             )
 
-        #expect(removedReview)
+        #expect(removedMergeRequest)
         #expect(
             model.state(
-                for: .reviewRequests
+                for:
+                    .assignedMergeRequests
             ) == .loaded([])
         )
     }

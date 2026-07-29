@@ -248,8 +248,16 @@ struct LiveGitLabIssueCreationServiceTests {
                     .assignedIssues
             ),
             record(
+                GitLabIssueEndpoints
+                    .issues(for: .created)
+            ),
+            record(
                 HomeDashboardEndpoints
                     .assignedIssues
+            ),
+            record(
+                HomeDashboardEndpoints
+                    .createdIssues
             ),
             record(
                 GitLabProjectEndpoints

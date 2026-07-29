@@ -23,13 +23,23 @@ nonisolated struct
                 at: route
             )
         )
-        await client.invalidateCachedResponse(
-            GitLabIssueEndpoints.assignedIssues
-        )
-        await client.invalidateCachedResponse(
+        for mode in GitLabIssueListMode.allCases {
+            await client.invalidateCachedResponse(
+                GitLabIssueEndpoints
+                    .issues(for: mode)
+            )
+        }
+        for endpoint in [
             HomeDashboardEndpoints
-                .assignedIssues
-        )
+                .assignedIssues,
+            HomeDashboardEndpoints
+                .createdIssues,
+        ] {
+            await client
+                .invalidateCachedResponse(
+                    endpoint
+                )
+        }
         for state in GitLabProjectIssueState.allCases {
             await client.invalidateCachedResponse(
                 GitLabIssueEndpoints
@@ -51,24 +61,41 @@ nonisolated struct
             GitLabMergeRequestEndpoints
                 .mergeRequest(at: route)
         )
-        await client.invalidateCachedResponse(
-            GitLabMergeRequestEndpoints
-                .mergeRequests(for: .assigned)
-        )
-        await client.invalidateCachedResponse(
-            GitLabMergeRequestEndpoints
-                .mergeRequests(
-                    for: .reviewRequested
+        for mode
+            in GitLabMergeRequestListMode
+                .allCases
+        {
+            await client.invalidateCachedResponse(
+                GitLabMergeRequestEndpoints
+                    .mergeRequests(for: mode)
+            )
+        }
+        for endpoint in [
+            HomeDashboardEndpoints
+                .assignedMergeRequests,
+            HomeDashboardEndpoints
+                .createdMergeRequests,
+            HomeDashboardEndpoints
+                .reviewRequests,
+        ] {
+            await client
+                .invalidateCachedResponse(
+                    endpoint
                 )
-        )
-        await client.invalidateCachedResponse(
-            HomeDashboardEndpoints
-                .assignedMergeRequests
-        )
-        await client.invalidateCachedResponse(
-            HomeDashboardEndpoints
-                .reviewRequests
-        )
+        }
+        for state
+            in GitLabProjectMergeRequestState
+                .allCases
+        {
+            await client.invalidateCachedResponse(
+                GitLabMergeRequestEndpoints
+                    .projectMergeRequests(
+                        projectID:
+                            route.projectID,
+                        state: state
+                    )
+            )
+        }
         await invalidateTodoReads()
     }
 

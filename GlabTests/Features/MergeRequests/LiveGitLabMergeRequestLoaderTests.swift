@@ -92,6 +92,88 @@ struct LiveGitLabMergeRequestLoaderTests {
         )
     }
 
+    @Test(
+        "Loads and caches project merge request state pages"
+    )
+    func loadsProjectMergeRequests() async throws {
+        let mergeRequest =
+            makeTestMergeRequest()
+        let nextPageURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.example.com/api/v4/"
+                    + "projects/42/merge_requests"
+                    + "?state=opened&page=2"
+            )
+        )
+        let client =
+            RecordingMergeRequestClient(
+                mergeRequest:
+                    mergeRequest,
+                diff: makeTestDiffFile(),
+                returnedNextPageURL:
+                    nextPageURL
+            )
+        let loader =
+            LiveGitLabMergeRequestLoader(
+                client: client
+            )
+        let events =
+            ProjectMergeRequestPageEventRecorder()
+
+        let opened =
+            try await loader
+            .loadProjectMergeRequestsPage(
+                projectID: 42,
+                state: .opened,
+                after: nil
+            )
+        let next =
+            try await loader
+            .loadProjectMergeRequestsPage(
+                projectID: 42,
+                state: .opened,
+                after: nextPageURL
+            )
+        try await loader
+            .loadProjectMergeRequestsFirstPage(
+                projectID: 42,
+                state: .merged,
+                refreshBehavior: .ifStale
+            ) {
+                await events.append($0)
+            }
+
+        #expect(opened.items == [mergeRequest])
+        #expect(
+            opened.nextPageURL
+                == nextPageURL
+        )
+        #expect(next.items == [mergeRequest])
+        #expect(
+            await events.values
+                .map(\.page.items)
+                == [[mergeRequest]]
+        )
+        #expect(
+            await client.pageSources
+                == [
+                    "initial:projects/42/merge_requests:all",
+                    "next:\(nextPageURL.absoluteString)",
+                    "initial:projects/42/merge_requests:all",
+                ]
+        )
+        #expect(
+            await client.loadedCachePolicies
+                == [.workList]
+        )
+        #expect(
+            await client
+                .loadedRefreshBehaviors
+                == [.ifStale]
+        )
+    }
+
     @Test("Publishes a diff first page through the diff cache policy")
     func loadsCachedDiffFirstPage() async throws {
         let mergeRequest = makeTestMergeRequest()
@@ -330,6 +412,26 @@ private actor DiffPageEventRecorder {
         _ event: GitLabResourcePageEvent<
             GitLabMergeRequestDiffFile
         >
+    ) {
+        values.append(event)
+    }
+}
+
+private actor
+    ProjectMergeRequestPageEventRecorder
+{
+    private(set) var values:
+        [
+            GitLabResourcePageEvent<
+                GitLabMergeRequest
+            >
+        ] = []
+
+    func append(
+        _ event:
+            GitLabResourcePageEvent<
+                GitLabMergeRequest
+            >
     ) {
         values.append(event)
     }

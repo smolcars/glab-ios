@@ -41,7 +41,10 @@ struct SignedInShellView: View {
     @State private var selectedTab = GitLabAppTab.defaultTab
     @State private var homeDashboardModel: HomeDashboardModel
     @State private var assignedIssuesModel: AssignedIssuesModel
+    @State private var createdIssuesModel: IssuesModel
     @State private var assignedMergeRequestsModel:
+        MergeRequestsModel
+    @State private var createdMergeRequestsModel:
         MergeRequestsModel
     @State private var reviewRequestsModel:
         MergeRequestsModel
@@ -242,9 +245,21 @@ struct SignedInShellView: View {
                 loader: issueLoader
             )
         )
+        _createdIssuesModel = State(
+            initialValue: IssuesModel(
+                mode: .created,
+                loader: issueLoader
+            )
+        )
         _assignedMergeRequestsModel = State(
             initialValue: MergeRequestsModel(
                 mode: .assigned,
+                loader: mergeRequestLoader
+            )
+        )
+        _createdMergeRequestsModel = State(
+            initialValue: MergeRequestsModel(
+                mode: .created,
                 loader: mergeRequestLoader
             )
         )
@@ -293,8 +308,12 @@ struct SignedInShellView: View {
                     appSession: appSession,
                     model: homeDashboardModel,
                     assignedIssuesModel: assignedIssuesModel,
+                    createdIssuesModel:
+                        createdIssuesModel,
                     assignedMergeRequestsModel:
                         assignedMergeRequestsModel,
+                    createdMergeRequestsModel:
+                        createdMergeRequestsModel,
                     reviewRequestsModel:
                         reviewRequestsModel,
                     issueLoader: issueLoader,
@@ -555,6 +574,27 @@ struct SignedInShellView: View {
                         .refresh()
                 }
             }
+
+            let remainsCreated =
+                issue.isOpenWork(
+                    for: .created,
+                    userID:
+                        accountID.userID
+                )
+            let wasInCreated =
+                createdIssuesModel
+                    .reconcileIssue(
+                        issue,
+                        mode: .created,
+                        currentUserID:
+                            accountID.userID
+                    )
+            if !remainsCreated && wasInCreated {
+                Task {
+                    await createdIssuesModel
+                        .refresh()
+                }
+            }
         }
 
         if
@@ -579,6 +619,23 @@ struct SignedInShellView: View {
                 !remainsAssigned
                 && wasInAssigned
 
+            let remainsCreated =
+                mergeRequest.isOpenWork(
+                    for: .created,
+                    userID: accountID.userID
+                )
+            let wasInCreated =
+                createdMergeRequestsModel
+                    .reconcileMergeRequest(
+                        mergeRequest,
+                        mode: .created,
+                        currentUserID:
+                            accountID.userID
+                    )
+            let removedCreated =
+                !remainsCreated
+                && wasInCreated
+
             let remainsReviewRequested =
                 mergeRequest.isOpenWork(
                     for: .reviewRequested,
@@ -598,11 +655,16 @@ struct SignedInShellView: View {
 
             if
                 removedAssigned
+                    || removedCreated
                     || removedReviewRequested
             {
                 Task {
                     if removedAssigned {
                         await assignedMergeRequestsModel
+                            .refresh()
+                    }
+                    if removedCreated {
+                        await createdMergeRequestsModel
                             .refresh()
                     }
                     if removedReviewRequested {

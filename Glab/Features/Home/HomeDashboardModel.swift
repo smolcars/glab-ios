@@ -27,7 +27,7 @@ final class HomeDashboardModel {
     }
 
     var hasTotalWorkFailure: Bool {
-        HomeDashboardSection.allCases.allSatisfy {
+        HomeDashboardSection.displayedCases.allSatisfy {
             if case .failed = state(for: $0) {
                 true
             } else {
@@ -118,8 +118,13 @@ final class HomeDashboardModel {
                 ),
                 in: .assignedIssues,
                 remainsEligible:
-                    issue.isAssignedOpenWork(
-                        for: currentUserID
+                    issue.isOpenWork(
+                        for: .assigned,
+                        userID: currentUserID
+                    )
+                    || issue.isOpenWork(
+                        for: .created,
+                        userID: currentUserID
                     )
             )
         case let .mergeRequest(mergeRequest):
@@ -147,13 +152,14 @@ final class HomeDashboardModel {
                             userID:
                                 currentUserID
                         )
-                )
-            let removedReview =
-                reconcileLoadedPreview(
-                    item,
-                    in: .reviewRequests,
-                    remainsEligible:
-                        mergeRequest
+                        || mergeRequest
+                        .isOpenWork(
+                            for:
+                                .created,
+                            userID:
+                                currentUserID
+                        )
+                        || mergeRequest
                         .isOpenWork(
                             for:
                                 .reviewRequested,
@@ -162,7 +168,6 @@ final class HomeDashboardModel {
                         )
                 )
             return removedAssigned
-                || removedReview
         }
     }
 

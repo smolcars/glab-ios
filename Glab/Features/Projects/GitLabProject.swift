@@ -194,6 +194,8 @@ nonisolated struct GitLabProject:
     let namespace: GitLabProjectNamespace?
     let issuesAccessLevel:
         GitLabProjectFeatureAccessLevel?
+    let mergeRequestsAccessLevel:
+        GitLabProjectFeatureAccessLevel?
 
     var safeWebURL: URL? {
         GitLabWebURL.validated(webURL)
@@ -248,6 +250,8 @@ nonisolated struct GitLabProject:
         case namespace
         case issuesAccessLevel =
             "issues_access_level"
+        case mergeRequestsAccessLevel =
+            "merge_requests_access_level"
     }
 }
 

@@ -17,6 +17,10 @@ struct GitLabProjectTests {
         #expect(
             project.issuesAccessLevel == .enabled
         )
+        #expect(
+            project.mergeRequestsAccessLevel
+                == .enabled
+        )
         #expect(project.visibility.title == "Private")
         #expect(project.starCount == 17)
         #expect(
@@ -26,6 +30,55 @@ struct GitLabProjectTests {
         #expect(project.safeAvatarURL?.scheme == "https")
         #expect(project.safeWebURL?.scheme == "https")
         #expect(project.avatarMark == "GI")
+    }
+
+    @Test(
+        "Maps project merge request access without rejecting future values",
+        arguments: [
+            (
+                "disabled",
+                GitLabProjectFeatureAccessLevel
+                    .disabled,
+                true
+            ),
+            (
+                "private",
+                GitLabProjectFeatureAccessLevel
+                    .privateAccess,
+                false
+            ),
+            (
+                "enabled",
+                GitLabProjectFeatureAccessLevel
+                    .enabled,
+                false
+            ),
+            (
+                "restricted",
+                GitLabProjectFeatureAccessLevel
+                    .unknown("restricted"),
+                false
+            ),
+        ]
+    )
+    func mapsMergeRequestAccess(
+        value: String,
+        expected:
+            GitLabProjectFeatureAccessLevel,
+        isDisabled: Bool
+    ) throws {
+        let project = try decodeProject(
+            mergeRequestsAccessLevel: value
+        )
+
+        #expect(
+            project.mergeRequestsAccessLevel
+                == expected
+        )
+        #expect(
+            project.mergeRequestsAccessLevel?
+                .isDisabled == isDisabled
+        )
     }
 
     @Test(
@@ -175,6 +228,8 @@ private extension GitLabProjectTests {
         visibility: String = "private",
         issuesAccessLevel: String =
             "enabled",
+        mergeRequestsAccessLevel: String =
+            "enabled",
         namespace: String = """
             {
               "id": 7,
@@ -200,6 +255,7 @@ private extension GitLabProjectTests {
               "last_activity_at": "2026-07-25T12:00:00Z",
               "visibility": "\(visibility)",
               "issues_access_level": "\(issuesAccessLevel)",
+              "merge_requests_access_level": "\(mergeRequestsAccessLevel)",
               "namespace": \(namespace)
             }
             """.utf8

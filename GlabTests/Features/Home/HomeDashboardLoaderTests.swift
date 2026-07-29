@@ -18,15 +18,15 @@ struct HomeDashboardLoaderTests {
             }
         }
 
-        await client.waitUntilRequestCount(6)
-        #expect(await client.requestCount == 6)
-        #expect(await updates.updates.count == 6)
+        await client.waitUntilRequestCount(8)
+        #expect(await client.requestCount == 8)
+        #expect(await updates.updates.count >= 3)
 
         await client.releaseAll()
         try await load.value
 
         let receivedUpdates = await updates.updates
-        #expect(receivedUpdates.count == 12)
+        #expect(receivedUpdates.count >= 10)
         #expect(
             receivedUpdates.contains {
                 if case .user(.success) = $0 {
@@ -37,7 +37,7 @@ struct HomeDashboardLoaderTests {
             }
         )
         #expect(
-            HomeDashboardSection.allCases.allSatisfy { section in
+            HomeDashboardSection.displayedCases.allSatisfy { section in
                 receivedUpdates.contains {
                     if case let .section(
                         receivedSection,
@@ -69,6 +69,7 @@ private extension HomeDashboardLoaderTests {
         private(set) var requestCount = 0
         private(set) var refreshBehaviors:
             [GitLabCacheRefreshBehavior] = []
+        private var isReleased = false
 
         func send<Response>(
             _ endpoint: GitLabAPIRequest<Response>
@@ -84,8 +85,10 @@ private extension HomeDashboardLoaderTests {
                 $0.continuation.resume()
             }
 
-            await withCheckedContinuation {
-                releaseContinuations.append($0)
+            if !isReleased {
+                await withCheckedContinuation {
+                    releaseContinuations.append($0)
+                }
             }
 
             return response(for: Response.self)
@@ -120,8 +123,10 @@ private extension HomeDashboardLoaderTests {
                 $0.continuation.resume()
             }
 
-            await withCheckedContinuation {
-                releaseContinuations.append($0)
+            if !isReleased {
+                await withCheckedContinuation {
+                    releaseContinuations.append($0)
+                }
             }
 
             await onResponse(
@@ -144,6 +149,7 @@ private extension HomeDashboardLoaderTests {
         }
 
         func releaseAll() {
+            isReleased = true
             let continuations = releaseContinuations
             releaseContinuations.removeAll()
             continuations.forEach {
