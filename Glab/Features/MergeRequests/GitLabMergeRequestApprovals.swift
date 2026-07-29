@@ -211,13 +211,16 @@ nonisolated struct
                 }
                 return seen.insert(user.id)
                     .inserted
-            }
+        }
         currentUserHasApproved =
             currentUserID > 0
-            && approvals.contains {
-                $0.user?.id
-                    == currentUserID
-            }
+            && (
+                summary.userHasApproved
+                    ?? approvals.contains {
+                        $0.user?.id
+                            == currentUserID
+                    }
+            )
 
         if summary.approvalsRequired == 0 {
             status = .notRequired

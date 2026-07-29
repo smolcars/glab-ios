@@ -52,19 +52,38 @@ nonisolated struct GitLabMergeRequestApprovalSummary:
     let approvalsLeft: Int?
     let approvedBy:
         [GitLabMergeRequestApproval]
+    let userHasApproved: Bool?
+    let userCanApprove: Bool?
+    let requirePasswordToApprove: Bool?
+    let requireReauthenticationToApprove:
+        Bool?
 
     init(
         approved: Bool?,
         approvalsRequired: Int?,
         approvalsLeft: Int?,
         approvedBy:
-            [GitLabMergeRequestApproval]
+            [GitLabMergeRequestApproval],
+        userHasApproved: Bool? = nil,
+        userCanApprove: Bool? = nil,
+        requirePasswordToApprove:
+            Bool? = nil,
+        requireReauthenticationToApprove:
+            Bool? = nil
     ) {
         self.approved = approved
         self.approvalsRequired =
             approvalsRequired
         self.approvalsLeft = approvalsLeft
         self.approvedBy = approvedBy
+        self.userHasApproved =
+            userHasApproved
+        self.userCanApprove =
+            userCanApprove
+        self.requirePasswordToApprove =
+            requirePasswordToApprove
+        self.requireReauthenticationToApprove =
+            requireReauthenticationToApprove
     }
 
     init(from decoder: any Decoder) throws {
@@ -92,6 +111,37 @@ nonisolated struct GitLabMergeRequestApprovalSummary:
                 forKey: .approvedBy
             )
             ?? []
+        userHasApproved =
+            try? container.decodeIfPresent(
+                Bool.self,
+                forKey: .userHasApproved
+            )
+        userCanApprove =
+            try? container.decodeIfPresent(
+                Bool.self,
+                forKey: .userCanApprove
+            )
+        requirePasswordToApprove =
+            try? container.decodeIfPresent(
+                Bool.self,
+                forKey:
+                    .requirePasswordToApprove
+            )
+        requireReauthenticationToApprove =
+            try? container.decodeIfPresent(
+                Bool.self,
+                forKey:
+                    .requireReauthenticationToApprove
+            )
+    }
+
+    var requiresReauthenticationToApprove:
+        Bool
+    {
+        requireReauthenticationToApprove
+            == true
+            || requirePasswordToApprove
+            == true
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -100,6 +150,14 @@ nonisolated struct GitLabMergeRequestApprovalSummary:
             "approvals_required"
         case approvalsLeft = "approvals_left"
         case approvedBy = "approved_by"
+        case userHasApproved =
+            "user_has_approved"
+        case userCanApprove =
+            "user_can_approve"
+        case requirePasswordToApprove =
+            "require_password_to_approve"
+        case requireReauthenticationToApprove =
+            "require_reauthentication_to_approve"
     }
 }
 

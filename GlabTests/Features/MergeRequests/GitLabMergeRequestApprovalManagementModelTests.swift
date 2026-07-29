@@ -366,6 +366,186 @@ struct GitLabMergeRequestApprovalManagementModelTests {
         #expect(await service.mergeRequestCount == 0)
     }
 
+    @Test("Shows approve only when GitLab explicitly permits it")
+    func requiresExplicitApprovalCapability() {
+        let allowed = makeFixture(
+            service:
+                RecordingApprovalManagementService(),
+            summary:
+                makeApprovalSummary(
+                    userCanApprove: true
+                )
+        )
+        let denied = makeFixture(
+            service:
+                RecordingApprovalManagementService(),
+            summary:
+                makeApprovalSummary(
+                    userCanApprove: false
+                )
+        )
+        let unknown = makeFixture(
+            service:
+                RecordingApprovalManagementService(),
+            summary:
+                makeApprovalSummary(
+                    userCanApprove: nil
+                )
+        )
+        let reauthentication = makeFixture(
+            service:
+                RecordingApprovalManagementService(),
+            summary:
+                makeApprovalSummary(
+                    userCanApprove: true,
+                    requiresReauthentication:
+                        true
+                )
+        )
+
+        #expect(allowed.model.canApprove)
+        #expect(!denied.model.canApprove)
+        #expect(!unknown.model.canApprove)
+        #expect(
+            !reauthentication.model
+                .canApprove
+        )
+        #expect(
+            reauthentication.model
+                .requiresGitLabReauthenticationForApproval
+        )
+
+        denied.model.requestApprove()
+        #expect(
+            denied.model.failure
+                == .permissionDenied
+        )
+        #expect(denied.model.confirmation == nil)
+    }
+
+    @Test("Fresh capability loss prevents an approval write")
+    func blocksFreshCapabilityLoss() async {
+        let service =
+            RecordingApprovalManagementService(
+                mergeRequestResults: [
+                    .success(makeMergeRequest()),
+                ],
+                summaryResults: [
+                    .success(
+                        makeApprovalSummary(
+                            userCanApprove: false
+                        )
+                    ),
+                ]
+            )
+        let fixture = makeFixture(
+            service: service,
+            summary:
+                makeApprovalSummary(
+                    userCanApprove: true
+                )
+        )
+
+        fixture.model.requestApprove()
+        await fixture.model.confirmAction()
+
+        #expect(await service.approveSHAs.isEmpty)
+        #expect(
+            fixture.model.failure
+                == .permissionDenied
+        )
+        #expect(fixture.model.confirmation == nil)
+    }
+
+    @Test("Ineligible user is not redirected for approval reauthentication")
+    func prioritizesFreshCapabilityDenial()
+        async
+    {
+        let service =
+            RecordingApprovalManagementService(
+                mergeRequestResults: [
+                    .success(makeMergeRequest()),
+                ],
+                summaryResults: [
+                    .success(
+                        makeApprovalSummary(
+                            userCanApprove: false,
+                            requiresReauthentication:
+                                true
+                        )
+                    ),
+                ]
+            )
+        let fixture = makeFixture(
+            service: service,
+            summary:
+                makeApprovalSummary(
+                    userCanApprove: true
+                )
+        )
+
+        fixture.model.requestApprove()
+        await fixture.model.confirmAction()
+
+        #expect(await service.approveSHAs.isEmpty)
+        #expect(
+            fixture.model.failure
+                == .permissionDenied
+        )
+        #expect(fixture.model.confirmation == nil)
+    }
+
+    @Test("Uses explicit current-user approval state with legacy fallback")
+    func usesCurrentUserApprovalState() {
+        let explicitApproved = makeFixture(
+            service:
+                RecordingApprovalManagementService(),
+            summary:
+                makeApprovalSummary(
+                    approvedUserIDs: [],
+                    userCanApprove: false,
+                    userHasApproved: true
+                )
+        )
+        let explicitNotApproved = makeFixture(
+            service:
+                RecordingApprovalManagementService(),
+            summary:
+                makeApprovalSummary(
+                    approvedUserIDs: [7],
+                    userCanApprove: true,
+                    userHasApproved: false
+                )
+        )
+
+        #expect(
+            explicitApproved.model
+                .canUnapprove
+        )
+        #expect(
+            !explicitApproved.model
+                .canApprove
+        )
+        #expect(
+            !explicitNotApproved.model
+                .canUnapprove
+        )
+        #expect(
+            explicitNotApproved.model
+                .canApprove
+        )
+    }
+
+    @Test("Explains GitLab approval reauthentication accurately")
+    func explainsApprovalReauthentication() {
+        #expect(
+            GitLabMergeRequestApprovalManagementFailure
+                .gitLabReauthenticationRequired
+                .userMessage
+                == "GitLab requires you to sign in again before approving. Open this merge request in GitLab to continue."
+        )
+    }
+
     @Test("Rejects a fresh head change without sending a write")
     func rejectsChangedHead() async {
         let service =
@@ -1053,7 +1233,11 @@ private nonisolated func makeMergeRequest(
 }
 
 private nonisolated func makeApprovalSummary(
-    approvedUserIDs: [Int] = []
+    approvedUserIDs: [Int] = [],
+    userCanApprove: Bool? = true,
+    userHasApproved: Bool? = nil,
+    requiresReauthentication:
+        Bool = false
 ) -> GitLabMergeRequestApprovalSummary {
     GitLabMergeRequestApprovalSummary(
         approved:
@@ -1076,7 +1260,15 @@ private nonisolated func makeApprovalSummary(
                                 "User \(userID)"
                         )
                 )
-            }
+            },
+        userHasApproved:
+            userHasApproved,
+        userCanApprove:
+            userCanApprove,
+        requirePasswordToApprove:
+            requiresReauthentication,
+        requireReauthenticationToApprove:
+            requiresReauthentication
     )
 }
 

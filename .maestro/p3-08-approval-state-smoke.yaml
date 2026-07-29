@@ -16,6 +16,30 @@ name: P3-08 approval fallback and mutation states
 - launchApp:
     arguments:
       p3_08_approval_fixture: "true"
+      p3_08_approval_fixture_mode: ineligible
+- assertVisible: Approval not permitted
+- tapOn:
+    id: mergeRequests.approvals.summary
+- assertNotVisible:
+    id: mergeRequests.approvals.approve
+- assertNotVisible:
+    id: mergeRequests.approvals.unapprove
+
+- launchApp:
+    arguments:
+      p3_08_approval_fixture: "true"
+      p3_08_approval_fixture_mode: reauthentication
+- assertVisible: GitLab sign-in required
+- tapOn:
+    id: mergeRequests.approvals.summary
+- assertVisible:
+    id: mergeRequests.approvals.reauthentication
+- assertNotVisible:
+    id: mergeRequests.approvals.approve
+
+- launchApp:
+    arguments:
+      p3_08_approval_fixture: "true"
       p3_08_approval_fixture_mode: approved
 - assertVisible: Current user approved
 - tapOn:

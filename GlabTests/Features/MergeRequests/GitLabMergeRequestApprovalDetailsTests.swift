@@ -82,6 +82,50 @@ struct GitLabMergeRequestApprovalDetailsTests {
         #expect(summary.approvedBy[1].approvedAt != nil)
     }
 
+    @Test("Decodes current-user approval capability and reauthentication")
+    func decodesCurrentUserApprovalCapability() throws {
+        let summary: GitLabMergeRequestApprovalSummary =
+            try decode(
+                """
+                {
+                  "approved": false,
+                  "approvals_required": 1,
+                  "approvals_left": 1,
+                  "user_has_approved": false,
+                  "user_can_approve": true,
+                  "require_password_to_approve": false,
+                  "require_reauthentication_to_approve": true,
+                  "approved_by": []
+                }
+                """
+            )
+
+        #expect(summary.userHasApproved == false)
+        #expect(summary.userCanApprove == true)
+        #expect(
+            summary.requiresReauthenticationToApprove
+        )
+
+        let partial: GitLabMergeRequestApprovalSummary =
+            try decode(
+                """
+                {
+                  "approved_by": [],
+                  "user_has_approved": "invalid",
+                  "user_can_approve": "invalid",
+                  "require_password_to_approve": "invalid",
+                  "require_reauthentication_to_approve": "invalid"
+                }
+                """
+            )
+
+        #expect(partial.userHasApproved == nil)
+        #expect(partial.userCanApprove == nil)
+        #expect(
+            !partial.requiresReauthenticationToApprove
+        )
+    }
+
     @Test("Decodes zero and multiple detailed rules")
     func decodesDetailedRules() throws {
         let empty: GitLabMergeRequestApprovalDetails =
@@ -243,6 +287,44 @@ struct GitLabMergeRequestApprovalDetailsTests {
         #expect(
             presentation.status
                 == .remaining(1)
+        )
+    }
+
+    @Test("Uses GitLab current-user approval state before list fallback")
+    func presentsExplicitCurrentUserApprovalState() {
+        let listedUser =
+            GitLabMergeRequestApproval(
+                user: makeUser(7)
+            )
+        let explicit =
+            GitLabMergeRequestApprovalSummary(
+                approved: true,
+                approvalsRequired: 1,
+                approvalsLeft: 0,
+                approvedBy: [listedUser],
+                userHasApproved: false
+            )
+        let legacy =
+            GitLabMergeRequestApprovalSummary(
+                approved: true,
+                approvalsRequired: 1,
+                approvalsLeft: 0,
+                approvedBy: [listedUser]
+            )
+
+        #expect(
+            !GitLabMergeRequestApprovalSummaryPresentation(
+                summary: explicit,
+                currentUserID: 7
+            )
+            .currentUserHasApproved
+        )
+        #expect(
+            GitLabMergeRequestApprovalSummaryPresentation(
+                summary: legacy,
+                currentUserID: 7
+            )
+            .currentUserHasApproved
         )
     }
 

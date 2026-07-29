@@ -230,13 +230,14 @@ struct
             spacing: 12
         ) {
             globalApprovals
-            detailedRules
+
+            approvalAction
 
             if let failure = model.failure {
                 failureRow(failure)
             }
 
-            approvalAction
+            detailedRules
         }
         .padding(12)
     }
@@ -596,6 +597,19 @@ struct
                 .controlSize(.small)
                 .accessibilityIdentifier(
                     "mergeRequests.approvals.approve"
+                )
+            } else if
+                model
+                    .requiresGitLabReauthenticationForApproval
+            {
+                Label(
+                    "GitLab sign-in required",
+                    systemImage: "lock.fill"
+                )
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .accessibilityIdentifier(
+                    "mergeRequests.approvals.reauthentication"
                 )
             }
         }
@@ -1234,7 +1248,7 @@ private extension
     }
 }
 
-private extension
+extension
     GitLabMergeRequestApprovalManagementFailure
 {
     var userMessage: String {
@@ -1257,7 +1271,7 @@ private extension
         case .permissionDenied:
             "GitLab did not allow this approval change."
         case .gitLabReauthenticationRequired:
-            "This project requires approval in GitLab."
+            "GitLab requires you to sign in again before approving. Open this merge request in GitLab to continue."
         case .unsafeRule(.hiddenGroups):
             "Hidden rule membership cannot be safely changed."
         case .unsafeRule(.systemRule):

@@ -128,6 +128,8 @@
         case premium
         case basic
         case approved
+        case ineligible
+        case reauthentication
         case readOnly
         case stale
         case permissionDenied
@@ -177,6 +179,10 @@
                 "Basic approvals"
             case .approved:
                 "Current user approved"
+            case .ineligible:
+                "Approval not permitted"
+            case .reauthentication:
+                "GitLab sign-in required"
             case .readOnly:
                 "Read-only account"
             case .stale:
@@ -350,7 +356,19 @@
                                             1_785_328_496
                                     )
                             )
-                        }
+                        },
+                    userHasApproved:
+                        mode == .approved,
+                    userCanApprove:
+                        mode != .approved
+                            && mode
+                                != .ineligible,
+                    requirePasswordToApprove:
+                        mode
+                            == .reauthentication,
+                    requireReauthenticationToApprove:
+                        mode
+                            == .reauthentication
                 )
             mergeRequest =
                 Self.mergeRequest(

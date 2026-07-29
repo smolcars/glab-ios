@@ -303,6 +303,39 @@ final class
         canRequest(.unapprove)
     }
 
+    var requiresGitLabReauthenticationForApproval:
+        Bool
+    {
+        guard
+            apiAccess.canWrite,
+            isAccountCurrent(),
+            phase == .idle,
+            confirmation == nil,
+            pendingMutation == nil,
+            pendingRuleMutation == nil,
+            let mergeRequest =
+                currentMergeRequest(),
+            mergeRequest.route == route,
+            mergeRequest.stateKind
+                == .opened,
+            !Self.isApprovalSyncing(
+                mergeRequest
+            ),
+            let summary =
+                currentApprovalSummary(),
+            summary.userCanApprove
+                == true,
+            !Self.isApproved(
+                userID: accountID.userID,
+                in: summary
+            )
+        else {
+            return false
+        }
+        return summary
+            .requiresReauthenticationToApprove
+    }
+
     func loadDetailsIfNeeded() async {
         await detailsModel
             .loadIfNeeded()
@@ -690,6 +723,10 @@ final class
                 userID: accountID.userID
             )
         else {
+            publishInapplicableApprovalFailure(
+                confirmation.action,
+                summary: freshSummary
+            )
             return
         }
         guard
@@ -1031,6 +1068,10 @@ private extension
                     accountID.userID
             )
         else {
+            publishInapplicableApprovalFailure(
+                action,
+                summary: summary
+            )
             return
         }
 
@@ -1602,6 +1643,10 @@ private extension
         return switch action {
         case .approve:
             !approved
+                && summary.userCanApprove
+                    == true
+                && !summary
+                    .requiresReauthenticationToApprove
         case .unapprove:
             approved
         }
@@ -1612,9 +1657,33 @@ private extension
         in summary:
             GitLabMergeRequestApprovalSummary
     ) -> Bool {
-        summary.approvedBy.contains {
-            $0.user?.id == userID
+        summary.userHasApproved
+            ?? summary.approvedBy.contains {
+                $0.user?.id == userID
+            }
+    }
+
+    func publishInapplicableApprovalFailure(
+        _ action:
+            GitLabMergeRequestApprovalManagementAction,
+        summary:
+            GitLabMergeRequestApprovalSummary
+    ) {
+        guard
+            action == .approve,
+            !Self.isApproved(
+                userID: accountID.userID,
+                in: summary
+            )
+        else {
+            return
         }
+        failure =
+            summary.userCanApprove == true
+                && summary
+                    .requiresReauthenticationToApprove
+            ? .gitLabReauthenticationRequired
+            : .permissionDenied
     }
 
     nonisolated static func

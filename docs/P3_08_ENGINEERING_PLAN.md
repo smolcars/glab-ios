@@ -16,7 +16,7 @@
 - Production implementation: complete
 - Simulator verification: complete
 - Deep review: complete
-- Post-completion device-validation repair: in progress
+- Post-completion device-validation repair: complete
 
 Research date: July 29, 2026.
 
@@ -882,6 +882,25 @@ Repair plan, to be committed before production edits:
 6. Run the focused approval suites, inspect and tap eligible, ineligible,
    already-approved, and reauthentication fixture states in the iPhone 17 Pro
    Simulator, and then repeat the P3-08 review.
+
+The first repeat-review pass found that the fallback failure classifier checked
+the reauthentication flags without first requiring
+`user_can_approve == true`. A defensive or inconsistent response could
+therefore tell an ineligible reviewer to sign in again even though
+reauthentication would not make that user eligible. The smallest repair is to
+classify reauthentication only when GitLab explicitly permits the current
+user to approve; denied or missing capability remains a permission failure.
+A fresh-preflight regression must prove the combined denied-plus-
+reauthentication response sends no write and reports permission denial.
+
+Completed July 29, 2026. The focused approval decoding and management suites
+pass, including the red-then-green fresh capability regression. The
+deterministic iPhone 17 Pro Simulator flow passes eligible, ineligible,
+already-approved, reauthentication, stale-revision, permission-denied,
+unknown-delivery, and rule-mutation states. The collapsed reauthentication
+state was visually inspected. The repeat review found no remaining material
+capability inference, misleading failure classification, hidden action
+feedback, or necessary refactor.
 
 ## Final verification evidence
 
