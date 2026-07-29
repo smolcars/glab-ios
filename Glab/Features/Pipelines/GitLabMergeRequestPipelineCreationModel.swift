@@ -138,14 +138,10 @@ final class
             guard isAccountCurrent() else {
                 return
             }
-            let sessionError =
-                error
-                    as? GitLabSessionClientError
-                ?? .api(.transport)
             await refresh()
             failure = .mutation(
-                sessionError,
-                sessionError
+                error,
+                error
                     .mutationDeliveryCertainty
             )
         }
