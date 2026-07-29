@@ -546,7 +546,22 @@ private actor RecordingIssueStatusClient:
     }
 }
 
-private nonisolated func makeStatusSnapshot(
+nonisolated func makeStatusSnapshot(
+    state: GitLabWorkItemState = .open,
+    lockVersion: Int = 8,
+    currentStatus:
+        GitLabIssueWorkItemStatus? =
+            GitLabIssueWorkItemStatus(
+                id: "status-progress",
+                name: "In progress",
+                description: nil,
+                iconName: nil,
+                color: nil,
+                position: 1,
+                category: .inProgress
+            ),
+    allowedStatuses:
+        [GitLabIssueWorkItemStatus]? = nil,
     canUpdate: Bool = true
 )
     -> GitLabIssueStatusSnapshot
@@ -555,38 +570,34 @@ private nonisolated func makeStatusSnapshot(
         projectPath: "group/project",
         workItemID: "opaque-work-item-id",
         issueIID: 17,
-        state: .open,
+        state: state,
         updatedAt: Date(
-            timeIntervalSince1970: 1_785_240_000
+            timeIntervalSince1970:
+                lockVersion == 8
+                ? 1_785_240_000
+                : 1_785_240_300
         ),
-        lockVersion: 8,
-        currentStatus:
-            GitLabIssueWorkItemStatus(
-                id: "status-progress",
-                name: "In progress",
-                description: nil,
-                iconName: nil,
-                color: nil,
-                position: 1,
-                category: .inProgress
-            ),
-        allowedStatuses: [
-            GitLabIssueWorkItemStatus(
-                id: "status-progress",
-                name: "In progress",
-                description: nil,
-                iconName: nil,
-                color: nil,
-                position: 1,
-                category: .inProgress
-            ),
-            makeDoneStatus(),
-        ],
+        lockVersion: lockVersion,
+        currentStatus: currentStatus,
+        allowedStatuses:
+            allowedStatuses
+            ?? [
+                GitLabIssueWorkItemStatus(
+                    id: "status-progress",
+                    name: "In progress",
+                    description: nil,
+                    iconName: nil,
+                    color: nil,
+                    position: 1,
+                    category: .inProgress
+                ),
+                makeDoneStatus(),
+            ],
         canUpdate: canUpdate
     )
 }
 
-private nonisolated func makeDoneStatus()
+nonisolated func makeDoneStatus()
     -> GitLabIssueWorkItemStatus
 {
     GitLabIssueWorkItemStatus(
@@ -600,7 +611,7 @@ private nonisolated func makeDoneStatus()
     )
 }
 
-private nonisolated func makeStatusUpdateResult()
+nonisolated func makeStatusUpdateResult()
     -> GitLabIssueStatusUpdateResult
 {
     GitLabIssueStatusUpdateResult(
