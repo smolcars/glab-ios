@@ -479,10 +479,8 @@ private struct GitLabMetadataMemberPicker: View {
                 )
             } else {
                 ForEach(model.members) { member in
-                    choiceRow(
-                        title: member.name,
-                        subtitle:
-                            "@\(member.username)",
+                    memberChoiceRow(
+                        member: member,
                         isSelected:
                             isSelected(member)
                     ) {
@@ -550,6 +548,55 @@ private struct GitLabMetadataMemberPicker: View {
             model.toggleReviewer(member)
         }
     }
+}
+
+private func memberChoiceRow(
+    member: GitLabProjectMember,
+    isSelected: Bool,
+    action: @escaping () -> Void
+) -> some View {
+    Button(action: action) {
+        HStack(spacing: 12) {
+            GitLabUserAvatar(
+                user: GitLabUserSummary(
+                    id: member.id,
+                    username: member.username,
+                    name: member.name,
+                    avatarURL: member.avatarURL
+                ),
+                size: 34
+            )
+            VStack(
+                alignment: .leading,
+                spacing: 2
+            ) {
+                Text(member.name)
+                    .foregroundStyle(.primary)
+                Text("@\(member.username)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            if isSelected {
+                Image(
+                    systemName:
+                        "checkmark.circle.fill"
+                )
+                .foregroundStyle(.orange)
+            }
+        }
+        .contentShape(.rect)
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(
+        "\(member.name), @\(member.username)"
+    )
+    .accessibilityValue(
+        isSelected
+            ? "Selected"
+            : "Not selected"
+    )
 }
 
 private func choiceRow(
