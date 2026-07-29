@@ -518,10 +518,10 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect the existing approval summary loader and readiness derivation,
+- [x] Inspect the existing approval summary loader and readiness derivation,
   decoded `approved_by` users, MR reviewers, current-user identity, head SHA,
   GraphQL usage, detail refresh, and mutation delivery certainty.
-- [ ] Before writing production code, create
+- [x] Before writing production code, create
   `docs/P3_08_ENGINEERING_PLAN.md`. Document `/approvals`,
   `/approval_state`, approve/unapprove, MR-level approval-rule read/create/
   update contracts, Free versus Premium/Ultimate behavior, rule membership
