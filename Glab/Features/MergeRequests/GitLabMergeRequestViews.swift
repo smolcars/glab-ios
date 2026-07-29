@@ -1676,6 +1676,8 @@ private struct GitLabMergeRequestDetailContent: View {
 
     private var bottomControls: some View {
         HStack {
+            Spacer(minLength: 0)
+
             if
                 let headSHA =
                     mergeRequest
@@ -1719,8 +1721,6 @@ private struct GitLabMergeRequestDetailContent: View {
                     "mergeRequests.changes.preparing"
                 )
             }
-
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
