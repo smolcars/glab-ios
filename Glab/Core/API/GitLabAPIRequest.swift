@@ -159,6 +159,26 @@ nonisolated struct GitLabAPIRequest<Response>: Sendable where Response: Decodabl
     }
 }
 
+nonisolated struct GitLabRawAPIRequest:
+    Equatable,
+    Sendable
+{
+    let requiredAccess: GitLabAPIRequestAccess
+    let pathComponents: [String]
+    let queryItems: [URLQueryItem]
+
+    static func get(
+        path: [String],
+        query: [URLQueryItem] = []
+    ) -> Self {
+        Self(
+            requiredAccess: .read,
+            pathComponents: path,
+            queryItems: query
+        )
+    }
+}
+
 nonisolated enum GitLabAPIPageRequest<Response>: Sendable
 where Response: Decodable & Sendable {
     case initial(GitLabAPIRequest<Response>)
@@ -256,6 +276,31 @@ nonisolated struct GitLabRequestBuilder: Sendable, CustomStringConvertible, Cust
         }
 
         authorization.apply(to: &request)
+        return request
+    }
+
+    func build(
+        _ endpoint: GitLabRawAPIRequest
+    ) throws(GitLabRequestConstructionError)
+        -> URLRequest
+    {
+        let jsonRequest =
+            GitLabAPIRequest<
+                GitLabEmptyResponse
+            >
+            .get(
+                requires:
+                    endpoint.requiredAccess,
+                path:
+                    endpoint.pathComponents,
+                query:
+                    endpoint.queryItems
+            )
+        var request = try build(jsonRequest)
+        request.setValue(
+            "text/plain, application/octet-stream, */*",
+            forHTTPHeaderField: "Accept"
+        )
         return request
     }
 
