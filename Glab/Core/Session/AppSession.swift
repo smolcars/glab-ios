@@ -63,6 +63,8 @@ final class AppSession {
         any GitLabDiscussionDraftStoring
     let resourceEditDraftStore:
         any GitLabResourceEditDraftStoring
+    let issueCreationDraftStore:
+        any GitLabIssueCreationDraftStoring
 
     private let accountIndexStore:
         any GitLabAccountIndexStoring
@@ -90,6 +92,9 @@ final class AppSession {
         resourceEditDraftStore:
             any GitLabResourceEditDraftStoring =
                 InMemoryGitLabResourceEditDraftStore(),
+        issueCreationDraftStore:
+            any GitLabIssueCreationDraftStoring =
+                InMemoryGitLabIssueCreationDraftStore(),
         currentDate: @escaping () -> Date = Date.init
     ) {
         self.credentialStore = credentialStore
@@ -99,6 +104,8 @@ final class AppSession {
             discussionDraftStore
         self.resourceEditDraftStore =
             resourceEditDraftStore
+        self.issueCreationDraftStore =
+            issueCreationDraftStore
         self.currentDate = currentDate
     }
 
@@ -342,6 +349,8 @@ final class AppSession {
                 await discussionDraftStore
                     .removeAll(for: accountID)
                 await resourceEditDraftStore
+                    .removeAll(for: accountID)
+                await issueCreationDraftStore
                     .removeAll(for: accountID)
             }
         }

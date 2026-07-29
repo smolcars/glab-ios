@@ -153,6 +153,14 @@ struct AppSessionTests {
             for: storedSession
         )
         let editDraft = makeEditDraft()
+        let issueCreationDraftStore =
+            InMemoryGitLabIssueCreationDraftStore()
+        let issueCreationDraftKey =
+            issueCreationDraftKey(
+                for: storedSession
+            )
+        let issueCreationDraft =
+            makeIssueCreationDraft()
         try await draftStore.store(
             GitLabDiscussionDraft(
                 body: "Unfinished comment",
@@ -163,6 +171,10 @@ struct AppSessionTests {
         try await editDraftStore.store(
             editDraft,
             for: editDraftKey
+        )
+        try await issueCreationDraftStore.store(
+            issueCreationDraft,
+            for: issueCreationDraftKey
         )
         let cache = InMemoryGitLabResponseCache()
         let cacheKey = try makeCacheKey(for: storedSession)
@@ -179,7 +191,9 @@ struct AppSessionTests {
             discussionDraftStore:
                 draftStore,
             resourceEditDraftStore:
-                editDraftStore
+                editDraftStore,
+            issueCreationDraftStore:
+                issueCreationDraftStore
         )
         await appSession.restore()
 
@@ -203,6 +217,13 @@ struct AppSessionTests {
                 for: editDraftKey
             ) == nil
         )
+        #expect(
+            await issueCreationDraftStore
+                .draft(
+                    for:
+                        issueCreationDraftKey
+                ) == nil
+        )
     }
 
     @Test("A rejected API session clears stored and in-memory user data")
@@ -220,6 +241,14 @@ struct AppSessionTests {
             for: storedSession
         )
         let editDraft = makeEditDraft()
+        let issueCreationDraftStore =
+            InMemoryGitLabIssueCreationDraftStore()
+        let issueCreationDraftKey =
+            issueCreationDraftKey(
+                for: storedSession
+            )
+        let issueCreationDraft =
+            makeIssueCreationDraft()
         let draft = GitLabDiscussionDraft(
             body: "Recover after signing in again",
             revision: 1
@@ -231,6 +260,10 @@ struct AppSessionTests {
         try await editDraftStore.store(
             editDraft,
             for: editDraftKey
+        )
+        try await issueCreationDraftStore.store(
+            issueCreationDraft,
+            for: issueCreationDraftKey
         )
         let cache = InMemoryGitLabResponseCache()
         let cacheKey = try makeCacheKey(for: storedSession)
@@ -247,7 +280,9 @@ struct AppSessionTests {
             discussionDraftStore:
                 draftStore,
             resourceEditDraftStore:
-                editDraftStore
+                editDraftStore,
+            issueCreationDraftStore:
+                issueCreationDraftStore
         )
         await appSession.restore()
 
@@ -275,6 +310,13 @@ struct AppSessionTests {
             await editDraftStore.draft(
                 for: editDraftKey
             ) == editDraft
+        )
+        #expect(
+            await issueCreationDraftStore
+                .draft(
+                    for:
+                        issueCreationDraftKey
+                ) == issueCreationDraft
         )
     }
 
@@ -521,6 +563,36 @@ private extension AppSessionTests {
                 ),
             title: "Edited",
             description: "Changed",
+            revision: 1
+        )
+    }
+
+    nonisolated func issueCreationDraftKey(
+        for session: GitLabStoredSession
+    ) -> GitLabIssueCreationDraftKey {
+        GitLabIssueCreationDraftKey(
+            accountID:
+                GitLabAccountID(
+                    session: session
+                )
+        )
+    }
+
+    nonisolated func makeIssueCreationDraft()
+        -> GitLabIssueCreationDraft
+    {
+        GitLabIssueCreationDraft(
+            selectedProject:
+                GitLabIssueCreationProjectSelection(
+                    id: 42,
+                    name: "Project",
+                    nameWithNamespace:
+                        "Group / Project",
+                    pathWithNamespace:
+                        "group/project"
+                ),
+            title: "Unfinished issue",
+            description: "# Draft",
             revision: 1
         )
     }

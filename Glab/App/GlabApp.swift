@@ -10,7 +10,9 @@ struct GlabApp: App {
         discussionDraftStore:
             FileGitLabDiscussionDraftStore(),
         resourceEditDraftStore:
-            FileGitLabResourceEditDraftStore()
+            FileGitLabResourceEditDraftStore(),
+        issueCreationDraftStore:
+            FileGitLabIssueCreationDraftStore()
     )
     @State private var incomingLinkModel =
         GitLabIncomingLinkModel()
