@@ -15,3 +15,23 @@ nonisolated struct URLSessionGitLabHTTPTransport: GitLabHTTPTransport {
         try await session.data(for: request)
     }
 }
+
+extension URLSessionGitLabHTTPTransport:
+    GitLabHTTPFileDownloading
+{
+    func download(
+        for request: URLRequest,
+        maximumByteCount: Int,
+        temporaryDirectory: URL
+    ) async throws -> GitLabHTTPDownloadedFile {
+        try await
+            URLSessionGitLabHTTPFileDownloader()
+            .download(
+                for: request,
+                maximumByteCount:
+                    maximumByteCount,
+                temporaryDirectory:
+                    temporaryDirectory
+            )
+    }
+}
