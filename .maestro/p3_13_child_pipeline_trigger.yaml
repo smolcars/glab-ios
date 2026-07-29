@@ -1,0 +1,60 @@
+appId: com.glab.ios
+name: P3-13 child pipeline trigger
+---
+- launchApp:
+    clearState: true
+    arguments:
+      p3_09_pipeline_fixture: p3_09_pipeline_fixture
+- tapOn:
+    id: pipelines.history.row.501
+- extendedWaitUntil:
+    visible:
+      id: pipelines.detail.list
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: pipelines.detail.stage.deploy
+    direction: DOWN
+- tapOn:
+    id: pipelines.detail.stage.deploy
+- scrollUntilVisible:
+    element:
+      id: pipelines.detail.triggerJob.903.action.playTriggerJob
+    direction: DOWN
+- assertVisible:
+    id: pipelines.detail.triggerJob.903.action.playTriggerJob
+- takeScreenshot: p3-13-child-trigger-expanded
+- tapOn:
+    id: pipelines.detail.triggerJob.903.action.playTriggerJob
+- assertVisible: Run child pipeline?
+- assertVisible: Run child pipeline
+- tapOn: Cancel
+- tapOn:
+    id: pipelines.detail.stage.deploy
+- assertNotVisible:
+    id: pipelines.detail.triggerJob.903.action.playTriggerJob
+- takeScreenshot: p3-13-child-trigger-collapsed
+- tapOn:
+    id: pipelines.detail.stage.deploy
+- tapOn:
+    id: pipelines.detail.triggerJob.904
+- extendedWaitUntil:
+    visible: "Pipeline #12"
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: pipelines.detail.stage.release
+    direction: DOWN
+- tapOn:
+    id: pipelines.detail.stage.release
+- scrollUntilVisible:
+    element:
+      id: pipelines.detail.triggerJob.1002.action.playTriggerJob
+    direction: DOWN
+- assertVisible:
+    id: pipelines.detail.triggerJob.1002.action.playTriggerJob
+- takeScreenshot: p3-13-nested-child-trigger
+- tapOn:
+    id: pipelines.detail.triggerJob.1002.action.playTriggerJob
+- assertVisible: Run child pipeline?
+- tapOn: Cancel

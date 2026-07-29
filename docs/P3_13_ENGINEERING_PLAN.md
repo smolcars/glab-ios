@@ -5,9 +5,9 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Implementation: pending
-- Simulator verification: pending
-- Deep review: pending
+- Implementation: complete
+- Simulator verification: initial focused flow complete
+- Deep review: repair in progress
 - Final quality gates: pending
 
 Research date: July 29, 2026.
@@ -334,6 +334,65 @@ Record every material finding in this document. If anything is found, write a
 repair plan before editing, add a regression test, fix it, rerun the focused
 and final verification gates, and repeat the deep review until no material
 finding remains.
+
+## Deep Review Findings and Repair Plan
+
+Review started July 29, 2026.
+
+### DR-01 — Stale trigger confirmation did not refresh
+
+Finding:
+
+- Confirmation correctly rechecked the current bridge status and sent no POST
+  after the bridge changed from `manual`.
+- The stale path returned immediately without the authoritative refresh
+  promised by this plan. A cached manual row and its Play affordance could
+  therefore remain visible until another refresh or poll.
+
+Repair plan:
+
+1. Extend the stale-trigger regression to require one refresh and zero sends.
+2. Refresh after stale confirmation rejection while the same account remains
+   current.
+3. Rerun the focused action-model suite and confirm ordinary stale behavior
+   remains single-flight.
+
+Repair result:
+
+- The stale branch now performs one refresh before showing the stale failure
+  and publishes nothing if the account changed during that refresh.
+- Focused action-model tests prove one refresh and zero sends for stale
+  pipeline and trigger confirmations.
+
+Status: repaired and verified.
+
+### DR-02 — Nested manual-trigger behavior lacked UI proof
+
+Finding:
+
+- Native child navigation is recursive because every downstream route opens
+  the same pipeline detail view.
+- The deterministic fixture proved opening one child pipeline, but that child
+  had no manual trigger of its own. The required nested Play affordance and
+  confirmation were therefore not exercised.
+
+Repair plan:
+
+1. Add a manual trigger bridge to the fixture child pipeline.
+2. Extend the single focused P3-13 simulator flow to open the child and verify
+   its manual trigger Play control and confirmation.
+3. Inspect the resulting nested screen rather than running the full UI suite.
+
+Repair result:
+
+- Pipeline `#601` in the deterministic fixture now contains its own manual
+  trigger bridge.
+- The focused simulator flow opens the first child, expands its nested stage,
+  verifies the compact Play control, opens the confirmation, and cancels it.
+- Dark, light, and accessibility Dynamic Type inspections keep the stage
+  disclosure and child Play affordance visible.
+
+Status: repaired and verified.
 
 ## Success Criteria
 

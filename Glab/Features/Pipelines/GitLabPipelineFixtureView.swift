@@ -205,10 +205,16 @@
             guard route.projectID == 42 else {
                 throw .api(.notFound)
             }
-            let jobs =
-                route.pipelineID == 501
-                ? Self.triggerJobs
-                : []
+            let jobs:
+                [GitLabPipelineTriggerJob] =
+                switch route.pipelineID {
+                case 501:
+                    Self.triggerJobs
+                case 601:
+                    Self.childTriggerJobs
+                default:
+                    []
+                }
             return GitLabPipelineTriggerJobsPage(
                 page:
                     GitLabResourcePage(
@@ -423,6 +429,31 @@
                       "status": "success",
                       "web_url": "https://gitlab.example.com/group/project/-/pipelines/601"
                     }
+                  },
+                  {
+                    "id": 903,
+                    "name": "optional production deployment",
+                    "stage": "deploy",
+                    "status": "manual",
+                    "allow_failure": true,
+                    "pipeline": {"id": 501, "project_id": 42}
+                  }
+                ]
+                """
+            )
+
+        private static let childTriggerJobs:
+            [GitLabPipelineTriggerJob] =
+            decode(
+                """
+                [
+                  {
+                    "id": 1002,
+                    "name": "optional App Store deployment",
+                    "stage": "release",
+                    "status": "manual",
+                    "allow_failure": true,
+                    "pipeline": {"id": 601, "project_id": 42}
                   }
                 ]
                 """

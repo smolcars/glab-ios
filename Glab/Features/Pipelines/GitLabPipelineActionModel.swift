@@ -468,6 +468,10 @@ final class GitLabPipelineActionModel {
                 pendingConfirmation
             )
         else {
+            await refresh()
+            guard isAccountCurrent() else {
+                return
+            }
             failure = .stale
             return
         }

@@ -129,6 +129,7 @@ struct GitLabPipelineActionModelTests {
         #expect(
             await fixture.service.actions.isEmpty
         )
+        #expect(fixture.state.refreshCount == 1)
     }
 
     @Test("Confirmation rejects a stale status without sending")
@@ -151,6 +152,7 @@ struct GitLabPipelineActionModelTests {
             await fixture.service.actions
                 .isEmpty
         )
+        #expect(fixture.state.refreshCount == 1)
     }
 
     @Test("Confirmed pipeline retry reconciles and refreshes once")
