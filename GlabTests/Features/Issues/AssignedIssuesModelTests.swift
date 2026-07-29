@@ -95,6 +95,46 @@ struct AssignedIssuesModelTests {
         #expect(await loader.pageRequestURLs == [nil])
     }
 
+    @Test("Reconciliation removes closed or unassigned issues")
+    func removesIneligibleIssue() async {
+        let issue = makeTestIssue(
+            assignees: [
+                makeTestIssueUser(id: 2),
+            ]
+        )
+        let loader = StubIssueLoader(
+            pageResults: [
+                .success(
+                    GitLabIssuePage(
+                        issues: [issue],
+                        nextPageURL: nil
+                    )
+                ),
+            ]
+        )
+        let model =
+            AssignedIssuesModel(
+                loader: loader
+            )
+        await model.loadIfNeeded()
+
+        let removed =
+            model.reconcileAssignedIssue(
+                makeTestIssue(
+                    state: "closed",
+                    assignees: [
+                        makeTestIssueUser(
+                            id: 2
+                        ),
+                    ]
+                ),
+                currentUserID: 2
+            )
+
+        #expect(removed)
+        #expect(model.issues.isEmpty)
+    }
+
     @Test("Filters loaded rows locally")
     func filtersLoadedRows() async {
         let paginationIssue = makeTestIssue(

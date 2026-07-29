@@ -290,6 +290,36 @@ where
         return true
     }
 
+    @discardableResult
+    func removeItemIfPresent(
+        _ item: Item
+    ) -> Bool {
+        let itemIdentity = identity(item)
+        guard
+            let index = items.firstIndex(
+                where: {
+                    identity($0)
+                        == itemIdentity
+                }
+            )
+        else {
+            return false
+        }
+
+        items.remove(at: index)
+        reconciledTailItems.removeAll {
+            identity($0) == itemIdentity
+        }
+        if let totalItemCount {
+            self.totalItemCount = max(
+                0,
+                totalItemCount - 1
+            )
+        }
+        contentRevision += 1
+        return true
+    }
+
     private func replaceItems(
         showsInitialLoading: Bool,
         refreshBehavior: GitLabCacheRefreshBehavior

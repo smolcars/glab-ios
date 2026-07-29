@@ -75,6 +75,75 @@ struct MergeRequestsModelTests {
         )
     }
 
+    @Test("Reconciliation removes merge requests outside the active query")
+    func removesIneligibleMergeRequest()
+        async
+    {
+        let currentUser =
+            makeTestAPIUser(id: 2)
+        let mergeRequest =
+            makeTestMergeRequest(
+                assignees: [currentUser],
+                reviewers: [currentUser]
+            )
+        let assignedLoader =
+            StubMergeRequestLoader(
+                pageResults: [
+                    .success(
+                        GitLabMergeRequestPage(
+                            mergeRequests: [
+                                mergeRequest,
+                            ],
+                            nextPageURL: nil
+                        )
+                    ),
+                ]
+            )
+        let reviewLoader =
+            StubMergeRequestLoader(
+                pageResults: [
+                    .success(
+                        GitLabMergeRequestPage(
+                            mergeRequests: [
+                                mergeRequest,
+                            ],
+                            nextPageURL: nil
+                        )
+                    ),
+                ]
+            )
+        let assigned =
+            MergeRequestsModel(
+                mode: .assigned,
+                loader: assignedLoader
+            )
+        let review =
+            MergeRequestsModel(
+                mode: .reviewRequested,
+                loader: reviewLoader
+            )
+        await assigned.loadIfNeeded()
+        await review.loadIfNeeded()
+
+        let updated =
+            makeTestMergeRequest()
+        _ = assigned.reconcileMergeRequest(
+            updated,
+            mode: .assigned,
+            currentUserID: 2
+        )
+        _ = review.reconcileMergeRequest(
+            updated,
+            mode: .reviewRequested,
+            currentUserID: 2
+        )
+
+        #expect(
+            assigned.mergeRequests.isEmpty
+        )
+        #expect(review.mergeRequests.isEmpty)
+    }
+
     @Test("Filters loaded rows locally")
     func filtersLoadedRows() async {
         let pagination = makeTestMergeRequest(

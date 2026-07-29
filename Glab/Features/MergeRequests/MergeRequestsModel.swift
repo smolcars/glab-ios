@@ -80,4 +80,45 @@ where
     var displayedMergeRequests: [GitLabMergeRequest] {
         displayedItems
     }
+
+    @discardableResult
+    func reconcileMergeRequest(
+        _ mergeRequest: GitLabMergeRequest,
+        mode: GitLabMergeRequestListMode,
+        currentUserID: Int
+    ) -> Bool {
+        if mergeRequest.isOpenWork(
+            for: mode,
+            userID: currentUserID
+        ) {
+            return reconcileItemIfPresent(
+                mergeRequest
+            )
+        }
+        return removeItemIfPresent(
+            mergeRequest
+        )
+    }
+}
+
+extension GitLabMergeRequest {
+    func isOpenWork(
+        for mode:
+            GitLabMergeRequestListMode,
+        userID: Int
+    ) -> Bool {
+        guard stateKind == .opened else {
+            return false
+        }
+        switch mode {
+        case .assigned:
+            return assignees.contains {
+                $0.id == userID
+            }
+        case .reviewRequested:
+            return reviewers.contains {
+                $0.id == userID
+            }
+        }
+    }
 }

@@ -108,8 +108,12 @@ struct MergeRequestsView: View {
                             ) = result
                         {
                             _ = model
-                                .reconcileItemIfPresent(
-                                    mergeRequest
+                                .reconcileMergeRequest(
+                                    mergeRequest,
+                                    mode: mode,
+                                    currentUserID:
+                                        accountID
+                                        .userID
                                 )
                         }
                         onResourceEdited(result)

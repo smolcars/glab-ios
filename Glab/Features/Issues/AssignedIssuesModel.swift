@@ -67,4 +67,30 @@ where
     var displayedIssues: [GitLabIssue] {
         displayedItems
     }
+
+    @discardableResult
+    func reconcileAssignedIssue(
+        _ issue: GitLabIssue,
+        currentUserID: Int
+    ) -> Bool {
+        if issue.isAssignedOpenWork(
+            for: currentUserID
+        ) {
+            return reconcileItemIfPresent(
+                issue
+            )
+        }
+        return removeItemIfPresent(issue)
+    }
+}
+
+extension GitLabIssue {
+    func isAssignedOpenWork(
+        for userID: Int
+    ) -> Bool {
+        stateKind == .opened
+            && assignees.contains {
+                $0.id == userID
+            }
+    }
 }

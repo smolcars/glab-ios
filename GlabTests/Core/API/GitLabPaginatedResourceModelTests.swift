@@ -421,6 +421,45 @@ struct GitLabPaginatedResourceModelTests {
         #expect(model.loadError == nil)
         #expect(!model.isLoadingNextPage)
     }
+
+    @Test("Removing a reconciled item updates count and revision once")
+    @MainActor
+    func removesItemIfPresent() async {
+        let model =
+            GitLabPaginatedResourceModel<
+                Int,
+                Int
+            >(
+                loadPage: { _ in
+                    GitLabResourcePage(
+                        items: [1, 2],
+                        nextPageURL: nil,
+                        totalCount: 2
+                    )
+                },
+                identity: { $0 },
+                searchValues: {
+                    ["\($0)"]
+                }
+            )
+        await model.loadIfNeeded()
+        let revision =
+            model.contentRevision
+
+        let removed =
+            model.removeItemIfPresent(1)
+        let repeated =
+            model.removeItemIfPresent(1)
+
+        #expect(removed)
+        #expect(!repeated)
+        #expect(model.items == [2])
+        #expect(model.totalItemCount == 1)
+        #expect(
+            model.contentRevision
+                == revision + 1
+        )
+    }
 }
 
 private actor AllPagesLoader {

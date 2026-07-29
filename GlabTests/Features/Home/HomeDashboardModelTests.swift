@@ -301,16 +301,25 @@ struct HomeDashboardModelTests {
                 makeTestIssue(
                     title: "Edited issue"
                 )
-            )
+            ),
+            currentUserID: 2
         )
         model.reconcileEditedResource(
             .mergeRequest(
                 makeTestMergeRequest(
                     id: 201,
                     iid: 8,
-                    title: "Edited merge request"
+                    title:
+                        "Edited merge request",
+                    assignees: [
+                        makeTestAPIUser(id: 2),
+                    ],
+                    reviewers: [
+                        makeTestAPIUser(id: 2),
+                    ]
                 )
-            )
+            ),
+            currentUserID: 2
         )
         model.reconcileEditedResource(
             .issue(
@@ -319,7 +328,8 @@ struct HomeDashboardModelTests {
                     iid: 99,
                     title: "Missing issue"
                 )
-            )
+            ),
+            currentUserID: 2
         )
 
         #expect(
@@ -336,6 +346,107 @@ struct HomeDashboardModelTests {
         )
         #expect(
             model.state(for: .recentProjects) == .loaded([])
+        )
+    }
+
+    @Test("Removes previews that no longer match their Home query")
+    @MainActor
+    func removesIneligiblePreviews() async {
+        let issueItem = workItem(
+            id: "issue:42:7",
+            title: "Issue"
+        )
+        let mergeRequestItem = workItem(
+            id: "merge-request:42:8",
+            title: "Merge request"
+        )
+        let model = HomeDashboardModel(
+            loader: QueueDashboardLoader(
+                outcomes: [
+                    .success(
+                        loadResult(
+                            successes:
+                                allEmptySections(
+                                    replacing: [
+                                        .assignedIssues: [
+                                            issueItem,
+                                        ],
+                                        .assignedMergeRequests: [
+                                            mergeRequestItem,
+                                        ],
+                                        .reviewRequests: [
+                                            mergeRequestItem,
+                                        ],
+                                    ]
+                                )
+                        )
+                    ),
+                ]
+            )
+        )
+        await model.loadIfNeeded()
+
+        let removedIssue =
+            model.reconcileEditedResource(
+                .issue(
+                    makeTestIssue(
+                        state: "closed"
+                    )
+                ),
+                currentUserID: 2
+            )
+        let removedAssignedMR =
+            model.reconcileEditedResource(
+                .mergeRequest(
+                    makeTestMergeRequest(
+                        id: 201,
+                        iid: 8,
+                        reviewers: [
+                            makeTestAPIUser(
+                                id: 2
+                            ),
+                        ]
+                    )
+                ),
+                currentUserID: 2
+            )
+
+        #expect(removedIssue)
+        #expect(removedAssignedMR)
+        #expect(
+            model.state(
+                for: .assignedIssues
+            ) == .loaded([])
+        )
+        #expect(
+            model.state(
+                for:
+                    .assignedMergeRequests
+            ) == .loaded([])
+        )
+        #expect(
+            model.presentation(
+                for: .reviewRequests
+            ).subtitle
+                == "Review pagination"
+        )
+
+        let removedReview =
+            model.reconcileEditedResource(
+                .mergeRequest(
+                    makeTestMergeRequest(
+                        id: 201,
+                        iid: 8
+                    )
+                ),
+                currentUserID: 2
+            )
+
+        #expect(removedReview)
+        #expect(
+            model.state(
+                for: .reviewRequests
+            ) == .loaded([])
         )
     }
 }

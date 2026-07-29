@@ -101,12 +101,14 @@ final class HomeDashboardModel {
         await load(isInitial: false)
     }
 
+    @discardableResult
     func reconcileEditedResource(
-        _ result: GitLabResourceEditResult
-    ) {
+        _ result: GitLabResourceEditResult,
+        currentUserID: Int
+    ) -> Bool {
         switch result {
         case let .issue(issue):
-            reconcileLoadedPreview(
+            return reconcileLoadedPreview(
                 GitLabHomeWorkItem(
                     id:
                         "issue:\(issue.projectID):\(issue.iid)",
@@ -114,24 +116,78 @@ final class HomeDashboardModel {
                     detail: issue.references.full,
                     webURL: issue.webURL
                 ),
-                in: [.assignedIssues]
+                in: .assignedIssues,
+                remainsEligible:
+                    issue.isAssignedOpenWork(
+                        for: currentUserID
+                    )
             )
         case let .mergeRequest(mergeRequest):
-            reconcileLoadedPreview(
+            let item =
                 GitLabHomeWorkItem(
                     id:
                         "merge-request:\(mergeRequest.projectID):\(mergeRequest.iid)",
-                    title: mergeRequest.title,
+                    title:
+                        mergeRequest.title,
                     detail:
-                        mergeRequest.references.full,
-                    webURL: mergeRequest.webURL
-                ),
-                in: [
-                    .assignedMergeRequests,
-                    .reviewRequests,
-                ]
-            )
+                        mergeRequest
+                        .references.full,
+                    webURL:
+                        mergeRequest.webURL
+                )
+            let removedAssigned =
+                reconcileLoadedPreview(
+                    item,
+                    in:
+                        .assignedMergeRequests,
+                    remainsEligible:
+                        mergeRequest
+                        .isOpenWork(
+                            for: .assigned,
+                            userID:
+                                currentUserID
+                        )
+                )
+            let removedReview =
+                reconcileLoadedPreview(
+                    item,
+                    in: .reviewRequests,
+                    remainsEligible:
+                        mergeRequest
+                        .isOpenWork(
+                            for:
+                                .reviewRequested,
+                            userID:
+                                currentUserID
+                        )
+                )
+            return removedAssigned
+                || removedReview
         }
+    }
+
+    private func reconcileLoadedPreview(
+        _ item: GitLabHomeWorkItem,
+        in section: HomeDashboardSection,
+        remainsEligible: Bool
+    ) -> Bool {
+        guard
+            case var .loaded(items) =
+                sections[section],
+            let index = items.firstIndex(
+                where: { $0.id == item.id }
+            )
+        else {
+            return false
+        }
+
+        if remainsEligible {
+            items[index] = item
+        } else {
+            items.remove(at: index)
+        }
+        sections[section] = .loaded(items)
+        return !remainsEligible
     }
 
     private func load(isInitial: Bool) async {
@@ -216,23 +272,4 @@ final class HomeDashboardModel {
         return "\(content). Could not refresh; showing saved data."
     }
 
-    private func reconcileLoadedPreview(
-        _ item: GitLabHomeWorkItem,
-        in candidateSections: [HomeDashboardSection]
-    ) {
-        for section in candidateSections {
-            guard
-                case var .loaded(items) =
-                    sections[section],
-                let index = items.firstIndex(
-                    where: { $0.id == item.id }
-                )
-            else {
-                continue
-            }
-
-            items[index] = item
-            sections[section] = .loaded(items)
-        }
-    }
 }

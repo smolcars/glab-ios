@@ -413,8 +413,13 @@ struct SignedInShellView: View {
     private func reconcileEditedResource(
         _ result: GitLabResourceEditResult
     ) {
-        homeDashboardModel
-            .reconcileEditedResource(result)
+        let removedHomePreview =
+            homeDashboardModel
+                .reconcileEditedResource(
+                    result,
+                    currentUserID:
+                        accountID.userID
+                )
         todosModel
             .reconcileEditedResource(result)
         globalSearchModel
@@ -425,7 +430,18 @@ struct SignedInShellView: View {
 
         if case let .issue(issue) = result {
             _ = assignedIssuesModel
-                .reconcileItemIfPresent(issue)
+                .reconcileAssignedIssue(
+                    issue,
+                    currentUserID:
+                        accountID.userID
+                )
+        }
+
+        if removedHomePreview {
+            Task {
+                await homeDashboardModel
+                    .refresh()
+            }
         }
     }
 
