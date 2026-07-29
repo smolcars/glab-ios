@@ -1,0 +1,29 @@
+appId: com.glab.ios
+name: Pipeline waiting status
+---
+- launchApp:
+    clearState: true
+    arguments:
+      p3_09_pipeline_fixture: p3_09_pipeline_fixture
+- tapOn:
+    id: pipelines.history.row.501
+- extendedWaitUntil:
+    visible:
+      id: pipelines.detail.list
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: pipelines.detail.stage.release
+    direction: DOWN
+- assertVisible:
+    id: pipelines.detail.stage.release
+- tapOn:
+    id: pipelines.detail.stage.release
+- assertVisible:
+    id: pipelines.detail.triggerJob.902
+- assertVisible: "Child · Waiting for prerequisites"
+- takeScreenshot: pipeline-waiting-status
+- tapOn:
+    id: pipelines.detail.stage.release
+- assertNotVisible:
+    id: pipelines.detail.triggerJob.902

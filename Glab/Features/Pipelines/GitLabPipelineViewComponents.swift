@@ -327,7 +327,7 @@ extension GitLabPipelineStageRow {
         if case .triggerJob = content {
             values.append("Child")
         }
-        values.append(status.title)
+        values.append(status.jobTitle)
         if attempt != .only {
             values.append(attempt.title)
         }
@@ -345,7 +345,7 @@ extension GitLabPipelineStageRow {
     var accessibilityLabel: String {
         var values = [
             name,
-            status.title,
+            status.jobTitle,
         ]
         if case .triggerJob = content {
             values.append("Child pipeline")
@@ -394,7 +394,7 @@ extension GitLabCIStatus {
     var systemImage: String {
         switch rawValue {
         case "created":
-            "circle.dotted"
+            "hourglass"
         case "waiting_for_resource",
              "waiting_for_callback":
             "hourglass"

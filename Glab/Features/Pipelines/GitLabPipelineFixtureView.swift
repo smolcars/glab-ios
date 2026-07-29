@@ -437,6 +437,13 @@
                     "status": "manual",
                     "allow_failure": true,
                     "pipeline": {"id": 501, "project_id": 42}
+                  },
+                  {
+                    "id": 902,
+                    "name": "apply x1",
+                    "stage": "release",
+                    "status": "created",
+                    "pipeline": {"id": 501, "project_id": 42}
                   }
                 ]
                 """

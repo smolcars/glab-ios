@@ -345,7 +345,7 @@ struct GitLabJobTraceView: View {
             )
 
             Text(
-                model.context.status.title
+                model.context.status.jobTitle
             )
             .foregroundStyle(
                 model.context.status.tint

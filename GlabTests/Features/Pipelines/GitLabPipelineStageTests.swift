@@ -77,8 +77,8 @@ struct GitLabPipelineStageTests {
                 )
             ] == 1
         )
-        #expect(stages[0].hasActivelyChangingRows)
-        #expect(stages[1].hasActivelyChangingRows)
+        #expect(stages[0].hasAnimatingRows)
+        #expect(stages[1].hasWaitingRows)
     }
 
     @Test("Keeps unknown and manual states visible")
@@ -116,11 +116,54 @@ struct GitLabPipelineStageTests {
                         .isActivelyChanging
                 }
         )
-        let hasActiveStage =
-            stages.contains {
-                $0.hasActivelyChangingRows
+        #expect(
+            stages.allSatisfy {
+                !$0.hasAnimatingRows
+                    && !$0.hasWaitingRows
             }
-        #expect(!hasActiveStage)
+        )
+    }
+
+    @Test("Separates waiting stages from executing stages")
+    func classifiesStageActivity() async throws {
+        let stages =
+            await GitLabPipelineStageProjector
+                .project(
+                    jobs: try [
+                        job(
+                            id: 1,
+                            name: "apply",
+                            stage: "deploy",
+                            status: "created"
+                        ),
+                        job(
+                            id: 2,
+                            name: "release",
+                            stage: "deploy",
+                            status: "pending"
+                        ),
+                        job(
+                            id: 3,
+                            name: "tests",
+                            stage: "verify",
+                            status: "running"
+                        ),
+                    ],
+                    triggerJobs: []
+                )
+
+        #expect(stages[0].hasWaitingRows)
+        #expect(!stages[0].hasAnimatingRows)
+        #expect(
+            stages[0].rows[0].metadataSummary
+                == "Waiting for prerequisites"
+        )
+        #expect(
+            stages[0].rows[1].metadataSummary
+                == "Waiting for runner"
+        )
+        #expect(!stages[1].hasWaitingRows)
+        #expect(stages[1].hasAnimatingRows)
     }
 
     @Test("Projects 5,000 rows within a generous budget")

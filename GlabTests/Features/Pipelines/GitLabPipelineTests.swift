@@ -58,6 +58,73 @@ struct GitLabPipelineTests {
     }
 
     @Test(
+        "Distinguishes waiting jobs from animated activity",
+        arguments: [
+            (
+                "created",
+                "Waiting for prerequisites",
+                false,
+                true
+            ),
+            (
+                "waiting_for_resource",
+                "Waiting for resource",
+                false,
+                true
+            ),
+            (
+                "waiting_for_callback",
+                "Waiting for callback",
+                false,
+                true
+            ),
+            (
+                "pending",
+                "Waiting for runner",
+                false,
+                true
+            ),
+            (
+                "scheduled",
+                "Scheduled",
+                false,
+                true
+            ),
+            ("preparing", "Preparing", true, false),
+            ("running", "Running", true, false),
+            ("canceling", "Canceling", true, false),
+            ("manual", "Manual", false, false),
+            ("success", "Passed", false, false),
+            (
+                "future_pipeline_state",
+                "Unknown",
+                false,
+                false
+            ),
+        ]
+    )
+    func mapsJobPresentation(
+        rawValue: String,
+        jobTitle: String,
+        showsActivityAnimation: Bool,
+        showsWaitingIndicator: Bool
+    ) {
+        let status = GitLabCIStatus(
+            rawValue: rawValue
+        )
+
+        #expect(status.jobTitle == jobTitle)
+        #expect(
+            status.showsActivityAnimation
+                == showsActivityAnimation
+        )
+        #expect(
+            status.showsWaitingIndicator
+                == showsWaitingIndicator
+        )
+    }
+
+    @Test(
         "Maps every CI state to a nonempty status icon",
         arguments: [
             "created",

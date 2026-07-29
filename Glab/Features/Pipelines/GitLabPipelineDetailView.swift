@@ -498,12 +498,24 @@ struct GitLabPipelineDetailView: View {
 
                     Spacer()
 
-                    if stage
-                        .hasActivelyChangingRows
-                    {
+                    if stage.hasAnimatingRows {
                         ProgressView()
                             .controlSize(.mini)
                             .accessibilityHidden(true)
+                    } else if stage
+                        .hasWaitingRows
+                    {
+                        Image(
+                            systemName: "hourglass"
+                        )
+                        .font(
+                            .caption.weight(
+                                .semibold
+                            )
+                        )
+                        .foregroundStyle(.blue)
+                        .frame(width: 20)
+                        .accessibilityHidden(true)
                     }
 
                     Image(
@@ -534,10 +546,9 @@ struct GitLabPipelineDetailView: View {
                 "\(stage.name), \(stage.rows.count) jobs"
             )
             .accessibilityValue(
-                expandedStageIDs
-                    .contains(stage.id)
-                ? "Expanded"
-                : "Collapsed"
+                stageAccessibilityValue(
+                    stage
+                )
             )
             .accessibilityHint(
                 expandedStageIDs
@@ -549,6 +560,23 @@ struct GitLabPipelineDetailView: View {
                 "pipelines.detail.stage.\(stage.id)"
             )
         }
+    }
+
+    private func stageAccessibilityValue(
+        _ stage: GitLabPipelineStage
+    ) -> String {
+        var values = [
+            expandedStageIDs
+                .contains(stage.id)
+                ? "Expanded"
+                : "Collapsed"
+        ]
+        if stage.hasAnimatingRows {
+            values.append("In progress")
+        } else if stage.hasWaitingRows {
+            values.append("Waiting")
+        }
+        return values.joined(separator: ", ")
     }
 
     @ViewBuilder

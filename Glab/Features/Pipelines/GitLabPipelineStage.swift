@@ -58,9 +58,17 @@ nonisolated struct GitLabPipelineStage:
         }
     }
 
-    var hasActivelyChangingRows: Bool {
+    var hasAnimatingRows: Bool {
         rows.contains {
-            $0.status.isActivelyChanging
+            $0.status
+                .showsActivityAnimation
+        }
+    }
+
+    var hasWaitingRows: Bool {
+        rows.contains {
+            $0.status
+                .showsWaitingIndicator
         }
     }
 }

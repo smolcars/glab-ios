@@ -127,6 +127,43 @@ nonisolated struct GitLabCIStatus:
         }
     }
 
+    var jobTitle: String {
+        switch rawValue {
+        case "created":
+            "Waiting for prerequisites"
+        case "waiting_for_resource":
+            "Waiting for resource"
+        case "pending":
+            "Waiting for runner"
+        default:
+            title
+        }
+    }
+
+    var showsActivityAnimation: Bool {
+        switch rawValue {
+        case "preparing",
+             "running",
+             "canceling":
+            true
+        default:
+            false
+        }
+    }
+
+    var showsWaitingIndicator: Bool {
+        switch rawValue {
+        case "created",
+             "waiting_for_resource",
+             "waiting_for_callback",
+             "pending",
+             "scheduled":
+            true
+        default:
+            false
+        }
+    }
+
     var isActivelyChanging: Bool {
         switch rawValue {
         case "created",
