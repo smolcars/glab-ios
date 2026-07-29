@@ -462,10 +462,10 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect the existing GraphQL client and error envelope, issue REST
+- [x] Inspect the existing GraphQL client and error envelope, issue REST
   identity, host/version behavior, issue state presentation, account
   isolation, and P3-06 state mutation controls.
-- [ ] Before writing production code, create
+- [x] Before writing production code, create
   `docs/P3_07_ENGINEERING_PLAN.md`. Reconfirm the current official GraphQL
   schema and document work-item identity, status and allowed-status queries,
   update mutation, lifecycle categories, tier/version detection, permission
