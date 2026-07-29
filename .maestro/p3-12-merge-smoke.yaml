@@ -1,0 +1,56 @@
+appId: com.glab.ios
+name: P3-12 compact safe merge states
+---
+- launchApp:
+    arguments:
+      p3_12_merge_fixture: "true"
+      p3_12_merge_fixture_mode: immediate
+- assertVisible: Ready to merge
+- assertVisible:
+    id: mergeRequests.merge.action
+- tapOn:
+    id: mergeRequests.merge.action
+- assertVisible: Merge request?
+- assertVisible: ".*feature/safe-merge → main.*"
+- tapOn: Cancel
+
+- launchApp:
+    arguments:
+      p3_12_merge_fixture: "true"
+      p3_12_merge_fixture_mode: auto
+- assertVisible: Pipeline in progress
+- assertVisible:
+    id: mergeRequests.merge.action
+- tapOn:
+    id: mergeRequests.merge.action
+- assertVisible: Set auto-merge?
+- assertVisible: ".*feature/safe-merge → main.*"
+- tapOn: Cancel
+
+- launchApp:
+    arguments:
+      p3_12_merge_fixture: "true"
+      p3_12_merge_fixture_mode: blocked
+- assertVisible: Blocked by conflicts
+- assertNotVisible:
+    id: mergeRequests.merge.action
+- tapOn:
+    id: mergeRequests.readiness.overall
+- assertVisible: Conflicts
+
+- launchApp:
+    arguments:
+      p3_12_merge_fixture: "true"
+      p3_12_merge_fixture_mode: checking
+- assertVisible: GitLab is checking
+- assertNotVisible:
+    id: mergeRequests.merge.action
+
+- launchApp:
+    arguments:
+      p3_12_merge_fixture: "true"
+      p3_12_merge_fixture_mode: alreadyAutoMerging
+- assertVisible: Auto-merge enabled
+- assertVisible: Auto-merge is enabled
+- assertNotVisible:
+    id: mergeRequests.merge.action

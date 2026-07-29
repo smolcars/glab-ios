@@ -51,6 +51,10 @@ struct GlabApp: App {
                 usesP309PipelineFixture
             {
                 GitLabPipelineFixtureView()
+            } else if
+                usesP312MergeFixture
+            {
+                GitLabMergeRequestMergeFixtureView()
             } else {
                 AppRootView(
                     incomingLinkModel:
@@ -93,6 +97,21 @@ struct GlabApp: App {
             )
                 || arguments.contains(
                     "-p3_09_pipeline_fixture"
+                )
+        }
+
+        private var
+            usesP312MergeFixture:
+            Bool
+        {
+            let arguments =
+                ProcessInfo.processInfo
+                    .arguments
+            return arguments.contains(
+                "p3_12_merge_fixture"
+            )
+                || arguments.contains(
+                    "-p3_12_merge_fixture"
                 )
         }
     #endif

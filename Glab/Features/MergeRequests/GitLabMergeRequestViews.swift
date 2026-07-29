@@ -1121,49 +1121,9 @@ struct GitLabMergeRequestDetailView: View {
                     "This account has read-only API access. Sign in with OAuth or an API token with the api scope to post comments."
                 )
             }
-            .alert(
-                mergeConfirmationTitle,
-                isPresented:
-                    mergeConfirmationIsPresented
-            ) {
-                if let confirmation =
-                    mergeModel.confirmation
-                {
-                    Button(
-                        confirmation
-                            .action.title
-                    ) {
-                        Task {
-                            await mergeModel
-                                .confirm()
-                        }
-                    }
-                }
-                Button(
-                    "Cancel",
-                    role: .cancel
-                ) {
-                    mergeModel
-                        .dismissConfirmation()
-                }
-            } message: {
-                Text(mergeConfirmationMessage)
-            }
-            .alert(
-                "Couldn’t merge request",
-                isPresented:
-                    mergeFailureIsPresented
-            ) {
-                Button("OK", role: .cancel) {
-                    mergeModel.dismissFailure()
-                }
-            } message: {
-                Text(
-                    mergeModel.failure?
-                        .message
-                    ?? ""
-                )
-            }
+            .gitLabMergeRequestMergeAlerts(
+                model: mergeModel
+            )
     }
 
     @ViewBuilder
@@ -1554,65 +1514,6 @@ struct GitLabMergeRequestDetailView: View {
             set: {
                 if !$0 {
                     stateFailureMessage = nil
-                }
-            }
-        )
-    }
-
-    private var mergeConfirmationIsPresented:
-        Binding<Bool>
-    {
-        Binding(
-            get: {
-                mergeModel.confirmation != nil
-            },
-            set: {
-                if !$0 {
-                    mergeModel
-                        .dismissConfirmation()
-                }
-            }
-        )
-    }
-
-    private var mergeConfirmationTitle:
-        String
-    {
-        mergeModel.confirmation?
-            .action == .autoMerge
-            ? "Set auto-merge?"
-            : "Merge request?"
-    }
-
-    private var mergeConfirmationMessage:
-        String
-    {
-        guard
-            let confirmation =
-                mergeModel.confirmation
-        else {
-            return ""
-        }
-        let route =
-            "\(confirmation.sourceBranch) → \(confirmation.targetBranch)"
-        switch confirmation.action {
-        case .mergeNow:
-            return "Merge “\(confirmation.title)” from \(route)?"
-        case .autoMerge:
-            return "GitLab will merge “\(confirmation.title)” from \(route) after all checks pass and may use a merge train."
-        }
-    }
-
-    private var mergeFailureIsPresented:
-        Binding<Bool>
-    {
-        Binding(
-            get: {
-                mergeModel.failure != nil
-            },
-            set: {
-                if !$0 {
-                    mergeModel.dismissFailure()
                 }
             }
         )
