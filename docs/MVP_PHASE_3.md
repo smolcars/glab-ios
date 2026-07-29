@@ -637,10 +637,10 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect the JSON-oriented API client, raw HTTP transport, file response
+- [x] Inspect the JSON-oriented API client, raw HTTP transport, file response
   cache, diff parser and collection view, Markdown performance work,
   cancellation behavior, and Simulator performance fixtures.
-- [ ] Before writing production code, create
+- [x] Before writing production code, create
   `docs/P3_10_ENGINEERING_PLAN.md`. Document the raw trace endpoint and content
   type, transport boundary, temporary and persistent storage, cache identity
   and limits, encoding and ANSI/control-sequence handling, line indexing,
