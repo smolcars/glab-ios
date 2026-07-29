@@ -92,9 +92,8 @@ where
     var searchText = ""
 
     private var reconciledTailItems: [Item] = []
+    private var retainedServerTailItems: [Item] = []
     private var loadedNextPageURLs: Set<URL> = []
-    private var firstPageIdentities:
-        Set<Identity> = []
     private let loadPage:
         @Sendable (URL?) async throws(GitLabSessionClientError)
             -> GitLabResourcePage<Item>
@@ -278,6 +277,20 @@ where
                 reconciledTailItems[tailIndex] =
                     item
             }
+            if
+                let tailIndex =
+                    retainedServerTailItems
+                    .firstIndex(
+                        where: {
+                            identity($0)
+                                == itemIdentity
+                        }
+                    )
+            {
+                retainedServerTailItems[
+                    tailIndex
+                ] = item
+            }
             contentRevision += 1
             return false
         }
@@ -334,6 +347,9 @@ where
 
         items.remove(at: index)
         reconciledTailItems.removeAll {
+            identity($0) == itemIdentity
+        }
+        retainedServerTailItems.removeAll {
             identity($0) == itemIdentity
         }
         if let totalItemCount {
@@ -447,38 +463,33 @@ where
     private func applyFirstPage(
         _ event: GitLabResourcePageEvent<Item>
     ) {
+        let refreshedIdentities =
+            Set(event.page.items.map(identity))
+        let reconciledIdentities =
+            Set(
+                reconciledTailItems.map(identity)
+            )
         let retainedTail =
             firstPageRefreshMode
                 == .retainLoadedTail
                 && hasLoaded
+                && event.page.nextPageURL != nil
             ? items.filter {
-                !firstPageIdentities.contains(
+                !refreshedIdentities.contains(
                     identity($0)
                 )
+                    && !reconciledIdentities
+                    .contains(identity($0))
             }
             : []
-        let retainedNextPageURL =
-            retainedTail.isEmpty
-            ? nil
-            : nextPageURL
-
-        if retainedTail.isEmpty {
-            loadedNextPageURLs.removeAll()
-        }
-        let refreshedFirstPage =
-            appendingServerItems(
+        retainedServerTailItems =
+            retainedTail
+        loadedNextPageURLs.removeAll()
+        items = appendingServerItems(
             event.page.items,
             to: []
         )
-        items = appending(
-            retainedTail,
-            to: refreshedFirstPage
-        )
-        firstPageIdentities =
-            Set(event.page.items.map(identity))
-        nextPageURL =
-            retainedNextPageURL
-            ?? event.page.nextPageURL
+        nextPageURL = event.page.nextPageURL
         totalItemCount = event.page.totalCount
         firstPageSource = event.source
         firstPageCacheStoredAt = event.cacheStoredAt
@@ -544,6 +555,9 @@ where
                 to: items
             )
             self.nextPageURL = page.nextPageURL
+            if page.nextPageURL == nil {
+                discardRetainedServerTail()
+            }
             totalItemCount =
                 page.totalCount ?? totalItemCount
             contentRevision += 1
@@ -603,10 +617,18 @@ where
     ) -> [Item] {
         let previousTailIdentities =
             Set(reconciledTailItems.map(identity))
+        let previousServerTailIdentities =
+            Set(
+                retainedServerTailItems
+                    .map(identity)
+            )
         let loadedIdentities =
             Set(newItems.map(identity))
 
         reconciledTailItems.removeAll {
+            loadedIdentities.contains(identity($0))
+        }
+        retainedServerTailItems.removeAll {
             loadedIdentities.contains(identity($0))
         }
 
@@ -615,15 +637,36 @@ where
                 !previousTailIdentities.contains(
                     identity($0)
                 )
+                    && !previousServerTailIdentities
+                    .contains(identity($0))
             }
         let loadedItems = appending(
             newItems,
             to: existingWithoutTail
         )
+        let loadedWithServerTail =
+            appending(
+                retainedServerTailItems,
+                to: loadedItems
+            )
         return appending(
             reconciledTailItems,
-            to: loadedItems
+            to: loadedWithServerTail
         )
+    }
+
+    private func discardRetainedServerTail() {
+        let retainedIdentities =
+            Set(
+                retainedServerTailItems
+                    .map(identity)
+            )
+        items.removeAll {
+            retainedIdentities.contains(
+                identity($0)
+            )
+        }
+        retainedServerTailItems.removeAll()
     }
 
     private func matches(

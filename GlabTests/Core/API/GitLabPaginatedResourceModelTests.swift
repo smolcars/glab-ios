@@ -472,9 +472,9 @@ struct GitLabPaginatedResourceModelTests {
         #expect(await loader.requestCount == 2)
     }
 
-    @Test("Opt-in refresh retains loaded pages after the first page")
+    @Test("Opt-in refresh refollows shifted pages and removes stale tail")
     @MainActor
-    func retainsLoadedTailWhenRefreshingFirstPage()
+    func reconcilesRetainedTailWhenRefreshingFirstPage()
         async
     {
         let loader =
@@ -497,18 +497,23 @@ struct GitLabPaginatedResourceModelTests {
             after: 2
         )
 
-        let retainedFrontier =
-            model.nextPageURL
         await model.refresh()
 
-        #expect(model.items == [5, 1, 3, 4])
+        #expect(model.items == [5, 1, 2, 3, 4])
         #expect(
             model.nextPageURL
-                == retainedFrontier
+                == RetainedTailRefreshLoader
+                .pageTwoURL
         )
         #expect(model.totalItemCount == 5)
         #expect(!model.didFailRefresh)
         #expect(await loader.requestCount == 3)
+
+        await model.loadAllRemainingPages()
+
+        #expect(model.items == [5, 1, 2, 3])
+        #expect(model.nextPageURL == nil)
+        #expect(await loader.requestCount == 4)
     }
 
     @Test("Cancellation keeps already loaded pages")
@@ -775,13 +780,9 @@ private actor RepeatingNextPageLoader {
 private actor RetainedTailRefreshLoader {
     private(set) var requestCount = 0
     private var firstPageRequestCount = 0
-    private let pageTwoURL = URL(
+    static let pageTwoURL = URL(
         string:
             "https://gitlab.example.com/items?page=2"
-    )
-    private let pageThreeURL = URL(
-        string:
-            "https://gitlab.example.com/items?page=3"
     )
 
     func load(
@@ -794,20 +795,23 @@ private actor RetainedTailRefreshLoader {
             if firstPageRequestCount == 1 {
                 return GitLabResourcePage(
                     items: [1, 2],
-                    nextPageURL: pageTwoURL,
+                    nextPageURL: Self.pageTwoURL,
                     totalCount: 4
                 )
             }
             return GitLabResourcePage(
                 items: [5, 1],
-                nextPageURL: pageTwoURL,
+                nextPageURL: Self.pageTwoURL,
                 totalCount: 5
             )
         }
 
         return GitLabResourcePage(
-            items: [3, 4],
-            nextPageURL: pageThreeURL,
+            items:
+                firstPageRequestCount == 1
+                ? [3, 4]
+                : [2, 3],
+            nextPageURL: nil,
             totalCount: 4
         )
     }
