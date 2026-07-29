@@ -59,6 +59,19 @@ Repair plan:
 
 Status: planned.
 
+### P3-11-R4 — Redundant typed-error cast emits a Release warning
+
+Impact: the merge-request pipeline creation model conditionally casts a
+`GitLabSessionClientError` to the same type. The code works, but Release builds
+emit an avoidable warning and the fallback branch can never execute.
+
+Repair plan:
+
+1. Preserve the already typed caught error directly.
+2. Re-run the creation-model tests and Release simulator build.
+
+Status: planned.
+
 ## Review areas with no material finding
 
 - All six mutations are `POST` requests requiring `.write`; the shared client
