@@ -749,7 +749,7 @@ Todo:
   P3-11 verification, and repeat the deep code review until no material finding
   remains.
 
-### [ ] P3-12 — Merge or auto-merge a merge request safely
+### [x] P3-12 — Merge or auto-merge a merge request safely
 
 Outcome:
 
@@ -770,42 +770,42 @@ Todo:
   source-branch choices deliberately included or excluded, eligibility,
   confirmation, stale revisions, error mapping, reconciliation, tests,
   accessibility, and non-goals.
-- [ ] Write failing endpoint tests for immediate merge and `auto_merge`,
+- [x] Write failing endpoint tests for immediate merge and `auto_merge`,
   current SHA encoding, documented optional choices selected by the plan,
   permission denial, non-mergeable state, stale-SHA conflict, validation,
   cancellation, and ambiguous delivery.
-- [ ] Write failing model tests for ready, blocked, pending, draft, closed,
+- [x] Write failing model tests for ready, blocked, pending, draft, closed,
   merged, conflict, unresolved-discussion, missing-readiness, stale-head,
   rapid-tap, uncertain-result, authoritative success, and account-switch
   states.
-- [ ] Load or refresh the authoritative MR immediately before confirmation and
+- [x] Load or refresh the authoritative MR immediately before confirmation and
   submit its exact current head SHA. Never merge using a stale list or cached
   detail SHA.
-- [ ] Present the checks that permit or block the action, distinguish Merge
+- [x] Present the checks that permit or block the action, distinguish Merge
   from Auto-merge, and require an explicit confirmation that names the MR and
   target branch.
-- [ ] Do not expose merge when GitLab reports an unsupported or unsafe state.
+- [x] Do not expose merge when GitLab reports an unsupported or unsafe state.
   Still handle server rejection because permissions and mergeability can
   change after confirmation.
-- [ ] Never automatically retry a merge request. For uncertain delivery,
+- [x] Never automatically retry a merge request. For uncertain delivery,
   refresh the MR and show its authoritative merged/open state before offering
   another attempt.
-- [ ] Reconcile the returned MR into detail, lists, Home, search, Todos,
+- [x] Reconcile the returned MR into detail, lists, Home, search, Todos,
   approvals, discussions, and pipeline/readiness state through bounded
   invalidation and refresh.
-- [ ] Verify immediate and auto-merge, blocked reasons, stale SHA, permission
+- [x] Verify immediate and auto-merge, blocked reasons, stale SHA, permission
   denial, uncertain delivery, confirmation cancellation, state reconciliation,
   Dynamic Type, VoiceOver, Reduce Motion, and dark/light appearance in the
   iPhone 17 Pro Simulator.
-- [ ] Run focused merge/readiness tests, the complete test suite, a Release
+- [x] Run focused merge/readiness tests, the complete test suite, a Release
   Simulator build, Xcode static analysis, and credential/privacy scans.
-- [ ] Perform a deep code review of all code added or changed for P3-12. Look
+- [x] Perform a deep code review of all code added or changed for P3-12. Look
   for bugs, bad code, duplicated readiness or mutation state, stale-SHA merges,
   incorrect auto-merge semantics, missing confirmation, accidental retries,
   wrong target branch, stale downstream caches, permission assumptions,
   concurrency or cancellation races, and code that needs refactoring. Record
   every finding in `docs/P3_12_ENGINEERING_PLAN.md`.
-- [ ] If the P3-12 review finds anything material, write a repair plan before
+- [x] If the P3-12 review finds anything material, write a repair plan before
   editing code, add regression tests, implement every fix, rerun the complete
   P3-12 verification, and repeat the deep code review until no material finding
   remains.

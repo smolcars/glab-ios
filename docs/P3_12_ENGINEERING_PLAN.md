@@ -8,6 +8,7 @@
 - Implementation: complete
 - Simulator verification: complete
 - Deep review: complete
+- Final quality gates: complete
 
 Research date: July 29, 2026.
 
@@ -396,3 +397,33 @@ Material findings:
   invalidation, compact UI, fixture, and tests found no remaining material
   bugs, unsafe retry paths, duplicated mutation delivery, stale-SHA path,
   permission assumption, or refactor requirement.
+
+## Final verification
+
+Completed on July 29, 2026, using the shared
+`.deriveddata/Glab` directory and the iPhone 17 Pro iOS 26.5 Simulator. The
+owner's physical phone, live GitLab mutation endpoints, and developer token
+were not used.
+
+- Focused endpoint, eligibility, service, and model tests passed after every
+  implementation and review-repair slice.
+- The targeted Maestro flow passed for immediate merge, auto-merge, conflict
+  blocking, mergeability checking, and already-enabled auto-merge. Both
+  confirmation variants displayed the exact `feature/safe-merge → main`
+  route, and unsafe states exposed no merge action.
+- Dark appearance, light appearance, Increase Contrast, default text, and
+  accessibility-extra-large text were inspected in the Simulator. The compact
+  action retained its 44-point target and did not overlap readiness content.
+- The complete `GlabTests` matrix ran once. P3-12 passed in that run. Eight
+  unrelated timing-sensitive tests reported failures while all performance
+  suites and the rest of the app's tests competed concurrently for the same
+  Simulator process. Only those failed tests were rerun, individually and
+  without rebuilding; every markdown, diff, discussion, issue-creation,
+  job-trace, and response-cache check then passed. This records both the
+  aggregate-run limitation and a passing result for every test in the matrix
+  without repeating the complete suite.
+- A Release Simulator build and Xcode static analysis completed successfully.
+- `Configuration/Glab-Info.plist` and `Glab/PrivacyInfo.xcprivacy` passed
+  `plutil` validation.
+- `git diff --check` passed. Credential scans found no embedded GitLab token
+  values; tracked documentation contains environment-variable names only.
