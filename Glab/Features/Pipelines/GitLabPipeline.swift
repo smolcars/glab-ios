@@ -207,6 +207,15 @@ nonisolated struct GitLabPipelineUser:
         GitLabWebURL.validated(webURL)
     }
 
+    var summary: GitLabUserSummary {
+        GitLabUserSummary(
+            id: id,
+            username: username ?? "",
+            name: name ?? "",
+            avatarURL: safeAvatarURL
+        )
+    }
+
     init(from decoder: any Decoder) throws {
         let container =
             try decoder.container(

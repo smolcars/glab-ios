@@ -60,6 +60,8 @@ struct SignedInShellView: View {
             & GitLabMergeRequestDiffSummaryLoading
     private let mergeRequestApprovalService:
         any GitLabMergeRequestApprovalServing
+    private let pipelineLoader:
+        any GitLabPipelineLoading
     private let discussionLoader:
         any GitLabDiscussionLoading
     private let discussionMutator:
@@ -123,6 +125,10 @@ struct SignedInShellView: View {
             LiveGitLabMergeRequestApprovalService(
                 client: client
             )
+        let pipelineLoader =
+            LiveGitLabPipelineLoader(
+                client: client
+            )
         let projectLoader = LiveGitLabProjectLoader(
             client: client
         )
@@ -155,6 +161,7 @@ struct SignedInShellView: View {
         self.mergeRequestLoader = mergeRequestLoader
         self.mergeRequestApprovalService =
             mergeRequestApprovalService
+        self.pipelineLoader = pipelineLoader
         self.discussionLoader = discussionLoader
         discussionMutator = discussionLoader
         self.reactionService =
@@ -257,6 +264,8 @@ struct SignedInShellView: View {
                     mergeRequestLoader: mergeRequestLoader,
                     mergeRequestApprovalService:
                         mergeRequestApprovalService,
+                    pipelineLoader:
+                        pipelineLoader,
                     discussionLoader: discussionLoader,
                     discussionMutator:
                         discussionMutator,
@@ -296,6 +305,8 @@ struct SignedInShellView: View {
                         mergeRequestLoader,
                     mergeRequestApprovalService:
                         mergeRequestApprovalService,
+                    pipelineLoader:
+                        pipelineLoader,
                     discussionLoader:
                         discussionLoader,
                     discussionMutator:

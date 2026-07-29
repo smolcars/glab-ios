@@ -27,6 +27,42 @@ nonisolated enum GitLabRelativeTimeFormatter {
     }
 }
 
+nonisolated enum GitLabDurationFormatter {
+    static func string(
+        seconds: TimeInterval
+    ) -> String? {
+        guard
+            seconds.isFinite,
+            seconds >= 0
+        else {
+            return nil
+        }
+
+        let roundedSeconds =
+            Int(seconds.rounded())
+        if roundedSeconds < 60 {
+            return "\(roundedSeconds)s"
+        }
+
+        let minutes =
+            roundedSeconds / 60
+        let remainingSeconds =
+            roundedSeconds % 60
+        if minutes < 60 {
+            return remainingSeconds == 0
+                ? "\(minutes)m"
+                : "\(minutes)m \(remainingSeconds)s"
+        }
+
+        let hours = minutes / 60
+        let remainingMinutes =
+            minutes % 60
+        return remainingMinutes == 0
+            ? "\(hours)h"
+            : "\(hours)h \(remainingMinutes)m"
+    }
+}
+
 nonisolated enum GitLabIssueDateFormatter {
     static func dueDate(
         _ value: String,

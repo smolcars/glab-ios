@@ -309,7 +309,7 @@ struct GitLabResourceDetailToolbarActions:
     }
 }
 
-private struct GitLabLogoMark: View {
+struct GitLabLogoMark: View {
     var body: some View {
         Image("GitLabLogo")
             .resizable()

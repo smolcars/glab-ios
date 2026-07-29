@@ -57,6 +57,36 @@ struct GitLabPipelineTests {
         #expect(status.isTerminal == isTerminal)
     }
 
+    @Test(
+        "Maps every CI state to a nonempty status icon",
+        arguments: [
+            "created",
+            "waiting_for_resource",
+            "preparing",
+            "waiting_for_callback",
+            "pending",
+            "running",
+            "canceling",
+            "scheduled",
+            "manual",
+            "success",
+            "failed",
+            "canceled",
+            "skipped",
+            "future_pipeline_state",
+        ]
+    )
+    func mapsStatusIcons(
+        rawValue: String
+    ) {
+        #expect(
+            !GitLabCIStatus(
+                rawValue: rawValue
+            )
+            .systemImage.isEmpty
+        )
+    }
+
     @Test("Decodes a minimal merge request pipeline")
     func decodesMinimalPipeline() throws {
         let pipeline: GitLabPipeline =
@@ -138,6 +168,12 @@ struct GitLabPipelineTests {
         #expect(
             pipeline.user?.displayName
                 == "Octo Cat"
+        )
+        #expect(
+            pipeline.user?.summary
+                .avatarURL?
+                .absoluteString
+                == "https://gitlab.example.com/avatar.png"
         )
         #expect(
             pipeline.detailedStatus?

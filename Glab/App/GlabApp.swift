@@ -45,6 +45,10 @@ struct GlabApp: App {
                 usesP308ApprovalFixture
             {
                 GitLabMergeRequestApprovalFixtureView()
+            } else if
+                usesP309PipelineFixture
+            {
+                GitLabPipelineFixtureView()
             } else {
                 AppRootView(
                     incomingLinkModel:
@@ -72,6 +76,21 @@ struct GlabApp: App {
             )
                 || arguments.contains(
                     "-p3_08_approval_fixture"
+                )
+        }
+
+        private var
+            usesP309PipelineFixture:
+            Bool
+        {
+            let arguments =
+                ProcessInfo.processInfo
+                    .arguments
+            return arguments.contains(
+                "p3_09_pipeline_fixture"
+            )
+                || arguments.contains(
+                    "-p3_09_pipeline_fixture"
                 )
         }
     #endif

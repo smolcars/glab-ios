@@ -22,6 +22,8 @@ struct HomeView: View {
             & GitLabMergeRequestDiffSummaryLoading
     let mergeRequestApprovalService:
         any GitLabMergeRequestApprovalServing
+    let pipelineLoader:
+        any GitLabPipelineLoading
     let discussionLoader:
         any GitLabDiscussionLoading
     let discussionMutator:
@@ -301,6 +303,8 @@ struct HomeView: View {
                 loader: mergeRequestLoader,
                 approvalService:
                     mergeRequestApprovalService,
+                pipelineLoader:
+                    pipelineLoader,
                 discussionLoader:
                     discussionLoader,
                 discussionMutator:
@@ -376,6 +380,8 @@ struct HomeView: View {
                 loader: mergeRequestLoader,
                 approvalService:
                     mergeRequestApprovalService,
+                pipelineLoader:
+                    pipelineLoader,
                 discussionLoader: discussionLoader,
                 discussionMutator:
                     discussionMutator,
@@ -396,6 +402,8 @@ struct HomeView: View {
                 loader: mergeRequestLoader,
                 approvalService:
                     mergeRequestApprovalService,
+                pipelineLoader:
+                    pipelineLoader,
                 discussionLoader: discussionLoader,
                 discussionMutator:
                     discussionMutator,

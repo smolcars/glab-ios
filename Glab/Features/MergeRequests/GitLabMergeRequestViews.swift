@@ -10,6 +10,8 @@ struct MergeRequestsView: View {
             & GitLabMergeRequestDiffSummaryLoading
     let approvalService:
         any GitLabMergeRequestApprovalServing
+    let pipelineLoader:
+        any GitLabPipelineLoading
     let discussionLoader:
         any GitLabDiscussionLoading
     let discussionMutator:
@@ -34,6 +36,8 @@ struct MergeRequestsView: View {
                 & GitLabMergeRequestDiffSummaryLoading,
         approvalService:
             any GitLabMergeRequestApprovalServing,
+        pipelineLoader:
+            any GitLabPipelineLoading,
         discussionLoader:
             any GitLabDiscussionLoading,
         discussionMutator:
@@ -55,6 +59,8 @@ struct MergeRequestsView: View {
         self.loader = loader
         self.approvalService =
             approvalService
+        self.pipelineLoader =
+            pipelineLoader
         self.discussionLoader =
             discussionLoader
         self.discussionMutator =
@@ -93,6 +99,8 @@ struct MergeRequestsView: View {
                     loader: loader,
                     approvalService:
                         approvalService,
+                    pipelineLoader:
+                        pipelineLoader,
                     discussionLoader:
                         discussionLoader,
                     discussionMutator:
@@ -592,6 +600,7 @@ private struct GitLabMergeRequestDraftLabel: View {
 }
 
 struct GitLabMergeRequestDetailView: View {
+    let route: GitLabMergeRequestRoute
     let accountID: GitLabAccountID
     let appSession: AppSession
     let discussionResource:
@@ -609,6 +618,8 @@ struct GitLabMergeRequestDetailView: View {
         any GitLabMergeRequestDiffLoading
     let diffSummaryLoader:
         any GitLabMergeRequestDiffSummaryLoading
+    let pipelineLoader:
+        any GitLabPipelineLoading
 
     @State private var model:
         GitLabMergeRequestDetailModel
@@ -634,6 +645,7 @@ struct GitLabMergeRequestDetailView: View {
         GitLabResourceStateEvent?
     @State private var
         showsStateConfirmation = false
+    @State private var showsPipelines = false
     @State private var stateFailureMessage:
         String?
     @State private var taskToggleModel:
@@ -650,6 +662,8 @@ struct GitLabMergeRequestDetailView: View {
                 & GitLabMergeRequestDiffSummaryLoading,
         approvalService:
             any GitLabMergeRequestApprovalServing,
+        pipelineLoader:
+            any GitLabPipelineLoading,
         discussionLoader:
             any GitLabDiscussionLoading,
         discussionMutator:
@@ -666,6 +680,7 @@ struct GitLabMergeRequestDetailView: View {
                 GitLabResourceEditResult
             ) -> Void
     ) {
+        self.route = route
         self.accountID = accountID
         self.appSession = appSession
         self.discussionMutator =
@@ -677,6 +692,8 @@ struct GitLabMergeRequestDetailView: View {
             onResourceEdited
         diffLoader = loader
         diffSummaryLoader = loader
+        self.pipelineLoader =
+            pipelineLoader
         let discussionResource =
             GitLabDiscussionResource
                 .mergeRequest(route)
@@ -843,6 +860,16 @@ struct GitLabMergeRequestDetailView: View {
             )
             .navigationTitle("Merge Request")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(
+                isPresented: $showsPipelines
+            ) {
+                GitLabMergeRequestPipelinesView(
+                    route: route,
+                    loader: pipelineLoader,
+                    accountID: accountID,
+                    appSession: appSession
+                )
+            }
             .toolbar {
                 if isDetailLoaded {
                     GitLabResourceDetailToolbarActions(
@@ -1082,6 +1109,9 @@ struct GitLabMergeRequestDetailView: View {
                         diffLoader,
                     diffSummaryLoader:
                         diffSummaryLoader,
+                    openPipelines: {
+                        showsPipelines = true
+                    },
                     launchComposer:
                         launchComposer,
                     appSession: appSession,
@@ -1480,6 +1510,7 @@ private struct GitLabMergeRequestDetailContent: View {
         any GitLabMergeRequestDiffLoading
     let diffSummaryLoader:
         any GitLabMergeRequestDiffSummaryLoading
+    let openPipelines: () -> Void
     let launchComposer:
         (GitLabDiscussionComposerTarget) -> Void
     let appSession: AppSession
@@ -1509,7 +1540,9 @@ private struct GitLabMergeRequestDetailContent: View {
                     approvalError:
                         approvalError,
                     retryApproval:
-                        retryApproval
+                        retryApproval,
+                    openPipelines:
+                        openPipelines
                 )
 
                 GitLabMergeRequestApprovalManagementView(

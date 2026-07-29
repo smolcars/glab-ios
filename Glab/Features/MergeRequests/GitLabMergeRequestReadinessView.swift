@@ -6,6 +6,7 @@ struct GitLabMergeRequestReadinessView: View {
     let approvalError:
         GitLabSessionClientError?
     let retryApproval: () -> Void
+    let openPipelines: () -> Void
     @State private var isExpanded = false
 
     var body: some View {
@@ -192,7 +193,36 @@ struct GitLabMergeRequestReadinessView: View {
                 check.accessibilityLabel
             )
 
-            if let destination =
+            if check.kind == .pipeline {
+                Button(
+                    action: openPipelines
+                ) {
+                    Image(
+                        systemName:
+                            "arrow.right"
+                    )
+                    .font(
+                        .caption
+                            .weight(.semibold)
+                    )
+                }
+                .buttonStyle(.glass)
+                .controlSize(.small)
+                .frame(
+                    width: 44,
+                    height: 44
+                )
+                .contentShape(.rect)
+                .accessibilityLabel(
+                    "View merge request pipelines"
+                )
+                .accessibilityHint(
+                    "Opens pipeline history in the app."
+                )
+                .accessibilityIdentifier(
+                    "mergeRequests.readiness.openPipelines"
+                )
+            } else if let destination =
                 check.destination
             {
                 Link(

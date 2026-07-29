@@ -1,0 +1,50 @@
+appId: com.glab.ios
+name: P3-09 compact pipeline and job browsing
+---
+- launchApp:
+    arguments:
+      p3_09_pipeline_fixture: "true"
+- assertVisible: Pipelines
+- assertVisible:
+    id: pipelines.history.list
+- assertVisible:
+    id: pipelines.history.row.501
+- waitForAnimationToEnd
+- takeScreenshot: p3-09-pipeline-history
+- tapOn:
+    id: pipelines.history.row.501
+- assertVisible: "Pipeline #91"
+- assertVisible:
+    id: pipelines.detail.header
+- assertVisible:
+    id: pipelines.detail.stage.build
+- assertVisible:
+    id: pipelines.detail.job.910
+- waitForAnimationToEnd
+- takeScreenshot: p3-09-pipeline-detail
+- tapOn:
+    id: pipelines.detail.stage.test
+- scrollUntilVisible:
+    element:
+      id: pipelines.detail.job.908
+    direction: DOWN
+- assertVisible:
+    id: pipelines.detail.job.908
+- scrollUntilVisible:
+    element:
+      id: pipelines.detail.stage.deploy
+    direction: DOWN
+- tapOn:
+    id: pipelines.detail.stage.deploy
+- scrollUntilVisible:
+    element:
+      id: pipelines.detail.triggerJob.904
+    direction: DOWN
+- assertVisible:
+    id: pipelines.detail.triggerJob.904
+- takeScreenshot: p3-09-pipeline-stages
+- tapOn:
+    id: pipelines.detail.triggerJob.904
+- assertVisible: "Pipeline #12"
+- assertVisible:
+    id: pipelines.detail.job.1001
