@@ -69,6 +69,41 @@ struct LiveGitLabPipelineActionServiceTests {
         )
     }
 
+    @Test(
+        "Plays one manual trigger and invalidates parent and trigger reads"
+    )
+    func playsTriggerJob() async throws {
+        let client =
+            RecordingPipelineActionClient()
+        let service =
+            LiveGitLabPipelineActionService(
+                client: client
+            )
+
+        let response =
+            try await service.playTriggerJob(
+                at: jobRoute
+            )
+
+        #expect(response.id == 800)
+        #expect(response.status.rawValue == "pending")
+        #expect(
+            response.downstreamRoute
+                == GitLabPipelineRoute(
+                    projectID: 84,
+                    pipelineID: 601
+                )
+        )
+        #expect(
+            await client.sentKeys
+                == ["\(jobKey)/play"]
+        )
+        #expect(
+            await client.invalidatedKeys
+                == triggerJobInvalidationKeys
+        )
+    }
+
     @Test("Creates one MR pipeline and invalidates only its history")
     func createsMergeRequestPipeline()
         async throws
@@ -176,6 +211,36 @@ struct LiveGitLabPipelineActionServiceTests {
         )
     }
 
+    @Test(
+        "Uncertain trigger delivery invalidates parent and trigger reads"
+    )
+    func uncertainTriggerInvalidationIsFocused()
+        async
+    {
+        let error =
+            GitLabSessionClientError.api(
+                .server(statusCode: 503)
+            )
+        let client =
+            RecordingPipelineActionClient(
+                error: error
+            )
+        let service =
+            LiveGitLabPipelineActionService(
+                client: client
+            )
+
+        await #expect(throws: error) {
+            _ = try await service
+                .playTriggerJob(at: jobRoute)
+        }
+
+        #expect(
+            await client.invalidatedKeys
+                == triggerJobInvalidationKeys
+        )
+    }
+
     @Test("Rejects contradictory action responses")
     func rejectsMismatchedResponses() async {
         let client =
@@ -204,6 +269,16 @@ struct LiveGitLabPipelineActionServiceTests {
         ) {
             _ = try await service
                 .playJob(at: jobRoute)
+        }
+        await #expect(
+            throws:
+                GitLabSessionClientError
+                .api(.invalidResponse)
+        ) {
+            _ = try await service
+                .playTriggerJob(
+                    at: jobRoute
+                )
         }
     }
 
@@ -264,6 +339,16 @@ struct LiveGitLabPipelineActionServiceTests {
             "GET:projects/42/pipelines/501/jobs",
         ]
     }
+
+    private var triggerJobInvalidationKeys:
+        [String]
+    {
+        [
+            "GET:projects/42/pipelines/501",
+            "GET:projects/42/pipelines/501/trigger_jobs",
+            "GET:projects/42/pipelines/501/bridges",
+        ]
+    }
 }
 
 private actor RecordingPipelineActionClient:
@@ -298,7 +383,14 @@ private actor RecordingPipelineActionClient:
         let value: any Sendable
         do {
             value =
-                if endpoint.pathComponents
+                if Response.self
+                    == GitLabPipelineTriggerJob.self
+                {
+                    try decodeTriggerJob(
+                        projectID:
+                            responseProjectID
+                    )
+                } else if endpoint.pathComponents
                     .contains("jobs")
                 {
                     try decodeJob(
@@ -372,6 +464,36 @@ private actor RecordingPipelineActionClient:
                       "pipeline": {
                         "id": 501,
                         "project_id": \(projectID)
+                      }
+                    }
+                    """.utf8
+                )
+        )
+    }
+
+    private func decodeTriggerJob(
+        projectID: Int
+    ) throws -> GitLabPipelineTriggerJob {
+        try JSONDecoder().decode(
+            GitLabPipelineTriggerJob.self,
+            from:
+                Data(
+                    """
+                    {
+                      "id": 800,
+                      "name": "optional deployment",
+                      "stage": "deploy",
+                      "status": "pending",
+                      "pipeline": {
+                        "id": 501,
+                        "project_id": \(projectID)
+                      },
+                      "downstream_pipeline": {
+                        "id": 601,
+                        "project_id": 84,
+                        "sha": "def456",
+                        "ref": "child-main",
+                        "status": "pending"
                       }
                     }
                     """.utf8

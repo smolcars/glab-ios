@@ -246,6 +246,29 @@ struct GitLabPipelineEndpointTests {
         )
     }
 
+    @Test("Builds a typed manual trigger-job Play route")
+    func buildsTriggerJobPlay() throws {
+        let route = try #require(
+            GitLabJobRoute(
+                projectID: 42,
+                pipelineID: 501,
+                jobID: 800
+            )
+        )
+        let endpoint =
+            GitLabPipelineEndpoints
+                .playTriggerJob(at: route)
+
+        #expect(endpoint.method == .post)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(endpoint.queryItems.isEmpty)
+        #expect(endpoint.body == nil)
+        #expect(
+            endpoint.pathComponents
+                == jobPath + ["play"]
+        )
+    }
+
     @Test("Builds and validates merge request pipeline creation")
     func buildsMergeRequestPipelineCreation()
         throws

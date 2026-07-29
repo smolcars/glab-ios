@@ -72,6 +72,14 @@ nonisolated struct
         throw unavailable
     }
 
+    func playTriggerJob(
+        at route: GitLabJobRoute
+    ) async throws(GitLabSessionClientError)
+        -> GitLabPipelineTriggerJob
+    {
+        throw unavailable
+    }
+
     func createMergeRequestPipeline(
         at route: GitLabMergeRequestRoute
     ) async throws(GitLabSessionClientError)

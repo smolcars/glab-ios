@@ -583,6 +583,14 @@ private actor RecordingPipelineActionService:
         return job
     }
 
+    func playTriggerJob(
+        at route: GitLabJobRoute
+    ) throws(GitLabSessionClientError)
+        -> GitLabPipelineTriggerJob
+    {
+        throw .api(.invalidResponse)
+    }
+
     func createMergeRequestPipeline(
         at route: GitLabMergeRequestRoute
     ) throws(GitLabSessionClientError)

@@ -431,6 +431,34 @@ struct GitLabPipelineTests {
         )
     }
 
+    @Test("Decodes a manual trigger before its child exists")
+    func decodesManualTriggerJob() throws {
+        let trigger: GitLabPipelineTriggerJob =
+            try decode(
+                """
+                {
+                  "id": 803,
+                  "name": "optional deployment",
+                  "stage": "deploy",
+                  "status": "manual",
+                  "allow_failure": true,
+                  "pipeline": {
+                    "id": 501,
+                    "project_id": 42
+                  },
+                  "downstream_pipeline": null
+                }
+                """
+            )
+
+        #expect(trigger.status.rawValue == "manual")
+        #expect(trigger.allowFailure)
+        #expect(trigger.pipeline?.id == 501)
+        #expect(trigger.pipeline?.projectID == 42)
+        #expect(trigger.downstreamPipeline == nil)
+        #expect(trigger.downstreamRoute == nil)
+    }
+
     @Test("Rejects malformed required job fields")
     func rejectsMalformedJob() {
         #expect(

@@ -267,4 +267,12 @@ private actor RecordingMRPipelineCreationService:
     {
         throw .api(.invalidResponse)
     }
+
+    func playTriggerJob(
+        at route: GitLabJobRoute
+    ) throws(GitLabSessionClientError)
+        -> GitLabPipelineTriggerJob
+    {
+        throw .api(.invalidResponse)
+    }
 }

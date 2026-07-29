@@ -28,6 +28,11 @@ nonisolated protocol GitLabPipelineActionServing:
     ) async throws(GitLabSessionClientError)
         -> GitLabPipelineJob
 
+    func playTriggerJob(
+        at route: GitLabJobRoute
+    ) async throws(GitLabSessionClientError)
+        -> GitLabPipelineTriggerJob
+
     func createMergeRequestPipeline(
         at route: GitLabMergeRequestRoute
     ) async throws(GitLabSessionClientError)
@@ -114,6 +119,19 @@ nonisolated struct
                 .playJob(at: route),
             route: route,
             requiresSameJobID: true
+        )
+    }
+
+    @concurrent
+    func playTriggerJob(
+        at route: GitLabJobRoute
+    ) async throws(GitLabSessionClientError)
+        -> GitLabPipelineTriggerJob
+    {
+        try await sendTriggerJobMutation(
+            GitLabPipelineEndpoints
+                .playTriggerJob(at: route),
+            route: route
         )
     }
 
@@ -212,6 +230,33 @@ private nonisolated extension
     }
 
     @concurrent
+    func sendTriggerJobMutation(
+        _ endpoint:
+            GitLabAPIRequest<
+                GitLabPipelineTriggerJob
+            >,
+        route: GitLabJobRoute
+    ) async throws(GitLabSessionClientError)
+        -> GitLabPipelineTriggerJob
+    {
+        try await sendMutation(
+            endpoint,
+            validates: {
+                $0.id == route.jobID
+                    && Self.triggerJob(
+                        $0,
+                        matches: route
+                    )
+            },
+            invalidate: {
+                await invalidateTriggerJobReads(
+                    at: route.pipelineRoute
+                )
+            }
+        )
+    }
+
+    @concurrent
     func sendMutation<Response>(
         _ endpoint:
             GitLabAPIRequest<Response>,
@@ -288,6 +333,24 @@ private nonisolated extension
     }
 
     @concurrent
+    func invalidateTriggerJobReads(
+        at route: GitLabPipelineRoute
+    ) async {
+        await client.invalidateCachedResponse(
+            GitLabPipelineEndpoints
+                .pipeline(at: route)
+        )
+        await client.invalidateCachedResponse(
+            GitLabPipelineEndpoints
+                .triggerJobs(at: route)
+        )
+        await client.invalidateCachedResponse(
+            GitLabPipelineEndpoints
+                .legacyTriggerJobs(at: route)
+        )
+    }
+
+    @concurrent
     func invalidateMergeRequestPipelines(
         at route: GitLabMergeRequestRoute
     ) async {
@@ -307,6 +370,21 @@ private nonisolated extension
 
     static func job(
         _ job: GitLabPipelineJob,
+        matches route: GitLabJobRoute
+    ) -> Bool {
+        guard let pipeline = job.pipeline else {
+            return true
+        }
+        return pipeline.id == route.pipelineID
+            && (
+                pipeline.projectID == nil
+                    || pipeline.projectID
+                        == route.projectID
+            )
+    }
+
+    static func triggerJob(
+        _ job: GitLabPipelineTriggerJob,
         matches route: GitLabJobRoute
     ) -> Bool {
         guard let pipeline = job.pipeline else {

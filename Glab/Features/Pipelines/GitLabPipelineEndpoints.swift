@@ -146,6 +146,17 @@ nonisolated enum GitLabPipelineEndpoints {
         )
     }
 
+    static func playTriggerJob(
+        at route: GitLabJobRoute
+    ) -> GitLabAPIRequest<
+        GitLabPipelineTriggerJob
+    > {
+        .post(
+            requires: .write,
+            path: jobPath(route) + ["play"]
+        )
+    }
+
     static func createMergeRequestPipeline(
         at route: GitLabMergeRequestRoute
     ) -> GitLabAPIRequest<
