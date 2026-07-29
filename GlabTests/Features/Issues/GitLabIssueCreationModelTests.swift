@@ -30,6 +30,105 @@ struct GitLabIssueCreationModelTests {
         #expect(first.id != second.id)
     }
 
+    @Test("Issue sheet retains content before asking SwiftUI to present")
+    @MainActor
+    func issueSheetPresentsAfterPreparation()
+        throws
+    {
+        let context =
+            try CreationModelContext()
+        let presentation =
+            HomeIssueCreationPresentation(
+                model: context.model
+            )
+        var state =
+            HomeSheetPresentationState()
+
+        state.prepare(
+            .issueCreation(presentation)
+        )
+
+        #expect(!state.isPresented)
+        #expect(
+            state.preparedID
+                == .issueCreation(
+                    presentation.id
+                )
+        )
+        guard
+            case let .issueCreation(
+                retainedPresentation
+            ) = state.destination
+        else {
+            Issue.record(
+                "Expected a prepared issue composer."
+            )
+            return
+        }
+        #expect(
+            retainedPresentation.model
+                === context.model
+        )
+
+        state.presentPrepared(
+            id: state.preparedID
+        )
+
+        #expect(state.isPresented)
+    }
+
+    @Test("Stale preparation cannot present the wrong issue composer")
+    @MainActor
+    func staleIssueSheetPreparationIsIgnored()
+        throws
+    {
+        let firstContext =
+            try CreationModelContext()
+        let secondContext =
+            try CreationModelContext()
+        let first =
+            HomeIssueCreationPresentation(
+                model: firstContext.model
+            )
+        let second =
+            HomeIssueCreationPresentation(
+                model: secondContext.model
+            )
+        var state =
+            HomeSheetPresentationState()
+
+        state.prepare(.issueCreation(first))
+        let staleID = state.preparedID
+        state.prepare(.issueCreation(second))
+        state.presentPrepared(id: staleID)
+
+        #expect(!state.isPresented)
+        guard
+            case let .issueCreation(
+                retainedPresentation
+            ) = state.destination
+        else {
+            Issue.record(
+                "Expected the replacement issue composer."
+            )
+            return
+        }
+        #expect(
+            retainedPresentation.model
+                === secondContext.model
+        )
+
+        state.presentPrepared(
+            id: state.preparedID
+        )
+        #expect(state.isPresented)
+
+        state.dismiss()
+        state.didDismiss()
+        #expect(!state.isPresented)
+        #expect(state.destination == nil)
+    }
+
     @Test("Restores every exact draft field before creation is enabled")
     @MainActor
     func restoresDraft() async throws {

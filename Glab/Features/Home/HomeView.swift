@@ -14,7 +14,7 @@ struct HomeIssueCreationPresentation:
     }
 }
 
-private enum HomeSheetDestination: Identifiable {
+enum HomeSheetDestination: Identifiable {
     enum ID: Hashable {
         case account
         case issueCreation(
@@ -38,6 +38,50 @@ private enum HomeSheetDestination: Identifiable {
                 presentation.id
             )
         }
+    }
+}
+
+struct HomeSheetPresentationState {
+    // Keep content alive for one SwiftUI render pass before presenting it.
+    // Presenting in the same update that creates the model can yield an empty
+    // sheet host on a cold launch.
+    private(set) var destination:
+        HomeSheetDestination?
+    private(set) var isPresented = false
+
+    var preparedID:
+        HomeSheetDestination.ID?
+    {
+        destination?.id
+    }
+
+    mutating func prepare(
+        _ destination:
+            HomeSheetDestination
+    ) {
+        self.destination = destination
+        isPresented = false
+    }
+
+    mutating func presentPrepared(
+        id: HomeSheetDestination.ID?
+    ) {
+        guard
+            let id,
+            destination?.id == id
+        else {
+            return
+        }
+        isPresented = true
+    }
+
+    mutating func dismiss() {
+        isPresented = false
+    }
+
+    mutating func didDismiss() {
+        isPresented = false
+        destination = nil
     }
 }
 
@@ -85,8 +129,8 @@ struct HomeView: View {
 
     @State private var path = NavigationPath()
     @State private var
-        sheetDestination:
-        HomeSheetDestination?
+        sheetPresentation =
+        HomeSheetPresentationState()
     @State private var
         createdIssueRoute:
         GitLabIssueRoute?
@@ -180,8 +224,10 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        sheetDestination =
-                            .account
+                        sheetPresentation
+                            .prepare(
+                                .account
+                            )
                     } label: {
                         GitLabUserAvatar(
                             user: displayedUser,
@@ -242,21 +288,43 @@ struct HomeView: View {
                 }
             }
         }
-        .sheet(item: $sheetDestination) {
-            sheetDestination in
-            sheetContent(
-                for: sheetDestination
-            )
-            .presentationDragIndicator(
-                .visible
-            )
+        .sheet(
+            isPresented:
+                sheetIsPresented,
+            onDismiss: {
+                sheetPresentation
+                    .didDismiss()
+            }
+        ) {
+            if
+                let destination =
+                    sheetPresentation
+                    .destination
+            {
+                sheetContent(
+                    for: destination
+                )
+                .presentationDragIndicator(
+                    .visible
+                )
+            }
+        }
+        .onChange(
+            of:
+                sheetPresentation
+                .preparedID
+        ) { _, preparedID in
+            sheetPresentation
+                .presentPrepared(
+                    id: preparedID
+                )
         }
         .onChange(of: createdIssueRoute) {
             _, route in
             guard let route else {
                 return
             }
-            sheetDestination = nil
+            sheetPresentation.dismiss()
             path.append(
                 GitLabNativeRoute.issue(
                     route
@@ -287,12 +355,27 @@ struct HomeView: View {
                 createdIssueRoute =
                     issue.route
             }
-        sheetDestination =
+        sheetPresentation.prepare(
             .issueCreation(
                 HomeIssueCreationPresentation(
                     model: model
                 )
             )
+        )
+    }
+
+    private var sheetIsPresented:
+        Binding<Bool>
+    {
+        Binding {
+            sheetPresentation
+                .isPresented
+        } set: { isPresented in
+            guard !isPresented else {
+                return
+            }
+            sheetPresentation.dismiss()
+        }
     }
 
     @ViewBuilder
