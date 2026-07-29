@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-28
 
-Status: in progress. P3-01 through P3-05 are complete.
+Status: in progress. P3-01 through P3-06 are complete.
 
 ## Product goal
 
@@ -390,7 +390,7 @@ Todo:
   P3-05 verification, and repeat the deep code review until no material finding
   remains.
 
-### [ ] P3-06 — Edit labels, assignees, reviewers, and open/closed state
+### [x] P3-06 — Edit labels, assignees, reviewers, and open/closed state
 
 Outcome:
 
@@ -402,50 +402,50 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect issue/MR detail metadata, project label and member APIs, list and
+- [x] Inspect issue/MR detail metadata, project label and member APIs, list and
   Home caches, review-request queries, current user display, account switching,
   and P3-02 update services.
-- [ ] Before writing production code, create
+- [x] Before writing production code, create
   `docs/P3_06_ENGINEERING_PLAN.md`. Document each issue and MR update field,
   full-replacement versus additive semantics, project metadata pagination,
   Free versus paid assignee behavior, reviewer semantics, explicit new-label
   confirmation, close/reopen confirmation, reconciliation, tests,
   accessibility, and non-goals.
-- [ ] Write failing endpoint tests for `add_labels`, `remove_labels`, complete
+- [x] Write failing endpoint tests for `add_labels`, `remove_labels`, complete
   label replacement where required, `assignee_ids`, `reviewer_ids`, and
   `state_event`, including empty arrays, special characters, permission
   denial, validation, cancellation, and ambiguous delivery.
-- [ ] Write failing model tests for metadata pagination and search, rapid
+- [x] Write failing model tests for metadata pagination and search, rapid
   selection changes, additive label changes, explicit label creation,
   preserving server members during replacement, unassigning everyone,
   close/reopen transitions, stale responses, rollback, and account switching.
-- [ ] Reuse the project-scoped label and member loaders introduced for issue
+- [x] Reuse the project-scoped label and member loaders introduced for issue
   creation. Do not load an unbounded instance-wide user list.
-- [ ] Refetch replacement-based metadata before submission when necessary so a
+- [x] Refetch replacement-based metadata before submission when necessary so a
   stale local array does not silently remove a newer assignee or reviewer.
-- [ ] Require an explicit Create Label action when typed text does not match an
+- [x] Require an explicit Create Label action when typed text does not match an
   existing label. Never turn an accidental typo into a new project label
   without confirmation.
-- [ ] Build compact native metadata editors for issues and MRs, sharing
+- [x] Build compact native metadata editors for issues and MRs, sharing
   presentation components only where their semantics are genuinely the same.
-- [ ] Keep reviewers and approval-rule approvers visibly distinct in wording
+- [x] Keep reviewers and approval-rule approvers visibly distinct in wording
   and accessibility labels.
-- [ ] Reconcile the returned resource into detail, list, Home, search, Todo,
+- [x] Reconcile the returned resource into detail, list, Home, search, Todo,
   and review-request owners through bounded invalidation or refresh rather than
   mutating unrelated cached JSON.
-- [ ] Verify issue and MR labels, explicit label creation, single/multiple
+- [x] Verify issue and MR labels, explicit label creation, single/multiple
   assignees as supported, reviewer changes, close/reopen, read-only access,
   insufficient permissions, stale metadata, Dynamic Type, VoiceOver, and
   dark/light appearance in the iPhone 17 Pro Simulator.
-- [ ] Run focused metadata and state tests, the complete test suite, a Release
+- [x] Run focused metadata and state tests, the complete test suite, a Release
   Simulator build, Xcode static analysis, and credential/privacy scans.
-- [ ] Perform a deep code review of all code added or changed for P3-06. Look
+- [x] Perform a deep code review of all code added or changed for P3-06. Look
   for bugs, bad code, duplicated issue/MR mutation paths, accidental label
   creation, lost assignees or reviewers, reviewer/approver confusion, stale
   list state, permission mistakes, cache over-invalidation, account leakage,
   concurrency or cancellation races, and code that needs refactoring. Record
   every finding in `docs/P3_06_ENGINEERING_PLAN.md`.
-- [ ] If the P3-06 review finds anything material, write a repair plan before
+- [x] If the P3-06 review finds anything material, write a repair plan before
   editing code, add regression tests, implement every fix, rerun the complete
   P3-06 verification, and repeat the deep code review until no material finding
   remains.

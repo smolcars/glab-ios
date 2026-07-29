@@ -5,10 +5,10 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Test implementation: pending
-- Production implementation: pending
-- Verification: pending
-- Deep review: pending
+- Test implementation: complete
+- Production implementation: complete
+- Verification: complete
+- Deep review: complete
 
 This plan must be committed and pushed before any P3-06 test or production
 code is changed.
@@ -856,3 +856,80 @@ additional material issues:
 12. Perform and record the deep review, plan and repair every material
     finding, rerun verification, and repeat review until clean.
 13. Mark P3-06 complete only after all checklist evidence is recorded.
+
+## Review pass 2 repair evidence
+
+- Every fresh-detail and delivery-check result is now rejected after
+  cancellation or an account change before it can validate, reconcile, or
+  mutate an owner.
+- A sent mutation whose returned identity or intended fields cannot be
+  verified retains its exact pending intent and enters delivery-unknown
+  recovery. It cannot be sent again until an uncached Check GitLab read
+  reconciles the result.
+- Assigned-issue, assigned-MR, and review-request MR owners are account-scoped
+  shell state. Authoritative edits from Home, Todos, search, or deep links
+  reconcile all already-loaded owners and remove resources that no longer
+  satisfy their server query.
+- Metadata sheets use their optional editor model as the single presentation
+  identity. Direct close/reopen creates a separate state owner only after
+  confirmation and routes definite authentication failures through the
+  account session handler.
+- Label pagination retains an explicit Load More path when every label on a
+  page is selected. Remove-only member rows are disabled after removal with
+  an accurate accessibility explanation, while selected remove actions remain
+  available.
+- Compact people summaries no longer double-count unresolved identities.
+  Tracked Maestro flows use generic row identifiers rather than private live
+  resource titles, and close/reopen confirmation explains assigned and review
+  list membership impact.
+- Regression tests cover late preflight and delivery-check reads, wrong or
+  mismatched mutation responses, all-selected label pages, remove-only member
+  eligibility, and the repaired owner transitions.
+
+## Final verification evidence
+
+- The final focused endpoint, metadata-loader, service, editor-model,
+  paginated-owner, assigned-issue, assigned-MR, review-request, and Home model
+  bundle passed 94 tests with zero failures.
+- The final serialized app suite passed 823 tests with zero failures on the
+  iOS 26.5 iPhone 17 Pro Simulator. Xcode reported 34.725 seconds for the test
+  operation.
+- Debug and Release iPhone Simulator builds succeeded using the reusable
+  `.deriveddata/Glab` directory. Xcode Release static analysis also succeeded.
+- The cold first-presentation issue-composer flow passed. The issue and MR
+  P3-06 flows passed in dark appearance at regular Dynamic Type and in light
+  appearance at accessibility Dynamic Type. Their captured UI was visually
+  inspected for clipping, layout, avatars, search, picker selection, disabled
+  read-only state, and reviewer-versus-approver wording.
+- The issue flow also passed with Increase Contrast, Reduce Motion, and Reduce
+  Transparency enabled. The accessibility hierarchy exposed the explicit
+  “Reviewers are separate from approval-rule approvers” wording. Simulator
+  settings were restored afterward.
+- Read-only live verification navigated metadata and member APIs only. No live
+  mutation, issue creation, state transition, label creation, assignment,
+  review request, human mention, notification, or pipeline action was sent.
+- `Configuration/Glab-Info.plist`, the source privacy manifest, and both
+  bundled Release copies passed `plutil` validation. The privacy manifest is
+  present in the Release app.
+- Configured token values are absent from tracked files and the Release
+  bundle. Token variable identifiers are absent from the Release executable.
+  Generated UI screenshots containing live names were moved to Trash and were
+  never staged.
+- `git diff --check` passed. The complete P3-06 production diff contains no
+  forced try, forced cast, fatal error, precondition failure, debug print,
+  dump, TODO, or FIXME addition.
+
+## Final repeat-review result
+
+The required repeat review covered all 18 P3-06 production files, the complete
+test diff, and the tracked Simulator flows after the second repair pass. It
+rechecked official endpoint fields, label creation, singular and replacement
+assignee semantics, reviewer-versus-approver boundaries, preflight rebasing,
+delivery certainty, cancellation, account isolation, bounded cache
+invalidation, detail/list/Home/Todo/search reconciliation, pagination,
+presentation ownership, read-only behavior, accessibility, privacy, and
+unnecessary abstraction.
+
+All 15 recorded material findings are repaired. The final repeat review found
+no remaining material bug, bad code, duplicated logic, privacy issue, or
+refactoring requirement. P3-06 is complete.
