@@ -427,8 +427,12 @@ struct GitLabIssueCreationModelTests {
         fillMinimumForm(context.model)
 
         await context.model.submit()
+        let didFlushAfterSuccess =
+            await context.model
+                .persistForDismissal()
 
         #expect(context.model.didSucceed)
+        #expect(didFlushAfterSuccess)
         #expect(context.success.issue == issue)
         #expect(
             await service.invalidationCount

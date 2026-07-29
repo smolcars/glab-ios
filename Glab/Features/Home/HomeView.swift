@@ -25,6 +25,8 @@ struct HomeView: View {
             & GitLabEmojiReactionMutating
     let editService:
         any GitLabResourceEditing
+    let issueCreationService:
+        any GitLabIssueCreationServing
     let projectLoader:
         any GitLabProjectLoading
             & GitLabProjectResolving
@@ -36,6 +38,14 @@ struct HomeView: View {
 
     @State private var path = NavigationPath()
     @State private var showsAccount = false
+    @State private var
+        issueCreationModel:
+        GitLabIssueCreationModel?
+    @State private var
+        showsIssueCreation = false
+    @State private var
+        createdIssueRoute:
+        GitLabIssueRoute?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -142,7 +152,7 @@ struct HomeView: View {
                     .accessibilityIdentifier("home.accountButton")
                 }
 
-                ToolbarItem(
+                ToolbarItemGroup(
                     placement: .topBarTrailing
                 ) {
                     Button {
@@ -166,6 +176,24 @@ struct HomeView: View {
                     .accessibilityIdentifier(
                         "home.searchButton"
                     )
+
+                    Button {
+                        launchIssueCreation()
+                    } label: {
+                        Image(
+                            systemName:
+                                "square.and.pencil"
+                        )
+                    }
+                    .accessibilityLabel(
+                        "New issue"
+                    )
+                    .accessibilityHint(
+                        "Opens the issue composer."
+                    )
+                    .accessibilityIdentifier(
+                        "home.newIssueButton"
+                    )
                 }
             }
             .sheet(isPresented: $showsAccount) {
@@ -174,6 +202,38 @@ struct HomeView: View {
                     appSession: appSession
                 )
                 .presentationDragIndicator(.visible)
+            }
+            .sheet(
+                isPresented:
+                    $showsIssueCreation,
+                onDismiss: {
+                    issueCreationModel = nil
+                }
+            ) {
+                if let issueCreationModel {
+                    GitLabIssueCreationView(
+                        model:
+                            issueCreationModel,
+                        accountID: accountID,
+                        appSession: appSession
+                    )
+                    .presentationDragIndicator(
+                        .visible
+                    )
+                }
+            }
+            .onChange(of: createdIssueRoute) {
+                _, route in
+                guard let route else {
+                    return
+                }
+                showsIssueCreation = false
+                path.append(
+                    GitLabNativeRoute.issue(
+                        route
+                    )
+                )
+                createdIssueRoute = nil
             }
         }
     }
@@ -346,5 +406,29 @@ struct HomeView: View {
             error,
             for: accountID
         )
+    }
+
+    private func launchIssueCreation() {
+        let route = $createdIssueRoute
+        issueCreationModel =
+            GitLabIssueCreationModel(
+                accountID: accountID,
+                apiAccess:
+                    session.apiAccess,
+                service:
+                    issueCreationService,
+                draftStore:
+                    appSession
+                    .issueCreationDraftStore,
+                isAccountCurrent: {
+                    appSession.activeAccountID
+                        == accountID
+                },
+                onSuccess: { issue in
+                    route.wrappedValue =
+                        issue.route
+                }
+            )
+        showsIssueCreation = true
     }
 }

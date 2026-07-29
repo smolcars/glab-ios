@@ -63,6 +63,8 @@ struct SignedInShellView: View {
             & GitLabEmojiReactionMutating
     private let resourceEditService:
         any GitLabResourceEditing
+    private let issueCreationService:
+        any GitLabIssueCreationServing
     private let projectLoader:
         any GitLabProjectLoading
             & GitLabProjectResolving
@@ -124,6 +126,10 @@ struct SignedInShellView: View {
             LiveGitLabResourceEditService(
                 client: client
             )
+        let issueCreationService =
+            LiveGitLabIssueCreationService(
+                client: client
+            )
         let todoService = LiveGitLabTodoLoader(
             client: client
         )
@@ -135,6 +141,8 @@ struct SignedInShellView: View {
             reactionService
         self.resourceEditService =
             resourceEditService
+        self.issueCreationService =
+            issueCreationService
         self.projectLoader = projectLoader
         markdownRenderer = GitLabMarkdownRenderer()
         diffRenderer = GitLabDiffRenderer()
@@ -216,6 +224,8 @@ struct SignedInShellView: View {
                         reactionService,
                     editService:
                         resourceEditService,
+                    issueCreationService:
+                        issueCreationService,
                     projectLoader: projectLoader,
                     searchModel:
                         globalSearchModel,

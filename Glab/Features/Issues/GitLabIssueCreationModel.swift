@@ -525,6 +525,9 @@ final class GitLabIssueCreationModel {
         guard !isSubmitting else {
             return false
         }
+        guard !didSucceed else {
+            return true
+        }
         guard hasRestoredDraft else {
             return true
         }
