@@ -5,8 +5,8 @@
 - Existing-code audit: complete
 - Official API research: complete
 - Planning: complete
-- Raw authenticated file transport: not started
-- Account-scoped trace store: not started
+- Raw authenticated file transport: complete
+- Account-scoped trace store: complete
 - Line index, sanitization, and search: not started
 - Observable model and navigation: not started
 - Virtualized native UI: not started
@@ -621,16 +621,16 @@ Record every material finding in this document. Before fixing one:
 - [x] Current official GitLab trace, job, log, size, redirect, and
   authentication documentation was researched.
 - [x] This plan precedes every P3-10 production and test change.
-- [ ] Trace access is `GET` and `.read` only.
-- [ ] No live mutation, human mention, assignment, tag, or notification.
-- [ ] No undocumented range, append, cursor, or incremental trace behavior.
+- [x] Trace access is `GET` and `.read` only.
+- [x] No live mutation, human mention, assignment, tag, or notification.
+- [x] No undocumented range, append, cursor, or incremental trace behavior.
 - [ ] Network, disk, lines, decoded windows, search, and rendering are bounded.
-- [ ] Cross-origin redirects cannot receive GitLab credentials or cookies.
-- [ ] Partial and corrupt files cannot become published cache entries.
-- [ ] Account removal purges protected trace data on every removal path.
+- [x] Cross-origin redirects cannot receive GitLab credentials or cookies.
+- [x] Partial and corrupt files cannot become published cache entries.
+- [x] Account removal purges protected trace data on every removal path.
 - [ ] File I/O, indexing, sanitization, and search remain off the main actor.
 - [ ] Cancellation removes partial work and stale generations cannot publish.
-- [ ] Refresh retains the prior complete cached trace until atomic replacement.
+- [x] Refresh retains the prior complete cached trace until atomic replacement.
 - [ ] ANSI/control content cannot execute, link, copy, or affect the terminal.
 - [ ] The selected renderer creates and configures only bounded
   visible/prefetch line windows.

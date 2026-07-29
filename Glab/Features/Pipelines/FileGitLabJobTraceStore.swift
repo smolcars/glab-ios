@@ -54,6 +54,7 @@ actor FileGitLabJobTraceStore:
     private let maximumStoredByteCount: Int
     private let currentDate: @Sendable () -> Date
     private let fileManager: FileManager
+    private var hasPrepared = false
     private var activeWorkspaceDirectories:
         Set<URL> = []
 
@@ -85,6 +86,9 @@ actor FileGitLabJobTraceStore:
     }
 
     func prepare() async {
+        guard !hasPrepared else {
+            return
+        }
         do {
             try Task.checkCancellation()
             try createProtectedDirectory(
@@ -95,6 +99,7 @@ actor FileGitLabJobTraceStore:
                 try await maintainedEntries()
             try Task.checkCancellation()
             prune(entries)
+            hasPrepared = true
         } catch {
             return
         }

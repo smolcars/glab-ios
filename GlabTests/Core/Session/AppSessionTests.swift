@@ -6,8 +6,12 @@ import Testing
 struct AppSessionTests {
     @Test("Restores a signed-out state when no credentials exist")
     func restoresSignedOutState() async {
+        let traceStore =
+            RecordingGitLabJobTraceStore()
         let appSession = AppSession(
-            credentialStore: InMemoryGitLabCredentialStore()
+            credentialStore:
+                InMemoryGitLabCredentialStore(),
+            jobTraceStore: traceStore
         )
 
         #expect(appSession.state == .restoring)
@@ -15,6 +19,9 @@ struct AppSessionTests {
         await appSession.restore()
 
         #expect(appSession.state == .signedOut)
+        #expect(
+            await traceStore.prepareCallCount == 1
+        )
     }
 
     @Test("Restores a signed-in session")
@@ -101,6 +108,8 @@ struct AppSessionTests {
             makeCachedResponse(),
             for: cacheKey
         )
+        let traceStore =
+            RecordingGitLabJobTraceStore()
         let appSession = AppSession(
             credentialStore: DeleteFailingCredentialStore(
                 session: storedSession,
@@ -110,6 +119,7 @@ struct AppSessionTests {
                 for: storedSession
             ),
             responseCache: cache,
+            jobTraceStore: traceStore,
             currentDate: { now }
         )
 
@@ -121,6 +131,14 @@ struct AppSessionTests {
                 == .expiredOrRevoked
         )
         #expect(await cache.response(for: cacheKey) == nil)
+        #expect(
+            await traceStore.removedAccountIDs
+                == [
+                    GitLabAccountID(
+                        session: storedSession
+                    ),
+                ]
+        )
     }
 
     @Test("Persists a newly established session before signing in")
@@ -182,12 +200,15 @@ struct AppSessionTests {
             makeCachedResponse(),
             for: cacheKey
         )
+        let traceStore =
+            RecordingGitLabJobTraceStore()
         let appSession = AppSession(
             credentialStore: store,
             accountIndexStore: try makeIndexStore(
                 for: storedSession
             ),
             responseCache: cache,
+            jobTraceStore: traceStore,
             discussionDraftStore:
                 draftStore,
             resourceEditDraftStore:
@@ -207,6 +228,14 @@ struct AppSessionTests {
         #expect(appSession.storedSession == nil)
         #expect(appSession.authenticationNotice == nil)
         #expect(await cache.response(for: cacheKey) == nil)
+        #expect(
+            await traceStore.removedAccountIDs
+                == [
+                    GitLabAccountID(
+                        session: storedSession
+                    ),
+                ]
+        )
         #expect(
             await draftStore.draft(
                 for: draftKey
@@ -271,12 +300,15 @@ struct AppSessionTests {
             makeCachedResponse(),
             for: cacheKey
         )
+        let traceStore =
+            RecordingGitLabJobTraceStore()
         let appSession = AppSession(
             credentialStore: store,
             accountIndexStore: try makeIndexStore(
                 for: storedSession
             ),
             responseCache: cache,
+            jobTraceStore: traceStore,
             discussionDraftStore:
                 draftStore,
             resourceEditDraftStore:
@@ -301,6 +333,14 @@ struct AppSessionTests {
         #expect(appSession.storedSession == nil)
         #expect(appSession.authenticationNotice == .expiredOrRevoked)
         #expect(await cache.response(for: cacheKey) == nil)
+        #expect(
+            await traceStore.removedAccountIDs
+                == [
+                    GitLabAccountID(
+                        session: storedSession
+                    ),
+                ]
+        )
         #expect(
             await draftStore.draft(
                 for: draftKey

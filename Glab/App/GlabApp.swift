@@ -8,6 +8,8 @@ struct GlabApp: App {
         accountIndexStore:
             UserDefaultsGitLabAccountIndexStore(),
         responseCache: FileGitLabResponseCache(),
+        jobTraceStore:
+            FileGitLabJobTraceStore(),
         discussionDraftStore:
             FileGitLabDiscussionDraftStore(),
         resourceEditDraftStore:

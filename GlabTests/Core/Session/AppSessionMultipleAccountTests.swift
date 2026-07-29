@@ -176,10 +176,13 @@ struct AppSessionMultipleAccountTests {
             secondDraft,
             for: secondDraftKey
         )
+        let traceStore =
+            RecordingGitLabJobTraceStore()
         let appSession = AppSession(
             credentialStore: credentialStore,
             accountIndexStore: indexStore,
             responseCache: cache,
+            jobTraceStore: traceStore,
             resourceEditDraftStore:
                 editDraftStore
         )
@@ -202,6 +205,14 @@ struct AppSessionMultipleAccountTests {
         )
         #expect(await cache.response(for: firstKey) != nil)
         #expect(await cache.response(for: secondKey) == nil)
+        #expect(
+            await traceStore.removedAccountIDs
+                == [
+                    GitLabAccountID(
+                        session: second
+                    ),
+                ]
+        )
         #expect(
             await editDraftStore.draft(
                 for: firstDraftKey
@@ -264,11 +275,14 @@ struct AppSessionMultipleAccountTests {
             sessions: [missing, available],
             active: missing
         )
+        let traceStore =
+            RecordingGitLabJobTraceStore()
         let appSession = AppSession(
             credentialStore: InMemoryGitLabCredentialStore(
                 session: available
             ),
-            accountIndexStore: indexStore
+            accountIndexStore: indexStore,
+            jobTraceStore: traceStore
         )
 
         await appSession.restore()
@@ -277,6 +291,14 @@ struct AppSessionMultipleAccountTests {
         #expect(
             try indexStore.load().accounts.map(\.id)
                 == [GitLabAccountID(session: available)]
+        )
+        #expect(
+            await traceStore.removedAccountIDs
+                == [
+                    GitLabAccountID(
+                        session: missing
+                    ),
+                ]
         )
     }
 
@@ -431,6 +453,63 @@ struct AppSessionMultipleAccountTests {
             try await credentialStore.load(
                 for: accountID
             ) == replacement
+        )
+    }
+
+    @Test("A returning account cancels stale trace-cache deletion")
+    func returningAccountCancelsStaleTracePurge()
+        async throws
+    {
+        let original = try makeSession(
+            host: "gitlab.example.com",
+            userID: 1,
+            username: "same-user",
+            token: "original-secret"
+        )
+        let replacement = try makeSession(
+            host: "gitlab.example.com",
+            userID: 1,
+            username: "same-user",
+            token: "replacement-secret"
+        )
+        let accountID = GitLabAccountID(
+            session: original
+        )
+        let responseCache =
+            GatedAccountRemovalResponseCache()
+        let traceStore =
+            RecordingGitLabJobTraceStore()
+        let appSession = AppSession(
+            credentialStore:
+                InMemoryGitLabCredentialStore(
+                    session: original
+                ),
+            accountIndexStore: try makeIndexStore(
+                sessions: [original],
+                active: original
+            ),
+            responseCache: responseCache,
+            jobTraceStore: traceStore
+        )
+        await appSession.restore()
+
+        let removal = Task {
+            try await appSession.removeAccount(
+                accountID
+            )
+        }
+        await responseCache.waitUntilRemovalStarts()
+        try await appSession.establish(replacement)
+        await responseCache.finishRemoval()
+        try await removal.value
+
+        #expect(
+            appSession.state
+                == .signedIn(replacement)
+        )
+        #expect(
+            await traceStore.removedAccountIDs
+                .isEmpty
         )
     }
 

@@ -180,10 +180,6 @@ nonisolated protocol GitLabJobTraceStoring:
     ) async
 }
 
-nonisolated extension GitLabJobTraceStoring {
-    func prepare() async {}
-}
-
 actor InMemoryGitLabJobTraceStore:
     GitLabJobTraceStoring
 {
@@ -197,6 +193,8 @@ actor InMemoryGitLabJobTraceStore:
     ) {
         self.descriptors = descriptors
     }
+
+    func prepare() {}
 
     func descriptor(
         for key: GitLabJobTraceKey

@@ -59,6 +59,8 @@ final class AppSession {
 
     let credentialStore: any GitLabCredentialStore
     let responseCache: any GitLabResponseCaching
+    let jobTraceStore:
+        any GitLabJobTraceStoring
     let discussionDraftStore:
         any GitLabDiscussionDraftStoring
     let resourceEditDraftStore:
@@ -86,6 +88,9 @@ final class AppSession {
                 InMemoryGitLabAccountIndexStore(),
         responseCache: any GitLabResponseCaching =
             InMemoryGitLabResponseCache(),
+        jobTraceStore:
+            any GitLabJobTraceStoring =
+                InMemoryGitLabJobTraceStore(),
         discussionDraftStore:
             any GitLabDiscussionDraftStoring =
                 InMemoryGitLabDiscussionDraftStore(),
@@ -100,6 +105,7 @@ final class AppSession {
         self.credentialStore = credentialStore
         self.accountIndexStore = accountIndexStore
         self.responseCache = responseCache
+        self.jobTraceStore = jobTraceStore
         self.discussionDraftStore =
             discussionDraftStore
         self.resourceEditDraftStore =
@@ -113,6 +119,11 @@ final class AppSession {
         let transition = beginTransition()
         state = .restoring
         authenticationNotice = nil
+
+        await jobTraceStore.prepare()
+        guard isCurrent(transition) else {
+            return
+        }
 
         do {
             var index = try accountIndexStore.load()
@@ -135,7 +146,7 @@ final class AppSession {
                     return
                 }
 
-                if let session {
+                if session != nil {
                     authenticationNotice =
                         .expiredOrRevoked
                     let deletionError:
@@ -150,13 +161,22 @@ final class AppSession {
                         deletionError = error
                     }
 
-                    await purgeCache(for: session)
+                    await purgeCaches(
+                        for: accountID
+                    )
                     guard isCurrent(transition) else {
                         return
                     }
 
                     if let deletionError {
                         state = .failed(deletionError)
+                        return
+                    }
+                } else {
+                    await purgeCaches(
+                        for: accountID
+                    )
+                    guard isCurrent(transition) else {
                         return
                     }
                 }
@@ -339,11 +359,9 @@ final class AppSession {
         }
 
         if !accounts.contains(where: { $0.id == accountID }) {
-            await responseCache.removeAll(
-                for: GitLabCacheAccount(
-                    host: accountID.host,
-                    userID: accountID.userID
-                )
+            await purgeCaches(
+                for: accountID,
+                cancelIfAccountReturns: true
             )
             if removesDrafts {
                 await discussionDraftStore
@@ -521,13 +539,26 @@ final class AppSession {
         activeAccountID = index.activeAccountID
     }
 
-    private func purgeCache(
-        for session: GitLabStoredSession
+    private func purgeCaches(
+        for accountID: GitLabAccountID,
+        cancelIfAccountReturns: Bool = false
     ) async {
         await responseCache.removeAll(
             for: GitLabCacheAccount(
-                session: session
+                host: accountID.host,
+                userID: accountID.userID
             )
+        )
+        if
+            cancelIfAccountReturns,
+            accounts.contains(
+                where: { $0.id == accountID }
+            )
+        {
+            return
+        }
+        await jobTraceStore.removeAll(
+            for: accountID
         )
     }
 
