@@ -4,6 +4,32 @@ import Testing
 
 @Suite("GitLab issue creation model")
 struct GitLabIssueCreationModelTests {
+    @Test("Issue sheet presentation owns its model before presentation")
+    @MainActor
+    func issueSheetPresentationOwnsModel()
+        throws
+    {
+        let firstContext =
+            try CreationModelContext()
+        let secondContext =
+            try CreationModelContext()
+
+        let first =
+            HomeIssueCreationPresentation(
+                model: firstContext.model
+            )
+        let second =
+            HomeIssueCreationPresentation(
+                model: secondContext.model
+            )
+
+        #expect(
+            first.model
+                === firstContext.model
+        )
+        #expect(first.id != second.id)
+    }
+
     @Test("Restores every exact draft field before creation is enabled")
     @MainActor
     func restoresDraft() async throws {

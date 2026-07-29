@@ -4,15 +4,40 @@ private enum HomeNavigationRoute: Hashable {
     case search
 }
 
-private enum HomeSheetDestination:
-    Hashable,
+struct HomeIssueCreationPresentation:
     Identifiable
 {
-    case account
-    case issueCreation
+    let model: GitLabIssueCreationModel
 
-    var id: Self {
-        self
+    var id: ObjectIdentifier {
+        ObjectIdentifier(model)
+    }
+}
+
+private enum HomeSheetDestination: Identifiable {
+    enum ID: Hashable {
+        case account
+        case issueCreation(
+            ObjectIdentifier
+        )
+    }
+
+    case account
+    case issueCreation(
+        HomeIssueCreationPresentation
+    )
+
+    var id: ID {
+        switch self {
+        case .account:
+            .account
+        case let .issueCreation(
+            presentation
+        ):
+            .issueCreation(
+                presentation.id
+            )
+        }
     }
 }
 
@@ -243,8 +268,31 @@ struct HomeView: View {
 
     @MainActor
     private func launchIssueCreation() {
+        let model =
+            GitLabIssueCreationModel(
+                accountID: accountID,
+                apiAccess:
+                    session.apiAccess,
+                service:
+                    issueCreationService,
+                draftStore:
+                    appSession
+                    .issueCreationDraftStore,
+                isAccountCurrent: {
+                    appSession
+                        .activeAccountID
+                        == accountID
+                }
+            ) { issue in
+                createdIssueRoute =
+                    issue.route
+            }
         sheetDestination =
-            .issueCreation
+            .issueCreation(
+                HomeIssueCreationPresentation(
+                    model: model
+                )
+            )
     }
 
     @ViewBuilder
@@ -258,21 +306,14 @@ struct HomeView: View {
                 session: session,
                 appSession: appSession
             )
-        case .issueCreation:
-            GitLabIssueCreationSheet(
+        case let .issueCreation(
+            presentation
+        ):
+            GitLabIssueCreationView(
+                model: presentation.model,
                 accountID: accountID,
-                apiAccess:
-                    session.apiAccess,
-                service:
-                    issueCreationService,
-                draftStore:
-                    appSession
-                    .issueCreationDraftStore,
                 appSession: appSession
-            ) { issue in
-                createdIssueRoute =
-                    issue.route
-            }
+            )
         }
     }
 
@@ -463,59 +504,6 @@ struct HomeView: View {
         await appSession.handleAuthenticationFailure(
             error,
             for: accountID
-        )
-    }
-
-}
-
-private struct GitLabIssueCreationSheet:
-    View
-{
-    let accountID: GitLabAccountID
-    let appSession: AppSession
-
-    @State private var model:
-        GitLabIssueCreationModel
-
-    @MainActor
-    init(
-        accountID: GitLabAccountID,
-        apiAccess: GitLabAPIAccess,
-        service:
-            any GitLabIssueCreationServing,
-        draftStore:
-            any GitLabIssueCreationDraftStoring,
-        appSession: AppSession,
-        onSuccess:
-            @escaping @MainActor (
-                GitLabIssue
-            ) -> Void
-    ) {
-        self.accountID = accountID
-        self.appSession = appSession
-        _model = State(
-            initialValue:
-                GitLabIssueCreationModel(
-                    accountID: accountID,
-                    apiAccess: apiAccess,
-                    service: service,
-                    draftStore:
-                        draftStore,
-                    isAccountCurrent: {
-                        appSession
-                            .activeAccountID
-                            == accountID
-                    },
-                    onSuccess: onSuccess
-                )
-        )
-    }
-
-    var body: some View {
-        GitLabIssueCreationView(
-            model: model,
-            accountID: accountID,
-            appSession: appSession
         )
     }
 }
