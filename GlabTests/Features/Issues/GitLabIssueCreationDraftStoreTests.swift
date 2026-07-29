@@ -25,6 +25,35 @@ struct GitLabIssueCreationDraftStoreTests {
         )
     }
 
+    @Test("Draft keys isolate account and project composers")
+    func keysIsolateComposerScopes() throws {
+        let accountID = try account()
+        let accountKey =
+            GitLabIssueCreationDraftKey(
+                accountID: accountID
+            )
+        let firstProjectKey =
+            GitLabIssueCreationDraftKey(
+                accountID: accountID,
+                scope: .project(42)
+            )
+        let secondProjectKey =
+            GitLabIssueCreationDraftKey(
+                accountID: accountID,
+                scope: .project(43)
+            )
+
+        #expect(accountKey != firstProjectKey)
+        #expect(
+            firstProjectKey
+                != secondProjectKey
+        )
+        #expect(
+            !firstProjectKey.description
+                .contains("42")
+        )
+    }
+
     @Test("Draft descriptions redact private form content")
     func draftDescriptionsRedactContent() {
         let privateTitle =
@@ -117,6 +146,61 @@ struct GitLabIssueCreationDraftStoreTests {
         #expect(
             await store.draft(for: key)
                 == nil
+        )
+    }
+
+    @Test("Removing an account clears every project-scoped draft")
+    func removesAllComposerScopes()
+        async throws
+    {
+        let store =
+            InMemoryGitLabIssueCreationDraftStore()
+        let accountID = try account()
+        let otherAccountID =
+            try account(userID: 8)
+        let keys = [
+            GitLabIssueCreationDraftKey(
+                accountID: accountID
+            ),
+            GitLabIssueCreationDraftKey(
+                accountID: accountID,
+                scope: .project(42)
+            ),
+        ]
+        let preservedKey =
+            GitLabIssueCreationDraftKey(
+                accountID: otherAccountID,
+                scope: .project(42)
+            )
+        for (revision, key) in
+            keys.enumerated()
+        {
+            try await store.store(
+                creationDraft(
+                    revision: revision + 1
+                ),
+                for: key
+            )
+        }
+        try await store.store(
+            creationDraft(revision: 1),
+            for: preservedKey
+        )
+
+        await store.removeAll(
+            for: accountID
+        )
+
+        for key in keys {
+            #expect(
+                await store.draft(for: key)
+                    == nil
+            )
+        }
+        #expect(
+            await store.draft(
+                for: preservedKey
+            ) != nil
         )
     }
 

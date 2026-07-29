@@ -176,7 +176,9 @@ struct LiveGitLabIssueCreationServiceTests {
                 .isEmpty
         )
 
-        await service.invalidateAffectedReads()
+        await service.invalidateAffectedReads(
+            projectID: 42
+        )
 
         #expect(
             await client.invalidatedRequests
@@ -256,6 +258,13 @@ struct LiveGitLabIssueCreationServiceTests {
             record(
                 HomeDashboardEndpoints
                     .recentProjects
+            ),
+            record(
+                GitLabIssueEndpoints
+                    .projectIssues(
+                        projectID: 42,
+                        state: .opened
+                    )
             ),
         ]
     }

@@ -1,5 +1,15 @@
 import Foundation
 
+struct GitLabIssueCreationPresentation:
+    Identifiable
+{
+    let model: GitLabIssueCreationModel
+
+    var id: ObjectIdentifier {
+        ObjectIdentifier(model)
+    }
+}
+
 nonisolated enum GitLabIssueCreationRecoveryAction:
     Equatable,
     Sendable

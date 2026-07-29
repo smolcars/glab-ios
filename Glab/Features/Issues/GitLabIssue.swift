@@ -17,6 +17,38 @@ nonisolated enum GitLabIssueStateKind:
     case unknown
 }
 
+nonisolated enum GitLabProjectIssueState:
+    String,
+    CaseIterable,
+    Equatable,
+    Hashable,
+    Sendable
+{
+    case opened
+    case closed
+
+    var title: String {
+        switch self {
+        case .opened:
+            "Open"
+        case .closed:
+            "Closed"
+        }
+    }
+
+    func contains(
+        _ issue: GitLabIssue
+    ) -> Bool {
+        switch (self, issue.stateKind) {
+        case (.opened, .opened),
+             (.closed, .closed):
+            true
+        default:
+            false
+        }
+    }
+}
+
 nonisolated struct GitLabIssueMilestone:
     Decodable,
     Equatable,

@@ -19,48 +19,159 @@ struct AssignedIssuesView: View {
     let onResourceEdited:
         (GitLabResourceEditResult) -> Void
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    var body: some View {
+        GitLabIssueListView(
+            model: model,
+            configuration:
+                GitLabIssueListConfiguration(
+                    title: "Assigned Issues",
+                    loadingMessage:
+                        "Loading assigned issues",
+                    emptyTitle:
+                        "No assigned issues",
+                    emptyMessage:
+                        "Open issues assigned to you will appear here.",
+                    accessibilityIdentifier:
+                        "issues.assigned.list",
+                    referenceStyle: .full
+                ),
+            loader: loader,
+            discussionLoader:
+                discussionLoader,
+            discussionMutator:
+                discussionMutator,
+            reactionService:
+                reactionService,
+            editService: editService,
+            issueStatusService:
+                issueStatusService,
+            accountID: accountID,
+            appSession: appSession,
+            onResourceEdited:
+                onResourceEdited
+        )
+    }
+}
+
+struct GitLabIssueListConfiguration {
+    let title: String
+    let loadingMessage: String
+    let emptyTitle: String
+    let emptyMessage: String
+    let accessibilityIdentifier: String
+    let referenceStyle:
+        GitLabIssueReferenceStyle
+}
+
+struct GitLabIssueListView: View {
+    let model:
+        GitLabPaginatedResourceModel<
+            GitLabIssue,
+            GitLabIssueRoute
+        >
+    let configuration:
+        GitLabIssueListConfiguration
+    let loader: any GitLabIssueLoading
+    let discussionLoader:
+        any GitLabDiscussionLoading
+    let discussionMutator:
+        any GitLabDiscussionMutating
+    let reactionService:
+        any GitLabEmojiReactionLoading
+            & GitLabEmojiReactionMutating
+    let editService:
+        any GitLabResourceEditing
+    let issueStatusService:
+        any GitLabIssueStatusServing
+    let accountID: GitLabAccountID
+    let appSession: AppSession
+    let emptyAction: (() -> Void)?
+    let onResourceEdited:
+        (GitLabResourceEditResult) -> Void
+
+    @Environment(\.dynamicTypeSize)
+    private var dynamicTypeSize
+
+    init(
+        model:
+            GitLabPaginatedResourceModel<
+                GitLabIssue,
+                GitLabIssueRoute
+            >,
+        configuration:
+            GitLabIssueListConfiguration,
+        loader: any GitLabIssueLoading,
+        discussionLoader:
+            any GitLabDiscussionLoading,
+        discussionMutator:
+            any GitLabDiscussionMutating,
+        reactionService:
+            any GitLabEmojiReactionLoading
+                & GitLabEmojiReactionMutating,
+        editService:
+            any GitLabResourceEditing,
+        issueStatusService:
+            any GitLabIssueStatusServing,
+        accountID: GitLabAccountID,
+        appSession: AppSession,
+        emptyAction: (() -> Void)? = nil,
+        onResourceEdited:
+            @escaping (
+                GitLabResourceEditResult
+            ) -> Void
+    ) {
+        self.model = model
+        self.configuration = configuration
+        self.loader = loader
+        self.discussionLoader =
+            discussionLoader
+        self.discussionMutator =
+            discussionMutator
+        self.reactionService =
+            reactionService
+        self.editService = editService
+        self.issueStatusService =
+            issueStatusService
+        self.accountID = accountID
+        self.appSession = appSession
+        self.emptyAction = emptyAction
+        self.onResourceEdited =
+            onResourceEdited
+    }
 
     var body: some View {
         @Bindable var model = model
 
         content
-            .background(Color(uiColor: .systemGroupedBackground))
-            .navigationTitle("Assigned Issues")
+            .background(
+                Color(
+                    uiColor:
+                        .systemGroupedBackground
+                )
+            )
+            .navigationTitle(
+                configuration.title
+            )
             .navigationBarTitleDisplayMode(
-                dynamicTypeSize.isAccessibilitySize
+                dynamicTypeSize
+                    .isAccessibilitySize
                     ? .inline
                     : .large
             )
             .searchable(
                 text: $model.searchText,
-                placement: .navigationBarDrawer(displayMode: .always),
+                placement:
+                    .navigationBarDrawer(
+                        displayMode: .always
+                    ),
                 prompt: "Search loaded issues"
             )
-            .navigationDestination(for: GitLabIssueRoute.self) {
-                GitLabIssueDetailView(
-                    route: $0,
-                    loader: loader,
-                    discussionLoader:
-                        discussionLoader,
-                    discussionMutator:
-                        discussionMutator,
-                    reactionService:
-                        reactionService,
-                    editService:
-                        editService,
-                    issueStatusService:
-                        issueStatusService,
-                    accountID: accountID,
-                    appSession: appSession,
-                    onResourceEdited:
-                        onResourceEdited
-                )
-            }
             .refreshable {
                 await refresh()
             }
-            .task {
+            .task(
+                id: ObjectIdentifier(model)
+            ) {
                 await model.loadIfNeeded()
                 await handleAuthenticationFailure()
             }
@@ -71,11 +182,16 @@ struct AssignedIssuesView: View {
         if model.isLoadingInitial {
             ScrollView {
                 GitLabLoadingStateView(
-                    message: "Loading assigned issues"
+                    message:
+                        configuration
+                        .loadingMessage
                 )
                 .padding(20)
             }
-        } else if model.issues.isEmpty, let error = model.loadError {
+        } else if
+            model.issues.isEmpty,
+            let error = model.loadError
+        {
             GitLabContentStateScrollView {
                 GitLabRetryStateView(error: error) {
                     Task {
@@ -85,12 +201,31 @@ struct AssignedIssuesView: View {
             }
         } else if model.issues.isEmpty, model.hasLoaded {
             GitLabContentStateScrollView {
-                GitLabEmptyStateView(
-                    title: "No assigned issues",
-                    message:
-                        "Open issues assigned to you will appear here.",
-                    systemImage: "smallcircle.filled.circle"
-                )
+                VStack(spacing: 18) {
+                    GitLabEmptyStateView(
+                        title:
+                            configuration
+                            .emptyTitle,
+                        message:
+                            configuration
+                            .emptyMessage,
+                        systemImage:
+                            "smallcircle.filled.circle"
+                    )
+
+                    if let emptyAction {
+                        Button(
+                            "New issue",
+                            systemImage:
+                                "square.and.pencil",
+                            action: emptyAction
+                        )
+                        .buttonStyle(.glass)
+                        .accessibilityIdentifier(
+                            "issues.empty.newIssue"
+                        )
+                    }
+                }
             }
         } else {
             issueList
@@ -124,8 +259,17 @@ struct AssignedIssuesView: View {
                 .listRowBackground(Color.clear)
             } else {
                 ForEach(model.displayedIssues) { issue in
-                    NavigationLink(value: issue.route) {
-                        GitLabIssueRow(issue: issue)
+                    NavigationLink {
+                        issueDetail(
+                            route: issue.route
+                        )
+                    } label: {
+                        GitLabIssueRow(
+                            issue: issue,
+                            referenceStyle:
+                                configuration
+                                .referenceStyle
+                        )
                     }
                     .accessibilityIdentifier(
                         "issues.row.\(issue.projectID).\(issue.iid)"
@@ -165,7 +309,10 @@ struct AssignedIssuesView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .accessibilityIdentifier("issues.assigned.list")
+        .accessibilityIdentifier(
+            configuration
+                .accessibilityIdentifier
+        )
     }
 
     private func refresh() async {
@@ -182,10 +329,51 @@ struct AssignedIssuesView: View {
             for: accountID
         )
     }
+
+    private func issueDetail(
+        route: GitLabIssueRoute
+    ) -> some View {
+        GitLabIssueDetailView(
+            route: route,
+            loader: loader,
+            discussionLoader:
+                discussionLoader,
+            discussionMutator:
+                discussionMutator,
+            reactionService:
+                reactionService,
+            editService:
+                editService,
+            issueStatusService:
+                issueStatusService,
+            accountID: accountID,
+            appSession: appSession,
+            onResourceEdited:
+                onResourceEdited
+        )
+    }
 }
 
-private struct GitLabIssueRow: View {
+enum GitLabIssueReferenceStyle {
+    case full
+    case short
+}
+
+struct GitLabIssueRow: View {
     let issue: GitLabIssue
+    let referenceStyle:
+        GitLabIssueReferenceStyle
+
+    init(
+        issue: GitLabIssue,
+        referenceStyle:
+            GitLabIssueReferenceStyle =
+                .full
+    ) {
+        self.issue = issue
+        self.referenceStyle =
+            referenceStyle
+    }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -231,7 +419,7 @@ private struct GitLabIssueRow: View {
 
     private var reference: some View {
         HStack(spacing: 6) {
-            Text(issue.references.full)
+            Text(referenceText)
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(
@@ -246,6 +434,15 @@ private struct GitLabIssueRow: View {
                     .foregroundStyle(.orange)
                     .accessibilityLabel("Confidential")
             }
+        }
+    }
+
+    private var referenceText: String {
+        switch referenceStyle {
+        case .full:
+            issue.references.full
+        case .short:
+            issue.references.short
         }
     }
 

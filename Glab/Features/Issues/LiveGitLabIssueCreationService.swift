@@ -71,7 +71,9 @@ nonisolated protocol GitLabIssueCreationServing:
     ) async throws(GitLabSessionClientError)
         -> GitLabIssue
 
-    func invalidateAffectedReads() async
+    func invalidateAffectedReads(
+        projectID: Int
+    ) async
 }
 
 nonisolated struct LiveGitLabIssueCreationService:
@@ -242,14 +244,19 @@ nonisolated struct LiveGitLabIssueCreationService:
                 error.mutationDeliveryCertainty
                     == .deliveryUnknown
             {
-                await invalidateAffectedReads()
+                await invalidateAffectedReads(
+                    projectID:
+                        input.projectID
+                )
             }
             throw error
         }
     }
 
     @concurrent
-    func invalidateAffectedReads() async {
+    func invalidateAffectedReads(
+        projectID: Int
+    ) async {
         await client.invalidateCachedResponse(
             GitLabIssueEndpoints
                 .assignedIssues
@@ -265,6 +272,13 @@ nonisolated struct LiveGitLabIssueCreationService:
         await client.invalidateCachedResponse(
             HomeDashboardEndpoints
                 .recentProjects
+        )
+        await client.invalidateCachedResponse(
+            GitLabIssueEndpoints
+                .projectIssues(
+                    projectID: projectID,
+                    state: .opened
+                )
         )
     }
 

@@ -457,7 +457,19 @@ private nonisolated func issueInvalidations(
             HomeDashboardEndpoints
                 .assignedIssues
         ),
-    ] + todoInvalidations()
+    ]
+        + GitLabProjectIssueState.allCases
+        .map {
+            recorded(
+                GitLabIssueEndpoints
+                    .projectIssues(
+                        projectID:
+                            route.projectID,
+                        state: $0
+                    )
+            )
+        }
+        + todoInvalidations()
 }
 
 private nonisolated func mergeRequestInvalidations(

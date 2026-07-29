@@ -143,9 +143,13 @@ final class GitLabIssueCreationModel:
         >?
 
     let apiAccess: GitLabAPIAccess
+    let isProjectSelectionLocked: Bool
 
     @ObservationIgnored
     private let accountID: GitLabAccountID
+    @ObservationIgnored
+    private let fixedProject:
+        GitLabIssueCreationProjectSelection?
     @ObservationIgnored
     private let service:
         any GitLabIssueCreationServing
@@ -181,6 +185,8 @@ final class GitLabIssueCreationModel:
             any GitLabIssueCreationServing,
         draftStore:
             any GitLabIssueCreationDraftStoring,
+        fixedProject:
+            GitLabProject? = nil,
         searchDebounce: Duration =
             .milliseconds(250),
         isAccountCurrent:
@@ -194,6 +200,15 @@ final class GitLabIssueCreationModel:
         self.apiAccess = apiAccess
         self.service = service
         self.draftStore = draftStore
+        let fixedProject =
+            fixedProject.map(
+                GitLabIssueCreationProjectSelection
+                    .init(project:)
+            )
+        self.fixedProject = fixedProject
+        selectedProject = fixedProject
+        isProjectSelectionLocked =
+            fixedProject != nil
         self.searchDebounce = searchDebounce
         self.isAccountCurrent =
             isAccountCurrent
@@ -285,7 +300,7 @@ final class GitLabIssueCreationModel:
 
         let hadLocalEdits =
             draftRevision != startingRevision
-                || !currentDraft.isPristine
+                || hasLocalUserEdits
         if
             !hadLocalEdits,
             let stored
@@ -309,6 +324,17 @@ final class GitLabIssueCreationModel:
                 (stored?.revision ?? -1) + 1
             )
             schedulePersistence()
+        } else if isProjectSelectionLocked {
+            selectedProject = fixedProject
+            isSelectedProjectVerified = true
+            if
+                let projectID =
+                    fixedProject?.id
+            {
+                replaceMetadataModels(
+                    projectID: projectID
+                )
+            }
         } else {
             await verifyRestoredProject()
         }
@@ -411,6 +437,9 @@ final class GitLabIssueCreationModel:
     }
 
     func loadProjectsIfNeeded() async {
+        guard !isProjectSelectionLocked else {
+            return
+        }
         await projectsModel
             .loadIfNeeded()
     }
@@ -418,6 +447,9 @@ final class GitLabIssueCreationModel:
     func selectProject(
         _ project: GitLabProject
     ) {
+        guard !isProjectSelectionLocked else {
+            return
+        }
         let selection =
             GitLabIssueCreationProjectSelection(
                 project: project
@@ -643,14 +675,20 @@ final class GitLabIssueCreationModel:
                     == input.projectID
             else {
                 await service
-                    .invalidateAffectedReads()
+                    .invalidateAffectedReads(
+                        projectID:
+                            input.projectID
+                    )
                 failure =
                     .invalidAuthoritativeResponse
                 return
             }
 
             await service
-                .invalidateAffectedReads()
+                .invalidateAffectedReads(
+                    projectID:
+                        input.projectID
+                )
             guard isAccountCurrent() else {
                 return
             }
@@ -800,9 +838,11 @@ final class GitLabIssueCreationModel:
     ) {
         isApplyingDraft = true
         selectedProject =
-            draft.selectedProject
+            fixedProject
+                ?? draft.selectedProject
         isSelectedProjectVerified =
-            selectedProject == nil
+            fixedProject != nil
+                || selectedProject == nil
         title = draft.title
         rawDescription =
             draft.rawDescription
@@ -828,6 +868,9 @@ final class GitLabIssueCreationModel:
     }
 
     private func scheduleProjectSearch() {
+        guard !isProjectSelectionLocked else {
+            return
+        }
         projectSearchGeneration &+= 1
         let generation =
             projectSearchGeneration
@@ -938,8 +981,28 @@ final class GitLabIssueCreationModel:
         GitLabIssueCreationDraftKey
     {
         GitLabIssueCreationDraftKey(
-            accountID: accountID
+            accountID: accountID,
+            scope:
+                fixedProject.map {
+                    .project($0.id)
+                }
+                    ?? .account
         )
+    }
+
+    private var hasLocalUserEdits: Bool {
+        !title.isEmpty
+            || !rawDescription.isEmpty
+            || !selectedLabelNames.isEmpty
+            || !selectedAssigneeIDs.isEmpty
+            || confidential
+            || dueDate != nil
+            || pendingSubmissionFingerprint
+                != nil
+            || (
+                !isProjectSelectionLocked
+                    && selectedProject != nil
+            )
     }
 
     private var currentDraft:
@@ -947,7 +1010,9 @@ final class GitLabIssueCreationModel:
     {
         GitLabIssueCreationDraft(
             selectedProject:
-                selectedProject,
+                hasLocalUserEdits
+                ? selectedProject
+                : nil,
             title: title,
             description: rawDescription,
             labelNames:

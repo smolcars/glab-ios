@@ -14,6 +14,33 @@ nonisolated enum GitLabIssueEndpoints {
             ]
         )
 
+    static func projectIssues(
+        projectID: Int,
+        state: GitLabProjectIssueState
+    ) -> GitLabAPIRequest<[GitLabIssue]> {
+        .get(
+            requires: .read,
+            path: [
+                "projects",
+                String(projectID),
+                "issues",
+            ],
+            query: [
+                .init(name: "scope", value: "all"),
+                .init(
+                    name: "state",
+                    value: state.rawValue
+                ),
+                .init(
+                    name: "order_by",
+                    value: "updated_at"
+                ),
+                .init(name: "sort", value: "desc"),
+                .init(name: "per_page", value: "20"),
+            ]
+        )
+    }
+
     static func issue(
         at route: GitLabIssueRoute
     ) -> GitLabAPIRequest<GitLabIssue> {

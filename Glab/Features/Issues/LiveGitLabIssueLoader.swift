@@ -13,6 +13,26 @@ nonisolated protocol GitLabIssueLoading: Sendable {
             ) async -> Void
     ) async throws(GitLabSessionClientError)
 
+    func loadProjectIssuesPage(
+        projectID: Int,
+        state: GitLabProjectIssueState,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourcePage<GitLabIssue>
+
+    func loadProjectIssuesFirstPage(
+        projectID: Int,
+        state: GitLabProjectIssueState,
+        refreshBehavior:
+            GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<
+                    GitLabIssue
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError)
+
     func loadIssue(
         at route: GitLabIssueRoute
     ) async throws(GitLabSessionClientError) -> GitLabIssue
@@ -28,6 +48,41 @@ nonisolated protocol GitLabIssueLoading: Sendable {
 }
 
 extension GitLabIssueLoading {
+    func loadProjectIssuesPage(
+        projectID: Int,
+        state: GitLabProjectIssueState,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourcePage<GitLabIssue>
+    {
+        throw .api(.invalidResponse)
+    }
+
+    func loadProjectIssuesFirstPage(
+        projectID: Int,
+        state: GitLabProjectIssueState,
+        refreshBehavior:
+            GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<
+                    GitLabIssue
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        let page = try await loadProjectIssuesPage(
+            projectID: projectID,
+            state: state,
+            after: nil
+        )
+        await onPage(
+            GitLabResourcePageEvent(
+                page: page,
+                source: .network
+            )
+        )
+    }
+
     func loadAssignedIssuesFirstPage(
         refreshBehavior: GitLabCacheRefreshBehavior,
         onPage:
@@ -106,6 +161,74 @@ nonisolated struct LiveGitLabIssueLoader:
         try await client.loadPage(
             .initial(
                 GitLabIssueEndpoints.assignedIssues
+            ),
+            cachePolicy: .workList,
+            refreshBehavior: refreshBehavior
+        ) {
+            await onPage(
+                GitLabResourcePageEvent(
+                    apiResponse: $0
+                )
+            )
+        }
+    }
+
+    @concurrent
+    func loadProjectIssuesPage(
+        projectID: Int,
+        state: GitLabProjectIssueState,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabResourcePage<GitLabIssue>
+    {
+        let request:
+            GitLabAPIPageRequest<
+                [GitLabIssue]
+            > =
+                if let nextPageURL {
+                    .next(nextPageURL)
+                } else {
+                    .initial(
+                        GitLabIssueEndpoints
+                            .projectIssues(
+                                projectID:
+                                    projectID,
+                                state: state
+                            )
+                    )
+                }
+        let response =
+            try await client.sendPage(request)
+
+        return GitLabResourcePage(
+            items: response.value,
+            nextPageURL:
+                response.metadata.nextPageURL,
+            totalCount:
+                response.metadata.totalCount
+        )
+    }
+
+    @concurrent
+    func loadProjectIssuesFirstPage(
+        projectID: Int,
+        state: GitLabProjectIssueState,
+        refreshBehavior:
+            GitLabCacheRefreshBehavior,
+        onPage:
+            @escaping @Sendable (
+                GitLabResourcePageEvent<
+                    GitLabIssue
+                >
+            ) async -> Void
+    ) async throws(GitLabSessionClientError) {
+        try await client.loadPage(
+            .initial(
+                GitLabIssueEndpoints
+                    .projectIssues(
+                        projectID: projectID,
+                        state: state
+                    )
             ),
             cachePolicy: .workList,
             refreshBehavior: refreshBehavior

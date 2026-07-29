@@ -138,6 +138,44 @@ nonisolated struct GitLabProjectNamespace:
     }
 }
 
+nonisolated enum GitLabProjectFeatureAccessLevel:
+    Decodable,
+    Equatable,
+    Sendable
+{
+    case disabled
+    case privateAccess
+    case enabled
+    case unknown(String)
+
+    init(from decoder: any Decoder) throws {
+        let container =
+            try decoder.singleValueContainer()
+        let value = try container.decode(
+            String.self
+        )
+        .trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        .lowercased()
+
+        self = switch value {
+        case "disabled":
+            .disabled
+        case "private":
+            .privateAccess
+        case "enabled":
+            .enabled
+        default:
+            .unknown(value)
+        }
+    }
+
+    var isDisabled: Bool {
+        self == .disabled
+    }
+}
+
 nonisolated struct GitLabProject:
     Decodable,
     Equatable,
@@ -154,6 +192,8 @@ nonisolated struct GitLabProject:
     let lastActivityAt: Date
     let visibility: GitLabProjectVisibility
     let namespace: GitLabProjectNamespace?
+    let issuesAccessLevel:
+        GitLabProjectFeatureAccessLevel?
 
     var safeWebURL: URL? {
         GitLabWebURL.validated(webURL)
@@ -206,6 +246,8 @@ nonisolated struct GitLabProject:
         case lastActivityAt = "last_activity_at"
         case visibility
         case namespace
+        case issuesAccessLevel =
+            "issues_access_level"
     }
 }
 

@@ -18,6 +18,30 @@ struct GitLabIssueEndpointTests {
         )
     }
 
+    @Test(
+        "Builds a state-filtered project issues query",
+        arguments:
+            GitLabProjectIssueState.allCases
+    )
+    func buildsProjectIssuesQuery(
+        _ state: GitLabProjectIssueState
+    ) throws {
+        let url = try requestURL(
+            GitLabIssueEndpoints.projectIssues(
+                projectID: 42,
+                state: state
+            )
+        )
+
+        #expect(
+            url.absoluteString
+                == "https://gitlab.example.com/api/v4/projects/42/issues"
+                + "?scope=all&state=\(state.rawValue)"
+                + "&order_by=updated_at"
+                + "&sort=desc&per_page=20"
+        )
+    }
+
     @Test("Builds a project issue detail route")
     func buildsIssueDetailRoute() throws {
         let url = try requestURL(

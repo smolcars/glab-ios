@@ -14,6 +14,9 @@ struct GitLabProjectTests {
         #expect(project.pathWithNamespace == "mobile/glab-ios")
         #expect(project.namespace?.fullPath == "mobile")
         #expect(project.visibility == .privateAccess)
+        #expect(
+            project.issuesAccessLevel == .enabled
+        )
         #expect(project.visibility.title == "Private")
         #expect(project.starCount == 17)
         #expect(
@@ -23,6 +26,55 @@ struct GitLabProjectTests {
         #expect(project.safeAvatarURL?.scheme == "https")
         #expect(project.safeWebURL?.scheme == "https")
         #expect(project.avatarMark == "GI")
+    }
+
+    @Test(
+        "Maps project issues access without rejecting future values",
+        arguments: [
+            (
+                "disabled",
+                GitLabProjectFeatureAccessLevel
+                    .disabled,
+                true
+            ),
+            (
+                "private",
+                GitLabProjectFeatureAccessLevel
+                    .privateAccess,
+                false
+            ),
+            (
+                "enabled",
+                GitLabProjectFeatureAccessLevel
+                    .enabled,
+                false
+            ),
+            (
+                "restricted",
+                GitLabProjectFeatureAccessLevel
+                    .unknown("restricted"),
+                false
+            ),
+        ]
+    )
+    func mapsIssuesAccess(
+        value: String,
+        expected:
+            GitLabProjectFeatureAccessLevel,
+        isDisabled: Bool
+    ) throws {
+        let project = try decodeProject(
+            issuesAccessLevel: value
+        )
+
+        #expect(
+            project.issuesAccessLevel
+                == expected
+        )
+        #expect(
+            project.issuesAccessLevel?
+                .isDisabled == isDisabled
+        )
     }
 
     @Test("Decodes missing optional project presentation data")
@@ -121,6 +173,8 @@ struct GitLabProjectTests {
 private extension GitLabProjectTests {
     func decodeProject(
         visibility: String = "private",
+        issuesAccessLevel: String =
+            "enabled",
         namespace: String = """
             {
               "id": 7,
@@ -145,6 +199,7 @@ private extension GitLabProjectTests {
               "star_count": 17,
               "last_activity_at": "2026-07-25T12:00:00Z",
               "visibility": "\(visibility)",
+              "issues_access_level": "\(issuesAccessLevel)",
               "namespace": \(namespace)
             }
             """.utf8

@@ -21,7 +21,10 @@ nonisolated func makeTestProject(
         path: "mobile",
         kind: "group",
         fullPath: "mobile"
-    )
+    ),
+    issuesAccessLevel:
+        GitLabProjectFeatureAccessLevel? =
+            .enabled
 ) -> GitLabProject {
     GitLabProject(
         id: id,
@@ -33,7 +36,8 @@ nonisolated func makeTestProject(
         starCount: starCount,
         lastActivityAt: lastActivityAt,
         visibility: visibility,
-        namespace: namespace
+        namespace: namespace,
+        issuesAccessLevel:
+            issuesAccessLevel
     )
 }
-

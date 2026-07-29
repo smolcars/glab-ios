@@ -30,6 +30,16 @@ nonisolated struct
             HomeDashboardEndpoints
                 .assignedIssues
         )
+        for state in GitLabProjectIssueState.allCases {
+            await client.invalidateCachedResponse(
+                GitLabIssueEndpoints
+                    .projectIssues(
+                        projectID:
+                            route.projectID,
+                        state: state
+                    )
+            )
+        }
         await invalidateTodoReads()
     }
 

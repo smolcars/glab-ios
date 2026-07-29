@@ -15,11 +15,11 @@ struct GitLabIssueCreationModelTests {
             try CreationModelContext()
 
         let first =
-            HomeIssueCreationPresentation(
+            GitLabIssueCreationPresentation(
                 model: firstContext.model
             )
         let second =
-            HomeIssueCreationPresentation(
+            GitLabIssueCreationPresentation(
                 model: secondContext.model
             )
 
@@ -38,7 +38,7 @@ struct GitLabIssueCreationModelTests {
         let context =
             try CreationModelContext()
         let presentation =
-            HomeIssueCreationPresentation(
+            GitLabIssueCreationPresentation(
                 model: context.model
             )
         var state =
@@ -87,11 +87,11 @@ struct GitLabIssueCreationModelTests {
         let secondContext =
             try CreationModelContext()
         let first =
-            HomeIssueCreationPresentation(
+            GitLabIssueCreationPresentation(
                 model: firstContext.model
             )
         let second =
-            HomeIssueCreationPresentation(
+            GitLabIssueCreationPresentation(
                 model: secondContext.model
             )
         var state =
@@ -174,6 +174,56 @@ struct GitLabIssueCreationModelTests {
         #expect(
             await context.service
                 .resolvedProjectIDs == [42]
+        )
+    }
+
+    @Test("Project composer keeps its project fixed and scopes its draft")
+    @MainActor
+    func keepsProjectComposerScoped()
+        async throws
+    {
+        let project = makeTestProject(id: 42)
+        let draft = makeDraft(revision: 7)
+        let store =
+            RecordingIssueCreationDraftStore(
+                draft: draft
+            )
+        let context = try CreationModelContext(
+            draftStore: store,
+            fixedProject: project
+        )
+
+        await context.model.restoreDraft()
+        await context.model
+            .loadProjectsIfNeeded()
+        context.model.selectProject(
+            makeTestProject(id: 43)
+        )
+
+        #expect(
+            context.model
+                .isProjectSelectionLocked
+        )
+        #expect(
+            context.model.selectedProject?.id
+                == project.id
+        )
+        #expect(
+            context.model.title
+                == draft.title
+        )
+        #expect(
+            await context.service
+                .projectSearches.isEmpty
+        )
+        #expect(
+            await context.service
+                .resolvedProjectIDs.isEmpty
+        )
+        #expect(
+            await store.readKeys
+                .map(\.scope)
+                == [.project(project.id)]
         )
     }
 
@@ -845,6 +895,8 @@ private struct CreationModelContext {
         draftStore:
             RecordingIssueCreationDraftStore =
                 RecordingIssueCreationDraftStore(),
+        fixedProject:
+            GitLabProject? = nil,
         searchDebounce: Duration =
             .milliseconds(250)
     ) throws {
@@ -864,6 +916,7 @@ private struct CreationModelContext {
             apiAccess: apiAccess,
             service: service,
             draftStore: draftStore,
+            fixedProject: fixedProject,
             searchDebounce:
                 searchDebounce,
             isAccountCurrent: {
@@ -891,6 +944,8 @@ private actor RecordingIssueCreationDraftStore:
 {
     private(set) var storedDraft:
         GitLabIssueCreationDraft?
+    private(set) var readKeys:
+        [GitLabIssueCreationDraftKey] = []
     private let failsStores: Bool
 
     init(
@@ -904,7 +959,8 @@ private actor RecordingIssueCreationDraftStore:
     func draft(
         for key: GitLabIssueCreationDraftKey
     ) -> GitLabIssueCreationDraft? {
-        storedDraft
+        readKeys.append(key)
+        return storedDraft
     }
 
     func store(
@@ -1171,7 +1227,9 @@ private actor RecordingIssueCreationService:
             .get()
     }
 
-    func invalidateAffectedReads() {
+    func invalidateAffectedReads(
+        projectID: Int
+    ) {
         invalidationCount += 1
     }
 

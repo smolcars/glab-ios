@@ -4,16 +4,6 @@ private enum HomeNavigationRoute: Hashable {
     case search
 }
 
-struct HomeIssueCreationPresentation:
-    Identifiable
-{
-    let model: GitLabIssueCreationModel
-
-    var id: ObjectIdentifier {
-        ObjectIdentifier(model)
-    }
-}
-
 enum HomeSheetDestination: Identifiable {
     enum ID: Hashable {
         case account
@@ -24,7 +14,7 @@ enum HomeSheetDestination: Identifiable {
 
     case account
     case issueCreation(
-        HomeIssueCreationPresentation
+        GitLabIssueCreationPresentation
     )
 
     var id: ID {
@@ -41,49 +31,10 @@ enum HomeSheetDestination: Identifiable {
     }
 }
 
-struct HomeSheetPresentationState {
-    // Keep content alive for one SwiftUI render pass before presenting it.
-    // Presenting in the same update that creates the model can yield an empty
-    // sheet host on a cold launch.
-    private(set) var destination:
-        HomeSheetDestination?
-    private(set) var isPresented = false
-
-    var preparedID:
-        HomeSheetDestination.ID?
-    {
-        destination?.id
-    }
-
-    mutating func prepare(
-        _ destination:
-            HomeSheetDestination
-    ) {
-        self.destination = destination
-        isPresented = false
-    }
-
-    mutating func presentPrepared(
-        id: HomeSheetDestination.ID?
-    ) {
-        guard
-            let id,
-            destination?.id == id
-        else {
-            return
-        }
-        isPresented = true
-    }
-
-    mutating func dismiss() {
-        isPresented = false
-    }
-
-    mutating func didDismiss() {
-        isPresented = false
-        destination = nil
-    }
-}
+typealias HomeSheetPresentationState =
+    GitLabPreparedSheetPresentationState<
+        HomeSheetDestination
+    >
 
 struct HomeView: View {
     let session: GitLabStoredSession
@@ -359,7 +310,7 @@ struct HomeView: View {
             }
         sheetPresentation.prepare(
             .issueCreation(
-                HomeIssueCreationPresentation(
+                GitLabIssueCreationPresentation(
                     model: model
                 )
             )
@@ -411,8 +362,26 @@ struct HomeView: View {
             GitLabProjectDetailView(
                 route: projectRoute,
                 loader: projectLoader,
+                apiAccess:
+                    session.apiAccess,
+                issueLoader:
+                    issueLoader,
+                discussionLoader:
+                    discussionLoader,
+                discussionMutator:
+                    discussionMutator,
+                reactionService:
+                    reactionService,
+                editService:
+                    editService,
+                issueStatusService:
+                    issueStatusService,
+                issueCreationService:
+                    issueCreationService,
                 accountID: accountID,
-                appSession: appSession
+                appSession: appSession,
+                onResourceEdited:
+                    onResourceEdited
             )
         case let .issue(issueRoute):
             GitLabIssueDetailView(

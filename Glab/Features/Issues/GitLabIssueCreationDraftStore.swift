@@ -1,5 +1,14 @@
 import Foundation
 
+nonisolated enum GitLabIssueCreationDraftScope:
+    Equatable,
+    Hashable,
+    Sendable
+{
+    case account
+    case project(Int)
+}
+
 nonisolated struct GitLabIssueCreationDraftKey:
     Equatable,
     Hashable,
@@ -8,6 +17,17 @@ nonisolated struct GitLabIssueCreationDraftKey:
     CustomDebugStringConvertible
 {
     let accountID: GitLabAccountID
+    let scope: GitLabIssueCreationDraftScope
+
+    init(
+        accountID: GitLabAccountID,
+        scope:
+            GitLabIssueCreationDraftScope =
+                .account
+    ) {
+        self.accountID = accountID
+        self.scope = scope
+    }
 
     var description: String {
         "GitLabIssueCreationDraftKey(<redacted>)"
@@ -18,9 +38,19 @@ nonisolated struct GitLabIssueCreationDraftKey:
     }
 
     var storageIdentifier: String {
-        Self.lengthPrefixed(
-            accountID.storageIdentifier
-        )
+        let accountIdentifier =
+            Self.lengthPrefixed(
+                accountID.storageIdentifier
+            )
+
+        return switch scope {
+        case .account:
+            accountIdentifier
+        case let .project(projectID):
+            accountIdentifier
+                + "\nproject:"
+                + String(projectID)
+        }
     }
 
     static func lengthPrefixed(
@@ -308,12 +338,9 @@ actor InMemoryGitLabIssueCreationDraftStore:
     func removeAll(
         for accountID: GitLabAccountID
     ) {
-        drafts.removeValue(
-            forKey:
-                GitLabIssueCreationDraftKey(
-                    accountID: accountID
-                )
-        )
+        drafts = drafts.filter {
+            $0.key.accountID != accountID
+        }
     }
 }
 

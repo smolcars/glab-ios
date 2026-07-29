@@ -144,62 +144,79 @@ struct GitLabIssueCreationView: View {
 
     private var projectSection: some View {
         Section("Project") {
-            NavigationLink {
-                GitLabIssueCreationProjectPicker(
-                    model: model,
-                    accountID: accountID,
-                    appSession: appSession
-                )
-            } label: {
-                HStack(spacing: 12) {
-                    Image(
-                        systemName:
-                            model.selectedProject
-                                == nil
-                            ? "square.stack"
-                            : "square.stack.fill"
-                    )
-                    .foregroundStyle(.orange)
-                    .frame(width: 24)
-
-                    VStack(
-                        alignment: .leading,
-                        spacing: 2
-                    ) {
-                        Text(
-                            model.selectedProject?
-                                .name
-                                ?? "Choose a project"
-                        )
-                        .foregroundStyle(.primary)
-
-                        if
-                            let path =
-                                model.selectedProject?
-                                .pathWithNamespace
-                        {
-                            Text(path)
-                                .font(.caption)
-                                .foregroundStyle(
-                                    .secondary
-                                )
-                                .lineLimit(1)
+            if model.isProjectSelectionLocked {
+                projectLabel
+                    .accessibilityLabel(
+                        model.selectedProject.map {
+                            "Project, \($0.nameWithNamespace)"
                         }
+                            ?? "Project"
+                    )
+                    .accessibilityIdentifier(
+                        "issueCreation.project"
+                    )
+            } else {
+                NavigationLink {
+                    GitLabIssueCreationProjectPicker(
+                        model: model,
+                        accountID: accountID,
+                        appSession: appSession
+                    )
+                } label: {
+                    projectLabel
+                }
+                .accessibilityLabel(
+                    model.selectedProject.map {
+                        "Project, \($0.nameWithNamespace)"
                     }
+                        ?? "Choose a project"
+                )
+                .accessibilityHint(
+                    "Opens project search."
+                )
+                .accessibilityIdentifier(
+                    "issueCreation.project"
+                )
+            }
+        }
+    }
+
+    private var projectLabel: some View {
+        HStack(spacing: 12) {
+            Image(
+                systemName:
+                    model.selectedProject
+                        == nil
+                    ? "square.stack"
+                    : "square.stack.fill"
+            )
+            .foregroundStyle(.orange)
+            .frame(width: 24)
+
+            VStack(
+                alignment: .leading,
+                spacing: 2
+            ) {
+                Text(
+                    model.selectedProject?
+                        .name
+                        ?? "Choose a project"
+                )
+                .foregroundStyle(.primary)
+
+                if
+                    let path =
+                        model.selectedProject?
+                        .pathWithNamespace
+                {
+                    Text(path)
+                        .font(.caption)
+                        .foregroundStyle(
+                            .secondary
+                        )
+                        .lineLimit(1)
                 }
             }
-            .accessibilityLabel(
-                model.selectedProject.map {
-                    "Project, \($0.nameWithNamespace)"
-                }
-                    ?? "Choose a project"
-            )
-            .accessibilityHint(
-                "Opens project search."
-            )
-            .accessibilityIdentifier(
-                "issueCreation.project"
-            )
         }
     }
 
