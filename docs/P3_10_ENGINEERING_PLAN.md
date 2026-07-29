@@ -13,8 +13,8 @@
   measurement
 - Performance and Simulator verification: in progress; file-oriented and
   renderer Release gates pass
-- Deep review: in progress; four material findings repaired, repeat review and
-  device-validation search repair remain
+- Deep review: in progress; four material findings and the device-validation
+  search repair are complete, final full gates remain
 
 Research date: July 29, 2026.
 
@@ -694,6 +694,19 @@ reachable above the home/todos bar without covering trace lines. Focused
 presentation and deterministic Simulator regressions must prove search can be
 opened after jumping to the end, dismissed, and reopened without scrolling to
 the top.
+
+The bottom-search review found that the clear control's rendered hit target
+was only 32 points even though it sits inside a 44-point field. The icon can
+remain visually compact, but its tappable frame must be 44 by 44 points so the
+new placement does not trade reachability for precision.
+
+Completed July 29, 2026. The focused trace model and status-presentation suites
+pass. The deterministic iPhone 17 Pro Simulator flow opens search after
+jumping to the end of a 1,208-line fixture, navigates matches, dismisses and
+reopens search, and retains the failure and end jumps. The bottom field and
+compact control pill were visually inspected. The repeat presentation review
+found no remaining material bottom-control overlap, unreachable action,
+duplicate search ownership, or necessary refactor.
 
 The network is not benchmarked with a fake latency claim. Transport tests
 measure bytes-to-protected-file overhead; UI metrics start from a deterministic

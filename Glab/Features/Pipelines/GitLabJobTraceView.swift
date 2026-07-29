@@ -136,8 +136,12 @@ struct GitLabJobTraceView: View {
     @State private var model:
         GitLabJobTraceModel
     @State private var searchText = ""
+    @State private var isSearchPresented =
+        false
     @State private var jump:
         GitLabJobTraceJump?
+    @FocusState private var
+        isSearchFieldFocused: Bool
 
     init(
         accountID: GitLabAccountID,
@@ -194,10 +198,6 @@ struct GitLabJobTraceView: View {
                     }
                 }
             }
-            .searchable(
-                text: $searchText,
-                prompt: "Search job log"
-            )
             .task {
                 await model.loadIfNeeded()
                 await handleAuthenticationFailure()
@@ -419,6 +419,10 @@ struct GitLabJobTraceView: View {
                     )
             }
 
+            if isSearchPresented {
+                bottomSearchField
+            }
+
             controlGroup
         }
         .padding(.horizontal, 10)
@@ -432,6 +436,21 @@ struct GitLabJobTraceView: View {
     @ViewBuilder
     private var controlGroup: some View {
         let controls = HStack(spacing: 0) {
+            controlButton(
+                systemImage:
+                    isSearchPresented
+                    ? "xmark"
+                    : "magnifyingglass",
+                label:
+                    isSearchPresented
+                    ? "Close job log search"
+                    : "Search job log",
+                identifier:
+                    "jobTrace.search"
+            ) {
+                await toggleSearch()
+            }
+
             if
                 !model.searchResult
                 .lineIndexes.isEmpty
@@ -550,6 +569,83 @@ struct GitLabJobTraceView: View {
         }
     }
 
+    @ViewBuilder
+    private var bottomSearchField:
+        some View
+    {
+        let field = HStack(spacing: 8) {
+            Image(
+                systemName: "magnifyingglass"
+            )
+            .foregroundStyle(.secondary)
+            .accessibilityHidden(true)
+
+            TextField(
+                "Search job log",
+                text: $searchText
+            )
+            .textInputAutocapitalization(
+                .never
+            )
+            .autocorrectionDisabled()
+            .submitLabel(.search)
+            .focused(
+                $isSearchFieldFocused
+            )
+            .accessibilityIdentifier(
+                "jobTrace.searchField"
+            )
+
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                    isSearchFieldFocused =
+                        true
+                } label: {
+                    Image(
+                        systemName:
+                            "xmark.circle.fill"
+                    )
+                    .foregroundStyle(
+                        .secondary
+                    )
+                    .frame(
+                        width: 44,
+                        height: 44
+                    )
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    "Clear job log search"
+                )
+                .accessibilityIdentifier(
+                    "jobTrace.clearSearch"
+                )
+            }
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 6)
+        .frame(
+            maxWidth: 420,
+            minHeight: 44
+        )
+
+        if #available(iOS 26.0, *) {
+            field
+                .glassEffect(
+                    .regular.interactive(),
+                    in: .capsule
+                )
+        } else {
+            field
+                .background(
+                    .ultraThinMaterial,
+                    in: .capsule
+                )
+        }
+    }
+
     private func controlButton(
         systemImage: String,
         label: String,
@@ -641,6 +737,22 @@ struct GitLabJobTraceView: View {
                 lineIndex: lineIndex
             )
         }
+    }
+
+    private func toggleSearch() async {
+        if isSearchPresented {
+            isSearchFieldFocused = false
+            searchText = ""
+            isSearchPresented = false
+            return
+        }
+
+        isSearchPresented = true
+        await Task.yield()
+        guard !Task.isCancelled else {
+            return
+        }
+        isSearchFieldFocused = true
     }
 
     private func jumpToNextMatch() async {

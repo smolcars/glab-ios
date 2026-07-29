@@ -21,7 +21,14 @@ name: P3-10 pipeline job trace smoke
     timeout: 30000
 - assertVisible:
     id: jobTrace.lines
-- tapOn: "Search job log"
+- tapOn:
+    id: jobTrace.scrollToEnd
+- tapOn:
+    id: jobTrace.search
+- assertVisible:
+    id: jobTrace.searchField
+- tapOn:
+    id: jobTrace.searchField
 - inputText: "deterministic fixture failure"
 - extendedWaitUntil:
     visible:
@@ -33,6 +40,14 @@ name: P3-10 pipeline job trace smoke
     id: jobTrace.nextMatch
 - tapOn:
     id: jobTrace.previousMatch
+- tapOn:
+    id: jobTrace.search
+- assertNotVisible:
+    id: jobTrace.searchField
+- tapOn:
+    id: jobTrace.search
+- assertVisible:
+    id: jobTrace.searchField
 - assertVisible:
     id: jobTrace.firstFailure
 - tapOn:
