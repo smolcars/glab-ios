@@ -579,10 +579,10 @@ Outcome:
 
 Todo:
 
-- [ ] Inspect the MR readiness pipeline summary, existing pagination and cache
+- [x] Inspect the MR readiness pipeline summary, existing pagination and cache
   models, detail navigation, status formatting, account switching, and current
   project/MR route identity.
-- [ ] Before writing production code, create
+- [x] Before writing production code, create
   `docs/P3_09_ENGINEERING_PLAN.md`. Document MR pipeline-list, pipeline-detail,
   pipeline-jobs, retried-job, bridge/child-pipeline, pagination, polling, cache,
   navigation, state ownership, performance, tests, accessibility, and
