@@ -21,9 +21,23 @@ actor FileGitLabJobTraceStore:
         let storedAt: Date
     }
 
+    private struct MaintenanceEntry {
+        let directoryURL: URL
+        let logicalByteCount: Int
+        let lastAccessedAt: Date
+    }
+
+    private struct EntrySnapshot: Equatable {
+        let metadata: Data
+        let directorySystemNumber: UInt64
+        let directoryFileNumber: UInt64
+    }
+
     static let maximumTraceByteCount =
         110 * 1_024 * 1_024
     static let maximumLineCount = 5_000_000
+    static let defaultMaximumStoredByteCount =
+        256 * 1_024 * 1_024
 
     private static let metadataFormatVersion =
         GitLabJobTraceStorageFormat.currentVersion
@@ -37,8 +51,11 @@ actor FileGitLabJobTraceStore:
         "metadata.plist"
 
     private let rootDirectory: URL
+    private let maximumStoredByteCount: Int
     private let currentDate: @Sendable () -> Date
     private let fileManager: FileManager
+    private var activeWorkspaceDirectories:
+        Set<URL> = []
 
     init(
         rootDirectory: URL =
@@ -53,13 +70,34 @@ actor FileGitLabJobTraceStore:
                 path: "v1",
                 directoryHint: .isDirectory
             ),
+        maximumStoredByteCount: Int =
+            FileGitLabJobTraceStore
+            .defaultMaximumStoredByteCount,
         currentDate:
             @escaping @Sendable () -> Date = Date.init,
         fileManager: FileManager = .default
     ) {
         self.rootDirectory = rootDirectory
+        self.maximumStoredByteCount =
+            max(0, maximumStoredByteCount)
         self.currentDate = currentDate
         self.fileManager = fileManager
+    }
+
+    func prepare() async {
+        do {
+            try Task.checkCancellation()
+            try createProtectedDirectory(
+                rootDirectory,
+                withIntermediateDirectories: true
+            )
+            let entries =
+                try await maintainedEntries()
+            try Task.checkCancellation()
+            prune(entries)
+        } catch {
+            return
+        }
     }
 
     func beginImport(
@@ -96,6 +134,10 @@ actor FileGitLabJobTraceStore:
             try createProtectedDirectory(
                 workspaceDirectory,
                 withIntermediateDirectories: false
+            )
+            activeWorkspaceDirectories.insert(
+                workspaceDirectory
+                    .standardizedFileURL
             )
             return GitLabJobTraceImportWorkspace(
                 key: key,
@@ -192,12 +234,23 @@ actor FileGitLabJobTraceStore:
                 [.modificationDate: entryStoredAt],
                 ofItemAtPath: entryURL.path
             )
+            activeWorkspaceDirectories.remove(
+                workspace.directoryURL
+                    .standardizedFileURL
+            )
 
-            return descriptor(
+            let publishedDescriptor = descriptor(
                 metadata: metadata,
                 key: workspace.key,
                 entryURL: entryURL
             )
+            if
+                let entries =
+                    try? publishedEntries()
+            {
+                prune(entries)
+            }
+            return publishedDescriptor
         } catch is CancellationError {
             discard(workspace)
             throw CancellationError()
@@ -221,6 +274,10 @@ actor FileGitLabJobTraceStore:
         else {
             return
         }
+        activeWorkspaceDirectories.remove(
+            workspace.directoryURL
+                .standardizedFileURL
+        )
         try? fileManager.removeItem(
             at: workspace.directoryURL
         )
@@ -236,7 +293,7 @@ actor FileGitLabJobTraceStore:
         )
 
         for _ in 0..<3 {
-            var metadataSnapshot: Data?
+            var entrySnapshot: EntrySnapshot?
             do {
                 try validateDirectory(
                     entryURL,
@@ -252,7 +309,10 @@ actor FileGitLabJobTraceStore:
                         maximumByteCount:
                             Self.metadataMaximumByteCount
                     )
-                metadataSnapshot = metadataData
+                entrySnapshot = try snapshot(
+                    entryURL: entryURL,
+                    metadata: metadataData
+                )
                 let metadata =
                     try decoder.decode(
                         StoredMetadata.self,
@@ -302,14 +362,14 @@ actor FileGitLabJobTraceStore:
                         maximumLineCount:
                             Self.maximumLineCount
                     )
-                let currentMetadata =
-                    try boundedRegularFileData(
-                        at: metadataURL,
-                        expectedParent: entryURL,
-                        maximumByteCount:
-                            Self.metadataMaximumByteCount
+                let currentSnapshot =
+                    try currentSnapshot(
+                        entryURL: entryURL,
+                        metadataURL: metadataURL
                     )
-                guard currentMetadata == metadataData else {
+                guard
+                    currentSnapshot == entrySnapshot
+                else {
                     continue
                 }
                 guard
@@ -336,19 +396,27 @@ actor FileGitLabJobTraceStore:
                 return nil
             } catch {
                 if
-                    let metadataSnapshot,
-                    let currentMetadata =
-                    try? boundedRegularFileData(
-                        at: metadataURL,
-                        expectedParent: entryURL,
-                        maximumByteCount:
-                            Self.metadataMaximumByteCount
-                    ),
-                    currentMetadata != metadataSnapshot
+                    let entrySnapshot
                 {
-                    continue
+                    guard
+                        let current =
+                            try? currentSnapshot(
+                                entryURL: entryURL,
+                                metadataURL:
+                                    metadataURL
+                            ),
+                        current == entrySnapshot
+                    else {
+                        continue
+                    }
                 }
-                try? fileManager.removeItem(at: entryURL)
+                try? removeOwnedItem(
+                    entryURL,
+                    expectedParent:
+                        accountDirectory(
+                            for: key.accountID
+                        )
+                )
                 return nil
             }
         }
@@ -419,8 +487,8 @@ actor FileGitLabJobTraceStore:
         _ workspace:
             GitLabJobTraceImportWorkspace
     ) -> Bool {
-        workspace.directoryURL.standardizedFileURL
-            == workspaceDirectory(
+        let expectedDirectory =
+            workspaceDirectory(
                 accountDirectory:
                     accountDirectory(
                         for:
@@ -432,6 +500,12 @@ actor FileGitLabJobTraceStore:
                     workspace.identifier
             )
             .standardizedFileURL
+        return
+            workspace.directoryURL
+            .standardizedFileURL
+                == expectedDirectory
+                && activeWorkspaceDirectories
+                .contains(expectedDirectory)
     }
 
     private func createProtectedDirectory(
@@ -747,6 +821,608 @@ actor FileGitLabJobTraceStore:
         return data
     }
 
+    private func maintainedEntries() async throws
+        -> [MaintenanceEntry]
+    {
+        var entries: [MaintenanceEntry] = []
+        for accountURL in try immediateChildren(
+            of: rootDirectory
+        ) {
+            try Task.checkCancellation()
+            guard
+                Self.isSHA256Digest(
+                    accountURL.lastPathComponent
+                )
+            else {
+                try? removeOwnedItem(
+                    accountURL,
+                    expectedParent: rootDirectory
+                )
+                continue
+            }
+
+            do {
+                try validateDirectory(
+                    accountURL,
+                    expectedParent: rootDirectory
+                )
+                try protectAndExcludeFromBackup(
+                    accountURL
+                )
+                for entryURL in
+                    try immediateChildren(
+                        of: accountURL
+                    )
+                {
+                    try Task.checkCancellation()
+                    let name =
+                        entryURL.lastPathComponent
+                    if
+                        name.hasPrefix(".tmp-")
+                            || name.hasPrefix(".old-")
+                    {
+                        if
+                            activeWorkspaceDirectories
+                            .contains(
+                                entryURL
+                                    .standardizedFileURL
+                            )
+                        {
+                            continue
+                        }
+                        try? removeOwnedItem(
+                            entryURL,
+                            expectedParent: accountURL
+                        )
+                        continue
+                    }
+                    guard
+                        Self.isEntryDirectoryName(
+                            name
+                        )
+                    else {
+                        try? removeOwnedItem(
+                            entryURL,
+                            expectedParent: accountURL
+                        )
+                        continue
+                    }
+                    if
+                        let entry =
+                            try await maintainedEntry(
+                                at: entryURL,
+                                accountDirectory:
+                                    accountURL
+                            )
+                    {
+                        entries.append(entry)
+                    }
+                }
+                if
+                    try immediateChildren(
+                        of: accountURL
+                    ).isEmpty
+                {
+                    try? removeOwnedItem(
+                        accountURL,
+                        expectedParent: rootDirectory
+                    )
+                }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                try? removeOwnedItem(
+                    accountURL,
+                    expectedParent: rootDirectory
+                )
+            }
+        }
+        return entries
+    }
+
+    private func maintainedEntry(
+        at entryURL: URL,
+        accountDirectory: URL
+    ) async throws -> MaintenanceEntry? {
+        let metadataURL = entryURL.appending(
+            path: Self.metadataFileName,
+            directoryHint: .notDirectory
+        )
+
+        for _ in 0..<3 {
+            var entrySnapshot: EntrySnapshot?
+            do {
+                try validateDirectory(
+                    entryURL,
+                    expectedParent: accountDirectory
+                )
+                try validateEntryChildren(
+                    at: entryURL
+                )
+                let metadataData =
+                    try boundedRegularFileData(
+                        at: metadataURL,
+                        expectedParent: entryURL,
+                        maximumByteCount:
+                            Self.metadataMaximumByteCount
+                    )
+                entrySnapshot = try snapshot(
+                    entryURL: entryURL,
+                    metadata: metadataData
+                )
+                let metadata =
+                    try decoder.decode(
+                        StoredMetadata.self,
+                        from: metadataData
+                    )
+                try validate(
+                    metadata,
+                    entryDirectory: entryURL
+                )
+                let prepared =
+                    preparedEntry(
+                        metadata: metadata,
+                        entryURL: entryURL
+                    )
+                let validated =
+                    try await GitLabJobTraceFileValidator
+                    .validate(
+                        prepared,
+                        inside: entryURL,
+                        maximumTraceByteCount:
+                            Self.maximumTraceByteCount,
+                        maximumLineCount:
+                            Self.maximumLineCount
+                    )
+                let currentSnapshot =
+                    try currentSnapshot(
+                        entryURL: entryURL,
+                        metadataURL: metadataURL
+                    )
+                guard
+                    currentSnapshot == entrySnapshot
+                else {
+                    continue
+                }
+                guard
+                    validated.indexByteCount
+                        == metadata.indexByteCount,
+                    validated.indexContentDigest
+                        == metadata.indexContentDigest
+                else {
+                    throw GitLabJobTraceStoreError
+                        .invalidEntry
+                }
+                try protectAndExcludeFromBackup(
+                    prepared.traceFileURL
+                )
+                try protectAndExcludeFromBackup(
+                    prepared.indexFileURL
+                )
+                try protectAndExcludeFromBackup(
+                    metadataURL
+                )
+                try protectAndExcludeFromBackup(
+                    entryURL
+                )
+                let values =
+                    try entryURL.resourceValues(
+                        forKeys: [
+                            .contentModificationDateKey,
+                        ]
+                    )
+                return MaintenanceEntry(
+                    directoryURL: entryURL,
+                    logicalByteCount:
+                        metadata.byteCount
+                        + metadata.indexByteCount
+                        + metadataData.count,
+                    lastAccessedAt:
+                        values.contentModificationDate
+                        ?? metadata.storedAt
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                if
+                    let entrySnapshot
+                {
+                    guard
+                        let current =
+                            try? currentSnapshot(
+                                entryURL: entryURL,
+                                metadataURL:
+                                    metadataURL
+                            ),
+                        current == entrySnapshot
+                    else {
+                        continue
+                    }
+                }
+                try? removeOwnedItem(
+                    entryURL,
+                    expectedParent: accountDirectory
+                )
+                return nil
+            }
+        }
+        return nil
+    }
+
+    private func snapshot(
+        entryURL: URL,
+        metadata: Data
+    ) throws -> EntrySnapshot {
+        let attributes =
+            try fileManager.attributesOfItem(
+                atPath: entryURL.path
+            )
+        guard
+            let systemNumber =
+                attributes[.systemNumber]
+                    as? NSNumber,
+            let fileNumber =
+                attributes[.systemFileNumber]
+                    as? NSNumber
+        else {
+            throw GitLabJobTraceStoreError
+                .invalidEntry
+        }
+        return EntrySnapshot(
+            metadata: metadata,
+            directorySystemNumber:
+                systemNumber.uint64Value,
+            directoryFileNumber:
+                fileNumber.uint64Value
+        )
+    }
+
+    private func currentSnapshot(
+        entryURL: URL,
+        metadataURL: URL
+    ) throws -> EntrySnapshot {
+        let metadata =
+            try boundedRegularFileData(
+                at: metadataURL,
+                expectedParent: entryURL,
+                maximumByteCount:
+                    Self.metadataMaximumByteCount
+            )
+        return try snapshot(
+            entryURL: entryURL,
+            metadata: metadata
+        )
+    }
+
+    private func publishedEntries() throws
+        -> [MaintenanceEntry]
+    {
+        var entries: [MaintenanceEntry] = []
+        guard
+            fileManager.fileExists(
+                atPath: rootDirectory.path
+            )
+        else {
+            return entries
+        }
+        for accountURL in try immediateChildren(
+            of: rootDirectory
+        ) where
+            Self.isSHA256Digest(
+                accountURL.lastPathComponent
+            )
+        {
+            guard
+                (try? validateDirectory(
+                    accountURL,
+                    expectedParent: rootDirectory
+                )) != nil
+            else {
+                continue
+            }
+            for entryURL in
+                try immediateChildren(of: accountURL)
+            where
+                Self.isEntryDirectoryName(
+                    entryURL.lastPathComponent
+                )
+            {
+                if
+                    let entry =
+                        try? publishedEntry(
+                            at: entryURL,
+                            accountDirectory:
+                                accountURL
+                        )
+                {
+                    entries.append(entry)
+                }
+            }
+        }
+        return entries
+    }
+
+    private func publishedEntry(
+        at entryURL: URL,
+        accountDirectory: URL
+    ) throws -> MaintenanceEntry {
+        try validateDirectory(
+            entryURL,
+            expectedParent: accountDirectory
+        )
+        try validateEntryChildren(at: entryURL)
+        let metadataURL = entryURL.appending(
+            path: Self.metadataFileName,
+            directoryHint: .notDirectory
+        )
+        let metadataData =
+            try boundedRegularFileData(
+                at: metadataURL,
+                expectedParent: entryURL,
+                maximumByteCount:
+                    Self.metadataMaximumByteCount
+            )
+        let metadata =
+            try decoder.decode(
+                StoredMetadata.self,
+                from: metadataData
+            )
+        try validate(
+            metadata,
+            entryDirectory: entryURL
+        )
+        let prepared = preparedEntry(
+            metadata: metadata,
+            entryURL: entryURL
+        )
+        let traceSize = try regularFileSize(
+            at: prepared.traceFileURL,
+            expectedParent: entryURL
+        )
+        let indexSize = try regularFileSize(
+            at: prepared.indexFileURL,
+            expectedParent: entryURL
+        )
+        guard
+            traceSize == metadata.byteCount,
+            indexSize == metadata.indexByteCount
+        else {
+            throw GitLabJobTraceStoreError
+                .invalidEntry
+        }
+        let values = try entryURL.resourceValues(
+            forKeys: [.contentModificationDateKey]
+        )
+        return MaintenanceEntry(
+            directoryURL: entryURL,
+            logicalByteCount:
+                traceSize
+                + indexSize
+                + metadataData.count,
+            lastAccessedAt:
+                values.contentModificationDate
+                ?? metadata.storedAt
+        )
+    }
+
+    private func validate(
+        _ metadata: StoredMetadata,
+        entryDirectory: URL
+    ) throws {
+        let keyDigest =
+            entryDirectory
+            .deletingPathExtension()
+            .lastPathComponent
+        guard
+            metadata.formatVersion
+                == Self.metadataFormatVersion,
+            metadata.keyDigest == keyDigest,
+            Self.isSHA256Digest(
+                metadata.keyDigest
+            ),
+            metadata.byteCount >= 0,
+            metadata.byteCount
+                <= Self.maximumTraceByteCount,
+            metadata.lineCount >= 0,
+            metadata.lineCount
+                <= Self.maximumLineCount,
+            metadata.indexByteCount
+                == metadata.lineCount
+                    * GitLabJobTraceIndexFormat
+                    .offsetByteCount,
+            metadata.indexFormatVersion
+                == GitLabJobTraceIndexFormat
+                .currentVersion,
+            Self.isSHA256Digest(
+                metadata.rawContentDigest
+            ),
+            Self.isSHA256Digest(
+                metadata.indexContentDigest
+            ),
+            metadata.longLineCount >= 0,
+            metadata.longLineCount
+                <= metadata.lineCount,
+            (metadata.byteCount == 0)
+                == (metadata.lineCount == 0)
+        else {
+            throw GitLabJobTraceStoreError
+                .invalidEntry
+        }
+    }
+
+    private func validateEntryChildren(
+        at entryURL: URL
+    ) throws {
+        let names = try immediateChildren(
+            of: entryURL
+        ).map(\.lastPathComponent)
+        guard
+            names.count == 3,
+            Set(names)
+                == Set([
+                    Self.traceFileName,
+                    Self.indexFileName,
+                    Self.metadataFileName,
+                ])
+        else {
+            throw GitLabJobTraceStoreError
+                .invalidEntry
+        }
+    }
+
+    private func preparedEntry(
+        metadata: StoredMetadata,
+        entryURL: URL
+    ) -> GitLabJobTracePreparedEntry {
+        GitLabJobTracePreparedEntry(
+            traceFileURL:
+                entryURL.appending(
+                    path: Self.traceFileName,
+                    directoryHint: .notDirectory
+                ),
+            indexFileURL:
+                entryURL.appending(
+                    path: Self.indexFileName,
+                    directoryHint: .notDirectory
+                ),
+            byteCount: metadata.byteCount,
+            lineCount: metadata.lineCount,
+            rawContentDigest:
+                metadata.rawContentDigest,
+            indexFormatVersion:
+                metadata.indexFormatVersion,
+            longLineCount:
+                metadata.longLineCount
+        )
+    }
+
+    private func regularFileSize(
+        at fileURL: URL,
+        expectedParent: URL
+    ) throws -> Int {
+        guard
+            fileURL.standardizedFileURL
+                .deletingLastPathComponent()
+                == expectedParent
+                .standardizedFileURL,
+            fileURL.deletingLastPathComponent()
+                .resolvingSymlinksInPath()
+                == expectedParent
+                .resolvingSymlinksInPath()
+        else {
+            throw GitLabJobTraceStoreError
+                .invalidEntry
+        }
+        let values = try fileURL.resourceValues(
+            forKeys: [
+                .fileSizeKey,
+                .isRegularFileKey,
+                .isSymbolicLinkKey,
+            ]
+        )
+        guard
+            values.isRegularFile == true,
+            values.isSymbolicLink != true,
+            let fileSize = values.fileSize,
+            fileSize >= 0
+        else {
+            throw GitLabJobTraceStoreError
+                .invalidEntry
+        }
+        return fileSize
+    }
+
+    private func immediateChildren(
+        of directory: URL
+    ) throws -> [URL] {
+        try fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [
+                .contentModificationDateKey,
+                .fileSizeKey,
+                .isDirectoryKey,
+                .isRegularFileKey,
+                .isSymbolicLinkKey,
+            ],
+            options: []
+        )
+    }
+
+    private func removeOwnedItem(
+        _ url: URL,
+        expectedParent: URL
+    ) throws {
+        guard
+            url.standardizedFileURL
+                .deletingLastPathComponent()
+                == expectedParent
+                .standardizedFileURL,
+            url.deletingLastPathComponent()
+                .resolvingSymlinksInPath()
+                == expectedParent
+                .resolvingSymlinksInPath()
+        else {
+            throw GitLabJobTraceStoreError
+                .invalidEntry
+        }
+        try fileManager.removeItem(at: url)
+    }
+
+    private func prune(
+        _ entries: [MaintenanceEntry]
+    ) {
+        var storedByteCount =
+            entries.reduce(into: 0) {
+                let (sum, overflow) =
+                    $0.addingReportingOverflow(
+                        $1.logicalByteCount
+                    )
+                $0 = overflow ? Int.max : sum
+            }
+        guard
+            storedByteCount
+                > maximumStoredByteCount
+        else {
+            return
+        }
+        let oldestFirst = entries.sorted {
+            if
+                $0.lastAccessedAt
+                    != $1.lastAccessedAt
+            {
+                return
+                    $0.lastAccessedAt
+                    < $1.lastAccessedAt
+            }
+            return
+                $0.directoryURL.path
+                < $1.directoryURL.path
+        }
+        for entry in oldestFirst {
+            guard
+                storedByteCount
+                    > maximumStoredByteCount
+            else {
+                break
+            }
+            do {
+                try removeOwnedItem(
+                    entry.directoryURL,
+                    expectedParent:
+                        entry.directoryURL
+                        .deletingLastPathComponent()
+                )
+                storedByteCount = max(
+                    0,
+                    storedByteCount
+                        - entry.logicalByteCount
+                )
+            } catch {
+                continue
+            }
+        }
+    }
+
     private func descriptor(
         metadata: StoredMetadata,
         key: GitLabJobTraceKey,
@@ -831,6 +1507,25 @@ actor FileGitLabJobTraceStore:
                 String(format: "%02x", $0)
             }
             .joined()
+    }
+
+    private static func isEntryDirectoryName(
+        _ name: String
+    ) -> Bool {
+        name.hasSuffix(".entry")
+            && isSHA256Digest(
+                String(name.dropLast(".entry".count))
+            )
+    }
+
+    private static func isSHA256Digest(
+        _ value: String
+    ) -> Bool {
+        value.utf8.count == 64
+            && value.utf8.allSatisfy {
+                ($0 >= 48 && $0 <= 57)
+                    || ($0 >= 97 && $0 <= 102)
+            }
     }
 }
 

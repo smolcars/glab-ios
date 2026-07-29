@@ -169,6 +169,8 @@ nonisolated enum GitLabJobTraceStoreError:
 nonisolated protocol GitLabJobTraceStoring:
     Sendable
 {
+    func prepare() async
+
     func descriptor(
         for key: GitLabJobTraceKey
     ) async -> GitLabJobTraceDescriptor?
@@ -176,6 +178,10 @@ nonisolated protocol GitLabJobTraceStoring:
     func removeAll(
         for accountID: GitLabAccountID
     ) async
+}
+
+nonisolated extension GitLabJobTraceStoring {
+    func prepare() async {}
 }
 
 actor InMemoryGitLabJobTraceStore:

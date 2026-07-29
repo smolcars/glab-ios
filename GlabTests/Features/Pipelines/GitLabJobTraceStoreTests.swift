@@ -723,6 +723,327 @@ extension GitLabJobTraceStoreTests {
         }
     }
 
+    @Test(
+        "Startup removes orphan, incomplete, corrupt, and symbolic-link entries"
+    )
+    func startupMaintenanceRemovesInvalidEntries()
+        async throws
+    {
+        let rootDirectory =
+            FileManager.default.temporaryDirectory
+            .appending(
+                path:
+                    "GlabJobTraceStoreTests-"
+                    + UUID().uuidString,
+                directoryHint: .isDirectory
+            )
+        let outsideDirectory =
+            FileManager.default.temporaryDirectory
+            .appending(
+                path:
+                    "GlabJobTraceStoreOutside-"
+                    + UUID().uuidString,
+                directoryHint: .isDirectory
+            )
+        defer {
+            try? FileManager.default.removeItem(
+                at: rootDirectory
+            )
+            try? FileManager.default.removeItem(
+                at: outsideDirectory
+            )
+        }
+
+        let validKey = try traceKey()
+        let corruptKey = GitLabJobTraceKey(
+            accountID: validKey.accountID,
+            route: try route(jobID: 8)
+        )
+        let initialStore = FileGitLabJobTraceStore(
+            rootDirectory: rootDirectory
+        )
+        let valid = try await prepareAndCommit(
+            Data("valid\n".utf8),
+            offsets: [0],
+            for: validKey,
+            in: initialStore
+        )
+        let corrupt = try await prepareAndCommit(
+            Data("corrupt\n".utf8),
+            offsets: [0],
+            for: corruptKey,
+            in: initialStore
+        )
+        let accountDirectory =
+            valid.traceFileURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let orphanURLs = [
+            accountDirectory.appending(
+                path: ".tmp-orphan",
+                directoryHint: .isDirectory
+            ),
+            accountDirectory.appending(
+                path: ".old-orphan",
+                directoryHint: .isDirectory
+            ),
+            accountDirectory.appending(
+                path:
+                    String(repeating: "c", count: 64)
+                    + ".entry",
+                directoryHint: .isDirectory
+            ),
+        ]
+        for orphanURL in orphanURLs {
+            try FileManager.default.createDirectory(
+                at: orphanURL,
+                withIntermediateDirectories: false
+            )
+        }
+        try FileManager.default.createDirectory(
+            at: outsideDirectory,
+            withIntermediateDirectories: false
+        )
+        let outsideMarker = outsideDirectory.appending(
+            path: "must-remain",
+            directoryHint: .notDirectory
+        )
+        try Data("outside".utf8).write(
+            to: outsideMarker
+        )
+        let symbolicLinkURL =
+            accountDirectory.appending(
+                path:
+                    String(repeating: "d", count: 64)
+                    + ".entry",
+                directoryHint: .isDirectory
+            )
+        try FileManager.default.createSymbolicLink(
+            at: symbolicLinkURL,
+            withDestinationURL: outsideDirectory
+        )
+        try Data("changed".utf8).write(
+            to: corrupt.traceFileURL,
+            options: .atomic
+        )
+
+        let restoredStore = FileGitLabJobTraceStore(
+            rootDirectory: rootDirectory
+        )
+        await restoredStore.prepare()
+
+        #expect(
+            await restoredStore.descriptor(for: validKey)
+                != nil
+        )
+        #expect(
+            await restoredStore.descriptor(
+                for: corruptKey
+            ) == nil
+        )
+        for orphanURL in orphanURLs {
+            #expect(
+                !FileManager.default.fileExists(
+                    atPath: orphanURL.path
+                )
+            )
+        }
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: symbolicLinkURL.path
+            )
+        )
+        #expect(
+            FileManager.default.fileExists(
+                atPath: outsideMarker.path
+            )
+        )
+    }
+
+    @Test("Startup prunes the global oldest entries across accounts")
+    func startupMaintenancePrunesGlobalLRU()
+        async throws
+    {
+        let rootDirectory =
+            FileManager.default.temporaryDirectory
+            .appending(
+                path:
+                    "GlabJobTraceStoreTests-"
+                    + UUID().uuidString,
+                directoryHint: .isDirectory
+            )
+        defer {
+            try? FileManager.default.removeItem(
+                at: rootDirectory
+            )
+        }
+        let initialStore = FileGitLabJobTraceStore(
+            rootDirectory: rootDirectory
+        )
+        let keys = try [7, 8, 9].map {
+            try traceKey(userID: $0)
+        }
+        var descriptors: [GitLabJobTraceDescriptor] = []
+        for (index, key) in keys.enumerated() {
+            descriptors.append(
+                try await prepareAndCommit(
+                    Data(
+                        repeating: UInt8(index + 1),
+                        count: 1_024
+                    ),
+                    offsets: [0],
+                    for: key,
+                    in: initialStore,
+                    storedAt: Date(
+                        timeIntervalSince1970:
+                            TimeInterval(
+                                1_000 + index
+                            )
+                    )
+                )
+            )
+        }
+        let retainedByteCount =
+            try logicalEntryByteCount(
+                descriptors[1]
+                    .traceFileURL
+                    .deletingLastPathComponent()
+            )
+            + logicalEntryByteCount(
+                descriptors[2]
+                    .traceFileURL
+                    .deletingLastPathComponent()
+            )
+        let restoredStore = FileGitLabJobTraceStore(
+            rootDirectory: rootDirectory,
+            maximumStoredByteCount:
+                retainedByteCount
+        )
+
+        await restoredStore.prepare()
+
+        #expect(
+            !FileManager.default.fileExists(
+                atPath:
+                    descriptors[0]
+                    .traceFileURL.path
+            )
+        )
+        #expect(
+            FileManager.default.fileExists(
+                atPath:
+                    descriptors[1]
+                    .traceFileURL.path
+            )
+        )
+        #expect(
+            FileManager.default.fileExists(
+                atPath:
+                    descriptors[2]
+                    .traceFileURL.path
+            )
+        )
+        #expect(
+            logicalRegularFileByteCount(
+                below: rootDirectory
+            ) <= retainedByteCount
+        )
+    }
+
+    @Test("A successful commit immediately re-enforces the disk cap")
+    func commitPrunesGlobalLRU() async throws {
+        let rootDirectory =
+            FileManager.default.temporaryDirectory
+            .appending(
+                path:
+                    "GlabJobTraceStoreTests-"
+                    + UUID().uuidString,
+                directoryHint: .isDirectory
+            )
+        defer {
+            try? FileManager.default.removeItem(
+                at: rootDirectory
+            )
+        }
+        let maximumStoredByteCount = 10_000
+        let store = FileGitLabJobTraceStore(
+            rootDirectory: rootDirectory,
+            maximumStoredByteCount:
+                maximumStoredByteCount
+        )
+        let firstKey = try traceKey()
+        let secondKey = GitLabJobTraceKey(
+            accountID: firstKey.accountID,
+            route: try route(jobID: 8)
+        )
+        let first = try await prepareAndCommit(
+            Data(repeating: 1, count: 6_000),
+            offsets: [0],
+            for: firstKey,
+            in: store,
+            storedAt:
+                Date(timeIntervalSince1970: 1_000)
+        )
+        let second = try await prepareAndCommit(
+            Data(repeating: 2, count: 6_000),
+            offsets: [0],
+            for: secondKey,
+            in: store,
+            storedAt:
+                Date(timeIntervalSince1970: 2_000)
+        )
+
+        #expect(
+            !FileManager.default.fileExists(
+                atPath: first.traceFileURL.path
+            )
+        )
+        #expect(
+            FileManager.default.fileExists(
+                atPath: second.traceFileURL.path
+            )
+        )
+        #expect(
+            logicalRegularFileByteCount(
+                below: rootDirectory
+            ) <= maximumStoredByteCount
+        )
+    }
+
+    @Test("Startup maintenance preserves an active import workspace")
+    func startupMaintenancePreservesActiveImport()
+        async throws
+    {
+        try await withFileStore { store, _ in
+            let workspace = try await store.beginImport(
+                for: try traceKey()
+            )
+            let markerURL =
+                workspace.directoryURL.appending(
+                    path: "active-download",
+                    directoryHint: .notDirectory
+                )
+            try Data("partial".utf8).write(
+                to: markerURL
+            )
+
+            await store.prepare()
+
+            #expect(
+                FileManager.default.fileExists(
+                    atPath: markerURL.path
+                )
+            )
+            await store.discard(workspace)
+            #expect(
+                !FileManager.default.fileExists(
+                    atPath:
+                        workspace.directoryURL.path
+                )
+            )
+        }
+    }
+
     func account(
         host: String = "https://gitlab.example.com",
         userID: Int = 7
@@ -900,6 +1221,49 @@ extension GitLabJobTraceStoreTests {
                     && (try? $0.resourceValues(
                         forKeys: [.isDirectoryKey]
                     ).isDirectory) == true
+            }
+    }
+
+    func logicalEntryByteCount(
+        _ entryDirectory: URL
+    ) throws -> Int {
+        try recursiveURLs(below: entryDirectory)
+            .reduce(into: 0) { byteCount, url in
+                let values = try url.resourceValues(
+                    forKeys: [
+                        .fileSizeKey,
+                        .isRegularFileKey,
+                        .isSymbolicLinkKey,
+                    ]
+                )
+                if
+                    values.isRegularFile == true,
+                    values.isSymbolicLink != true
+                {
+                    byteCount += values.fileSize ?? 0
+                }
+            }
+    }
+
+    func logicalRegularFileByteCount(
+        below rootDirectory: URL
+    ) -> Int {
+        recursiveURLs(below: rootDirectory)
+            .reduce(into: 0) { byteCount, url in
+                let values = try? url.resourceValues(
+                    forKeys: [
+                        .fileSizeKey,
+                        .isRegularFileKey,
+                        .isSymbolicLinkKey,
+                    ]
+                )
+                if
+                    values?.isRegularFile == true,
+                    values?.isSymbolicLink != true
+                {
+                    byteCount +=
+                        values?.fileSize ?? 0
+                }
             }
     }
 
