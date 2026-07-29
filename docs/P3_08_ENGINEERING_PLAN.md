@@ -10,6 +10,7 @@
 - Approve/unapprove state machine: complete
 - Rule-add state machine: complete
 - Rule-add slice review: complete
+- Detailed approval-state ownership: complete
 - Test implementation: in progress
 - Production implementation: in progress
 - Simulator verification: not started

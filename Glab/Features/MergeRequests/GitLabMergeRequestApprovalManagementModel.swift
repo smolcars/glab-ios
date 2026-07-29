@@ -138,6 +138,8 @@ final class
     private(set) var isLoadingMembers = false
 
     let apiAccess: GitLabAPIAccess
+    let detailsModel:
+        GitLabMergeRequestApprovalDetailsModel
 
     @ObservationIgnored
     private let route:
@@ -213,6 +215,48 @@ final class
                 GitLabMergeRequestApprovalSummary
             ) -> Void
     ) {
+        detailsModel =
+            GitLabMergeRequestApprovalDetailsModel(
+                route: route,
+                loadResource: {
+                    (
+                        route:
+                            GitLabMergeRequestRoute
+                    ) async throws(
+                        GitLabSessionClientError
+                    )
+                        -> GitLabMergeRequestApprovalDetailsAvailability
+                    in
+                    try await service
+                        .loadApprovalDetails(
+                            at: route
+                        )
+                },
+                loadResourceEvents: {
+                    (
+                        route:
+                            GitLabMergeRequestRoute,
+                        refreshBehavior:
+                            GitLabCacheRefreshBehavior,
+                        onResponse:
+                            @escaping @Sendable (
+                                GitLabAPIResponseEvent<
+                                    GitLabMergeRequestApprovalDetailsAvailability
+                                >
+                            ) async -> Void
+                    ) async throws(
+                        GitLabSessionClientError
+                    ) -> Void in
+                    try await service
+                        .loadApprovalDetails(
+                            at: route,
+                            refreshBehavior:
+                                refreshBehavior,
+                            onResponse:
+                                onResponse
+                        )
+                }
+            )
         self.route = route
         self.accountID = accountID
         self.apiAccess = apiAccess
@@ -247,6 +291,8 @@ final class
         GitLabSessionClientError?
     {
         failure?.authenticationFailure
+            ?? detailsModel
+                .authenticationFailure
     }
 
     var canApprove: Bool {
@@ -255,6 +301,15 @@ final class
 
     var canUnapprove: Bool {
         canRequest(.unapprove)
+    }
+
+    func loadDetailsIfNeeded() async {
+        await detailsModel
+            .loadIfNeeded()
+    }
+
+    func refreshDetails() async {
+        await detailsModel.retry()
     }
 
     func beginAddingApprover(
@@ -1177,6 +1232,13 @@ private extension
             await refreshApprovalOwners(
                 generation: generation
             )
+            guard
+                canPublish(generation),
+                isAccountCurrent()
+            else {
+                return
+            }
+            await detailsModel.retry()
         case .unapplied:
             pendingRuleMutation = nil
             failure = .notApplied
@@ -1326,6 +1388,14 @@ private extension
             wasApplied
             ? nil
             : .notApplied
+        guard
+            wasApplied,
+            canPublish(generation),
+            isAccountCurrent()
+        else {
+            return
+        }
+        await detailsModel.retry()
     }
 
     func publishReadFailure(

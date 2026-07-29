@@ -5,6 +5,8 @@
 - Some github images are inside of the github folder to copy design references.
 - It'll be iOS only so build thinking only that in mind.
 - Use liquid glass as much as possible for things.
+- Keep UI compact: minimize occupied screen space, group related controls into
+  a single pill, and omit text when an icon is already clear.
 - Use the ios simulator to test your changes for yourself after you build them.
 - Run the simulator and look at the UI and see if the UI looks good and not broken and tap around to test.
 - Always use the gitlab API documentation as the source of truth.

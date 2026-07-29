@@ -13,6 +13,12 @@ typealias GitLabMergeRequestApprovalModel =
         GitLabMergeRequestRoute
     >
 
+typealias GitLabMergeRequestApprovalDetailsModel =
+    GitLabResourceDetailModel<
+        GitLabMergeRequestApprovalDetailsAvailability,
+        GitLabMergeRequestRoute
+    >
+
 typealias GitLabMergeRequestDiffSummaryModel =
     GitLabResourceDetailModel<
         GitLabMergeRequestDiffSummaryAvailability,

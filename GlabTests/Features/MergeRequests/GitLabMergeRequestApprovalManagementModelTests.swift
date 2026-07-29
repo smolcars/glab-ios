@@ -5,6 +5,238 @@ import Testing
 @MainActor
 @Suite("GitLab merge request approval management model")
 struct GitLabMergeRequestApprovalManagementModelTests {
+    @Test("Loads cached then network approval details independently")
+    func loadsApprovalDetailsIndependently()
+        async
+    {
+        let cached =
+            makeApprovalDetails(
+                ruleName: "Cached rule"
+            )
+        let network =
+            makeApprovalDetails(
+                ruleName: "Network rule"
+            )
+        let service =
+            RecordingApprovalManagementService(
+                detailsEventResults: [
+                    .success([
+                        makeApprovalDetailsEvent(
+                            cached,
+                            source:
+                                .cache(.stale)
+                        ),
+                        makeApprovalDetailsEvent(
+                            network,
+                            source: .network
+                        ),
+                    ]),
+                ]
+            )
+        let fixture = makeFixture(
+            service: service
+        )
+        let mergeRequest =
+            fixture.currentMergeRequest
+        let summary =
+            fixture.currentSummary
+
+        await fixture.model
+            .loadDetailsIfNeeded()
+
+        #expect(
+            fixture.model.detailsModel.state
+                == .loaded(
+                    .available(network)
+                )
+        )
+        #expect(
+            fixture.model
+                .detailsModel
+                .resourceSource
+                == .network
+        )
+        #expect(
+            await service
+                .detailsRefreshBehaviors
+                == [.ifStale]
+        )
+        #expect(
+            fixture.currentMergeRequest
+                == mergeRequest
+        )
+        #expect(
+            fixture.currentSummary == summary
+        )
+        #expect(fixture.model.failure == nil)
+    }
+
+    @Test("Failed detail refresh retains content and basic owners")
+    func retainsDetailsAfterRefreshFailure()
+        async
+    {
+        let details =
+            makeApprovalDetails(
+                ruleName: "Security"
+            )
+        let error =
+            GitLabSessionClientError
+                .api(
+                    .server(statusCode: 503)
+                )
+        let service =
+            RecordingApprovalManagementService(
+                detailsEventResults: [
+                    .success([
+                        makeApprovalDetailsEvent(
+                            details,
+                            source: .network
+                        ),
+                    ]),
+                    .failure(error),
+                ]
+            )
+        let fixture = makeFixture(
+            service: service
+        )
+        let mergeRequest =
+            fixture.currentMergeRequest
+        let summary =
+            fixture.currentSummary
+
+        await fixture.model
+            .loadDetailsIfNeeded()
+        await fixture.model
+            .refreshDetails()
+
+        #expect(
+            fixture.model.detailsModel.state
+                == .loaded(
+                    .available(details)
+                )
+        )
+        #expect(
+            fixture.model
+                .detailsModel
+                .refreshError == error
+        )
+        #expect(
+            await service
+                .detailsRefreshBehaviors
+                == [.ifStale, .always]
+        )
+        #expect(
+            fixture.currentMergeRequest
+                == mergeRequest
+        )
+        #expect(
+            fixture.currentSummary == summary
+        )
+        #expect(fixture.model.failure == nil)
+    }
+
+    @Test("Applied approval refreshes details without replacing basic success")
+    func refreshesDetailsAfterApproval()
+        async
+    {
+        let approved =
+            makeApprovalSummary(
+                approvedUserIDs: [7]
+            )
+        let details =
+            makeApprovalDetails(
+                ruleName: "Before approval"
+            )
+        let error =
+            GitLabSessionClientError
+                .api(
+                    .server(statusCode: 503)
+                )
+        let service =
+            RecordingApprovalManagementService(
+                mergeRequestResults: [
+                    .success(makeMergeRequest()),
+                    .success(makeMergeRequest()),
+                ],
+                summaryResults: [
+                    .success(makeApprovalSummary()),
+                    .success(approved),
+                ],
+                approveResults: [
+                    .success(approved),
+                ],
+                detailsEventResults: [
+                    .success([
+                        makeApprovalDetailsEvent(
+                            details,
+                            source: .network
+                        ),
+                    ]),
+                    .failure(error),
+                ]
+            )
+        let fixture = makeFixture(
+            service: service
+        )
+        await fixture.model
+            .loadDetailsIfNeeded()
+
+        fixture.model.requestApprove()
+        await fixture.model.confirmAction()
+
+        #expect(
+            fixture.currentSummary == approved
+        )
+        #expect(fixture.model.failure == nil)
+        #expect(
+            fixture.model.detailsModel.state
+                == .loaded(
+                    .available(details)
+                )
+        )
+        #expect(
+            fixture.model
+                .detailsModel
+                .refreshError == error
+        )
+        #expect(
+            await service
+                .detailsRefreshBehaviors
+                == [.ifStale, .always]
+        )
+    }
+
+    @Test("Detailed authentication failure remains independently actionable")
+    func exposesDetailAuthenticationFailure()
+        async
+    {
+        let error =
+            GitLabSessionClientError
+                .api(.unauthenticated)
+        let service =
+            RecordingApprovalManagementService(
+                detailsEventResults: [
+                    .failure(error),
+                ]
+            )
+        let fixture = makeFixture(
+            service: service
+        )
+
+        await fixture.model
+            .loadDetailsIfNeeded()
+
+        #expect(
+            fixture.model.detailsModel.state
+                == .failed(error)
+        )
+        #expect(
+            fixture.model.authenticationFailure
+                == error
+        )
+        #expect(fixture.model.failure == nil)
+    }
+
     @Test("Approves the exact fresh head and reconciles authoritative reads")
     func approvesExactHead() async {
         let approved =
@@ -798,6 +1030,44 @@ private nonisolated func makeApprovalSummary(
     )
 }
 
+private nonisolated func makeApprovalDetails(
+    ruleName: String
+) -> GitLabMergeRequestApprovalDetails {
+    GitLabMergeRequestApprovalDetails(
+        approvalRulesOverwritten: false,
+        rules: [
+            GitLabMergeRequestApprovalRule(
+                id: 41,
+                name: ruleName,
+                ruleType: "regular",
+                eligibleApprovers: [],
+                approvalsRequired: 1,
+                users: [],
+                groups: [],
+                containsHiddenGroups: false,
+                approvedBy: [],
+                approved: false,
+                overridden: false
+            ),
+        ]
+    )
+}
+
+private nonisolated func makeApprovalDetailsEvent(
+    _ details:
+        GitLabMergeRequestApprovalDetails,
+    source: GitLabAPIResponseSource
+) -> GitLabAPIResponseEvent<
+    GitLabMergeRequestApprovalDetailsAvailability
+> {
+    GitLabAPIResponseEvent(
+        value: .available(details),
+        metadata:
+            GitLabResponseMetadata(),
+        source: source
+    )
+}
+
 private actor ApprovalManagementTestGate {
     private var isEntered = false
     private var continuation:
@@ -853,6 +1123,17 @@ private actor RecordingApprovalManagementService:
                 GitLabSessionClientError
             >
         ]
+    private var detailsEventResults:
+        [
+            Result<
+                [
+                    GitLabAPIResponseEvent<
+                        GitLabMergeRequestApprovalDetailsAvailability
+                    >
+                ],
+                GitLabSessionClientError
+            >
+        ]
     private let summaryGate:
         ApprovalManagementTestGate?
 
@@ -861,6 +1142,9 @@ private actor RecordingApprovalManagementService:
     private(set) var approveSHAs:
         [String] = []
     private(set) var unapproveCount = 0
+    private(set) var
+        detailsRefreshBehaviors:
+        [GitLabCacheRefreshBehavior] = []
 
     init(
         mergeRequestResults:
@@ -891,6 +1175,17 @@ private actor RecordingApprovalManagementService:
                     GitLabSessionClientError
                 >
             ] = [],
+        detailsEventResults:
+            [
+                Result<
+                    [
+                        GitLabAPIResponseEvent<
+                            GitLabMergeRequestApprovalDetailsAvailability
+                        >
+                    ],
+                    GitLabSessionClientError
+                >
+            ] = [],
         summaryGate:
             ApprovalManagementTestGate? = nil
     ) {
@@ -902,6 +1197,8 @@ private actor RecordingApprovalManagementService:
             approveResults
         self.unapproveResults =
             unapproveResults
+        self.detailsEventResults =
+            detailsEventResults
         self.summaryGate = summaryGate
     }
 
@@ -949,14 +1246,30 @@ private actor RecordingApprovalManagementService:
                 >
             ) async -> Void
     ) async throws(GitLabSessionClientError) {
-        await onResponse(
-            GitLabAPIResponseEvent(
-                value: .unavailable,
-                metadata:
-                    GitLabResponseMetadata(),
-                source: .network
-            )
+        detailsRefreshBehaviors.append(
+            refreshBehavior
         )
+        guard !detailsEventResults.isEmpty else {
+            await onResponse(
+                GitLabAPIResponseEvent(
+                    value: .unavailable,
+                    metadata:
+                        GitLabResponseMetadata(),
+                    source: .network
+                )
+            )
+            return
+        }
+        switch detailsEventResults
+            .removeFirst()
+        {
+        case let .success(events):
+            for event in events {
+                await onResponse(event)
+            }
+        case let .failure(error):
+            throw error
+        }
     }
 
     func loadApprovalRule(
