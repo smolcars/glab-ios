@@ -7,6 +7,8 @@ actor RecordingGitLabJobTraceStore:
     private(set) var prepareCallCount = 0
     private(set) var removedAccountIDs:
         [GitLabAccountID] = []
+    private(set) var removedKeys:
+        [GitLabJobTraceKey] = []
 
     func prepare() {
         prepareCallCount += 1
@@ -16,6 +18,12 @@ actor RecordingGitLabJobTraceStore:
         for key: GitLabJobTraceKey
     ) -> GitLabJobTraceDescriptor? {
         nil
+    }
+
+    func remove(
+        for key: GitLabJobTraceKey
+    ) {
+        removedKeys.append(key)
     }
 
     func removeAll(

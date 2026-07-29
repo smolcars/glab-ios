@@ -91,6 +91,85 @@ nonisolated enum GitLabPipelineEndpoints {
         )
     }
 
+    static func retryPipeline(
+        at route: GitLabPipelineRoute
+    ) -> GitLabAPIRequest<GitLabPipeline> {
+        .post(
+            requires: .write,
+            path:
+                pipelinePath(route)
+                + ["retry"]
+        )
+    }
+
+    static func cancelPipeline(
+        at route: GitLabPipelineRoute
+    ) -> GitLabAPIRequest<GitLabPipeline> {
+        .post(
+            requires: .write,
+            path:
+                pipelinePath(route)
+                + ["cancel"]
+        )
+    }
+
+    static func retryJob(
+        at route: GitLabJobRoute
+    ) -> GitLabAPIRequest<
+        GitLabPipelineJob
+    > {
+        .post(
+            requires: .write,
+            path: jobPath(route) + ["retry"]
+        )
+    }
+
+    static func cancelJob(
+        at route: GitLabJobRoute
+    ) -> GitLabAPIRequest<
+        GitLabPipelineJob
+    > {
+        .post(
+            requires: .write,
+            path: jobPath(route) + ["cancel"]
+        )
+    }
+
+    static func playJob(
+        at route: GitLabJobRoute
+    ) -> GitLabAPIRequest<
+        GitLabPipelineJob
+    > {
+        .post(
+            requires: .write,
+            path: jobPath(route) + ["play"]
+        )
+    }
+
+    static func createMergeRequestPipeline(
+        at route: GitLabMergeRequestRoute
+    ) -> GitLabAPIRequest<
+        GitLabPipeline
+    >? {
+        guard
+            route.projectID > 0,
+            route.mergeRequestIID > 0
+        else {
+            return nil
+        }
+
+        return .post(
+            requires: .write,
+            path: [
+                "projects",
+                String(route.projectID),
+                "merge_requests",
+                String(route.mergeRequestIID),
+                "pipelines",
+            ]
+        )
+    }
+
     private static func pipelinePath(
         _ route: GitLabPipelineRoute
     ) -> [String] {
@@ -99,6 +178,17 @@ nonisolated enum GitLabPipelineEndpoints {
             String(route.projectID),
             "pipelines",
             String(route.pipelineID),
+        ]
+    }
+
+    private static func jobPath(
+        _ route: GitLabJobRoute
+    ) -> [String] {
+        [
+            "projects",
+            String(route.projectID),
+            "jobs",
+            String(route.jobID),
         ]
     }
 

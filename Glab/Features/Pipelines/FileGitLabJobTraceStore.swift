@@ -445,6 +445,26 @@ actor FileGitLabJobTraceStore:
         )
     }
 
+    func remove(
+        for key: GitLabJobTraceKey
+    ) {
+        let accountDirectory =
+            accountDirectory(for: key.accountID)
+        let entryDirectory =
+            entryDirectory(for: key)
+        guard
+            fileManager.fileExists(
+                atPath: entryDirectory.path
+            )
+        else {
+            return
+        }
+        try? removeOwnedItem(
+            entryDirectory,
+            expectedParent: accountDirectory
+        )
+    }
+
     private var encoder: PropertyListEncoder {
         let encoder = PropertyListEncoder()
         encoder.outputFormat = .binary

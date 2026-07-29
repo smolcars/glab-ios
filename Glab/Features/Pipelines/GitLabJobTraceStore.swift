@@ -264,6 +264,10 @@ nonisolated protocol GitLabJobTraceStoring:
         for key: GitLabJobTraceKey
     ) async -> GitLabJobTraceDescriptor?
 
+    func remove(
+        for key: GitLabJobTraceKey
+    ) async
+
     func removeAll(
         for accountID: GitLabAccountID
     ) async
@@ -340,6 +344,12 @@ actor InMemoryGitLabJobTraceStore:
             return
         }
         descriptors[key] = descriptor
+    }
+
+    func remove(
+        for key: GitLabJobTraceKey
+    ) {
+        descriptors[key] = nil
     }
 
     func removeAll(

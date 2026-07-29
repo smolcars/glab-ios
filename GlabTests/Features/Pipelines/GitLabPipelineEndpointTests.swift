@@ -181,6 +181,140 @@ struct GitLabPipelineEndpointTests {
         )
     }
 
+    @Test("Builds bodyless pipeline write routes")
+    func buildsPipelineActions() throws {
+        let route = try route()
+        let retry =
+            GitLabPipelineEndpoints
+                .retryPipeline(at: route)
+        let cancel =
+            GitLabPipelineEndpoints
+                .cancelPipeline(at: route)
+
+        for endpoint in [retry, cancel] {
+            #expect(endpoint.method == .post)
+            #expect(endpoint.requiredAccess == .write)
+            #expect(endpoint.queryItems.isEmpty)
+            #expect(endpoint.body == nil)
+        }
+        #expect(
+            retry.pathComponents
+                == pipelinePath + ["retry"]
+        )
+        #expect(
+            cancel.pathComponents
+                == pipelinePath + ["cancel"]
+        )
+    }
+
+    @Test("Builds bodyless ordinary job write routes")
+    func buildsJobActions() throws {
+        let route = try #require(
+            GitLabJobRoute(
+                projectID: 42,
+                pipelineID: 501,
+                jobID: 800
+            )
+        )
+        let retry =
+            GitLabPipelineEndpoints
+                .retryJob(at: route)
+        let cancel =
+            GitLabPipelineEndpoints
+                .cancelJob(at: route)
+        let play =
+            GitLabPipelineEndpoints
+                .playJob(at: route)
+
+        for endpoint in [retry, cancel, play] {
+            #expect(endpoint.method == .post)
+            #expect(endpoint.requiredAccess == .write)
+            #expect(endpoint.queryItems.isEmpty)
+            #expect(endpoint.body == nil)
+        }
+        #expect(
+            retry.pathComponents
+                == jobPath + ["retry"]
+        )
+        #expect(
+            cancel.pathComponents
+                == jobPath + ["cancel"]
+        )
+        #expect(
+            play.pathComponents
+                == jobPath + ["play"]
+        )
+    }
+
+    @Test("Builds and validates merge request pipeline creation")
+    func buildsMergeRequestPipelineCreation()
+        throws
+    {
+        let endpoint = try #require(
+            GitLabPipelineEndpoints
+                .createMergeRequestPipeline(
+                    at: mergeRequestRoute
+                )
+        )
+
+        #expect(endpoint.method == .post)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(endpoint.queryItems.isEmpty)
+        #expect(endpoint.body == nil)
+        #expect(
+            endpoint.pathComponents
+                == [
+                    "projects",
+                    "42",
+                    "merge_requests",
+                    "7",
+                    "pipelines",
+                ]
+        )
+        #expect(
+            GitLabPipelineEndpoints
+                .createMergeRequestPipeline(
+                    at:
+                        GitLabMergeRequestRoute(
+                            projectID: 0,
+                            mergeRequestIID: 7
+                        )
+                ) == nil
+        )
+    }
+
+    @Test("Job route requires positive project and job IDs")
+    func validatesJobRoute() {
+        #expect(
+            GitLabJobRoute(
+                projectID: 42,
+                pipelineID: 501,
+                jobID: 800
+            ) != nil
+        )
+        #expect(
+            GitLabJobRoute(
+                projectID: 0,
+                pipelineID: 501,
+                jobID: 800
+            ) == nil
+        )
+        #expect(
+            GitLabJobRoute(
+                projectID: 42,
+                pipelineID: 0,
+                jobID: 800
+            ) == nil
+        )
+        #expect(
+            GitLabJobRoute(
+                projectID: 42,
+                pipelineID: 501,
+                jobID: 0
+            ) == nil
+        )
+    }
+
     private var pipelinePath: [String] {
         [
             "projects",
@@ -188,6 +322,24 @@ struct GitLabPipelineEndpointTests {
             "pipelines",
             "501",
         ]
+    }
+
+    private var jobPath: [String] {
+        [
+            "projects",
+            "42",
+            "jobs",
+            "800",
+        ]
+    }
+
+    private var mergeRequestRoute:
+        GitLabMergeRequestRoute
+    {
+        GitLabMergeRequestRoute(
+            projectID: 42,
+            mergeRequestIID: 7
+        )
     }
 
     private func route()

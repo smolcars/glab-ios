@@ -99,7 +99,10 @@ job mutations is the smallest predictable cross-version scope.
 
 ### Endpoints and service
 
-- Add validated `GitLabJobRoute(projectID:jobID:)`.
+- Add validated `GitLabJobRoute(projectID:pipelineID:jobID:)`. The pipeline ID
+  is not part of the Jobs API path, but keeping it in the action route permits
+  exact response validation and cache invalidation even when delivery fails
+  before a response arrives.
 - Add the six write endpoints beside the existing pipeline read endpoints.
 - Add a focused `GitLabPipelineActionServing` protocol and
   `LiveGitLabPipelineActionService`. The live service shares the session

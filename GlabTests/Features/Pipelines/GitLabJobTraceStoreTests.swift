@@ -352,6 +352,34 @@ struct GitLabJobTraceStoreTests {
         )
     }
 
+    @Test("In-memory storage removes only one trace")
+    func inMemoryStoreRemovesTrace() async throws {
+        let firstKey = try traceKey()
+        let secondKey = GitLabJobTraceKey(
+            accountID: firstKey.accountID,
+            route: try route(jobID: 8)
+        )
+        let first = descriptor(for: firstKey)
+        let second = descriptor(for: secondKey)
+        let store = InMemoryGitLabJobTraceStore(
+            descriptors: [
+                firstKey: first,
+                secondKey: second,
+            ]
+        )
+
+        await store.remove(for: firstKey)
+
+        #expect(
+            await store.descriptor(for: firstKey)
+                == nil
+        )
+        #expect(
+            await store.descriptor(for: secondKey)
+                == second
+        )
+    }
+
     @Test("A failed refresh retains the previous complete entry")
     func failedRefreshRetainsPreviousEntry() async throws {
         try await withFileStore { store, rootDirectory in
@@ -759,6 +787,46 @@ struct GitLabJobTraceStoreTests {
             #expect(
                 await store.descriptor(for: firstKey)
                     == nil
+            )
+            #expect(
+                await store.descriptor(for: secondKey)
+                    == second
+            )
+        }
+    }
+
+    @Test("Removes one file-backed trace without affecting another")
+    func removesOnlySelectedTrace() async throws {
+        try await withFileStore { store, _ in
+            let firstKey = try traceKey()
+            let secondKey = GitLabJobTraceKey(
+                accountID: firstKey.accountID,
+                route: try route(jobID: 8)
+            )
+            let first = try await prepareAndCommit(
+                Data("first".utf8),
+                offsets: [0],
+                for: firstKey,
+                in: store
+            )
+            let second = try await prepareAndCommit(
+                Data("second".utf8),
+                offsets: [0],
+                for: secondKey,
+                in: store
+            )
+
+            await store.remove(for: firstKey)
+
+            #expect(
+                await store.descriptor(for: firstKey)
+                    == nil
+            )
+            #expect(
+                !FileManager.default.fileExists(
+                    atPath:
+                        first.traceFileURL.path
+                )
             )
             #expect(
                 await store.descriptor(for: secondKey)

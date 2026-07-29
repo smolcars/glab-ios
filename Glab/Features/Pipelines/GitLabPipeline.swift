@@ -24,6 +24,41 @@ nonisolated struct GitLabPipelineRoute:
     }
 }
 
+nonisolated struct GitLabJobRoute:
+    Equatable,
+    Hashable,
+    Sendable
+{
+    let projectID: Int
+    let pipelineID: Int
+    let jobID: Int
+
+    init?(
+        projectID: Int,
+        pipelineID: Int,
+        jobID: Int
+    ) {
+        guard
+            projectID > 0,
+            pipelineID > 0,
+            jobID > 0
+        else {
+            return nil
+        }
+
+        self.projectID = projectID
+        self.pipelineID = pipelineID
+        self.jobID = jobID
+    }
+
+    var pipelineRoute: GitLabPipelineRoute {
+        GitLabPipelineRoute(
+            projectID: projectID,
+            pipelineID: pipelineID
+        )!
+    }
+}
+
 nonisolated struct GitLabCIStatus:
     Decodable,
     Equatable,
