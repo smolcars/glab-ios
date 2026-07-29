@@ -6,9 +6,9 @@
 - Official API research: complete
 - Planning: complete
 - Implementation: complete
-- Simulator verification: initial focused flow complete
-- Deep review: repair in progress
-- Final quality gates: pending
+- Simulator verification: complete
+- Deep review: complete
+- Final quality gates: complete
 
 Research date: July 29, 2026.
 
@@ -393,6 +393,43 @@ Repair result:
   disclosure and child Play affordance visible.
 
 Status: repaired and verified.
+
+### Repeat review
+
+The complete endpoint, response model, live service, cache invalidation,
+action state, paginated reconciliation, stage projection, recursive
+navigation, compact UI, fixture, and test diff was reviewed again after both
+repairs.
+
+No remaining material bug, duplicated feature logic, unsafe identity
+assumption, accidental retry path, over-broad invalidation, unbounded polling,
+secret exposure, or refactor need was found. The intentionally similar parent
+identity checks remain at the service, action-state, and detail-model
+boundaries because each prevents publication from a different trust boundary;
+combining them would weaken those local invariants rather than simplify the
+feature.
+
+## Final Verification
+
+Completed July 29, 2026:
+
+- Focused endpoint, decoding, service, action-model, detail-model, pagination,
+  and stage-projection tests passed.
+- Existing ordinary pipeline and job action tests passed in the same focused
+  run.
+- The single P3-13 Maestro flow passed on the iPhone 17 Pro Simulator,
+  including confirmation cancellation, stage collapse/expand, native child
+  navigation, and the same manual trigger inside that child.
+- Direct visual inspection passed in dark appearance, light appearance, and
+  accessibility Dynamic Type. The compact action remains visible and the
+  enlarged stage label/disclosure remains legible.
+- Release builds passed for both the iPhone 17 Pro Simulator and the connected
+  iPhone. The device build was installed only after the user explicitly
+  requested it.
+- Xcode static analysis, `git diff --check`, and the scoped credential,
+  authorization-header, token-name, URL, and privacy scans passed.
+- No live CI mutation was required for verification; no pipeline, deployment,
+  person tag, or notification was created.
 
 ## Success Criteria
 

@@ -812,7 +812,7 @@ Todo:
 
 ## User-requested Phase 3 follow-up
 
-### [ ] P3-13 — Trigger and open child pipelines
+### [x] P3-13 — Trigger and open child pipelines
 
 Outcome:
 
@@ -830,29 +830,29 @@ Todo:
   `docs/P3_13_ENGINEERING_PLAN.md` with API contracts, scope, mutation state,
   reconciliation, navigation, polling, compatibility, safety, tests,
   accessibility, and non-goals.
-- [ ] Write failing endpoint, decoding, service, model, projection, and
+- [x] Write failing endpoint, decoding, service, model, projection, and
   navigation tests for manual bridge Play, stale state, permissions, unknown
   delivery, current and legacy response shapes, downstream identity,
   pagination, nested children, and account switching.
-- [ ] Add the typed bridge Play mutation through the existing pipeline action
+- [x] Add the typed bridge Play mutation through the existing pipeline action
   boundary. Send each POST once and never create an unrelated pipeline as a
   fallback.
-- [ ] Reconcile the authoritative bridge, refresh bounded parent/trigger
+- [x] Reconcile the authoritative bridge, refresh bounded parent/trigger
   reads, and make the row natively navigable when GitLab supplies valid
   downstream identity.
-- [ ] Add one compact trailing Liquid Glass Play control for manual trigger
+- [x] Add one compact trailing Liquid Glass Play control for manual trigger
   rows and verify confirmation, loading, failure, navigation, Dynamic Type,
   VoiceOver, dark/light appearance, and nested children in the iPhone 17 Pro
   Simulator.
-- [ ] Run focused pipeline tests, existing ordinary action tests, a Release
+- [x] Run focused pipeline tests, existing ordinary action tests, a Release
   Simulator build, Xcode static analysis, diff checks, and
   credential/privacy scans.
-- [ ] Perform a deep code review of all P3-13 code for bugs, bad code,
+- [x] Perform a deep code review of all P3-13 code for bugs, bad code,
   bridge/build response confusion, unsupported version assumptions, identity
   mistakes, duplicate mutations, pagination corruption, stale account state,
   over-broad invalidation, unbounded polling, duplicated logic, and code that
   needs refactoring. Record findings in `docs/P3_13_ENGINEERING_PLAN.md`.
-- [ ] If the review finds anything material, write a repair plan before
+- [x] If the review finds anything material, write a repair plan before
   editing code, add regression tests, implement every fix, rerun all P3-13
   verification, and repeat the deep review until no material finding remains.
 
