@@ -275,6 +275,29 @@ final class GitLabIssueStatusModel {
             return
         }
         selectionConfirmation = nil
+        let resultingState =
+            Self.workItemState(
+                for:
+                    confirmation
+                        .status
+                        .category
+            )
+        guard
+            resultingState
+                == confirmation
+                    .resultingState,
+            baseline.allowedStatuses
+                .contains(
+                    confirmation.status
+                ),
+            baseline.currentStatus?.id
+                != confirmation.status.id,
+            resultingState.issueState
+                != baseline.state.issueState
+        else {
+            failure = .stale
+            return
+        }
         await performMutation(
             confirmation.status,
             baseline: baseline

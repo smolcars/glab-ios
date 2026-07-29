@@ -196,6 +196,53 @@ struct GitLabIssueStatusModelTests {
         )
     }
 
+    @Test("A refreshed state invalidates stale transition confirmation")
+    func refreshInvalidatesStaleConfirmation() async {
+        let closed =
+            makeStatusSnapshot(
+                state: .closed,
+                lockVersion: 9,
+                currentStatus:
+                    makeDoneStatus()
+            )
+        let service =
+            RecordingStatusService(
+                refreshResults: [
+                    .success(
+                        .supported(closed)
+                    ),
+                ]
+            )
+        let context = makeModel(
+            statusService: service
+        )
+        await context.model.load()
+        await context.model.select(
+            makeDoneStatus()
+        )
+
+        await context.model.refresh()
+        await context.model
+            .confirmSelection()
+
+        #expect(
+            context.model.snapshot == closed
+        )
+        #expect(
+            context.model.failure == .stale
+        )
+        #expect(
+            context.model.selectionConfirmation
+                == nil
+        )
+        #expect(
+            await service.refreshCount == 1
+        )
+        #expect(
+            await service.updateCount == 0
+        )
+    }
+
     @Test("A status can reopen a closed issue after confirmation")
     func reopensClosedIssue() async {
         let inProgress =

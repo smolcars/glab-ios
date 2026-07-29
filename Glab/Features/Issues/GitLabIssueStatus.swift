@@ -388,7 +388,7 @@ private nonisolated extension GitLabIssueStatusGraphQLResponse {
         return value
     }
 
-    fileprivate static func validatedStatus(
+    static func validatedStatus(
         _ raw: Status
     ) -> GitLabIssueWorkItemStatus? {
         guard
@@ -424,7 +424,7 @@ private nonisolated extension GitLabIssueStatusGraphQLResponse {
         )
     }
 
-    fileprivate static func onlyElement<Element>(
+    static func onlyElement<Element>(
         _ elements: [Element]?
     ) -> Element? {
         guard

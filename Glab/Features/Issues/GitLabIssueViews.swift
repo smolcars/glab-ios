@@ -1384,6 +1384,8 @@ private struct GitLabIssueDetailContent: View {
 
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
+    @Environment(\.dynamicTypeSize)
+    private var dynamicTypeSize
 
     var body: some View {
         ScrollView {
@@ -1479,17 +1481,42 @@ private struct GitLabIssueDetailContent: View {
     private var issueMetadata:
         some View
     {
-        HStack(spacing: 12) {
-            GitLabIssueStateLabel(
-                issue: issue
-            )
-
-            Label(
-                "\(issue.userNotesCount) comments",
-                systemImage: "bubble.left"
-            )
-            .foregroundStyle(.secondary)
+        Group {
+            if dynamicTypeSize
+                .isAccessibilitySize
+            {
+                VStack(
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    issueStateMetadata
+                    commentsMetadata
+                }
+            } else {
+                HStack(spacing: 12) {
+                    issueStateMetadata
+                    commentsMetadata
+                }
+            }
         }
+    }
+
+    private var issueStateMetadata:
+        some View
+    {
+        GitLabIssueStateLabel(
+            issue: issue
+        )
+    }
+
+    private var commentsMetadata:
+        some View
+    {
+        Label(
+            "\(issue.userNotesCount) comments",
+            systemImage: "bubble.left"
+        )
+        .foregroundStyle(.secondary)
     }
 
     @ViewBuilder

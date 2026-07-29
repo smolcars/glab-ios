@@ -1,8 +1,8 @@
 # Glab iOS MVP Phase 3
 
-Last updated: 2026-07-28
+Last updated: 2026-07-29
 
-Status: in progress. P3-01 through P3-06 are complete.
+Status: in progress. P3-01 through P3-07 are complete.
 
 ## Product goal
 
@@ -450,7 +450,7 @@ Todo:
   P3-06 verification, and repeat the deep code review until no material finding
   remains.
 
-### [ ] P3-07 — Support GitLab work-item status for issues
+### [x] P3-07 — Support GitLab work-item status for issues
 
 Outcome:
 
@@ -470,36 +470,36 @@ Todo:
   schema and document work-item identity, status and allowed-status queries,
   update mutation, lifecycle categories, tier/version detection, permission
   behavior, open/closed interaction, fallback states, tests, and non-goals.
-- [ ] Write failing GraphQL construction and decoding tests for current status,
+- [x] Write failing GraphQL construction and decoding tests for current status,
   allowed statuses, pagination, update success, partial data with errors,
   missing fields, unsupported schema, insufficient tier, permission denial,
   validation, cancellation, and ambiguous delivery.
-- [ ] Write failing model tests for unavailable and supported instances,
+- [x] Write failing model tests for unavailable and supported instances,
   status ordering, selecting the current status, rapid changes, a status whose
   category closes the issue, rollback, authoritative reconciliation, stale
   responses, and account switching.
-- [ ] Capability-detect the documented API surface. Do not infer support solely
+- [x] Capability-detect the documented API surface. Do not infer support solely
   from a hard-coded GitLab version or assume a licensed feature exists because
   the host is GitLab.com.
-- [ ] Keep work-item status separate from the universal REST open/closed state
+- [x] Keep work-item status separate from the universal REST open/closed state
   in domain and UI terminology.
-- [ ] Present only server-allowed statuses. Confirm when a selected status
+- [x] Present only server-allowed statuses. Confirm when a selected status
   category will close the issue and reconcile both status and issue state from
   the mutation result.
-- [ ] Treat unsupported fields or tiers as feature unavailability, not an issue
+- [x] Treat unsupported fields or tiers as feature unavailability, not an issue
   detail failure, and retain the P3-06 open/reopen control where permitted.
-- [ ] Verify supported, unsupported, unlicensed, partial GraphQL, permission
+- [x] Verify supported, unsupported, unlicensed, partial GraphQL, permission
   denied, closing and reopening categories, read-only access, Dynamic Type,
   VoiceOver, and dark/light appearance in the iPhone 17 Pro Simulator.
-- [ ] Run focused GraphQL/status tests, the complete test suite, a Release
+- [x] Run focused GraphQL/status tests, the complete test suite, a Release
   Simulator build, Xcode static analysis, and credential/privacy scans.
-- [ ] Perform a deep code review of all code added or changed for P3-07. Look
+- [x] Perform a deep code review of all code added or changed for P3-07. Look
   for bugs, bad code, duplicated state controls, brittle schema or version
   assumptions, tier leakage, wrong work-item identity, state/status
   divergence, partial GraphQL mistakes, stale-account writes, concurrency or
   cancellation races, and code that needs refactoring. Record every finding in
   `docs/P3_07_ENGINEERING_PLAN.md`.
-- [ ] If the P3-07 review finds anything material, write a repair plan before
+- [x] If the P3-07 review finds anything material, write a repair plan before
   editing code, add regression tests, implement every fix, rerun the complete
   P3-07 verification, and repeat the deep code review until no material finding
   remains.

@@ -58,6 +58,11 @@ struct GitLabIssueStatusPresentationTests {
                 .accessibilityLabel
                 == "Work item status, Example"
         )
+        #expect(
+            presentation
+                .accessibilityHint
+                == "Lifecycle guidance"
+        )
     }
 
     @Test("Missing and stale statuses are explicit")
@@ -75,6 +80,25 @@ struct GitLabIssueStatusPresentationTests {
         #expect(
             missing.accessibilityLabel
                 == "Work item status not set"
+        )
+        #expect(
+            missing.accessibilityHint
+                == nil
+        )
+
+        let withoutDescription =
+            GitLabIssueStatusPresentation(
+                status:
+                    makeStatus(
+                        category: .toDo,
+                        description: nil
+                    ),
+                isStale: false
+            )
+        #expect(
+            withoutDescription
+                .accessibilityHint
+                == nil
         )
 
         let stale =
@@ -95,12 +119,14 @@ struct GitLabIssueStatusPresentationTests {
 
 private nonisolated func makeStatus(
     category:
-        GitLabIssueStatusCategory
+        GitLabIssueStatusCategory,
+    description: String? =
+        "Lifecycle guidance"
 ) -> GitLabIssueWorkItemStatus {
     GitLabIssueWorkItemStatus(
         id: "status-example",
         name: "Example",
-        description: nil,
+        description: description,
         iconName: nil,
         color: nil,
         position: 0,

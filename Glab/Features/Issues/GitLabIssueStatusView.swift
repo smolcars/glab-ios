@@ -27,9 +27,6 @@ struct GitLabIssueStatusControl: View {
                     snapshot: snapshot,
                     isStale: isStale
                 )
-                .accessibilityHint(
-                    "Status is read-only."
-                )
             }
         }
     }
@@ -79,11 +76,19 @@ struct GitLabIssueStatusControl: View {
                             .currentStatus?
                             .id
                 )
+                .accessibilityHint(
+                    status.description
+                        ?? ""
+                )
             }
         } label: {
             statusLabel(
                 snapshot: snapshot,
-                isStale: isStale
+                isStale: isStale,
+                interactionHint:
+                    isStale
+                    ? "Selects an allowed status after checking GitLab for the latest value."
+                    : "Shows statuses allowed by this issue’s lifecycle."
             )
         }
         .buttonStyle(.glass)
@@ -91,11 +96,6 @@ struct GitLabIssueStatusControl: View {
         .disabled(
             isExternallyDisabled
                 || model.isBusy
-        )
-        .accessibilityHint(
-            isStale
-                ? "Selects an allowed status after checking GitLab for the latest value."
-                : "Shows statuses allowed by this issue’s lifecycle."
         )
         .accessibilityIdentifier(
             "issues.status.menu"
@@ -105,7 +105,9 @@ struct GitLabIssueStatusControl: View {
     private func statusLabel(
         snapshot:
             GitLabIssueStatusSnapshot,
-        isStale: Bool
+        isStale: Bool,
+        interactionHint: String =
+            "Status is read-only."
     ) -> some View {
         let presentation =
             GitLabIssueStatusPresentation(
@@ -150,6 +152,15 @@ struct GitLabIssueStatusControl: View {
         .accessibilityLabel(
             presentation
                 .accessibilityLabel
+        )
+        .accessibilityHint(
+            [
+                presentation
+                    .accessibilityHint,
+                interactionHint,
+            ]
+            .compactMap { $0 }
+            .joined(separator: " ")
         )
     }
 

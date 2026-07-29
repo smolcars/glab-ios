@@ -17,6 +17,7 @@ nonisolated struct GitLabIssueStatusPresentation:
     let tone: GitLabIssueStatusTone
     let isStale: Bool
     let accessibilityLabel: String
+    let accessibilityHint: String?
 
     init(
         status:
@@ -30,6 +31,7 @@ nonisolated struct GitLabIssueStatusPresentation:
             tone = .secondary
             accessibilityLabel =
                 "Work item status not set"
+            accessibilityHint = nil
             return
         }
 
@@ -48,6 +50,8 @@ nonisolated struct GitLabIssueStatusPresentation:
             ]
             .compactMap { $0 }
             .joined(separator: ", ")
+        accessibilityHint =
+            status.description
     }
 }
 

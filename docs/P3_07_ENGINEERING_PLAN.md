@@ -1,7 +1,7 @@
 # P3-07 Engineering Plan — GitLab Work-Item Status for Issues
 
-Status: implementation in progress; typed domain and GraphQL contracts are
-complete, with service, model, and UI work remaining.
+Status: complete. Implementation, Simulator verification, safety gates, and
+the required repeated deep review are complete.
 
 Research date: July 28, 2026.
 
@@ -302,8 +302,9 @@ reconciliation, or delivery check is in progress.
 
 ## Read and fallback behavior
 
-Status loads in parallel with issue detail and discussions. It never gates
-normal issue content.
+Issue detail and discussions start in parallel. Status starts as soon as the
+authoritative REST issue supplies its project ID and IID, while discussions
+continue loading. It never gates normal issue content.
 
 | Result | Issue behavior | Status behavior |
 | --- | --- | --- |
@@ -599,6 +600,149 @@ Repair:
 Status: repaired; integration review repeated with no remaining instance of
 this gap.
 
+### Finding 2 — Status descriptions were not available to assistive technology
+
+Impact and reproduction:
+
+- The GraphQL decoder retained each optional GitLab status description, but
+  `GitLabIssueStatusPresentation` and the status menu used only the status
+  name.
+- VoiceOver therefore announced the current status and each allowed choice
+  without any server-provided lifecycle guidance. This contradicted the
+  planned behavior that useful descriptions become accessibility hints while
+  staying out of the compact visible layout.
+
+Repair plan:
+
+1. Add a focused presentation expectation proving a trimmed GitLab description
+   becomes an optional accessibility hint and a missing description stays nil.
+2. Apply that hint to the compact current-status element and each allowed menu
+   choice, combining it with the existing interaction/read-only hint without
+   adding visible text.
+3. Rerun the presentation/status suites and repeat the accessibility review in
+   the iPhone 17 Pro Simulator.
+
+Repair:
+
+- `GitLabIssueStatusPresentation` now exposes the validated optional
+  description as an accessibility hint.
+- The compact current-status element combines that server guidance with its
+  interaction or read-only hint, and each allowed menu choice exposes its own
+  description without adding visible text.
+- Focused presentation/status tests and the repeated accessibility Simulator
+  review pass.
+
+Status: repaired; accessibility review repeated with no remaining description
+loss.
+
+### Finding 3 — Issue metadata broke into narrow columns at accessibility sizes
+
+Impact and reproduction:
+
+- In the iPhone 17 Pro Simulator at
+  `accessibility-extra-extra-large`, the issue header's outer
+  `ViewThatFits` correctly moved work-item status below the metadata, but the
+  nested Opened/comments `HStack` remained horizontal.
+- The two labels were compressed into narrow columns and wrapped individual
+  words across several lines, making the header difficult to scan and the
+  status control harder to reach.
+
+Repair plan:
+
+1. Make the existing issue metadata group use a compact horizontal layout at
+   standard sizes and a leading vertical layout at accessibility Dynamic Type
+   sizes.
+2. Keep the same labels, ordering, and status control; do not add a card,
+   duplicate state, or more visible text.
+3. Use the deterministic supported-status harness as the focused regression
+   test at `accessibility-extra-extra-large`, tap the status menu, and confirm
+   all allowed choices remain reachable.
+4. Rerun the focused status suites and repeat light/dark, contrast, and
+   accessibility review.
+
+Repair:
+
+- The existing Opened/Closed and comments metadata remains horizontal at
+  standard sizes and switches to a leading vertical group at accessibility
+  Dynamic Type sizes.
+- At `accessibility-extra-extra-large`, both labels render as complete rows,
+  the compact status control remains reachable, and all five deterministic
+  menu choices remain tappable.
+
+Status: repaired; Dynamic Type, contrast, light, and dark review repeated with
+no remaining metadata compression.
+
+### Finding 4 — A stale state-change confirmation could retain wrong wording
+
+Impact and reproduction:
+
+- Selecting a status that closes or reopens an issue presents a confirmation,
+  but pull-to-refresh remains available while that confirmation is visible.
+- If GitLab changes the issue to the target open/closed state before the user
+  confirms, the stored confirmation no longer describes the current
+  transition. The later mutation preflight protects the write baseline, but
+  the app could still proceed from a confirmation whose “close” or “reopen”
+  wording had become false.
+- This violates the mutation plan's requirement to reconfirm that a
+  state-changing selection still has the described effect.
+
+Repair plan:
+
+1. Add a model regression test that presents a close confirmation, refreshes
+   to an already-closed supported snapshot, confirms the stale alert, and
+   proves no preflight or mutation is sent.
+2. Before starting mutation preflight, recompute the selected status's
+   resulting state from the current snapshot and reject a confirmation that no
+   longer represents an open/closed transition.
+3. Preserve the refreshed authoritative snapshot, surface the existing stale
+   message, rerun focused status tests, and repeat the mutation-race review.
+
+Repair:
+
+- `confirmSelection()` now recomputes the selected status's resulting state
+  against the current supported snapshot before preflight.
+- A refreshed status, allowed-status list, current status, or open/closed state
+  that invalidates the stored transition clears the confirmation, retains the
+  authoritative snapshot, reports stale state, and sends no mutation.
+- The regression failed before the guard and passes afterward. The repeated
+  mutation-race review found no other stale confirmation path.
+
+Status: repaired.
+
 ## Verification evidence
 
-Pending implementation.
+Completed July 29, 2026:
+
+- Focused endpoint, service, model, presentation, and refresh-coordinator
+  verification passed 49 tests with zero failures.
+- The status/session/access/OAuth/cache/resource-edit/issue-detail/Home/Todos
+  regression bundle passed 154 tests. The additional session-client cache
+  suite passed 13 tests.
+- The complete serialized iPhone 17 Pro Simulator suite passed 872 of 872
+  tests with zero failures or skips.
+- Debug and Release Simulator builds succeeded using the shared
+  `.deriveddata/Glab` directory. Release Xcode static analysis completed with
+  no diagnostics.
+- A deterministic iPhone 17 Pro harness verified supported status, all five
+  status choices, close confirmation, read-only access, server permission
+  denial, unsupported fallback, rejected mutation, unknown delivery,
+  reconciliation recovery, light and dark appearance,
+  `accessibility-extra-extra-large`, Increased Contrast, Reduce Motion, and
+  Reduce Transparency. The temporary harness and flows were removed after
+  inspection.
+- The configured self-managed host did not respond during the final live
+  read-only check. No live mutation was attempted; supported and unsupported
+  behavior was verified with deterministic fixtures instead.
+- The existing cold-first-presentation issue-creation Maestro smoke passed on
+  the clean Debug app after P3-07 integration.
+- Source and packaged privacy manifests passed `plutil`. Configured
+  `GITLAB_API_TOKEN` and `DEVOPS_DEMO_TOKEN` values were absent from tracked
+  files and the Release bundle. Sensitive environment-variable identifiers
+  were absent from the Release executable. No secret value was printed.
+- `git diff --check` passed. The production diff contains no added forced
+  casts, forced tries, fatal errors, debug prints, TODOs, or FIXMEs. SwiftLint
+  is unavailable in this workspace; Swift compiler diagnostics and Xcode
+  static analysis were clean.
+- The required deep review was repeated after all four documented repairs. No
+  remaining material P3-07 bug, duplication, dead path, safety violation, or
+  refactor need was found.
