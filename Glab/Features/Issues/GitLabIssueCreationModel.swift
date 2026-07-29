@@ -58,7 +58,9 @@ nonisolated enum GitLabIssueCreationFailure:
 
 @MainActor
 @Observable
-final class GitLabIssueCreationModel {
+final class GitLabIssueCreationModel:
+    Identifiable
+{
     var title = "" {
         didSet {
             formValueDidChange(

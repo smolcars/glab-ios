@@ -42,8 +42,6 @@ struct HomeView: View {
         issueCreationModel:
         GitLabIssueCreationModel?
     @State private var
-        showsIssueCreation = false
-    @State private var
         createdIssueRoute:
         GitLabIssueRoute?
 
@@ -204,30 +202,24 @@ struct HomeView: View {
                 .presentationDragIndicator(.visible)
             }
             .sheet(
-                isPresented:
-                    $showsIssueCreation,
-                onDismiss: {
-                    issueCreationModel = nil
-                }
-            ) {
-                if let issueCreationModel {
-                    GitLabIssueCreationView(
-                        model:
-                            issueCreationModel,
-                        accountID: accountID,
-                        appSession: appSession
-                    )
-                    .presentationDragIndicator(
-                        .visible
-                    )
-                }
+                item: $issueCreationModel
+            ) { issueCreationModel in
+                GitLabIssueCreationView(
+                    model:
+                        issueCreationModel,
+                    accountID: accountID,
+                    appSession: appSession
+                )
+                .presentationDragIndicator(
+                    .visible
+                )
             }
             .onChange(of: createdIssueRoute) {
                 _, route in
                 guard let route else {
                     return
                 }
-                showsIssueCreation = false
+                issueCreationModel = nil
                 path.append(
                     GitLabNativeRoute.issue(
                         route
@@ -429,6 +421,5 @@ struct HomeView: View {
                         issue.route
                 }
             )
-        showsIssueCreation = true
     }
 }

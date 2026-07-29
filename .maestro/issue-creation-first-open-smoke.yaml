@@ -1,0 +1,16 @@
+appId: com.glab.ios
+name: Issue creation renders on first presentation
+---
+- launchApp
+- assertVisible:
+    id: home.newIssueButton
+- tapOn:
+    id: home.newIssueButton
+- assertVisible: New Issue
+- assertVisible:
+    id: issueCreation.project
+- assertVisible:
+    id: issueCreation.title
+- takeScreenshot: issue-creation-first-open
+- tapOn:
+    id: issueCreation.cancel
