@@ -190,6 +190,7 @@ nonisolated struct GitLabProject:
     let avatarURL: URL?
     let starCount: Int
     let lastActivityAt: Date
+    let defaultBranch: String?
     let visibility: GitLabProjectVisibility
     let namespace: GitLabProjectNamespace?
     let issuesAccessLevel:
@@ -246,6 +247,7 @@ nonisolated struct GitLabProject:
         case avatarURL = "avatar_url"
         case starCount = "star_count"
         case lastActivityAt = "last_activity_at"
+        case defaultBranch = "default_branch"
         case visibility
         case namespace
         case issuesAccessLevel =

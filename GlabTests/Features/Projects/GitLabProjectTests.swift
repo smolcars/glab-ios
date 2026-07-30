@@ -23,6 +23,7 @@ struct GitLabProjectTests {
         )
         #expect(project.visibility.title == "Private")
         #expect(project.starCount == 17)
+        #expect(project.defaultBranch == "main")
         #expect(
             project.lastActivityAt
                 == Date(timeIntervalSince1970: 1_784_980_800)
@@ -253,6 +254,7 @@ private extension GitLabProjectTests {
               "avatar_url": \(avatarURL),
               "star_count": 17,
               "last_activity_at": "2026-07-25T12:00:00Z",
+              "default_branch": "main",
               "visibility": "\(visibility)",
               "issues_access_level": "\(issuesAccessLevel)",
               "merge_requests_access_level": "\(mergeRequestsAccessLevel)",

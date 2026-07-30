@@ -29,6 +29,8 @@ struct GitLabProjectDetailView: View {
         any GitLabIssueStatusServing
     let issueCreationService:
         any GitLabIssueCreationServing
+    let commitLoader:
+        any GitLabCommitLoading
     let accountID: GitLabAccountID
     let appSession: AppSession
     let onResourceEdited:
@@ -69,6 +71,8 @@ struct GitLabProjectDetailView: View {
             any GitLabIssueStatusServing,
         issueCreationService:
             any GitLabIssueCreationServing,
+        commitLoader:
+            any GitLabCommitLoading,
         accountID: GitLabAccountID,
         appSession: AppSession,
         onResourceEdited:
@@ -98,6 +102,8 @@ struct GitLabProjectDetailView: View {
             issueStatusService
         self.issueCreationService =
             issueCreationService
+        self.commitLoader =
+            commitLoader
         self.accountID = accountID
         self.appSession = appSession
         self.onResourceEdited =
@@ -176,60 +182,27 @@ struct GitLabProjectDetailView: View {
                 projectHeader(project)
 
                 GitLabDetailSection(
-                    title: "Project"
+                    title: "Overview"
                 ) {
-                    VStack(
-                        alignment: .leading,
-                        spacing: 12
-                    ) {
-                        metadataRow(
-                            title: "Visibility",
-                            value:
-                                project
-                                    .visibility
-                                    .title,
-                            systemImage:
-                                project
-                                    .visibility
-                                    .systemImage
-                        )
-                        metadataRow(
-                            title: "Stars",
-                            value:
-                                project.starCount
-                                    .formatted(),
-                            systemImage: "star"
-                        )
-                        metadataRow(
-                            title: "Last activity",
-                            value:
-                                project
-                                    .lastActivityAt
-                                    .formatted(
-                                        date:
-                                            .abbreviated,
-                                        time:
-                                            .shortened
-                                    ),
-                            systemImage: "clock"
-                        )
-                    }
+                    projectOverview(project)
                 }
 
                 GitLabDetailSection(
-                    title: "Work"
+                    title: "Browse"
                 ) {
                     VStack(
                         alignment: .leading,
-                        spacing: 12
+                        spacing: 10
                     ) {
                         projectIssuesRow(
                             project
                         )
 
-                        Divider()
-
                         projectMergeRequestsRow(
+                            project
+                        )
+
+                        projectCommitsRow(
                             project
                         )
                     }
@@ -334,22 +307,105 @@ struct GitLabProjectDetailView: View {
         )
     }
 
-    private func metadataRow(
+    private func projectOverview(
+        _ project: GitLabProject
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 18) {
+                    projectFact(
+                        title: "Visibility",
+                        value:
+                            project.visibility.title,
+                        systemImage:
+                            project.visibility
+                                .systemImage
+                    )
+
+                    Divider()
+                        .frame(height: 42)
+
+                    projectFact(
+                        title: "Stars",
+                        value:
+                            project.starCount
+                                .formatted(),
+                        systemImage: "star"
+                    )
+                }
+
+                VStack(
+                    alignment: .leading,
+                    spacing: 14
+                ) {
+                    projectFact(
+                        title: "Visibility",
+                        value:
+                            project.visibility.title,
+                        systemImage:
+                            project.visibility
+                                .systemImage
+                    )
+
+                    projectFact(
+                        title: "Stars",
+                        value:
+                            project.starCount
+                                .formatted(),
+                        systemImage: "star"
+                    )
+                }
+            }
+
+            Divider()
+
+            projectFact(
+                title: "Last activity",
+                value:
+                    project.lastActivityAt
+                        .formatted(
+                            date: .abbreviated,
+                            time: .shortened
+                        ),
+                systemImage: "clock"
+            )
+        }
+        .padding(16)
+        .background(
+            Color.secondary.opacity(0.07),
+            in: .rect(cornerRadius: 16)
+        )
+        .accessibilityElement(
+            children: .contain
+        )
+    }
+
+    private func projectFact(
         title: String,
         value: String,
         systemImage: String
     ) -> some View {
-        LabeledContent {
+        VStack(alignment: .leading, spacing: 5) {
+            Label(title, systemImage: systemImage)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             Text(value)
-                .multilineTextAlignment(
-                    .trailing
+                .font(
+                    .subheadline.weight(.semibold)
                 )
-        } label: {
-            Label(
-                title,
-                systemImage: systemImage
-            )
+                .fixedSize(
+                    horizontal: false,
+                    vertical: true
+                )
         }
+        .frame(
+            maxWidth: .infinity,
+            alignment: .leading
+        )
+        .accessibilityElement(
+            children: .combine
+        )
     }
 
     @ViewBuilder
@@ -360,21 +416,13 @@ struct GitLabProjectDetailView: View {
             project.issuesAccessLevel?
                 .isDisabled == true
         {
-            HStack(spacing: 12) {
-                Label(
-                    "Issues",
-                    systemImage:
-                        "smallcircle.filled.circle"
-                )
-                Spacer(minLength: 8)
-                Text("Disabled")
-                    .font(.subheadline)
-                    .foregroundStyle(
-                        .secondary
-                    )
-            }
-            .accessibilityElement(
-                children: .combine
+            GitLabProjectDestinationLabel(
+                title: "Issues",
+                subtitle:
+                    "Disabled for this project",
+                systemImage:
+                    "smallcircle.filled.circle",
+                isAvailable: false
             )
             .accessibilityIdentifier(
                 "project.issues.disabled"
@@ -403,22 +451,17 @@ struct GitLabProjectDetailView: View {
                         onResourceEdited
                 )
             } label: {
-                HStack(spacing: 12) {
-                    Label(
-                        "Issues",
-                        systemImage:
-                            "smallcircle.filled.circle"
-                    )
-                    Spacer(minLength: 8)
-                    Text("Browse")
-                        .font(.subheadline)
-                        .foregroundStyle(
-                            .secondary
-                        )
-                }
-                .contentShape(.rect)
+                GitLabProjectDestinationLabel(
+                    title: "Issues",
+                    subtitle:
+                        "Plan and track project work",
+                    systemImage:
+                        "smallcircle.filled.circle"
+                )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(
+                GitLabProjectDestinationButtonStyle()
+            )
             .accessibilityHint(
                 "Shows issues in this project."
             )
@@ -436,21 +479,13 @@ struct GitLabProjectDetailView: View {
             project.mergeRequestsAccessLevel?
                 .isDisabled == true
         {
-            HStack(spacing: 12) {
-                Label(
-                    "Merge Requests",
-                    systemImage:
-                        "arrow.triangle.pull"
-                )
-                Spacer(minLength: 8)
-                Text("Disabled")
-                    .font(.subheadline)
-                    .foregroundStyle(
-                        .secondary
-                    )
-            }
-            .accessibilityElement(
-                children: .combine
+            GitLabProjectDestinationLabel(
+                title: "Merge Requests",
+                subtitle:
+                    "Disabled for this project",
+                systemImage:
+                    "arrow.triangle.pull",
+                isAvailable: false
             )
             .accessibilityIdentifier(
                 "project.mergeRequests.disabled"
@@ -481,22 +516,17 @@ struct GitLabProjectDetailView: View {
                         onResourceEdited
                 )
             } label: {
-                HStack(spacing: 12) {
-                    Label(
-                        "Merge Requests",
-                        systemImage:
-                            "arrow.triangle.pull"
-                    )
-                    Spacer(minLength: 8)
-                    Text("Browse")
-                        .font(.subheadline)
-                        .foregroundStyle(
-                            .secondary
-                        )
-                }
-                .contentShape(.rect)
+                GitLabProjectDestinationLabel(
+                    title: "Merge Requests",
+                    subtitle:
+                        "Review proposed changes",
+                    systemImage:
+                        "arrow.triangle.pull"
+                )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(
+                GitLabProjectDestinationButtonStyle()
+            )
             .accessibilityHint(
                 "Shows merge requests in this project."
             )
@@ -504,6 +534,54 @@ struct GitLabProjectDetailView: View {
                 "project.mergeRequests"
             )
         }
+    }
+
+    private func projectCommitsRow(
+        _ project: GitLabProject
+    ) -> some View {
+        NavigationLink {
+            GitLabProjectCommitsView(
+                project: project,
+                loader: commitLoader,
+                accountID: accountID,
+                appSession: appSession
+            )
+        } label: {
+            GitLabProjectDestinationLabel(
+                title: "Commits",
+                subtitle:
+                    "History on "
+                    + defaultBranchTitle(project),
+                systemImage:
+                    "point.bottomleft.forward.to.point.topright.scurvepath"
+            )
+        }
+        .buttonStyle(
+            GitLabProjectDestinationButtonStyle()
+        )
+        .accessibilityHint(
+            "Shows commits on the default branch."
+        )
+        .accessibilityIdentifier(
+            "project.commits"
+        )
+    }
+
+    private func defaultBranchTitle(
+        _ project: GitLabProject
+    ) -> String {
+        guard
+            let branch =
+                project.defaultBranch?
+                .trimmingCharacters(
+                    in:
+                        .whitespacesAndNewlines
+                ),
+            !branch.isEmpty
+        else {
+            return "the default branch"
+        }
+        return branch
     }
 
     private var createdIssueIsPresented:
@@ -564,6 +642,126 @@ struct GitLabProjectDetailView: View {
             .handleAuthenticationFailure(
                 error,
                 for: accountID
+            )
+    }
+}
+
+private struct GitLabProjectDestinationLabel:
+    View
+{
+    let title: String
+    let subtitle: String
+    let systemImage: String
+    var isAvailable = true
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.headline)
+                .foregroundStyle(
+                    isAvailable
+                        ? Color.orange
+                        : Color.secondary
+                )
+                .frame(width: 40, height: 40)
+                .background(
+                    (
+                        isAvailable
+                            ? Color.orange
+                            : Color.secondary
+                    )
+                    .opacity(
+                        isAvailable ? 0.14 : 0.08
+                    ),
+                    in: .rect(cornerRadius: 11)
+                )
+                .accessibilityHidden(true)
+
+            VStack(
+                alignment: .leading,
+                spacing: 3
+            ) {
+                Text(title)
+                    .font(
+                        .body.weight(.semibold)
+                    )
+                    .foregroundStyle(.primary)
+
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 8)
+
+            if isAvailable {
+                Image(systemName: "chevron.forward")
+                    .font(
+                        .caption.weight(.bold)
+                    )
+                    .foregroundStyle(.secondary)
+                    .frame(width: 30, height: 30)
+                    .background(
+                        Color.secondary.opacity(0.1),
+                        in: .circle
+                    )
+                    .accessibilityHidden(true)
+            } else {
+                Text("Unavailable")
+                    .font(
+                        .caption.weight(.medium)
+                    )
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: 64,
+            alignment: .leading
+        )
+        .background(
+            Color.secondary.opacity(
+                isAvailable ? 0.075 : 0.04
+            ),
+            in: .rect(cornerRadius: 16)
+        )
+        .contentShape(.rect)
+        .opacity(isAvailable ? 1 : 0.68)
+        .accessibilityElement(
+            children: .combine
+        )
+    }
+}
+
+private struct GitLabProjectDestinationButtonStyle:
+    ButtonStyle
+{
+    @Environment(\.accessibilityReduceMotion)
+    private var reduceMotion
+
+    func makeBody(
+        configuration: Configuration
+    ) -> some View {
+        configuration.label
+            .opacity(
+                configuration.isPressed
+                    ? 0.72
+                    : 1
+            )
+            .scaleEffect(
+                configuration.isPressed
+                    && !reduceMotion
+                    ? 0.985
+                    : 1
+            )
+            .animation(
+                reduceMotion
+                    ? nil
+                    : .easeOut(duration: 0.12),
+                value:
+                    configuration.isPressed
             )
     }
 }

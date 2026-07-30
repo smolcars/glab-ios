@@ -6,11 +6,68 @@ nonisolated struct GitLabDiffRequest:
     Sendable
 {
     let accountID: GitLabAccountID
-    let route: GitLabMergeRequestRoute
+    let resource:
+        GitLabDiffResourceIdentity
     let headSHA: String
     let oldPath: String
     let newPath: String
     let source: String
+
+    init(
+        accountID: GitLabAccountID,
+        route: GitLabMergeRequestRoute,
+        headSHA: String,
+        oldPath: String,
+        newPath: String,
+        source: String
+    ) {
+        self.init(
+            accountID: accountID,
+            resource: .mergeRequest(route),
+            headSHA: headSHA,
+            oldPath: oldPath,
+            newPath: newPath,
+            source: source
+        )
+    }
+
+    init(
+        accountID: GitLabAccountID,
+        projectID: Int,
+        commitSHA: String,
+        oldPath: String,
+        newPath: String,
+        source: String
+    ) {
+        self.init(
+            accountID: accountID,
+            resource: .commit(
+                projectID: projectID,
+                sha: commitSHA
+            ),
+            headSHA: commitSHA,
+            oldPath: oldPath,
+            newPath: newPath,
+            source: source
+        )
+    }
+
+    private init(
+        accountID: GitLabAccountID,
+        resource:
+            GitLabDiffResourceIdentity,
+        headSHA: String,
+        oldPath: String,
+        newPath: String,
+        source: String
+    ) {
+        self.accountID = accountID
+        self.resource = resource
+        self.headSHA = headSHA
+        self.oldPath = oldPath
+        self.newPath = newPath
+        self.source = source
+    }
 }
 
 nonisolated struct GitLabDiffCacheKey:
@@ -21,8 +78,8 @@ nonisolated struct GitLabDiffCacheKey:
     CustomDebugStringConvertible
 {
     let accountID: GitLabAccountID
-    let projectID: Int
-    let mergeRequestIID: Int
+    let resource:
+        GitLabDiffResourceIdentity
     let headSHA: String
     let oldPath: String
     let newPath: String
@@ -34,9 +91,7 @@ nonisolated struct GitLabDiffCacheKey:
         parserVersion: Int
     ) {
         accountID = request.accountID
-        projectID = request.route.projectID
-        mergeRequestIID =
-            request.route.mergeRequestIID
+        resource = request.resource
         headSHA = request.headSHA
         oldPath = request.oldPath
         newPath = request.newPath
@@ -293,9 +348,7 @@ actor GitLabDiffRenderer:
         _ second: GitLabDiffCacheKey
     ) -> Bool {
         first.accountID == second.accountID
-            && first.projectID == second.projectID
-            && first.mergeRequestIID
-                == second.mergeRequestIID
+            && first.resource == second.resource
             && first.oldPath == second.oldPath
             && first.newPath == second.newPath
     }

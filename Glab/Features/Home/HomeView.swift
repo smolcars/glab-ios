@@ -77,6 +77,8 @@ struct HomeView: View {
     let projectLoader:
         any GitLabProjectLoading
             & GitLabProjectResolving
+    let commitLoader:
+        any GitLabCommitLoading
     let searchModel: GitLabGlobalSearchModel
     let incomingRoute: GitLabNativeRoute?
     let onResourceEdited:
@@ -389,6 +391,8 @@ struct HomeView: View {
                     issueStatusService,
                 issueCreationService:
                     issueCreationService,
+                commitLoader:
+                    commitLoader,
                 accountID: accountID,
                 appSession: appSession,
                 onResourceEdited:

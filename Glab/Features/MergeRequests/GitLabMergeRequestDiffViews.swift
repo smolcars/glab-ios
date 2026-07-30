@@ -1139,12 +1139,13 @@ struct GitLabDiffHunkJump: Equatable {
     let ordinal: Int
 }
 
-private struct GitLabDiffDocumentView: View {
+struct GitLabDiffDocumentView: View {
     let document: GitLabParsedDiffDocument
     let documentID: GitLabDiffDocumentID
     let selectedHunkJump: GitLabDiffHunkJump?
     let discussionContext:
         GitLabDiffDiscussionContext?
+    let accessibilityIdentifier: String
     let onSelectDiscussion:
         @MainActor (
             GitLabDiffLinePosition
@@ -1153,6 +1154,32 @@ private struct GitLabDiffDocumentView: View {
     @ScaledMetric(relativeTo: .caption)
     private var rowHeight: CGFloat =
         GitLabDiffLayoutMetrics.baseRowHeight
+
+    init(
+        document: GitLabParsedDiffDocument,
+        documentID: GitLabDiffDocumentID,
+        selectedHunkJump:
+            GitLabDiffHunkJump?,
+        discussionContext:
+            GitLabDiffDiscussionContext?,
+        accessibilityIdentifier: String =
+            "mergeRequestDiffs.document",
+        onSelectDiscussion:
+            @escaping @MainActor (
+                GitLabDiffLinePosition
+            ) -> Void
+    ) {
+        self.document = document
+        self.documentID = documentID
+        self.selectedHunkJump =
+            selectedHunkJump
+        self.discussionContext =
+            discussionContext
+        self.accessibilityIdentifier =
+            accessibilityIdentifier
+        self.onSelectDiscussion =
+            onSelectDiscussion
+    }
 
     var body: some View {
         GitLabDiffCollectionView(
@@ -1163,6 +1190,8 @@ private struct GitLabDiffDocumentView: View {
             contentWidth: minimumContentWidth,
             discussionContext:
                 discussionContext,
+            accessibilityIdentifier:
+                accessibilityIdentifier,
             onSelectDiscussion:
                 onSelectDiscussion
         )

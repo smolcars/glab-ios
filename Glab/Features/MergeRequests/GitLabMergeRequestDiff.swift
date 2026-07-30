@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 
-nonisolated struct GitLabMergeRequestDiffFileID:
+nonisolated struct GitLabDiffFileID:
     Equatable,
     Hashable,
     Sendable
@@ -10,19 +10,87 @@ nonisolated struct GitLabMergeRequestDiffFileID:
     let newPath: String
 }
 
+typealias GitLabMergeRequestDiffFileID =
+    GitLabDiffFileID
+
+nonisolated enum GitLabDiffResourceIdentity:
+    Equatable,
+    Hashable,
+    Sendable
+{
+    case mergeRequest(
+        GitLabMergeRequestRoute
+    )
+    case commit(
+        projectID: Int,
+        sha: String
+    )
+}
+
 nonisolated struct GitLabDiffDocumentID:
     Equatable,
     Hashable,
     Sendable
 {
     let accountID: GitLabAccountID
-    let route: GitLabMergeRequestRoute
+    let resource:
+        GitLabDiffResourceIdentity
     let headSHA: String
-    let fileID: GitLabMergeRequestDiffFileID
+    let fileID: GitLabDiffFileID
     let sourceDigest: Data
+
+    init(
+        accountID: GitLabAccountID,
+        route: GitLabMergeRequestRoute,
+        headSHA: String,
+        fileID: GitLabDiffFileID,
+        sourceDigest: Data
+    ) {
+        self.init(
+            accountID: accountID,
+            resource: .mergeRequest(route),
+            headSHA: headSHA,
+            fileID: fileID,
+            sourceDigest: sourceDigest
+        )
+    }
+
+    init(
+        accountID: GitLabAccountID,
+        projectID: Int,
+        commitSHA: String,
+        fileID: GitLabDiffFileID,
+        sourceDigest: Data
+    ) {
+        self.init(
+            accountID: accountID,
+            resource: .commit(
+                projectID: projectID,
+                sha: commitSHA
+            ),
+            headSHA: commitSHA,
+            fileID: fileID,
+            sourceDigest: sourceDigest
+        )
+    }
+
+    private init(
+        accountID: GitLabAccountID,
+        resource:
+            GitLabDiffResourceIdentity,
+        headSHA: String,
+        fileID: GitLabDiffFileID,
+        sourceDigest: Data
+    ) {
+        self.accountID = accountID
+        self.resource = resource
+        self.headSHA = headSHA
+        self.fileID = fileID
+        self.sourceDigest = sourceDigest
+    }
 }
 
-nonisolated enum GitLabMergeRequestDiffAvailability:
+nonisolated enum GitLabDiffAvailability:
     Equatable,
     Sendable
 {
@@ -32,7 +100,10 @@ nonisolated enum GitLabMergeRequestDiffAvailability:
     case missingText
 }
 
-nonisolated enum GitLabMergeRequestDiffFileKind:
+typealias GitLabMergeRequestDiffAvailability =
+    GitLabDiffAvailability
+
+nonisolated enum GitLabDiffFileKind:
     Equatable,
     Sendable
 {
@@ -42,7 +113,10 @@ nonisolated enum GitLabMergeRequestDiffFileKind:
     case modified
 }
 
-nonisolated struct GitLabMergeRequestDiffFile:
+typealias GitLabMergeRequestDiffFileKind =
+    GitLabDiffFileKind
+
+nonisolated struct GitLabDiffFile:
     Decodable,
     Equatable,
     Identifiable,
@@ -92,8 +166,8 @@ nonisolated struct GitLabMergeRequestDiffFile:
         )
     }
 
-    var id: GitLabMergeRequestDiffFileID {
-        GitLabMergeRequestDiffFileID(
+    var id: GitLabDiffFileID {
+        GitLabDiffFileID(
             oldPath: oldPath,
             newPath: newPath
         )
@@ -114,7 +188,7 @@ nonisolated struct GitLabMergeRequestDiffFile:
         return "diff.file.\(prefix)"
     }
 
-    var kind: GitLabMergeRequestDiffFileKind {
+    var kind: GitLabDiffFileKind {
         if isNewFile {
             return .added
         }
@@ -127,7 +201,7 @@ nonisolated struct GitLabMergeRequestDiffFile:
         return .modified
     }
 
-    var availability: GitLabMergeRequestDiffAvailability {
+    var availability: GitLabDiffAvailability {
         if isTooLarge {
             return .tooLarge
         }
@@ -207,3 +281,6 @@ nonisolated struct GitLabMergeRequestDiffFile:
         case isTooLarge = "too_large"
     }
 }
+
+typealias GitLabMergeRequestDiffFile =
+    GitLabDiffFile

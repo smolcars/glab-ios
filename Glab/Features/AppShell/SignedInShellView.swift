@@ -89,6 +89,8 @@ struct SignedInShellView: View {
     private let projectLoader:
         any GitLabProjectLoading
             & GitLabProjectResolving
+    private let commitLoader:
+        any GitLabCommitLoading
     private let markdownRenderer:
         any GitLabMarkdownRendering
     private let markdownImageLoader:
@@ -168,6 +170,9 @@ struct SignedInShellView: View {
         let projectLoader = LiveGitLabProjectLoader(
             client: client
         )
+        let commitLoader = LiveGitLabCommitLoader(
+            client: client
+        )
         let discussionLoader =
             LiveGitLabDiscussionService(
                 client: client
@@ -221,6 +226,7 @@ struct SignedInShellView: View {
         self.mentionService =
             mentionService
         self.projectLoader = projectLoader
+        self.commitLoader = commitLoader
         markdownRenderer = GitLabMarkdownRenderer()
         diffRenderer = GitLabDiffRenderer()
         let imageRequestPolicy =
@@ -344,6 +350,7 @@ struct SignedInShellView: View {
                     issueCreationService:
                         issueCreationService,
                     projectLoader: projectLoader,
+                    commitLoader: commitLoader,
                     searchModel:
                         globalSearchModel,
                     incomingRoute:

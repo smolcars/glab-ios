@@ -14,6 +14,7 @@ nonisolated func makeTestProject(
     lastActivityAt: Date = Date(
         timeIntervalSince1970: 1_785_139_200
     ),
+    defaultBranch: String? = "main",
     visibility: GitLabProjectVisibility = .privateAccess,
     namespace: GitLabProjectNamespace? = GitLabProjectNamespace(
         id: 7,
@@ -38,6 +39,7 @@ nonisolated func makeTestProject(
         avatarURL: avatarURL,
         starCount: starCount,
         lastActivityAt: lastActivityAt,
+        defaultBranch: defaultBranch,
         visibility: visibility,
         namespace: namespace,
         issuesAccessLevel:

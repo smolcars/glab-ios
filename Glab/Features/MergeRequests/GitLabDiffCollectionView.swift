@@ -50,6 +50,7 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
     let contentWidth: CGFloat
     let discussionContext:
         GitLabDiffDiscussionContext?
+    let accessibilityIdentifier: String
     let onSelectDiscussion:
         @MainActor (
             GitLabDiffLinePosition
@@ -63,6 +64,8 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
         contentWidth: CGFloat,
         discussionContext:
             GitLabDiffDiscussionContext? = nil,
+        accessibilityIdentifier: String =
+            "mergeRequestDiffs.document",
         onSelectDiscussion:
             @escaping @MainActor (
                 GitLabDiffLinePosition
@@ -76,6 +79,8 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
         self.contentWidth = contentWidth
         self.discussionContext =
             discussionContext
+        self.accessibilityIdentifier =
+            accessibilityIdentifier
         self.onSelectDiscussion =
             onSelectDiscussion
     }
@@ -126,7 +131,7 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
                     .reuseIdentifier
         )
         collectionView.accessibilityIdentifier =
-            "mergeRequestDiffs.document"
+            accessibilityIdentifier
         context.coordinator.collectionView =
             collectionView
         return collectionView
