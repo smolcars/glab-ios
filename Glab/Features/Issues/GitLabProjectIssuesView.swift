@@ -128,7 +128,8 @@ struct GitLabProjectIssuesView: View {
                         emptyMessage,
                     accessibilityIdentifier:
                         "projectIssues.list",
-                    referenceStyle: .short
+                    referenceStyle: .short,
+                    prefersInlineTitle: true
                 ),
             loader: loader,
             discussionLoader:

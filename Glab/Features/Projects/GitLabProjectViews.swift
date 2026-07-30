@@ -5,7 +5,6 @@ struct ProjectsView: View {
     let accountID: GitLabAccountID
     let appSession: AppSession
 
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var model: ProjectsModel
 
     init(
@@ -33,11 +32,7 @@ struct ProjectsView: View {
                 Color(uiColor: .systemGroupedBackground)
             )
             .navigationTitle(mode.title)
-            .navigationBarTitleDisplayMode(
-                dynamicTypeSize.isAccessibilitySize
-                    ? .inline
-                    : .large
-            )
+            .navigationBarTitleDisplayMode(.inline)
             .searchable(
                 text: $model.searchText,
                 placement:
