@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 private struct GitLabMentionSearchRequest:
     Equatable,
@@ -6,6 +7,13 @@ private struct GitLabMentionSearchRequest:
 {
     let projectID: Int
     let query: String
+}
+
+private struct GitLabMentionEditorGeometry:
+    Equatable
+{
+    var caretRect: CGRect?
+    var size: CGSize = .zero
 }
 
 struct GitLabMentionTextEditor<Editor: View>:
@@ -20,6 +28,10 @@ struct GitLabMentionTextEditor<Editor: View>:
         GitLabMentionSearchRequest?
     @State private var loadingRequest:
         GitLabMentionSearchRequest?
+    @State private var editorGeometry =
+        GitLabMentionEditorGeometry()
+    @State private var panelSize: CGSize =
+        .zero
 
     private let projectID: Int?
     private let editor:
@@ -56,11 +68,26 @@ struct GitLabMentionTextEditor<Editor: View>:
             panelPresentation(
                 for: request
             )
+        let panelOffset =
+            panelOffset(
+                panelSize: panelSize,
+                editorGeometry:
+                    editorGeometry
+            )
 
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .top) {
             editor($text, $selection)
+                .background {
+                    GitLabMentionCaretReader(
+                        geometry:
+                            $editorGeometry
+                    )
+                }
 
-            if presentation != .hidden {
+            if
+                presentation != .hidden,
+                editorGeometry.caretRect != nil
+            {
                 Group {
                     switch presentation {
                     case .hidden:
@@ -84,6 +111,14 @@ struct GitLabMentionTextEditor<Editor: View>:
                     .materialize
                 )
                 .padding(10)
+                .onGeometryChange(
+                    for: CGSize.self
+                ) { proxy in
+                    proxy.size
+                } action: { size in
+                    panelSize = size
+                }
+                .offset(y: panelOffset)
                 .shadow(
                     color:
                         .black.opacity(0.16),
@@ -121,6 +156,44 @@ struct GitLabMentionTextEditor<Editor: View>:
         .task(id: request) {
             await search(request)
         }
+    }
+
+    private func panelOffset(
+        panelSize: CGSize,
+        editorGeometry:
+            GitLabMentionEditorGeometry
+    ) -> CGFloat {
+        let spacing: CGFloat = 6
+        guard
+            let caretRect =
+                editorGeometry.caretRect
+        else {
+            return 0
+        }
+        guard panelSize.height > 0 else {
+            return caretRect.maxY
+                + spacing
+        }
+
+        let spaceBelow =
+            editorGeometry.size.height
+            - caretRect.maxY
+            - spacing
+        if spaceBelow >= panelSize.height {
+            return caretRect.maxY
+                + spacing
+        }
+
+        let spaceAbove =
+            caretRect.minY
+            - spacing
+        if spaceAbove >= panelSize.height {
+            return spaceAbove
+                - panelSize.height
+        }
+
+        return caretRect.maxY
+            + spacing
     }
 
     private var activeQuery:
@@ -242,6 +315,189 @@ struct GitLabMentionTextEditor<Editor: View>:
         members = []
         loadedRequest = nil
         loadingRequest = nil
+    }
+}
+
+private struct GitLabMentionCaretReader:
+    UIViewRepresentable
+{
+    @Binding var geometry:
+        GitLabMentionEditorGeometry
+
+    func makeUIView(
+        context: Context
+    ) -> GitLabMentionCaretObserverView {
+        GitLabMentionCaretObserverView {
+            newGeometry in
+            if geometry != newGeometry {
+                geometry = newGeometry
+            }
+        }
+    }
+
+    func updateUIView(
+        _ uiView:
+            GitLabMentionCaretObserverView,
+        context: Context
+    ) {
+        uiView.onGeometryChange = {
+            newGeometry in
+            if geometry != newGeometry {
+                geometry = newGeometry
+            }
+        }
+        uiView.scheduleUpdate()
+    }
+}
+
+private final class
+    GitLabMentionCaretObserverView:
+        UIView
+{
+    var onGeometryChange:
+        (GitLabMentionEditorGeometry)
+            -> Void
+
+    private var lastGeometry =
+        GitLabMentionEditorGeometry()
+
+    init(
+        onGeometryChange:
+            @escaping (
+                GitLabMentionEditorGeometry
+            ) -> Void
+    ) {
+        self.onGeometryChange =
+            onGeometryChange
+        super.init(frame: .zero)
+        isUserInteractionEnabled = false
+        isAccessibilityElement = false
+
+        for notificationName in [
+            UITextView
+                .textDidBeginEditingNotification,
+            UITextView
+                .textDidChangeNotification,
+            UITextView
+                .textDidEndEditingNotification,
+        ] {
+            NotificationCenter.default
+                .addObserver(
+                    self,
+                    selector:
+                        #selector(
+                            textViewDidUpdate(
+                                _:
+                            )
+                        ),
+                    name:
+                        notificationName,
+                    object: nil
+                )
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError(
+            "init(coder:) is unavailable"
+        )
+    }
+
+    deinit {
+        NotificationCenter.default
+            .removeObserver(self)
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        scheduleUpdate()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        scheduleUpdate()
+    }
+
+    @objc
+    private func textViewDidUpdate(
+        _ notification: Notification
+    ) {
+        scheduleUpdate()
+    }
+
+    func scheduleUpdate() {
+        DispatchQueue.main.async {
+            [weak self] in
+            self?.reportGeometry()
+        }
+    }
+
+    private func reportGeometry() {
+        let newGeometry =
+            GitLabMentionEditorGeometry(
+                caretRect:
+                    activeCaretRect(),
+                size: bounds.size
+            )
+        guard
+            newGeometry != lastGeometry
+        else {
+            return
+        }
+
+        lastGeometry = newGeometry
+        onGeometryChange(newGeometry)
+    }
+
+    private func activeCaretRect()
+        -> CGRect?
+    {
+        guard
+            let window,
+            let textView =
+                firstResponderTextView(
+                    in: window
+                ),
+            let selection =
+                textView.selectedTextRange
+        else {
+            return nil
+        }
+
+        let caretRect =
+            textView.caretRect(
+                for: selection.end
+            )
+        return textView.convert(
+            caretRect,
+            to: self
+        )
+    }
+
+    private func firstResponderTextView(
+        in view: UIView
+    ) -> UITextView? {
+        if
+            let textView =
+                view as? UITextView,
+            textView.isFirstResponder
+        {
+            return textView
+        }
+
+        for subview in view.subviews {
+            if
+                let textView =
+                    firstResponderTextView(
+                        in: subview
+                    )
+            {
+                return textView
+            }
+        }
+
+        return nil
     }
 }
 
