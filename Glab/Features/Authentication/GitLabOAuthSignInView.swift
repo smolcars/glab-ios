@@ -50,6 +50,7 @@ struct GitLabOAuthSignInView: View {
     let appSession: AppSession
     let authenticationMessage: String?
 
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var showsAccessTokenSignIn = false
     @State private var showsPrivacyAndAccess = false
@@ -57,50 +58,55 @@ struct GitLabOAuthSignInView: View {
 
     var body: some View {
         NavigationStack {
-            GeometryReader { proxy in
-                ScrollView {
-                    VStack(spacing: 0) {
-                        brand
+            ZStack {
+                backdrop
 
-                        Spacer(
-                            minLength:
+                GeometryReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            brand
+
+                            VStack(spacing: 18) {
+                                if let authenticationMessage {
+                                    authenticationNotice(
+                                        authenticationMessage
+                                    )
+                                }
+
+                                if let failure = model.failure {
+                                    failureCallout(failure)
+                                }
+
+                                signInSection
+                            }
+                            .padding(
+                                .top,
                                 dynamicTypeSize.isAccessibilitySize
-                                    ? 20
-                                    : 24
-                        )
+                                    ? 28
+                                    : 40
+                            )
 
-                        VStack(spacing: 18) {
-                            if let authenticationMessage {
-                                authenticationNotice(
-                                    authenticationMessage
-                                )
-                            }
+                            Spacer(minLength: 28)
 
-                            if let failure = model.failure {
-                                failureCallout(failure)
-                            }
-
-                            actions
+                            signInFooter
                         }
+                        .frame(
+                            maxWidth: .infinity,
+                            minHeight: proxy.size.height,
+                            alignment: .top
+                        )
+                        .padding(
+                            .horizontal,
+                            dynamicTypeSize.isAccessibilitySize
+                                ? 20
+                                : 24
+                        )
+                        .padding(.top, 20)
+                        .padding(.bottom, 14)
                     }
-                    .frame(
-                        maxWidth: .infinity,
-                        minHeight: proxy.size.height,
-                        alignment: .top
-                    )
-                    .padding(
-                        .horizontal,
-                        dynamicTypeSize.isAccessibilitySize ? 20 : 24
-                    )
-                    .padding(
-                        .top,
-                        dynamicTypeSize.isAccessibilitySize ? 12 : 24
-                    )
-                    .padding(.bottom, 16)
+                    .scrollBounceBehavior(.basedOnSize)
                 }
-                .scrollBounceBehavior(.basedOnSize)
             }
-            .background(Color(uiColor: .systemBackground))
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showsSelfManagedSignIn) {
                 SelfManagedGitLabOAuthView(model: model)
@@ -122,141 +128,257 @@ struct GitLabOAuthSignInView: View {
         }
     }
 
-    private var brand: some View {
-        VStack(
-            spacing:
-                dynamicTypeSize.isAccessibilitySize
-                    ? 24
-                    : 8
-        ) {
-            Image("GlabLogo")
-                .resizable()
-                .scaledToFit()
-                .frame(
-                    width:
-                        dynamicTypeSize.isAccessibilitySize
-                            ? 96
-                            : 144,
-                    height:
-                        dynamicTypeSize.isAccessibilitySize
-                            ? 96
-                            : 144
-                )
-                .clipShape(
-                    .rect(
-                        cornerRadius:
-                            dynamicTypeSize.isAccessibilitySize
-                                ? 22
-                                : 32
-                    )
-                )
-                .accessibilityHidden(true)
+    private var backdrop: some View {
+        ZStack {
+            Color(uiColor: .systemBackground)
 
+            RadialGradient(
+                colors: [
+                    Color.orange.opacity(
+                        colorScheme == .dark ? 0.22 : 0.13
+                    ),
+                    .clear,
+                ],
+                center: UnitPoint(x: 0.02, y: 0.04),
+                startRadius: 0,
+                endRadius: 300
+            )
+
+            RadialGradient(
+                colors: [
+                    Color(
+                        red: 0.46,
+                        green: 0.20,
+                        blue: 0.58
+                    )
+                    .opacity(colorScheme == .dark ? 0.20 : 0.10),
+                    .clear,
+                ],
+                center: UnitPoint(x: 1.0, y: 0.62),
+                startRadius: 0,
+                endRadius: 360
+            )
+        }
+        .ignoresSafeArea()
+    }
+
+    @ViewBuilder
+    private var brand: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(spacing: 14) {
+                brandLogo
+                brandCopy
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+            }
+        } else {
+            HStack(spacing: 16) {
+                brandLogo
+                brandCopy
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private var brandLogo: some View {
+        Image("GlabLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(
+                width: dynamicTypeSize.isAccessibilitySize ? 72 : 82,
+                height: dynamicTypeSize.isAccessibilitySize ? 72 : 82
+            )
+            .clipShape(.rect(cornerRadius: 20))
+            .shadow(
+                color: .orange.opacity(
+                    colorScheme == .dark ? 0.22 : 0.12
+                ),
+                radius: 20,
+                y: 8
+            )
+            .accessibilityHidden(true)
+    }
+
+    private var brandCopy: some View {
+        VStack(
+            alignment:
+                dynamicTypeSize.isAccessibilitySize
+                    ? .center
+                    : .leading,
+            spacing: 3
+        ) {
             Text("Glab")
                 .font(.largeTitle.bold())
 
-            Text("An unofficial GitLab client for iPhone")
+            Text("Your GitLab, in your pocket.")
                 .font(.headline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(
-                    horizontal: false,
-                    vertical: true
-                )
 
-            Text("Independent and not affiliated with GitLab Inc.")
-                .font(.footnote)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-                .fixedSize(
-                    horizontal: false,
-                    vertical: true
-                )
+            Text("Independent client for iPhone")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
+        .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .combine)
     }
 
-    private var actions: some View {
-        VStack(spacing: 14) {
-            Button {
-                model.usesCustomInstance = false
-                Task {
-                    await model.signIn()
+    private var signInSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Sign in")
+                    .font(.title2.bold())
+
+                Text("Choose where your GitLab account lives.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            actionButtons
+
+            privacyAndSecurityButton
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: 12) {
+                actionButtonStack
+            }
+        } else {
+            actionButtonStack
+        }
+    }
+
+    private var actionButtonStack: some View {
+        VStack(spacing: 12) {
+            gitLabDotComButton
+            selfManagedButton
+            accessTokenButton
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var gitLabDotComButton: some View {
+        Button {
+            model.usesCustomInstance = false
+            Task {
+                await model.signIn()
+            }
+        } label: {
+            signInActionLabel(
+                title:
+                    model.isSubmitting
+                        ? "Opening GitLab…"
+                        : "Continue with GitLab.com",
+                systemImage: "safari.fill",
+                showsProgress: model.isSubmitting
+            )
+        }
+        .oauthPrimaryButtonStyle()
+        .controlSize(.large)
+        .disabled(
+            !model.isGitLabDotComConfigured
+                || model.isSubmitting
+        )
+        .accessibilityIdentifier("oauth.submit")
+    }
+
+    private var selfManagedButton: some View {
+        Button {
+            model.usesCustomInstance = true
+            showsSelfManagedSignIn = true
+        } label: {
+            signInActionLabel(
+                title: "Self-managed GitLab",
+                subtitle: "Use your instance’s web sign-in",
+                systemImage: "building.2.fill",
+                usesAccentColor: true
+            )
+        }
+        .oauthSecondaryButtonStyle()
+        .controlSize(.large)
+        .disabled(model.isSubmitting)
+        .accessibilityIdentifier("oauth.selfManaged")
+    }
+
+    private var accessTokenButton: some View {
+        Button {
+            showsAccessTokenSignIn = true
+        } label: {
+            signInActionLabel(
+                title: "Personal access token",
+                subtitle: "Use an existing API token",
+                systemImage: "key.fill",
+                usesAccentColor: true
+            )
+        }
+        .oauthSecondaryButtonStyle()
+        .controlSize(.large)
+        .disabled(model.isSubmitting)
+        .accessibilityIdentifier("oauth.accessToken")
+    }
+
+    private var privacyAndSecurityButton: some View {
+        Button {
+            showsPrivacyAndAccess = true
+        } label: {
+            HStack(alignment: .top, spacing: 11) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.orange)
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(gitLabDotComActionDetail)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+
+                    Text("Privacy & API access")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.primary)
                 }
-            } label: {
-                signInActionLabel(
-                    title:
-                        model.isSubmitting
-                            ? "Opening GitLab…"
-                            : "Sign in to GitLab.com",
-                    systemImage: "safari.fill",
-                    showsProgress: model.isSubmitting
-                )
-            }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
-            .tint(.orange)
-            .disabled(
-                !model.isGitLabDotComConfigured
-                    || model.isSubmitting
-            )
-            .accessibilityIdentifier("oauth.submit")
+                .multilineTextAlignment(.leading)
 
-            Text(gitLabDotComActionDetail)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 4)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(model.isSubmitting)
+        .accessibilityIdentifier("oauth.privacyAndAccess")
+    }
+
+    private var signInFooter: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Text("Made with ❤️ by Nitesh · v\(appVersion)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Link(destination: repositoryURL) {
+                    Image("GitHubMark")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 16, height: 16)
+                        .frame(width: 28, height: 28)
+                }
+                .oauthFooterLinkStyle()
+                .foregroundStyle(.primary)
+                .accessibilityLabel("View Glab on GitHub")
+                .accessibilityIdentifier("app.githubLink")
+            }
+
+            Text("Independent and not affiliated with GitLab Inc.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
-                .fixedSize(
-                    horizontal: false,
-                    vertical: true
-                )
-                .accessibilityIdentifier(
-                    model.isGitLabDotComConfigured
-                        ? "oauth.securityDetail"
-                        : "oauth.missingConfiguration"
-                )
-
-            Button {
-                showsPrivacyAndAccess = true
-            } label: {
-                Label(
-                    "Privacy & API access",
-                    systemImage: "hand.raised.fill"
-                )
-                .font(.callout.weight(.semibold))
-                .frame(minHeight: 44)
-            }
-            .buttonStyle(.plain)
-            .disabled(model.isSubmitting)
-            .accessibilityIdentifier(
-                "oauth.privacyAndAccess"
-            )
-
-            Button {
-                model.usesCustomInstance = true
-                showsSelfManagedSignIn = true
-            } label: {
-                signInActionLabel(
-                    title: "Sign in to self-managed GitLab",
-                    systemImage: "building.2.fill"
-                )
-            }
-            .buttonStyle(.glass)
-            .controlSize(.large)
-            .disabled(model.isSubmitting)
-            .accessibilityIdentifier("oauth.selfManaged")
-
-            Button {
-                showsAccessTokenSignIn = true
-            } label: {
-                fallbackActionLabel
-            }
-            .buttonStyle(.plain)
-            .disabled(model.isSubmitting)
-            .accessibilityIdentifier("oauth.accessToken")
-
-            GlabAppFooter()
-                .padding(.top, 6)
         }
         .frame(maxWidth: .infinity)
     }
@@ -264,34 +386,58 @@ struct GitLabOAuthSignInView: View {
     @ViewBuilder
     private func signInActionLabel(
         title: String,
+        subtitle: String? = nil,
         systemImage: String,
-        showsProgress: Bool = false
+        showsProgress: Bool = false,
+        usesAccentColor: Bool = false
     ) -> some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 8) {
-                    actionIcon(
-                        systemImage: systemImage,
-                        showsProgress: showsProgress
+        HStack(spacing: 12) {
+            actionIcon(
+                systemImage: systemImage,
+                showsProgress: showsProgress
+            )
+            .font(.body.weight(.semibold))
+            .foregroundStyle(
+                usesAccentColor ? Color.orange : Color.white
+            )
+            .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(
+                        usesAccentColor ? Color.primary : Color.white
                     )
-                    Text(title)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.vertical, 8)
-            } else {
-                HStack(spacing: 9) {
-                    actionIcon(
-                        systemImage: systemImage,
-                        showsProgress: showsProgress
-                    )
-                    Text(title)
+
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 8)
+
+            if !showsProgress {
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(
+                        usesAccentColor
+                            ? Color.secondary
+                            : Color.white.opacity(0.75)
+                    )
+            }
         }
-        .font(.headline)
-        .fixedSize(horizontal: false, vertical: true)
-        .frame(maxWidth: .infinity)
-        .frame(minHeight: 30)
+        .padding(.horizontal, 2)
+        .padding(.vertical, 3)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: 44,
+            alignment: .leading
+        )
+        .contentShape(.rect)
     }
 
     @ViewBuilder
@@ -306,31 +452,19 @@ struct GitLabOAuthSignInView: View {
         }
     }
 
-    @ViewBuilder
-    private var fallbackActionLabel: some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 8) {
-                    Image(systemName: "key.fill")
-                    Text("Use access token / API key")
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.vertical, 8)
-            } else {
-                Label(
-                    "Use access token / API key",
-                    systemImage: "key.fill"
-                )
-            }
-        }
-        .font(.callout.weight(.semibold))
-        .fixedSize(horizontal: false, vertical: true)
-        .frame(minHeight: 44)
+    private var appVersion: String {
+        Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "1.0"
+    }
+
+    private var repositoryURL: URL {
+        URL(string: "https://github.com/smolcars/glab-ios")!
     }
 
     private var gitLabDotComActionDetail: String {
         if model.isGitLabDotComConfigured {
-            return "Passwords, 2FA, and SSO stay on GitLab’s secure web page."
+            return "Passwords, 2FA, and SSO stay with GitLab."
         }
 
         return "GitLab.com web sign-in is not configured in this build."
@@ -616,6 +750,39 @@ private struct GitLabOAuthCallout: View {
             color.opacity(0.1),
             in: .rect(cornerRadius: 16)
         )
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func oauthPrimaryButtonStyle() -> some View {
+        if #available(iOS 26.0, *) {
+            buttonStyle(.glassProminent)
+                .tint(.orange)
+        } else {
+            buttonStyle(.borderedProminent)
+                .tint(.orange)
+        }
+    }
+
+    @ViewBuilder
+    func oauthSecondaryButtonStyle() -> some View {
+        if #available(iOS 26.0, *) {
+            buttonStyle(.glass)
+        } else {
+            buttonStyle(.bordered)
+        }
+    }
+
+    @ViewBuilder
+    func oauthFooterLinkStyle() -> some View {
+        if #available(iOS 26.0, *) {
+            buttonStyle(.glass)
+                .controlSize(.small)
+        } else {
+            buttonStyle(.bordered)
+                .controlSize(.small)
+        }
     }
 }
 
