@@ -24,7 +24,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.glab.ios.oauth</string>
+			<string>com.dunder.glab.oauth</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>glab</string>

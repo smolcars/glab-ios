@@ -10,7 +10,7 @@ actor KeychainGitLabCredentialStore:
     nonisolated let service: String
 
     init(
-        service: String = "com.glab.ios.accounts"
+        service: String = "com.dunder.glab.accounts"
     ) {
         self.service = service
     }

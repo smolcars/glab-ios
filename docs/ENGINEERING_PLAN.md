@@ -17,8 +17,8 @@ delivery item.
 - Unit tests: Swift Testing.
 - External dependencies: none for the MVP unless a later item demonstrates a
   concrete need that cannot be met cleanly with Apple frameworks.
-- Provisional bundle identifier: `com.glab.ios`. Confirm the final identifier
-  and signing team before distribution.
+- Bundle identifier: `com.dunder.glab`.
+- Signing team: Dunder Software AB (`AT26Z24V2Q`).
 
 ## 2. Architecture decision
 
