@@ -9,11 +9,24 @@ private struct
         GitLabAccountID?
 }
 
+private struct
+    GitLabTodoNotificationRouteContext:
+    Equatable
+{
+    let pendingAccountKey: String?
+    let accountIDs: [GitLabAccountID]
+    let activeAccountID: GitLabAccountID?
+}
+
 struct AppRootView: View {
     let incomingLinkModel:
         GitLabIncomingLinkModel
 
     @Environment(AppSession.self) private var appSession
+    @Environment(GitLabTodoNotificationManager.self)
+    private var todoNotificationManager
+    @Environment(GitLabTodoNotificationRouteModel.self)
+    private var todoNotificationRouteModel
     @Environment(\.openURL) private var openURL
     @State private var showsAddAccount = false
     @State private var addAccountBaseline:
@@ -63,6 +76,11 @@ struct AppRootView: View {
                         incomingLinkModel.clear()
                     }
                 }
+            }
+            .task(
+                id: todoNotificationRouteContext
+            ) {
+                await handleTodoNotificationRoute()
             }
             .alert(
                 incomingAlertTitle,
@@ -151,7 +169,9 @@ struct AppRootView: View {
                 session: session,
                 appSession: appSession,
                 incomingLinkModel:
-                    incomingLinkModel
+                    incomingLinkModel,
+                todoNotificationManager:
+                    todoNotificationManager
             )
             .id(GitLabAccountID(session: session))
         }
@@ -179,6 +199,20 @@ struct AppRootView: View {
         GitLabIncomingLinkAccountContext
     {
         GitLabIncomingLinkAccountContext(
+            accountIDs:
+                appSession.accounts.map(\.id),
+            activeAccountID:
+                appSession.activeAccountID
+        )
+    }
+
+    private var todoNotificationRouteContext:
+        GitLabTodoNotificationRouteContext
+    {
+        GitLabTodoNotificationRouteContext(
+            pendingAccountKey:
+                todoNotificationRouteModel
+                    .pendingAccountKey,
             accountIDs:
                 appSession.accounts.map(\.id),
             activeAccountID:
@@ -428,6 +462,51 @@ struct AppRootView: View {
         )
     }
 
+    private func handleTodoNotificationRoute()
+        async
+    {
+        guard
+            let accountKey =
+                todoNotificationRouteModel
+                    .pendingAccountKey
+        else {
+            return
+        }
+        guard
+            let account =
+                appSession.accounts.first(
+                    where: {
+                        GitLabTodoNotificationManager
+                            .accountKey(
+                                for: $0.id
+                            ) == accountKey
+                    }
+                )
+        else {
+            if case .restoring = appSession.state {
+                return
+            }
+            todoNotificationRouteModel.clear()
+            return
+        }
+        guard
+            account.id
+                != appSession.activeAccountID
+        else {
+            return
+        }
+
+        do {
+            try await appSession.switchAccount(
+                to: account.id
+            )
+        } catch {
+            accountActionError =
+                error.localizedDescription
+            todoNotificationRouteModel.clear()
+        }
+    }
+
     private func switchAccount(
         to accountID: GitLabAccountID
     ) {
@@ -526,6 +605,12 @@ struct AppRootView: View {
             AppSession(
                 credentialStore: InMemoryGitLabCredentialStore()
             )
+        )
+        .environment(
+            GitLabTodoNotificationManager()
+        )
+        .environment(
+            GitLabTodoNotificationRouteModel()
         )
 }
 

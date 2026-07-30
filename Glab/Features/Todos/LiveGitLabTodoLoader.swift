@@ -72,11 +72,14 @@ nonisolated struct LiveGitLabTodoLoader:
 {
     private let client:
         any GitLabPaginatedSessionRequestSending
+    private let pageSize: Int
 
     init(
-        client: any GitLabPaginatedSessionRequestSending
+        client: any GitLabPaginatedSessionRequestSending,
+        pageSize: Int = 20
     ) {
         self.client = client
+        self.pageSize = pageSize
     }
 
     @concurrent
@@ -94,7 +97,8 @@ nonisolated struct LiveGitLabTodoLoader:
                 .initial(
                     GitLabTodoEndpoints.todos(
                         state: state,
-                        targetFilter: targetFilter
+                        targetFilter: targetFilter,
+                        perPage: pageSize
                     )
                 )
             }
@@ -121,7 +125,8 @@ nonisolated struct LiveGitLabTodoLoader:
             .initial(
                 GitLabTodoEndpoints.todos(
                     state: state,
-                    targetFilter: targetFilter
+                    targetFilter: targetFilter,
+                    perPage: pageSize
                 )
             ),
             cachePolicy: .todos,
@@ -164,7 +169,8 @@ nonisolated struct LiveGitLabTodoLoader:
                 await client.invalidateCachedResponse(
                     GitLabTodoEndpoints.todos(
                         state: state,
-                        targetFilter: targetFilter
+                        targetFilter: targetFilter,
+                        perPage: pageSize
                     )
                 )
             }

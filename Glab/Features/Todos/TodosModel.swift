@@ -126,6 +126,9 @@ final class TodosModel {
     @ObservationIgnored
     private let apiAccess: GitLabAPIAccess
     @ObservationIgnored
+    private let todosDidLoad:
+        ([GitLabTodo]) -> Void
+    @ObservationIgnored
     private var cachedModels: [
         GitLabTodoQuery: GitLabTodosPageModel
     ]
@@ -144,7 +147,10 @@ final class TodosModel {
     init(
         loader: any GitLabTodoLoading,
         mutator: any GitLabTodoMutating,
-        apiAccess: GitLabAPIAccess
+        apiAccess: GitLabAPIAccess,
+        todosDidLoad:
+            @escaping ([GitLabTodo]) -> Void =
+                { _ in }
     ) {
         let query = GitLabTodoQuery(
             state: .pending,
@@ -158,6 +164,7 @@ final class TodosModel {
         self.loader = loader
         self.mutator = mutator
         self.apiAccess = apiAccess
+        self.todosDidLoad = todosDidLoad
         activeModel = model
         cachedModels = [query: model]
     }
@@ -363,13 +370,39 @@ final class TodosModel {
     func loadNextPageIfNeeded(
         after todo: GitLabTodo
     ) async {
-        await activeModel.loadNextPageIfNeeded(
+        let requestedQuery = query
+        let requestedModel = activeModel
+        let previousRevision =
+            requestedModel.contentRevision
+        await requestedModel.loadNextPageIfNeeded(
             after: todo
         )
+        if
+            requestedModel.contentRevision
+                != previousRevision
+        {
+            observeLoadedPendingTodos(
+                query: requestedQuery,
+                model: requestedModel
+            )
+        }
     }
 
     func retryNextPage() async {
-        await activeModel.retryNextPage()
+        let requestedQuery = query
+        let requestedModel = activeModel
+        let previousRevision =
+            requestedModel.contentRevision
+        await requestedModel.retryNextPage()
+        if
+            requestedModel.contentRevision
+                != previousRevision
+        {
+            observeLoadedPendingTodos(
+                query: requestedQuery,
+                model: requestedModel
+            )
+        }
     }
 
     func markDone(
@@ -555,6 +588,10 @@ final class TodosModel {
         guard replacedQuery.state == .pending else {
             return
         }
+        observeLoadedPendingTodos(
+            query: replacedQuery,
+            model: replacedModel
+        )
         if hidesAllPendingTodos && !isMarkingAllDone {
             hidesAllPendingTodos = false
         }
@@ -571,6 +608,20 @@ final class TodosModel {
         .intersection(hiddenPendingTodoIDs)
         pendingBadgeAdjustmentIDs =
             hiddenLoadedIDs.union(completingTodoIDs)
+    }
+
+    private func observeLoadedPendingTodos(
+        query: GitLabTodoQuery,
+        model: GitLabTodosPageModel
+    ) {
+        guard
+            query.state == .pending,
+            model.hasLoaded,
+            model.loadError == nil
+        else {
+            return
+        }
+        todosDidLoad(model.items)
     }
 
     private func rollBackSingleCompletion(

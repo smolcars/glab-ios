@@ -36,8 +36,12 @@ struct SignedInShellView: View {
     let appSession: AppSession
     let incomingLinkModel:
         GitLabIncomingLinkModel
+    let todoNotificationManager:
+        GitLabTodoNotificationManager
 
     private let accountID: GitLabAccountID
+    @Environment(GitLabTodoNotificationRouteModel.self)
+    private var todoNotificationRouteModel
     @State private var selectedTab = GitLabAppTab.defaultTab
     @State private var homeDashboardModel: HomeDashboardModel
     @State private var assignedIssuesModel: AssignedIssuesModel
@@ -102,12 +106,16 @@ struct SignedInShellView: View {
         session: GitLabStoredSession,
         appSession: AppSession,
         incomingLinkModel:
-            GitLabIncomingLinkModel
+            GitLabIncomingLinkModel,
+        todoNotificationManager:
+            GitLabTodoNotificationManager
     ) {
         self.session = session
         self.appSession = appSession
         self.incomingLinkModel =
             incomingLinkModel
+        self.todoNotificationManager =
+            todoNotificationManager
         let accountID = GitLabAccountID(session: session)
         self.accountID = accountID
 
@@ -287,7 +295,15 @@ struct SignedInShellView: View {
             initialValue: TodosModel(
                 loader: todoService,
                 mutator: todoService,
-                apiAccess: session.apiAccess
+                apiAccess: session.apiAccess,
+                todosDidLoad: {
+                    todos in
+                    todoNotificationManager
+                        .observe(
+                            todos: todos,
+                            for: accountID
+                        )
+                }
             )
         )
         _globalSearchModel = State(
@@ -467,6 +483,13 @@ struct SignedInShellView: View {
         ) {
             await handleIncomingLink()
         }
+        .task(
+            id:
+                todoNotificationRouteModel
+                    .pendingAccountKey
+        ) {
+            await handleTodoNotificationRoute()
+        }
         .alert(
             "GitLab Session Ended",
             isPresented:
@@ -483,6 +506,26 @@ struct SignedInShellView: View {
                     ?? ""
             )
         }
+    }
+
+    private func handleTodoNotificationRoute()
+        async
+    {
+        guard
+            todoNotificationRouteModel
+                .pendingAccountKey
+                == GitLabTodoNotificationManager
+                    .accountKey(for: accountID)
+        else {
+            return
+        }
+
+        selectedTab = .todos
+        await todosModel.refresh()
+        guard !Task.isCancelled else {
+            return
+        }
+        todoNotificationRouteModel.clear()
     }
 
     private func handleIncomingLink() async {
