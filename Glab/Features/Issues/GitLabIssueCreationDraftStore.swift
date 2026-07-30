@@ -131,6 +131,12 @@ nonisolated struct GitLabIssueCreationDraft:
     let assigneeIDs: [Int]
     let confidential: Bool
     let dueDate: GitLabIssueDueDate?
+    let status:
+        GitLabIssueWorkItemStatus?
+    let milestone:
+        GitLabIssueMilestone?
+    let iteration:
+        GitLabIssueIteration?
     let revision: Int
     let pendingSubmissionFingerprint: String?
 
@@ -145,6 +151,9 @@ nonisolated struct GitLabIssueCreationDraft:
         case assigneeIDs
         case confidential
         case dueDate
+        case status
+        case milestone
+        case iteration
         case revision
         case pendingSubmissionFingerprint
     }
@@ -158,6 +167,12 @@ nonisolated struct GitLabIssueCreationDraft:
         assigneeIDs: [Int] = [],
         confidential: Bool = false,
         dueDate: GitLabIssueDueDate? = nil,
+        status:
+            GitLabIssueWorkItemStatus? = nil,
+        milestone:
+            GitLabIssueMilestone? = nil,
+        iteration:
+            GitLabIssueIteration? = nil,
         revision: Int,
         pendingSubmissionFingerprint:
             String? = nil
@@ -169,6 +184,9 @@ nonisolated struct GitLabIssueCreationDraft:
         self.assigneeIDs = assigneeIDs
         self.confidential = confidential
         self.dueDate = dueDate
+        self.status = status
+        self.milestone = milestone
+        self.iteration = iteration
         self.revision = revision
         self.pendingSubmissionFingerprint =
             pendingSubmissionFingerprint
@@ -182,6 +200,9 @@ nonisolated struct GitLabIssueCreationDraft:
             && assigneeIDs.isEmpty
             && !confidential
             && dueDate == nil
+            && status == nil
+            && milestone == nil
+            && iteration == nil
             && pendingSubmissionFingerprint == nil
     }
 
@@ -212,6 +233,27 @@ nonisolated struct GitLabIssueCreationDraft:
         if
             let dueDate,
             dueDate.apiValue == nil
+        {
+            return false
+        }
+        if
+            let status,
+            status.id.isEmpty
+                || status.name
+                .trimmedForValidation
+                .isEmpty
+        {
+            return false
+        }
+        if
+            let milestone,
+            milestone.id <= 0
+        {
+            return false
+        }
+        if
+            let iteration,
+            iteration.id <= 0
         {
             return false
         }

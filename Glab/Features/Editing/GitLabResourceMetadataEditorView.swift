@@ -5,13 +5,42 @@ struct GitLabResourceMetadataEditorView: View {
         GitLabResourceMetadataEditorModel
     let accountID: GitLabAccountID
     let appSession: AppSession
+    let issueStatusModel:
+        GitLabIssueStatusModel?
+    let planningModel:
+        GitLabIssuePlanningModel?
+    let statusActionDidFinish:
+        () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var showsDiscard = false
 
+    init(
+        model:
+            GitLabResourceMetadataEditorModel,
+        accountID: GitLabAccountID,
+        appSession: AppSession,
+        issueStatusModel:
+            GitLabIssueStatusModel? = nil,
+        planningModel:
+            GitLabIssuePlanningModel? = nil,
+        statusActionDidFinish:
+            @escaping () -> Void = {}
+    ) {
+        self.model = model
+        self.accountID = accountID
+        self.appSession = appSession
+        self.issueStatusModel =
+            issueStatusModel
+        self.planningModel = planningModel
+        self.statusActionDidFinish =
+            statusActionDidFinish
+    }
+
     var body: some View {
         NavigationStack {
             List {
+                issueFieldsSection
                 statusSection
 
                 Section {
@@ -77,7 +106,12 @@ struct GitLabResourceMetadataEditorView: View {
                     }
                 }
             }
-            .navigationTitle("Labels & People")
+            .navigationTitle(
+                planningModel == nil
+                    && issueStatusModel == nil
+                ? "Labels & People"
+                : "Issue Details"
+            )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(
@@ -90,6 +124,26 @@ struct GitLabResourceMetadataEditorView: View {
                         model.isBusy
                             || model
                                 .requiresDeliveryCheck
+                            || (
+                                planningModel?
+                                    .isBusy
+                                ?? false
+                            )
+                            || (
+                                planningModel?
+                                    .requiresDeliveryCheck
+                                ?? false
+                            )
+                            || (
+                                issueStatusModel?
+                                    .isBusy
+                                ?? false
+                            )
+                            || (
+                                issueStatusModel?
+                                    .requiresDeliveryCheck
+                                ?? false
+                            )
                     )
                 }
 
@@ -108,7 +162,13 @@ struct GitLabResourceMetadataEditorView: View {
                 }
             }
             .task {
-                await model.loadOptions()
+                async let metadata: Void =
+                    model.loadOptions()
+                async let planning: Void =
+                    planningModel?.load()
+                    ?? ()
+                await metadata
+                await planning
             }
             .onChange(of: model.didSucceed) {
                 _, didSucceed in
@@ -118,8 +178,7 @@ struct GitLabResourceMetadataEditorView: View {
             }
             .onChange(
                 of:
-                    model
-                    .authenticationFailure
+                    authenticationFailure
             ) { _, error in
                 guard let error else {
                     return
@@ -137,6 +196,26 @@ struct GitLabResourceMetadataEditorView: View {
                     || model.isBusy
                     || model
                         .requiresDeliveryCheck
+                    || (
+                        planningModel?
+                            .isBusy
+                        ?? false
+                    )
+                    || (
+                        planningModel?
+                            .requiresDeliveryCheck
+                        ?? false
+                    )
+                    || (
+                        issueStatusModel?
+                            .isBusy
+                        ?? false
+                    )
+                    || (
+                        issueStatusModel?
+                            .requiresDeliveryCheck
+                        ?? false
+                    )
             )
             .alert(
                 "Discard metadata changes?",
@@ -155,6 +234,196 @@ struct GitLabResourceMetadataEditorView: View {
             } message: {
                 Text(
                     "Your label and people selections have not been saved."
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var issueFieldsSection:
+        some View
+    {
+        if
+            issueStatusModel != nil
+                || planningModel != nil
+        {
+            Section {
+                if let issueStatusModel {
+                    HStack(spacing: 12) {
+                        issueFieldLabel(
+                            "Status",
+                            systemImage:
+                                "circle.dotted.circle"
+                        )
+                        Spacer(minLength: 12)
+                        switch
+                            issueStatusModel.state
+                        {
+                        case .idle, .loading:
+                            ProgressView()
+                                .controlSize(
+                                    .small
+                                )
+                        case .unavailable:
+                            Text("Unavailable")
+                                .foregroundStyle(
+                                    .secondary
+                                )
+                        case .supported:
+                            GitLabIssueStatusControl(
+                                model:
+                                    issueStatusModel,
+                                isExternallyDisabled:
+                                    model.isBusy
+                                    || (
+                                        planningModel?
+                                            .isBusy
+                                        ?? false
+                                    ),
+                                actionDidFinish:
+                                    statusActionDidFinish
+                            )
+                        }
+                    }
+                    .accessibilityIdentifier(
+                        "metadata.status"
+                    )
+                }
+
+                if let planningModel {
+                    NavigationLink {
+                        GitLabIssueMilestonePicker(
+                            model:
+                                planningModel
+                        )
+                    } label: {
+                        issueFieldSummary(
+                            title: "Milestone",
+                            value:
+                                planningModel
+                                .selectedMilestoneTitle,
+                            systemImage:
+                                "signpost.right"
+                        )
+                    }
+                    .disabled(
+                        !planningModel.canEdit
+                            || (
+                                issueStatusModel?
+                                    .isBusy
+                                ?? false
+                            )
+                            || (
+                                issueStatusModel?
+                                    .requiresDeliveryCheck
+                                ?? false
+                            )
+                    )
+                    .accessibilityIdentifier(
+                        "metadata.milestone"
+                    )
+
+                    NavigationLink {
+                        GitLabIssueIterationPicker(
+                            model:
+                                planningModel
+                        )
+                    } label: {
+                        issueFieldSummary(
+                            title: "Iteration",
+                            value:
+                                planningModel
+                                .selectedIterationTitle,
+                            systemImage:
+                                "repeat"
+                        )
+                    }
+                    .disabled(
+                        !planningModel.canEdit
+                            || (
+                                issueStatusModel?
+                                    .isBusy
+                                ?? false
+                            )
+                            || (
+                                issueStatusModel?
+                                    .requiresDeliveryCheck
+                                ?? false
+                            )
+                    )
+                    .accessibilityIdentifier(
+                        "metadata.iteration"
+                    )
+
+                    if planningModel.isBusy {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                                .controlSize(
+                                    .small
+                                )
+                            Text(
+                                planningModel
+                                    .isSaving
+                                ? "Saving planning change"
+                                : "Loading planning fields"
+                            )
+                            .foregroundStyle(
+                                .secondary
+                            )
+                        }
+                    }
+
+                    if
+                        let failure =
+                            planningModel
+                                .failure
+                    {
+                        Label(
+                            failure.description,
+                            systemImage:
+                                planningModel
+                                    .requiresDeliveryCheck
+                                ? "questionmark.circle"
+                                : "exclamationmark.triangle"
+                        )
+                        .font(.callout)
+                        .foregroundStyle(.orange)
+
+                        if
+                            planningModel
+                                .requiresDeliveryCheck
+                        {
+                            Button("Check GitLab") {
+                                Task {
+                                    await planningModel
+                                        .checkGitLab()
+                                }
+                            }
+                            .disabled(
+                                planningModel
+                                    .isCheckingGitLab
+                            )
+                            .accessibilityIdentifier(
+                                "metadata.planning.checkGitLab"
+                            )
+                        }
+                    } else if
+                        planningModel
+                            .optionsError != nil
+                    {
+                        Button("Retry planning fields") {
+                            Task {
+                                await planningModel
+                                    .load()
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Issue fields")
+            } footer: {
+                Text(
+                    "Status, milestone, and iteration changes save immediately. Labels and people save with the toolbar button."
                 )
             }
         }
@@ -235,6 +504,52 @@ struct GitLabResourceMetadataEditorView: View {
                     "Sign in with OAuth or an API token with the api scope to save metadata."
                 )
             }
+        }
+    }
+
+    private var authenticationFailure:
+        GitLabSessionClientError?
+    {
+        model.authenticationFailure
+            ?? planningModel?
+                .authenticationFailure
+            ?? issueStatusModel?
+                .authenticationFailure
+    }
+
+    private func issueFieldLabel(
+        _ title: String,
+        systemImage: String
+    ) -> some View {
+        Label {
+            Text(title)
+        } icon: {
+            Image(systemName: systemImage)
+                .foregroundStyle(.orange)
+        }
+    }
+
+    private func issueFieldSummary(
+        title: String,
+        value: String,
+        systemImage: String
+    ) -> some View {
+        Label {
+            VStack(
+                alignment: .leading,
+                spacing: 2
+            ) {
+                Text(title)
+                Text(value)
+                    .font(.caption)
+                    .foregroundStyle(
+                        .secondary
+                    )
+                    .lineLimit(1)
+            }
+        } icon: {
+            Image(systemName: systemImage)
+                .foregroundStyle(.orange)
         }
     }
 

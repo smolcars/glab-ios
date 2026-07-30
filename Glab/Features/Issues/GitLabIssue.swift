@@ -106,14 +106,17 @@ nonisolated enum GitLabProjectIssueState:
 }
 
 nonisolated struct GitLabIssueMilestone:
-    Decodable,
+    Codable,
     Equatable,
+    Hashable,
+    Identifiable,
     Sendable
 {
     let id: Int
     let iid: Int
     let title: String
     let state: String
+    let startDate: String?
     let dueDate: String?
 
     private enum CodingKeys: String, CodingKey {
@@ -121,6 +124,50 @@ nonisolated struct GitLabIssueMilestone:
         case iid
         case title
         case state
+        case startDate = "start_date"
+        case dueDate = "due_date"
+    }
+}
+
+nonisolated struct GitLabIssueIteration:
+    Codable,
+    Equatable,
+    Hashable,
+    Identifiable,
+    Sendable
+{
+    let id: Int
+    let iid: Int
+    let title: String?
+    let state: Int?
+    let startDate: String?
+    let dueDate: String?
+
+    var displayTitle: String {
+        let normalized =
+            title?.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+        if let normalized,
+            !normalized.isEmpty
+        {
+            return normalized
+        }
+        if
+            let startDate,
+            let dueDate
+        {
+            return "\(startDate) – \(dueDate)"
+        }
+        return "Iteration #\(iid)"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case iid
+        case title
+        case state
+        case startDate = "start_date"
         case dueDate = "due_date"
     }
 }
@@ -152,6 +199,7 @@ nonisolated struct GitLabIssue:
     let author: GitLabAPIUser
     let assignees: [GitLabAPIUser]
     let milestone: GitLabIssueMilestone?
+    let iteration: GitLabIssueIteration?
     let dueDate: String?
     let userNotesCount: Int
     let createdAt: Date
@@ -207,6 +255,7 @@ nonisolated struct GitLabIssue:
         case author
         case assignees
         case milestone
+        case iteration
         case dueDate = "due_date"
         case userNotesCount = "user_notes_count"
         case createdAt = "created_at"

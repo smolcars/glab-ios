@@ -133,10 +133,121 @@ nonisolated enum GitLabIssueEndpoints {
                 confidential:
                     input.confidential,
                 dueDate:
-                    input.dueDate?.apiValue
+                    input.dueDate?.apiValue,
+                milestoneID:
+                    input.milestone?.id
             )
         )
     }
+
+    static func createWithWorkItemFields(
+        _ input: GitLabIssueCreationInput
+    ) throws -> GitLabAPIRequest<
+        GitLabIssueCreateGraphQLResponse
+    > {
+        try .graphQL(
+            requires: .write,
+            body:
+                GitLabIssueGraphQLBody(
+                    query:
+                        createIssueMutation,
+                    variables:
+                        GitLabIssueCreateVariables(
+                            projectPath:
+                                input.projectPath,
+                            title: input.title,
+                            description:
+                                input
+                                .rawDescription
+                                .isEmpty
+                                ? nil
+                                : input
+                                    .rawDescription,
+                            labels:
+                                input
+                                .labelNames
+                                .isEmpty
+                                ? nil
+                                : input
+                                    .labelNames,
+                            assigneeIDs:
+                                input
+                                .assigneeIDs
+                                .isEmpty
+                                ? nil
+                                : input
+                                    .assigneeIDs
+                                    .map(
+                                        GitLabIssueGlobalID
+                                            .user
+                                    ),
+                            confidential:
+                                input.confidential,
+                            dueDate:
+                                input
+                                .dueDate?
+                                .apiValue,
+                            milestoneID:
+                                input
+                                .milestone
+                                .map {
+                                    GitLabIssueGlobalID
+                                        .milestone(
+                                            $0.id
+                                        )
+                                },
+                            iterationID:
+                                input
+                                .iteration
+                                .map {
+                                    GitLabIssueGlobalID
+                                        .iteration(
+                                            $0.id
+                                        )
+                                },
+                            statusID:
+                                input.status?.id
+                        )
+                )
+        )
+    }
+
+    private static let createIssueMutation =
+        """
+        mutation GlabCreateIssue(
+          $projectPath: ID!
+          $title: String!
+          $description: String
+          $labels: [String!]
+          $assigneeIDs: [UserID!]
+          $confidential: Boolean
+          $dueDate: ISO8601Date
+          $milestoneID: MilestoneID
+          $iterationID: IterationID
+          $statusID: WorkItemsStatusesStatusID
+        ) {
+          createIssue(
+            input: {
+              projectPath: $projectPath
+              title: $title
+              description: $description
+              labels: $labels
+              assigneeIds: $assigneeIDs
+              confidential: $confidential
+              dueDate: $dueDate
+              milestoneId: $milestoneID
+              iterationId: $iterationID
+              statusId: $statusID
+            }
+          ) {
+            issue {
+              iid
+              projectId
+            }
+            errors
+          }
+        }
+        """
 }
 
 private nonisolated struct GitLabIssueUpdateBody:
@@ -158,6 +269,7 @@ private nonisolated struct GitLabIssueCreateBody:
     let assigneeIDs: [Int]?
     let confidential: Bool
     let dueDate: String?
+    let milestoneID: Int?
 
     private enum CodingKeys:
         String,
@@ -170,5 +282,22 @@ private nonisolated struct GitLabIssueCreateBody:
         case assigneeIDs = "assignee_ids"
         case confidential
         case dueDate = "due_date"
+        case milestoneID = "milestone_id"
     }
+}
+
+private nonisolated struct GitLabIssueCreateVariables:
+    Encodable,
+    Sendable
+{
+    let projectPath: String
+    let title: String
+    let description: String?
+    let labels: [String]?
+    let assigneeIDs: [String]?
+    let confidential: Bool
+    let dueDate: String?
+    let milestoneID: String?
+    let iterationID: String?
+    let statusID: String?
 }

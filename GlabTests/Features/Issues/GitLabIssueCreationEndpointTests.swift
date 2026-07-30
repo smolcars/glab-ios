@@ -72,6 +72,59 @@ struct GitLabIssueCreationEndpointTests {
         )
     }
 
+    @Test("Builds milestone, iteration, and status option queries")
+    func buildsIssueFieldOptionQueries() throws {
+        let milestones =
+            GitLabIssueCreationEndpoints
+                .milestones(projectID: 42)
+        let iterations =
+            GitLabIssueCreationEndpoints
+                .iterations(projectID: 42)
+        let statuses =
+            try GitLabIssueCreationEndpoints
+                .statuses(
+                    projectPath:
+                        "group/project"
+                )
+
+        #expect(
+            try buildRequest(milestones)
+                .url?.absoluteString
+                == "https://gitlab.example.com/api/v4/"
+                + "projects/42/milestones"
+                + "?state=active"
+                + "&include_ancestors=true"
+                + "&per_page=100"
+        )
+        #expect(
+            try buildRequest(iterations)
+                .url?.absoluteString
+                == "https://gitlab.example.com/api/v4/"
+                + "projects/42/iterations"
+                + "?state=opened"
+                + "&include_ancestors=true"
+                + "&per_page=100"
+        )
+        let statusJSON =
+            try jsonObject(
+                buildRequest(statuses)
+            )
+        let variables = try #require(
+            statusJSON["variables"]
+                as? [String: String]
+        )
+        #expect(
+            variables["projectPath"]
+                == "group/project"
+        )
+        #expect(
+            (statusJSON["query"] as? String)?
+                .contains(
+                    "allowedStatuses"
+                ) == true
+        )
+    }
+
     @Test("Builds normalized server metadata searches")
     func buildsProjectMetadataSearches() throws {
         let labels =
@@ -202,6 +255,124 @@ struct GitLabIssueCreationEndpointTests {
         #expect(json["assignee_ids"] == nil)
         #expect(json["confidential"] as? Bool == true)
         #expect(json["due_date"] as? String == "2026-08-03")
+    }
+
+    @Test("Includes a selected milestone in REST creation")
+    func buildsIssueWithMilestone() throws {
+        let input =
+            try GitLabIssueCreationInput(
+                projectID: 42,
+                title: "Ship it",
+                milestone:
+                    GitLabIssueMilestone(
+                        id: 19,
+                        iid: 3,
+                        title: "1.0",
+                        state: "active",
+                        startDate:
+                            "2026-07-01",
+                        dueDate:
+                            "2026-08-01"
+                    )
+            )
+        let json = try jsonObject(
+            buildRequest(
+                try GitLabIssueEndpoints
+                    .create(input)
+            )
+        )
+
+        #expect(
+            json["milestone_id"]
+                as? Int == 19
+        )
+    }
+
+    @Test("Builds GraphQL creation fields with global IDs")
+    func buildsGraphQLIssueFields() throws {
+        let status =
+            GitLabIssueWorkItemStatus(
+                id:
+                    "gid://gitlab/WorkItems::Statuses::SystemDefined::Status/7",
+                name: "In progress",
+                description: nil,
+                iconName: nil,
+                color: nil,
+                position: 2,
+                category: .inProgress
+            )
+        let input =
+            try GitLabIssueCreationInput(
+                projectID: 42,
+                projectPath:
+                    "group/project",
+                title: "Plan the release",
+                assigneeIDs: [9],
+                status: status,
+                milestone:
+                    GitLabIssueMilestone(
+                        id: 19,
+                        iid: 3,
+                        title: "1.0",
+                        state: "active",
+                        startDate: nil,
+                        dueDate: nil
+                    ),
+                iteration:
+                    GitLabIssueIteration(
+                        id: 23,
+                        iid: 5,
+                        title: "Sprint 5",
+                        state: 1,
+                        startDate: nil,
+                        dueDate: nil
+                    )
+            )
+        let endpoint =
+            try GitLabIssueEndpoints
+                .createWithWorkItemFields(
+                    input
+                )
+        let json = try jsonObject(
+            buildRequest(endpoint)
+        )
+        let variables = try #require(
+            json["variables"]
+                as? [String: Any]
+        )
+
+        #expect(
+            endpoint.requiredAccess == .write
+        )
+        #expect(
+            variables["projectPath"]
+                as? String
+                == "group/project"
+        )
+        #expect(
+            variables["milestoneID"]
+                as? String
+                == "gid://gitlab/Milestone/19"
+        )
+        #expect(
+            variables["iterationID"]
+                as? String
+                == "gid://gitlab/Iteration/23"
+        )
+        #expect(
+            variables["statusID"]
+                as? String == status.id
+        )
+        #expect(
+            variables["assigneeIDs"]
+                as? [String]
+                == ["gid://gitlab/User/9"]
+        )
+        #expect(
+            (json["query"] as? String)?
+                .contains("createIssue")
+                == true
+        )
     }
 
     @Test("Uses only the paid multi-assignee body shape")

@@ -169,6 +169,18 @@ struct GitLabIssueCreationModelTests {
             context.model.dueDate
                 == draft.dueDate
         )
+        #expect(
+            context.model.selectedStatus
+                == draft.status
+        )
+        #expect(
+            context.model.selectedMilestone
+                == draft.milestone
+        )
+        #expect(
+            context.model.selectedIteration
+                == draft.iteration
+        )
         #expect(context.model.draftRevision == 7)
         #expect(context.model.canCreate)
         #expect(
@@ -1288,6 +1300,35 @@ private nonisolated func makeDraft(
                 year: 2026,
                 month: 8,
                 day: 12
+            ),
+        status:
+            GitLabIssueWorkItemStatus(
+                id:
+                    "gid://gitlab/WorkItems::Statuses::SystemDefined::Status/7",
+                name: "In progress",
+                description: nil,
+                iconName: nil,
+                color: nil,
+                position: 2,
+                category: .inProgress
+            ),
+        milestone:
+            GitLabIssueMilestone(
+                id: 19,
+                iid: 3,
+                title: "1.0",
+                state: "active",
+                startDate: "2026-07-01",
+                dueDate: "2026-08-01"
+            ),
+        iteration:
+            GitLabIssueIteration(
+                id: 23,
+                iid: 5,
+                title: "Sprint 5",
+                state: 1,
+                startDate: "2026-07-27",
+                dueDate: "2026-08-07"
             ),
         revision: revision
     )

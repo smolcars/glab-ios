@@ -3,8 +3,9 @@ import Foundation
 nonisolated enum GitLabIssueStatusCategory:
     String,
     CaseIterable,
-    Decodable,
+    Codable,
     Equatable,
+    Hashable,
     Sendable
 {
     case triage = "TRIAGE"
@@ -57,7 +58,9 @@ nonisolated enum GitLabWorkItemState:
 }
 
 nonisolated struct GitLabIssueWorkItemStatus:
+    Codable,
     Equatable,
+    Hashable,
     Identifiable,
     Sendable
 {
@@ -372,7 +375,7 @@ nonisolated struct GitLabIssueStatusUpdateGraphQLResponse:
     }
 }
 
-private nonisolated extension GitLabIssueStatusGraphQLResponse {
+nonisolated extension GitLabIssueStatusGraphQLResponse {
     static func opaqueID(
         _ value: String?
     ) -> String? {

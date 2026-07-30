@@ -1,6 +1,83 @@
 import Foundation
 
 nonisolated enum GitLabIssueCreationEndpoints {
+    static func milestones(
+        projectID: Int
+    ) -> GitLabAPIRequest<
+        [GitLabIssueMilestone]
+    > {
+        .get(
+            requires: .read,
+            path: [
+                "projects",
+                String(projectID),
+                "milestones",
+            ],
+            query: [
+                .init(
+                    name: "state",
+                    value: "active"
+                ),
+                .init(
+                    name: "include_ancestors",
+                    value: "true"
+                ),
+                .init(
+                    name: "per_page",
+                    value: "100"
+                ),
+            ]
+        )
+    }
+
+    static func iterations(
+        projectID: Int
+    ) -> GitLabAPIRequest<
+        [GitLabIssueIteration]
+    > {
+        .get(
+            requires: .read,
+            path: [
+                "projects",
+                String(projectID),
+                "iterations",
+            ],
+            query: [
+                .init(
+                    name: "state",
+                    value: "opened"
+                ),
+                .init(
+                    name: "include_ancestors",
+                    value: "true"
+                ),
+                .init(
+                    name: "per_page",
+                    value: "100"
+                ),
+            ]
+        )
+    }
+
+    static func statuses(
+        projectPath: String
+    ) throws -> GitLabAPIRequest<
+        GitLabIssueCreationStatusGraphQLResponse
+    > {
+        try .graphQL(
+            requires: .read,
+            body:
+                GitLabIssueGraphQLBody(
+                    query: statusesQuery,
+                    variables:
+                        StatusVariables(
+                            projectPath:
+                                projectPath
+                        )
+                )
+        )
+    }
+
     static func labels(
         projectID: Int,
         search: String? = nil
@@ -53,4 +130,42 @@ nonisolated enum GitLabIssueCreationEndpoints {
             ),
         ]
     }
+
+    private struct StatusVariables:
+        Encodable,
+        Sendable
+    {
+        let projectPath: String
+    }
+
+    private static let statusesQuery =
+        """
+        query GlabIssueCreationStatuses($projectPath: ID!) {
+          project(fullPath: $projectPath) {
+            fullPath
+            workItemTypes(name: ISSUE, first: 2) {
+              nodes {
+                name
+                widgetDefinitions {
+                  __typename
+                  ... on WorkItemWidgetDefinitionStatus {
+                    allowedStatuses {
+                      id
+                      name
+                      description
+                      iconName
+                      color
+                      position
+                      category
+                    }
+                  }
+                }
+              }
+              pageInfo {
+                hasNextPage
+              }
+            }
+          }
+        }
+        """
 }

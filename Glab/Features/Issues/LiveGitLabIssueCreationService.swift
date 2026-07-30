@@ -66,6 +66,21 @@ nonisolated protocol GitLabIssueCreationServing:
             ) async -> Void
     ) async throws(GitLabSessionClientError)
 
+    func loadMilestones(
+        projectID: Int
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueMilestone]
+
+    func loadIterations(
+        projectID: Int
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueIteration]
+
+    func loadStatuses(
+        projectPath: String
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueWorkItemStatus]
+
     func createIssue(
         _ input: GitLabIssueCreationInput
     ) async throws(GitLabSessionClientError)
@@ -74,6 +89,32 @@ nonisolated protocol GitLabIssueCreationServing:
     func invalidateAffectedReads(
         projectID: Int
     ) async
+}
+
+extension GitLabIssueCreationServing {
+    func loadMilestones(
+        projectID: Int
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueMilestone]
+    {
+        []
+    }
+
+    func loadIterations(
+        projectID: Int
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueIteration]
+    {
+        []
+    }
+
+    func loadStatuses(
+        projectPath: String
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueWorkItemStatus]
+    {
+        []
+    }
 }
 
 nonisolated struct LiveGitLabIssueCreationService:
@@ -221,27 +262,133 @@ nonisolated struct LiveGitLabIssueCreationService:
     }
 
     @concurrent
+    func loadMilestones(
+        projectID: Int
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueMilestone]
+    {
+        try await client.send(
+            GitLabIssueCreationEndpoints
+                .milestones(
+                    projectID: projectID
+                )
+        )
+    }
+
+    @concurrent
+    func loadIterations(
+        projectID: Int
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueIteration]
+    {
+        do {
+            return try await client.send(
+                GitLabIssueCreationEndpoints
+                    .iterations(
+                        projectID: projectID
+                    )
+            )
+        } catch
+            .api(.forbidden),
+            .api(.notFound)
+        {
+            return []
+        }
+    }
+
+    @concurrent
+    func loadStatuses(
+        projectPath: String
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueWorkItemStatus]
+    {
+        let endpoint:
+            GitLabAPIRequest<
+                GitLabIssueCreationStatusGraphQLResponse
+            >
+        do {
+            endpoint =
+                try GitLabIssueCreationEndpoints
+                    .statuses(
+                        projectPath:
+                            projectPath
+                    )
+        } catch {
+            throw .api(.invalidResponse)
+        }
+        let response =
+            try await client.send(endpoint)
+        return response.validatedStatuses(
+            projectPath: projectPath
+        )
+            ?? []
+    }
+
+    @concurrent
     func createIssue(
         _ input: GitLabIssueCreationInput
     ) async throws(GitLabSessionClientError)
         -> GitLabIssue
     {
-        let endpoint:
-            GitLabAPIRequest<GitLabIssue>
         do {
-            endpoint = try GitLabIssueEndpoints
-                .create(input)
-        } catch {
-            throw .api(.invalidResponse)
-        }
-
-        do {
-            return try await client.send(
-                endpoint
-            )
-        } catch {
             if
-                error.mutationDeliveryCertainty
+                input.status != nil
+                    || input.iteration != nil
+            {
+                let endpoint:
+                    GitLabAPIRequest<
+                        GitLabIssueCreateGraphQLResponse
+                    >
+                do {
+                    endpoint =
+                        try GitLabIssueEndpoints
+                            .createWithWorkItemFields(
+                                input
+                            )
+                } catch {
+                    throw GitLabSessionClientError
+                        .api(.invalidResponse)
+                }
+                let response =
+                    try await client.send(
+                        endpoint
+                    )
+                guard
+                    let route =
+                        response
+                        .validatedRoute(
+                            projectID:
+                                input.projectID
+                        )
+                else {
+                    throw GitLabSessionClientError
+                        .api(.invalidResponse)
+                }
+                return try await client.send(
+                    GitLabIssueEndpoints
+                        .issue(at: route)
+                )
+            }
+
+            let endpoint:
+                GitLabAPIRequest<GitLabIssue>
+            do {
+                endpoint =
+                    try GitLabIssueEndpoints
+                        .create(input)
+            } catch {
+                throw GitLabSessionClientError
+                    .api(.invalidResponse)
+            }
+            return try await client.send(endpoint)
+        } catch {
+            let sessionError =
+                error
+                    as? GitLabSessionClientError
+                ?? .api(.transport)
+            if
+                sessionError
+                    .mutationDeliveryCertainty
                     == .deliveryUnknown
             {
                 await invalidateAffectedReads(
@@ -249,7 +396,7 @@ nonisolated struct LiveGitLabIssueCreationService:
                         input.projectID
                 )
             }
-            throw error
+            throw sessionError
         }
     }
 

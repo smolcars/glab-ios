@@ -113,6 +113,22 @@ final class GitLabIssueCreationModel:
         [String] = []
     private(set) var selectedAssigneeIDs:
         [Int] = []
+    private(set) var selectedStatus:
+        GitLabIssueWorkItemStatus?
+    private(set) var selectedMilestone:
+        GitLabIssueMilestone?
+    private(set) var selectedIteration:
+        GitLabIssueIteration?
+    private(set) var availableStatuses:
+        [GitLabIssueWorkItemStatus] = []
+    private(set) var availableMilestones:
+        [GitLabIssueMilestone] = []
+    private(set) var availableIterations:
+        [GitLabIssueIteration] = []
+    private(set) var
+        isLoadingFieldOptions = false
+    private(set) var fieldOptionsError:
+        GitLabSessionClientError?
     private(set) var hasRestoredDraft = false
     private(set) var
         isVerifyingRestoredProject = false
@@ -172,6 +188,9 @@ final class GitLabIssueCreationModel:
         Task<Void, Never>?
     @ObservationIgnored
     private var projectSearchGeneration:
+        UInt64 = 0
+    @ObservationIgnored
+    private var fieldOptionsLoadGeneration:
         UInt64 = 0
     @ObservationIgnored
     private var isApplyingDraft = false
@@ -268,6 +287,11 @@ final class GitLabIssueCreationModel:
                 .authenticationFailure,
             membersModel?
                 .authenticationFailure,
+            fieldOptionsError?
+                .requiresReauthentication
+                == true
+                ? fieldOptionsError
+                : nil,
         ] {
             if let error {
                 return error
@@ -422,6 +446,8 @@ final class GitLabIssueCreationModel:
                 selectedProject = nil
                 selectedLabelNames.removeAll()
                 selectedAssigneeIDs.removeAll()
+                clearIssueFieldSelections()
+                clearIssueFieldOptions()
                 labelsModel = nil
                 membersModel = nil
                 isSelectedProjectVerified = true
@@ -475,6 +501,8 @@ final class GitLabIssueCreationModel:
         if changesProject {
             selectedLabelNames.removeAll()
             selectedAssigneeIDs.removeAll()
+            clearIssueFieldSelections()
+            clearIssueFieldOptions()
         }
         replaceMetadataModels(
             projectID: selection.id
@@ -486,7 +514,7 @@ final class GitLabIssueCreationModel:
         async
     {
         guard
-            selectedProject != nil,
+            let selectedProject,
             isSelectedProjectVerified,
             let labelsModel,
             let membersModel
@@ -498,7 +526,23 @@ final class GitLabIssueCreationModel:
             labelsModel.loadIfNeeded()
         async let members: Void =
             membersModel.loadIfNeeded()
-        _ = await (labels, members)
+        async let fields: Void =
+            loadIssueFieldOptions(
+                for: selectedProject
+            )
+        _ = await (labels, members, fields)
+    }
+
+    func reloadIssueFieldOptions() async {
+        guard
+            let selectedProject,
+            isSelectedProjectVerified
+        else {
+            return
+        }
+        await loadIssueFieldOptions(
+            for: selectedProject
+        )
     }
 
     func loadNextAssignableMembersPageIfNeeded(
@@ -605,6 +649,60 @@ final class GitLabIssueCreationModel:
                 member.id
             )
         }
+        userValueDidChange()
+    }
+
+    func selectStatus(
+        _ status:
+            GitLabIssueWorkItemStatus?
+    ) {
+        guard
+            status.map(
+                availableStatuses.contains
+            ) ?? true
+        else {
+            return
+        }
+        guard selectedStatus != status else {
+            return
+        }
+        selectedStatus = status
+        userValueDidChange()
+    }
+
+    func selectMilestone(
+        _ milestone:
+            GitLabIssueMilestone?
+    ) {
+        guard
+            milestone.map(
+                availableMilestones.contains
+            ) ?? true
+        else {
+            return
+        }
+        guard selectedMilestone != milestone else {
+            return
+        }
+        selectedMilestone = milestone
+        userValueDidChange()
+    }
+
+    func selectIteration(
+        _ iteration:
+            GitLabIssueIteration?
+    ) {
+        guard
+            iteration.map(
+                availableIterations.contains
+            ) ?? true
+        else {
+            return
+        }
+        guard selectedIteration != iteration else {
+            return
+        }
+        selectedIteration = iteration
         userValueDidChange()
     }
 
@@ -788,6 +886,9 @@ final class GitLabIssueCreationModel:
         try GitLabIssueCreationInput(
             projectID:
                 selectedProject?.id,
+            projectPath:
+                selectedProject?
+                .pathWithNamespace,
             title: title,
             description: rawDescription,
             labelNames:
@@ -795,7 +896,12 @@ final class GitLabIssueCreationModel:
             assigneeIDs:
                 selectedAssigneeIDs,
             confidential: confidential,
-            dueDate: dueDate
+            dueDate: dueDate,
+            status: selectedStatus,
+            milestone:
+                selectedMilestone,
+            iteration:
+                selectedIteration
         )
     }
 
@@ -853,6 +959,11 @@ final class GitLabIssueCreationModel:
         confidential =
             draft.confidential
         dueDate = draft.dueDate
+        selectedStatus = draft.status
+        selectedMilestone =
+            draft.milestone
+        selectedIteration =
+            draft.iteration
         pendingSubmissionFingerprint =
             draft
             .pendingSubmissionFingerprint
@@ -997,6 +1108,9 @@ final class GitLabIssueCreationModel:
             || !selectedAssigneeIDs.isEmpty
             || confidential
             || dueDate != nil
+            || selectedStatus != nil
+            || selectedMilestone != nil
+            || selectedIteration != nil
             || pendingSubmissionFingerprint
                 != nil
             || (
@@ -1021,6 +1135,11 @@ final class GitLabIssueCreationModel:
                 selectedAssigneeIDs,
             confidential: confidential,
             dueDate: dueDate,
+            status: selectedStatus,
+            milestone:
+                selectedMilestone,
+            iteration:
+                selectedIteration,
             revision: draftRevision,
             pendingSubmissionFingerprint:
                 pendingSubmissionFingerprint
@@ -1037,6 +1156,183 @@ final class GitLabIssueCreationModel:
         return normalized.isEmpty
             ? nil
             : normalized
+    }
+
+    private func loadIssueFieldOptions(
+        for project:
+            GitLabIssueCreationProjectSelection
+    ) async {
+        fieldOptionsLoadGeneration &+= 1
+        let generation =
+            fieldOptionsLoadGeneration
+        isLoadingFieldOptions = true
+        fieldOptionsError = nil
+        let service = service
+        defer {
+            if
+                fieldOptionsLoadGeneration
+                    == generation
+            {
+                isLoadingFieldOptions =
+                    false
+            }
+        }
+
+        async let milestoneResult:
+            Result<
+                [GitLabIssueMilestone],
+                GitLabSessionClientError
+            > =
+            Self.capture {
+                try await service
+                    .loadMilestones(
+                        projectID: project.id
+                    )
+            }
+        async let iterationResult:
+            Result<
+                [GitLabIssueIteration],
+                GitLabSessionClientError
+            > =
+            Self.capture {
+                try await service
+                    .loadIterations(
+                        projectID: project.id
+                    )
+            }
+        async let statusResult:
+            Result<
+                [GitLabIssueWorkItemStatus],
+                GitLabSessionClientError
+            > =
+            Self.capture {
+                try await service
+                    .loadStatuses(
+                        projectPath:
+                            project
+                            .pathWithNamespace
+                    )
+            }
+        let (
+            milestones,
+            iterations,
+            statuses
+        ) = await (
+            milestoneResult,
+            iterationResult,
+            statusResult
+        )
+        guard
+            !Task.isCancelled,
+            isAccountCurrent(),
+            fieldOptionsLoadGeneration
+                == generation,
+            selectedProject?.id == project.id
+        else {
+            return
+        }
+
+        apply(
+            milestones,
+            to: &availableMilestones,
+            selection: &selectedMilestone
+        )
+        apply(
+            iterations,
+            to: &availableIterations,
+            selection: &selectedIteration
+        )
+        apply(
+            statuses,
+            to: &availableStatuses,
+            selection: &selectedStatus
+        )
+        fieldOptionsError =
+            Self.failure(milestones)
+            ?? Self.failure(iterations)
+            ?? Self.failure(statuses)
+    }
+
+    private func apply<Option: Identifiable>(
+        _ result:
+            Result<
+                [Option],
+                GitLabSessionClientError
+            >,
+        to options: inout [Option],
+        selection: inout Option?
+    ) {
+        guard case let .success(loaded) = result else {
+            return
+        }
+        options = loaded
+        if
+            let current = selection,
+            let refreshed =
+                loaded.first(
+                    where: {
+                        $0.id == current.id
+                    }
+                )
+        {
+            selection = refreshed
+        } else if selection != nil {
+            selection = nil
+            userValueDidChange()
+        }
+    }
+
+    private func clearIssueFieldSelections() {
+        selectedStatus = nil
+        selectedMilestone = nil
+        selectedIteration = nil
+    }
+
+    private func clearIssueFieldOptions() {
+        fieldOptionsLoadGeneration &+= 1
+        isLoadingFieldOptions = false
+        availableStatuses = []
+        availableMilestones = []
+        availableIterations = []
+        fieldOptionsError = nil
+    }
+
+    nonisolated private static func capture<
+        Value: Sendable
+    >(
+        _ operation:
+            @escaping @Sendable () async throws
+                -> Value
+    ) async -> Result<
+        Value,
+        GitLabSessionClientError
+    > {
+        do {
+            return .success(
+                try await operation()
+            )
+        } catch {
+            return .failure(
+                error
+                    as? GitLabSessionClientError
+                ?? .api(.transport)
+            )
+        }
+    }
+
+    nonisolated private static func failure<
+        Value
+    >(
+        _ result:
+            Result<
+                Value,
+                GitLabSessionClientError
+            >
+    ) -> GitLabSessionClientError? {
+        guard case let .failure(error) = result else {
+            return nil
+        }
+        return error
     }
 
     private static func makeProjectsModel(
@@ -1208,6 +1504,13 @@ final class GitLabIssueCreationModel:
             input.rawDescription,
             input.confidential ? "1" : "0",
             input.dueDate?.apiValue ?? "",
+            input.status?.id ?? "",
+            input.milestone.map {
+                String($0.id)
+            } ?? "",
+            input.iteration.map {
+                String($0.id)
+            } ?? "",
             String(input.labelNames.count),
         ]
         values.append(

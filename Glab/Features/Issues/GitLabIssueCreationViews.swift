@@ -100,6 +100,8 @@ struct GitLabIssueCreationView: View {
                     return
                 }
                 await model.loadProjectsIfNeeded()
+                await model
+                    .loadSelectedProjectMetadata()
             }
             .task(
                 id: model.selectedProject?.id
@@ -401,6 +403,134 @@ struct GitLabIssueCreationView: View {
         model: Bindable<GitLabIssueCreationModel>
     ) -> some View {
         Section("Details") {
+            if
+                model.wrappedValue
+                    .isLoadingFieldOptions
+            {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text(
+                        "Loading status and planning"
+                    )
+                    .foregroundStyle(.secondary)
+                }
+            }
+
+            if
+                !model.wrappedValue
+                    .availableStatuses
+                    .isEmpty
+            {
+                NavigationLink {
+                    GitLabIssueCreationStatusPicker(
+                        model:
+                            model.wrappedValue
+                    )
+                } label: {
+                    metadataRow(
+                        title: "Status",
+                        systemImage:
+                            "scope",
+                        value:
+                            model.wrappedValue
+                                .selectedStatus?
+                                .name
+                            ?? "Default"
+                    )
+                }
+                .accessibilityIdentifier(
+                    "issueCreation.statusField"
+                )
+            } else if
+                !model.wrappedValue
+                    .isLoadingFieldOptions,
+                model.wrappedValue
+                    .selectedProject != nil
+            {
+                metadataRow(
+                    title: "Status",
+                    systemImage: "scope",
+                    value: "Unavailable"
+                )
+                .foregroundStyle(.secondary)
+            }
+
+            NavigationLink {
+                GitLabIssueCreationMilestonePicker(
+                    model:
+                        model.wrappedValue
+                )
+            } label: {
+                metadataRow(
+                    title: "Milestone",
+                    systemImage:
+                        "signpost.right",
+                    value:
+                        model.wrappedValue
+                            .selectedMilestone?
+                            .title
+                        ?? "None"
+                )
+            }
+            .disabled(
+                model.wrappedValue
+                    .selectedProject == nil
+            )
+            .accessibilityIdentifier(
+                "issueCreation.milestone"
+            )
+
+            NavigationLink {
+                GitLabIssueCreationIterationPicker(
+                    model:
+                        model.wrappedValue
+                )
+            } label: {
+                metadataRow(
+                    title: "Iteration",
+                    systemImage:
+                        "repeat",
+                    value:
+                        model.wrappedValue
+                            .selectedIteration?
+                            .displayTitle
+                        ?? "None"
+                )
+            }
+            .disabled(
+                model.wrappedValue
+                    .selectedProject == nil
+            )
+            .accessibilityIdentifier(
+                "issueCreation.iteration"
+            )
+
+            if
+                model.wrappedValue
+                    .fieldOptionsError != nil
+            {
+                Button {
+                    Task {
+                        await model.wrappedValue
+                            .reloadIssueFieldOptions()
+                    }
+                } label: {
+                    Label(
+                        "Reload planning fields",
+                        systemImage:
+                            "arrow.clockwise"
+                    )
+                }
+                .disabled(
+                    model.wrappedValue
+                        .isLoadingFieldOptions
+                )
+                .accessibilityIdentifier(
+                    "issueCreation.fields.retry"
+                )
+            }
+
             NavigationLink {
                 GitLabIssueCreationLabelPicker(
                     model: model.wrappedValue,
@@ -745,6 +875,288 @@ struct GitLabIssueCreationView: View {
     }
 }
 
+private struct GitLabIssueCreationStatusPicker:
+    View
+{
+    let model: GitLabIssueCreationModel
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            choice(
+                title: "Default status",
+                subtitle:
+                    "Use the project’s default open status.",
+                systemImage:
+                    "circle.dotted",
+                isSelected:
+                    model.selectedStatus == nil
+            ) {
+                model.selectStatus(nil)
+                dismiss()
+            }
+
+            ForEach(
+                model.availableStatuses
+            ) { status in
+                let presentation =
+                    GitLabIssueStatusPresentation(
+                        status: status,
+                        isStale: false
+                    )
+                choice(
+                    title: status.name,
+                    subtitle:
+                        status.description,
+                    systemImage:
+                        presentation
+                        .systemImage,
+                    isSelected:
+                        model.selectedStatus?
+                            .id == status.id
+                ) {
+                    model.selectStatus(status)
+                    dismiss()
+                }
+            }
+        }
+        .navigationTitle("Status")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func choice(
+        title: String,
+        subtitle: String?,
+        systemImage: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .foregroundStyle(.orange)
+                    .frame(width: 24)
+                VStack(
+                    alignment: .leading,
+                    spacing: 2
+                ) {
+                    Text(title)
+                        .foregroundStyle(.primary)
+                    if
+                        let subtitle,
+                        !subtitle.isEmpty
+                    {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(
+                                .secondary
+                            )
+                            .lineLimit(2)
+                    }
+                }
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.orange)
+                }
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(
+            isSelected
+                ? "Selected"
+                : "Not selected"
+        )
+    }
+}
+
+private struct GitLabIssueCreationMilestonePicker:
+    View
+{
+    let model: GitLabIssueCreationModel
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            option(
+                title: "No milestone",
+                subtitle: nil,
+                isSelected:
+                    model.selectedMilestone
+                    == nil
+            ) {
+                model.selectMilestone(nil)
+                dismiss()
+            }
+
+            ForEach(
+                model.availableMilestones
+            ) { milestone in
+                option(
+                    title: milestone.title,
+                    subtitle:
+                        GitLabIssueFieldDatePresentation
+                        .range(
+                            start:
+                                milestone
+                                .startDate,
+                            due:
+                                milestone
+                                .dueDate
+                        ),
+                    isSelected:
+                        model.selectedMilestone?
+                            .id
+                            == milestone.id
+                ) {
+                    model.selectMilestone(
+                        milestone
+                    )
+                    dismiss()
+                }
+            }
+        }
+        .navigationTitle("Milestone")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func option(
+        title: String,
+        subtitle: String?,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        GitLabIssueFieldOptionButton(
+            title: title,
+            subtitle: subtitle,
+            systemImage:
+                "signpost.right",
+            isSelected: isSelected,
+            action: action
+        )
+    }
+}
+
+private struct GitLabIssueCreationIterationPicker:
+    View
+{
+    let model: GitLabIssueCreationModel
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            option(
+                title: "No iteration",
+                subtitle: nil,
+                isSelected:
+                    model.selectedIteration
+                    == nil
+            ) {
+                model.selectIteration(nil)
+                dismiss()
+            }
+
+            ForEach(
+                model.availableIterations
+            ) { iteration in
+                option(
+                    title:
+                        iteration.displayTitle,
+                    subtitle:
+                        GitLabIssueFieldDatePresentation
+                        .range(
+                            start:
+                                iteration
+                                .startDate,
+                            due:
+                                iteration
+                                .dueDate
+                        ),
+                    isSelected:
+                        model.selectedIteration?
+                            .id
+                            == iteration.id
+                ) {
+                    model.selectIteration(
+                        iteration
+                    )
+                    dismiss()
+                }
+            }
+        }
+        .navigationTitle("Iteration")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func option(
+        title: String,
+        subtitle: String?,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        GitLabIssueFieldOptionButton(
+            title: title,
+            subtitle: subtitle,
+            systemImage: "repeat",
+            isSelected: isSelected,
+            action: action
+        )
+    }
+}
+
+private struct GitLabIssueFieldOptionButton: View {
+    let title: String
+    let subtitle: String?
+    let systemImage: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .foregroundStyle(.orange)
+                    .frame(width: 24)
+                VStack(
+                    alignment: .leading,
+                    spacing: 2
+                ) {
+                    Text(title)
+                        .foregroundStyle(.primary)
+                    if
+                        let subtitle,
+                        !subtitle.isEmpty
+                    {
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundStyle(
+                                .secondary
+                            )
+                    }
+                }
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.orange)
+                }
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(
+            isSelected
+                ? "Selected"
+                : "Not selected"
+        )
+    }
+}
+
 private struct GitLabIssueCreationProjectPicker:
     View
 {
@@ -803,7 +1215,7 @@ private struct GitLabIssueCreationProjectPicker:
                 }
             } message: { _ in
                 Text(
-                    "Selected labels and assignees will be cleared. Your title and description will stay."
+                    "Selected status, milestone, iteration, labels, and assignees will be cleared. Your title and description will stay."
                 )
             }
     }

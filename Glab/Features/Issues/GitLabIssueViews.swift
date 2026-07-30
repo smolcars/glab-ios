@@ -656,6 +656,8 @@ struct GitLabIssueDetailView: View {
     @State private var showsEditor = false
     @State private var metadataEditorModel:
         GitLabResourceMetadataEditorModel?
+    @State private var planningEditorModel:
+        GitLabIssuePlanningModel?
     @State private var stateMutationModel:
         GitLabResourceMetadataEditorModel?
     @State private var pendingStateEvent:
@@ -802,6 +804,11 @@ struct GitLabIssueDetailView: View {
                                 ?? false
                             )
                             && !(
+                                planningEditorModel?
+                                    .isBusy
+                                ?? false
+                            )
+                            && !(
                                 stateMutationModel?
                                     .isBusy
                                 ?? false
@@ -896,7 +903,13 @@ struct GitLabIssueDetailView: View {
                     model:
                         metadataEditorModel,
                     accountID: accountID,
-                    appSession: appSession
+                    appSession: appSession,
+                    issueStatusModel:
+                        issueStatusModel,
+                    planningModel:
+                        planningEditorModel,
+                    statusActionDidFinish:
+                        handleStatusActionResult
                 )
                 .presentationDragIndicator(
                     .visible
@@ -1075,6 +1088,8 @@ struct GitLabIssueDetailView: View {
                 .authenticationFailure
             ?? issueStatusModel?
                 .authenticationFailure
+            ?? planningEditorModel?
+                .authenticationFailure
     }
 
     private var apiAccess:
@@ -1204,6 +1219,22 @@ struct GitLabIssueDetailView: View {
             makeMetadataEditor(
                 for: .issue(issue)
             )
+        planningEditorModel =
+            GitLabIssuePlanningModel(
+                issue: issue,
+                apiAccess: apiAccess,
+                service: editService,
+                isAccountCurrent: {
+                    appSession.activeAccountID
+                        == accountID
+                },
+                onIssueReconciled: {
+                    updatedIssue in
+                    reconcileIssue(
+                        updatedIssue
+                    )
+                }
+            )
     }
 
     private func requestStateChange(
@@ -1291,23 +1322,35 @@ struct GitLabIssueDetailView: View {
                 guard
                     case let .issue(
                         updatedIssue
-                    ) = result,
-                    model.reconcileAuthoritative(
-                        updatedIssue
-                    )
+                    ) = result
                 else {
                     return
                 }
-                taskToggleModel.cancel()
-                onResourceEdited(result)
-                Task {
-                    await statusRefreshCoordinator
-                        .refreshAfterIssueMutation(
-                            updatedIssue
-                        )
-                }
+                reconcileIssue(updatedIssue)
             }
         )
+    }
+
+    private func reconcileIssue(
+        _ updatedIssue: GitLabIssue
+    ) {
+        guard
+            model.reconcileAuthoritative(
+                updatedIssue
+            )
+        else {
+            return
+        }
+        taskToggleModel.cancel()
+        onResourceEdited(
+            .issue(updatedIssue)
+        )
+        Task {
+            await statusRefreshCoordinator
+                .refreshAfterIssueMutation(
+                    updatedIssue
+                )
+        }
     }
 
     private var availableStateEvent:
@@ -1338,6 +1381,11 @@ struct GitLabIssueDetailView: View {
             )
             || (
                 stateMutationModel?
+                    .isBusy
+                ?? false
+            )
+            || (
+                planningEditorModel?
                     .isBusy
                 ?? false
             )
@@ -1649,7 +1697,11 @@ private struct GitLabIssueDetailContent: View {
 
                 peopleSection
 
-                if issue.milestone != nil || issue.dueDate != nil {
+                if
+                    issue.milestone != nil
+                        || issue.iteration != nil
+                        || issue.dueDate != nil
+                {
                     planningSection
                 }
 
@@ -1830,6 +1882,15 @@ private struct GitLabIssueDetailContent: View {
                     LabeledContent(
                         "Milestone",
                         value: milestone.title
+                    )
+                }
+
+                if let iteration = issue.iteration {
+                    LabeledContent(
+                        "Iteration",
+                        value:
+                            iteration
+                            .displayTitle
                     )
                 }
 

@@ -528,6 +528,39 @@ private extension GitLabIssueCreationDraftStoreTests {
                     month: 8,
                     day: 12
                 ),
+            status:
+                GitLabIssueWorkItemStatus(
+                    id:
+                        "gid://gitlab/WorkItems::Statuses::SystemDefined::Status/7",
+                    name: "In progress",
+                    description: nil,
+                    iconName: nil,
+                    color: nil,
+                    position: 2,
+                    category: .inProgress
+                ),
+            milestone:
+                GitLabIssueMilestone(
+                    id: 19,
+                    iid: 3,
+                    title: "1.0",
+                    state: "active",
+                    startDate:
+                        "2026-07-01",
+                    dueDate:
+                        "2026-08-01"
+                ),
+            iteration:
+                GitLabIssueIteration(
+                    id: 23,
+                    iid: 5,
+                    title: "Sprint 5",
+                    state: 1,
+                    startDate:
+                        "2026-07-27",
+                    dueDate:
+                        "2026-08-07"
+                ),
             revision: revision,
             pendingSubmissionFingerprint:
                 pendingSubmissionFingerprint

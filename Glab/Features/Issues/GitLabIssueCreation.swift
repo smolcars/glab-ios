@@ -13,6 +13,10 @@ nonisolated enum GitLabIssueCreationValidationError:
     case descriptionTooLong(maximum: Int)
     case invalidAssignee
     case invalidDueDate
+    case invalidStatus
+    case invalidMilestone
+    case invalidIteration
+    case missingProjectPath
 
     var description: String {
         switch self {
@@ -26,6 +30,14 @@ nonisolated enum GitLabIssueCreationValidationError:
             "One or more selected assignees are invalid."
         case .invalidDueDate:
             "Choose a valid due date."
+        case .invalidStatus:
+            "Choose a valid status."
+        case .invalidMilestone:
+            "Choose a valid milestone."
+        case .invalidIteration:
+            "Choose a valid iteration."
+        case .missingProjectPath:
+            "Reload the selected project before choosing a status or iteration."
         }
     }
 
@@ -104,21 +116,32 @@ nonisolated struct GitLabIssueCreationInput:
         .maximumDescriptionLength
 
     let projectID: Int
+    let projectPath: String
     let title: String
     let rawDescription: String
     let labelNames: [String]
     let assigneeIDs: [Int]
     let confidential: Bool
     let dueDate: GitLabIssueDueDate?
+    let status: GitLabIssueWorkItemStatus?
+    let milestone: GitLabIssueMilestone?
+    let iteration: GitLabIssueIteration?
 
     init(
         projectID: Int?,
+        projectPath: String? = nil,
         title: String,
         description: String = "",
         labelNames: [String] = [],
         assigneeIDs: [Int] = [],
         confidential: Bool = false,
-        dueDate: GitLabIssueDueDate? = nil
+        dueDate: GitLabIssueDueDate? = nil,
+        status:
+            GitLabIssueWorkItemStatus? = nil,
+        milestone:
+            GitLabIssueMilestone? = nil,
+        iteration:
+            GitLabIssueIteration? = nil
     ) throws(
         GitLabIssueCreationValidationError
     ) {
@@ -153,8 +176,48 @@ nonisolated struct GitLabIssueCreationInput:
         {
             throw .invalidDueDate
         }
+        if
+            let status,
+            status.id.isEmpty
+                || status.name
+                .trimmingCharacters(
+                    in:
+                        .whitespacesAndNewlines
+                )
+                .isEmpty
+        {
+            throw .invalidStatus
+        }
+        if
+            let milestone,
+            milestone.id <= 0
+        {
+            throw .invalidMilestone
+        }
+        if
+            let iteration,
+            iteration.id <= 0
+        {
+            throw .invalidIteration
+        }
+
+        let normalizedProjectPath =
+            projectPath?
+            .trimmingCharacters(
+                in: .whitespacesAndNewlines
+            )
+        if
+            status != nil
+                || iteration != nil,
+            normalizedProjectPath?
+                .isEmpty != false
+        {
+            throw .missingProjectPath
+        }
 
         self.projectID = projectID
+        self.projectPath =
+            normalizedProjectPath ?? ""
         self.title = title
         rawDescription = description
         self.labelNames = Self.unique(
@@ -167,6 +230,9 @@ nonisolated struct GitLabIssueCreationInput:
         )
         self.confidential = confidential
         self.dueDate = dueDate
+        self.status = status
+        self.milestone = milestone
+        self.iteration = iteration
     }
 
     var description: String {

@@ -76,6 +76,35 @@ nonisolated protocol GitLabResourceEditing:
         changes: GitLabResourceMetadataChanges
     ) async throws(GitLabSessionClientError)
         -> GitLabResourceEditResult
+
+    func loadIssueMilestones(
+        projectID: Int
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueMilestone]
+
+    func loadIssueIterations(
+        projectID: Int
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueIteration]
+
+    func loadIssuePlanning(
+        for issue: GitLabIssue
+    ) async throws(GitLabSessionClientError)
+        -> GitLabIssuePlanningAvailability
+
+    func refreshIssuePlanning(
+        projectPath: String,
+        issueIID: Int
+    ) async throws(GitLabSessionClientError)
+        -> GitLabIssuePlanningAvailability
+
+    func updateIssuePlanning(
+        from baseline:
+            GitLabIssuePlanningSnapshot,
+        change:
+            GitLabIssuePlanningChange
+    ) async throws(GitLabSessionClientError)
+        -> GitLabIssuePlanningMutationOutcome
 }
 
 extension GitLabResourceEditing {
@@ -114,5 +143,49 @@ extension GitLabResourceEditing {
         -> GitLabResourceEditResult
     {
         throw .api(.invalidResponse)
+    }
+
+    func loadIssueMilestones(
+        projectID: Int
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueMilestone]
+    {
+        []
+    }
+
+    func loadIssueIterations(
+        projectID: Int
+    ) async throws(GitLabSessionClientError)
+        -> [GitLabIssueIteration]
+    {
+        []
+    }
+
+    func loadIssuePlanning(
+        for issue: GitLabIssue
+    ) async throws(GitLabSessionClientError)
+        -> GitLabIssuePlanningAvailability
+    {
+        .unavailable
+    }
+
+    func refreshIssuePlanning(
+        projectPath: String,
+        issueIID: Int
+    ) async throws(GitLabSessionClientError)
+        -> GitLabIssuePlanningAvailability
+    {
+        .unavailable
+    }
+
+    func updateIssuePlanning(
+        from baseline:
+            GitLabIssuePlanningSnapshot,
+        change:
+            GitLabIssuePlanningChange
+    ) async throws(GitLabSessionClientError)
+        -> GitLabIssuePlanningMutationOutcome
+    {
+        .rejected
     }
 }
