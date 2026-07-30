@@ -186,6 +186,10 @@ struct GitLabPipelineJobRow: View {
             }
         }
         .padding(.vertical, 2)
+        .frame(
+            maxWidth: .infinity,
+            alignment: .leading
+        )
         .accessibilityElement(
             children: .ignore
         )

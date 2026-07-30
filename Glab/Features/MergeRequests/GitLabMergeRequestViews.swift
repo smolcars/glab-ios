@@ -1772,6 +1772,8 @@ private struct GitLabMergeRequestDetailContent: View {
 
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
+    @Environment(\.dynamicTypeSize)
+    private var dynamicTypeSize
 
     var body: some View {
         ScrollView {
@@ -1822,14 +1824,10 @@ private struct GitLabMergeRequestDetailContent: View {
                     appSession: appSession
                 )
                 descriptionSection
-                branchesSection
 
                 if !mergeRequest.labels.isEmpty {
                     labelsSection
                 }
-
-                peopleSection
-                timestampsSection
 
                 GitLabDiscussionSection(
                     model: discussionModel,
@@ -1882,7 +1880,133 @@ private struct GitLabMergeRequestDetailContent: View {
                 .foregroundStyle(.secondary)
             }
             .font(.subheadline.weight(.medium))
+
+            compactMetadata
         }
+    }
+
+    private var compactMetadata: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(
+                mergeRequest.targetBranch
+                    + " ← "
+                    + mergeRequest.sourceBranch
+            )
+            .font(.caption.weight(.medium))
+            .fontDesign(.monospaced)
+            .foregroundStyle(.secondary)
+            .lineLimit(
+                dynamicTypeSize.isAccessibilitySize
+                    ? nil
+                    : 2
+            )
+            .textSelection(.enabled)
+            .accessibilityLabel(
+                "Merge \(mergeRequest.sourceBranch) into \(mergeRequest.targetBranch)"
+            )
+
+            peopleSummary
+
+            Text(timestampSummary)
+                .font(.caption2.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .accessibilityLabel(
+                    timestampAccessibilityLabel
+                )
+        }
+    }
+
+    private var peopleSummary: some View {
+        let otherAssignees =
+            mergeRequest.assignees.filter {
+                $0.id
+                    != mergeRequest.author.id
+            }
+        let authorIsAssignee =
+            otherAssignees.count
+            != mergeRequest.assignees.count
+
+        return VStack(alignment: .leading, spacing: 7) {
+            GitLabMergeRequestCompactPeople(
+                role:
+                    authorIsAssignee
+                    ? "Author & assignee"
+                    : "Author",
+                users: [mergeRequest.author]
+            )
+
+            if
+                !authorIsAssignee
+                    || !otherAssignees.isEmpty
+            {
+                GitLabMergeRequestCompactPeople(
+                    role:
+                        authorIsAssignee
+                        ? "Also assigned"
+                        : otherAssignees.count == 1
+                        ? "Assignee"
+                        : "Assignees",
+                    users: otherAssignees
+                )
+            }
+        }
+    }
+
+    private var timestampSummary: String {
+        timestampValues
+            .map {
+                $0.label
+                    + " "
+                    + GitLabRelativeTimeFormatter
+                    .string(from: $0.date)
+            }
+            .joined(separator: " · ")
+    }
+
+    private var timestampAccessibilityLabel: String {
+        timestampValues
+            .map {
+                $0.label
+                    + " "
+                    + $0.date.formatted(
+                        date: .abbreviated,
+                        time: .shortened
+                    )
+            }
+            .joined(separator: ", ")
+    }
+
+    private var timestampValues:
+        [(label: String, date: Date)]
+    {
+        var values = [
+            (
+                label: "Created",
+                date: mergeRequest.createdAt
+            ),
+            (
+                label: "Updated",
+                date: mergeRequest.updatedAt
+            ),
+        ]
+
+        if let mergedAt = mergeRequest.mergedAt {
+            values.append(
+                (
+                    label: "Merged",
+                    date: mergedAt
+                )
+            )
+        } else if let closedAt = mergeRequest.closedAt {
+            values.append(
+                (
+                    label: "Closed",
+                    date: closedAt
+                )
+            )
+        }
+
+        return values
     }
 
     private var descriptionSection: some View {
@@ -1909,22 +2033,6 @@ private struct GitLabMergeRequestDetailContent: View {
                     .font(.body)
                     .foregroundStyle(.secondary)
             }
-        }
-    }
-
-    private var branchesSection: some View {
-        GitLabDetailSection(title: "Branches") {
-            VStack(alignment: .leading, spacing: 10) {
-                LabeledContent(
-                    "Source",
-                    value: mergeRequest.sourceBranch
-                )
-                LabeledContent(
-                    "Target",
-                    value: mergeRequest.targetBranch
-                )
-            }
-            .textSelection(.enabled)
         }
     }
 
@@ -1997,85 +2105,76 @@ private struct GitLabMergeRequestDetailContent: View {
             }
         }
     }
+}
 
-    private var peopleSection: some View {
-        GitLabDetailSection(title: "People") {
-            VStack(alignment: .leading, spacing: 14) {
-                GitLabAPIUserRow(
-                    user: mergeRequest.author,
-                    role: "Author"
-                )
+private struct GitLabMergeRequestCompactPeople: View {
+    let role: String
+    let users: [GitLabAPIUser]
 
-                if mergeRequest.assignees.isEmpty {
-                    LabeledContent(
-                        "Assignees",
-                        value: "Unassigned"
-                    )
+    @Environment(\.dynamicTypeSize)
+    private var dynamicTypeSize
+
+    var body: some View {
+        HStack(spacing: 7) {
+            avatar
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(role)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
-                } else {
-                    ForEach(mergeRequest.assignees) {
-                        GitLabAPIUserRow(
-                            user: $0,
-                            role: "Assignee"
-                        )
-                    }
-                }
 
-                if mergeRequest.reviewers.isEmpty {
-                    LabeledContent(
-                        "Reviewers",
-                        value: "No reviewers"
+                Text(displaySummary)
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(
+                        dynamicTypeSize.isAccessibilitySize
+                            ? nil
+                            : 1
                     )
-                    .foregroundStyle(.secondary)
-                } else {
-                    ForEach(mergeRequest.reviewers) {
-                        GitLabAPIUserRow(
-                            user: $0,
-                            role: "Reviewer"
-                        )
-                    }
-                }
             }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
+    }
+
+    @ViewBuilder
+    private var avatar: some View {
+        if let user = users.first {
+            GitLabUserAvatar(
+                user: user.summary,
+                size: 26
+            )
+        } else {
+            Image(
+                systemName:
+                    "person.crop.circle.badge.questionmark"
+            )
+            .font(.title3)
+            .foregroundStyle(.secondary)
+            .frame(width: 26, height: 26)
         }
     }
 
-    private var timestampsSection: some View {
-        GitLabDetailSection(title: "Activity") {
-            VStack(alignment: .leading, spacing: 10) {
-                LabeledContent(
-                    "Created",
-                    value: mergeRequest.createdAt.formatted(
-                        date: .abbreviated,
-                        time: .shortened
-                    )
-                )
-                LabeledContent(
-                    "Updated",
-                    value: mergeRequest.updatedAt.formatted(
-                        date: .abbreviated,
-                        time: .shortened
-                    )
-                )
-                if let closedAt = mergeRequest.closedAt {
-                    LabeledContent(
-                        "Closed",
-                        value: closedAt.formatted(
-                            date: .abbreviated,
-                            time: .shortened
-                        )
-                    )
-                }
-                if let mergedAt = mergeRequest.mergedAt {
-                    LabeledContent(
-                        "Merged",
-                        value: mergedAt.formatted(
-                            date: .abbreviated,
-                            time: .shortened
-                        )
-                    )
-                }
-            }
+    private var displaySummary: String {
+        guard let first = users.first else {
+            return "Unassigned"
         }
+        guard users.count > 1 else {
+            return first.displayName
+        }
+        return first.displayName
+            + " +\(users.count - 1)"
+    }
+
+    private var accessibilitySummary: String {
+        guard !users.isEmpty else {
+            return "\(role), unassigned"
+        }
+        return role
+            + ", "
+            + users.map {
+                "\($0.displayName), @\($0.username)"
+            }
+            .joined(separator: ", ")
     }
 }
 
