@@ -33,13 +33,21 @@ struct ProjectsView: View {
             )
             .navigationTitle(mode.title)
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(
-                text: $model.searchText,
-                placement:
-                    .navigationBarDrawer(
-                        displayMode: .always
-                    ),
-                prompt: "Search loaded projects"
+            .safeAreaInset(
+                edge: .top,
+                spacing: 0
+            ) {
+                GitLabSearchField(
+                    text: $model.searchText,
+                    prompt:
+                        "Search loaded projects",
+                    accessibilityIdentifier:
+                        "projects.search"
+                )
+            }
+            .ignoresSafeArea(
+                .keyboard,
+                edges: .bottom
             )
             .refreshable {
                 await refresh()

@@ -186,13 +186,21 @@ struct GitLabIssueListView: View {
                     ? .inline
                     : .large
             )
-            .searchable(
-                text: $model.searchText,
-                placement:
-                    .navigationBarDrawer(
-                        displayMode: .always
-                    ),
-                prompt: "Search loaded issues"
+            .safeAreaInset(
+                edge: .top,
+                spacing: 0
+            ) {
+                GitLabSearchField(
+                    text: $model.searchText,
+                    prompt:
+                        "Search loaded issues",
+                    accessibilityIdentifier:
+                        "issues.search"
+                )
+            }
+            .ignoresSafeArea(
+                .keyboard,
+                edges: .bottom
             )
             .refreshable {
                 await refresh()

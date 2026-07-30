@@ -125,6 +125,69 @@ struct GitLabIssueCreationEndpointTests {
         )
     }
 
+    @Test("Maps lowercase status categories returned by GitLab")
+    func mapsLowercaseCreationStatuses() throws {
+        let response = try JSONDecoder().decode(
+            GitLabIssueCreationStatusGraphQLResponse
+                .self,
+            from:
+                Data(
+                    """
+                    {
+                      "data": {
+                        "project": {
+                          "fullPath": "group/project",
+                          "workItemTypes": {
+                            "nodes": [
+                              {
+                                "name": "Issue",
+                                "widgetDefinitions": [
+                                  {
+                                    "__typename": "WorkItemWidgetDefinitionStatus",
+                                    "allowedStatuses": [
+                                      {
+                                        "id": "status-backlog",
+                                        "name": "Backlog",
+                                        "position": 0,
+                                        "category": "triage"
+                                      },
+                                      {
+                                        "id": "status-progress",
+                                        "name": "In progress",
+                                        "position": 0,
+                                        "category": "in_progress"
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ],
+                            "pageInfo": {
+                              "hasNextPage": false
+                            }
+                          }
+                        }
+                      }
+                    }
+                    """.utf8
+                )
+        )
+        let statuses = try #require(
+            response.validatedStatuses(
+                projectPath: "group/project"
+            )
+        )
+
+        #expect(
+            statuses.map(\.category)
+                == [.triage, .inProgress]
+        )
+        #expect(
+            statuses.map(\.name)
+                == ["Backlog", "In progress"]
+        )
+    }
+
     @Test("Builds normalized server metadata searches")
     func buildsProjectMetadataSearches() throws {
         let labels =

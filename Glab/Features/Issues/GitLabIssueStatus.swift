@@ -407,7 +407,9 @@ nonisolated extension GitLabIssueStatusGraphQLResponse {
             let categoryValue = raw.category,
             let category =
                 GitLabIssueStatusCategory(
-                    rawValue: categoryValue
+                    rawValue:
+                        categoryValue
+                        .uppercased()
                 )
         else {
             return nil

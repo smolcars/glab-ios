@@ -717,11 +717,22 @@ private struct GitLabMetadataLabelPicker: View {
         }
         .navigationTitle("Labels")
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(
-            text:
-                $model
-                .labelSearchText,
-            prompt: "Search labels"
+        .safeAreaInset(
+            edge: .top,
+            spacing: 0
+        ) {
+            GitLabSearchField(
+                text:
+                    $model
+                    .labelSearchText,
+                prompt: "Search labels",
+                accessibilityIdentifier:
+                    "metadata.labels.search"
+            )
+        }
+        .ignoresSafeArea(
+            .keyboard,
+            edges: .bottom
         )
         .alert(
             "Create label?",
@@ -838,12 +849,19 @@ private struct GitLabMetadataMemberPicker: View {
         }
         .navigationTitle(role.title)
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(
-            text:
-                $model
-                .memberSearchText,
-            prompt: "Search people"
-        )
+        .safeAreaInset(
+            edge: .top,
+            spacing: 0
+        ) {
+            GitLabSearchField(
+                text:
+                    $model
+                    .memberSearchText,
+                prompt: "Search people",
+                accessibilityIdentifier:
+                    "metadata.members.search"
+            )
+        }
         .safeAreaInset(edge: .bottom) {
             if role == .reviewer {
                 Text(
@@ -860,6 +878,10 @@ private struct GitLabMetadataMemberPicker: View {
                 .background(.bar)
             }
         }
+        .ignoresSafeArea(
+            .keyboard,
+            edges: .bottom
+        )
     }
 
     private func isSelected(

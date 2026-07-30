@@ -1176,9 +1176,22 @@ private struct GitLabIssueCreationProjectPicker:
         content
             .navigationTitle("Project")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(
-                text: $model.projectSearchText,
-                prompt: "Search projects"
+            .safeAreaInset(
+                edge: .top,
+                spacing: 0
+            ) {
+                GitLabSearchField(
+                    text:
+                        $model
+                        .projectSearchText,
+                    prompt: "Search projects",
+                    accessibilityIdentifier:
+                        "issueCreation.project.search"
+                )
+            }
+            .ignoresSafeArea(
+                .keyboard,
+                edges: .bottom
             )
             .task {
                 await model.loadProjectsIfNeeded()
@@ -1461,9 +1474,23 @@ private struct GitLabIssueCreationLabelList:
         listContent
             .navigationTitle("Labels")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(
-                text: $labelsModel.searchText,
-                prompt: "Search loaded labels"
+            .safeAreaInset(
+                edge: .top,
+                spacing: 0
+            ) {
+                GitLabSearchField(
+                    text:
+                        $labelsModel
+                        .searchText,
+                    prompt:
+                        "Search loaded labels",
+                    accessibilityIdentifier:
+                        "issueCreation.labels.search"
+                )
+            }
+            .ignoresSafeArea(
+                .keyboard,
+                edges: .bottom
             )
             .task {
                 await labelsModel
@@ -1626,10 +1653,20 @@ private struct GitLabIssueCreationAssigneeList:
         listContent
             .navigationTitle("Assignees")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(
-                text: $membersModel.searchText,
-                prompt: "Search loaded members"
-            )
+            .safeAreaInset(
+                edge: .top,
+                spacing: 0
+            ) {
+                GitLabSearchField(
+                    text:
+                        $membersModel
+                        .searchText,
+                    prompt:
+                        "Search loaded members",
+                    accessibilityIdentifier:
+                        "issueCreation.assignees.search"
+                )
+            }
             .safeAreaInset(edge: .bottom) {
                 if
                     model.selectedAssigneeIDs
@@ -1649,6 +1686,10 @@ private struct GitLabIssueCreationAssigneeList:
                     .background(.bar)
                 }
             }
+            .ignoresSafeArea(
+                .keyboard,
+                edges: .bottom
+            )
             .task {
                 await membersModel
                     .loadIfNeeded()

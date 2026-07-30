@@ -5,9 +5,6 @@ struct GitLabGlobalSearchView: View {
     let accountID: GitLabAccountID
     let appSession: AppSession
 
-    @FocusState private var searchIsFocused:
-        Bool
-
     var body: some View {
         @Bindable var model = model
 
@@ -35,19 +32,23 @@ struct GitLabGlobalSearchView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("Search")
         .navigationBarTitleDisplayMode(.inline)
-        .searchable(
-            text: $model.query,
-            placement:
-                .navigationBarDrawer(
-                    displayMode: .always
-                ),
-            prompt:
-                "Projects, issues, merge requests"
-        )
-        .searchFocused($searchIsFocused)
-        .task {
-            searchIsFocused = true
+        .safeAreaInset(
+            edge: .top,
+            spacing: 0
+        ) {
+            GitLabSearchField(
+                text: $model.query,
+                prompt:
+                    "Projects, issues, merge requests",
+                accessibilityIdentifier:
+                    "search.field",
+                focusesOnAppear: true
+            )
         }
+        .ignoresSafeArea(
+            .keyboard,
+            edges: .bottom
+        )
         .task(id: model.query) {
             await model.search(model.query)
             await handleAuthenticationFailure()

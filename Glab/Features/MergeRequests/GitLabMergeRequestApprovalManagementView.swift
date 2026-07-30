@@ -805,10 +805,21 @@ private struct
                     }
                 }
             }
-            .searchable(
-                text: $searchText,
-                prompt:
-                    "Search project members"
+            .safeAreaInset(
+                edge: .top,
+                spacing: 0
+            ) {
+                GitLabSearchField(
+                    text: $searchText,
+                    prompt:
+                        "Search project members",
+                    accessibilityIdentifier:
+                        "approval.members.search"
+                )
+            }
+            .ignoresSafeArea(
+                .keyboard,
+                edges: .bottom
             )
             .task(id: searchText) {
                 guard hasStartedSearchTask else {

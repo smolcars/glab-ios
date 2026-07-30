@@ -117,13 +117,21 @@ struct GitLabMergeRequestDiffListView: View {
             )
             .navigationTitle("Changed Files")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(
-                text: $model.searchText,
-                placement:
-                    .navigationBarDrawer(
-                        displayMode: .always
-                    ),
-                prompt: "Search loaded file paths"
+            .safeAreaInset(
+                edge: .top,
+                spacing: 0
+            ) {
+                GitLabSearchField(
+                    text: $model.searchText,
+                    prompt:
+                        "Search loaded file paths",
+                    accessibilityIdentifier:
+                        "mergeRequestDiffs.search"
+                )
+            }
+            .ignoresSafeArea(
+                .keyboard,
+                edges: .bottom
             )
             .refreshable {
                 await refresh()

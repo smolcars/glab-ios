@@ -194,6 +194,39 @@ struct GitLabIssueStatusEndpointTests {
         #expect(status.issueState == expectedState)
     }
 
+    @Test("Accepts lowercase status categories returned by GitLab")
+    func mapsLowercaseStatusCategories() throws {
+        let response = try decode(
+            statusResponse(
+                allowedStatuses: [
+                    statusJSON(
+                        category: "in_progress"
+                    ),
+                ],
+                currentStatus:
+                    statusJSON(
+                        category: "in_progress"
+                    )
+            )
+        )
+        let snapshot = try #require(
+            response.validatedSnapshot(
+                projectPath: "group/project",
+                issueIID: 17
+            )
+        )
+
+        #expect(
+            snapshot.currentStatus?.category
+                == .inProgress
+        )
+        #expect(
+            snapshot.allowedStatuses
+                .map(\.category)
+                == [.inProgress]
+        )
+    }
+
     @Test("Allows a missing current status")
     func allowsMissingCurrentStatus() throws {
         let response = try decode(
