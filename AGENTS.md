@@ -14,6 +14,7 @@
 - When making UI changes, always consider the user experience and design guidelines/design skill.
 - Do not write tests for the sake of writing tests, only write tests when a test is important for that specific scenario.
 - Keep UI simple and compact and try and use less real estate for things. If something can be combined together with another thing like 2 buttons in a pill, do so. If something can be a collapsible, do so.
+- When building the app, try and reuse the derived data directory unless you're working in a context where the derived data directory is not available.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
