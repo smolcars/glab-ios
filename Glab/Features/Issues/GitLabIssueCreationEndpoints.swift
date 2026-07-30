@@ -32,30 +32,6 @@ nonisolated enum GitLabIssueCreationEndpoints {
         )
     }
 
-    static func members(
-        projectID: Int,
-        search: String? = nil
-    ) -> GitLabAPIRequest<[GitLabProjectMember]> {
-        .get(
-            requires: .read,
-            path: [
-                "projects",
-                String(projectID),
-                "members",
-                "all",
-            ],
-            query: [
-                .init(
-                    name: "per_page",
-                    value: "20"
-                ),
-            ] + searchQuery(
-                name: "query",
-                value: search
-            )
-        )
-    }
-
     private static func searchQuery(
         name: String,
         value: String?

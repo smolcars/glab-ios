@@ -1252,12 +1252,14 @@ nonisolated private enum GitLabMarkdownInlineProcessor {
     private static let referenceExpression =
         try? NSRegularExpression(
             pattern:
-                "(?<![A-Za-z0-9_./\\\\])"
+                GitLabUserReferenceSyntax
+                    .leadingBoundaryPattern
                 + "(#([1-9][0-9]*)"
                 + "|!([1-9][0-9]*)"
-                + "|@([A-Za-z0-9_]"
-                + "(?:[A-Za-z0-9_.-]*"
-                + "[A-Za-z0-9_])?))"
+                + "|@("
+                + GitLabUserReferenceSyntax
+                    .usernamePattern
+                + "))"
         )
 
     static func process(

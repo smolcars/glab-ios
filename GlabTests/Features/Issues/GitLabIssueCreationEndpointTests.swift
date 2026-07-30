@@ -48,7 +48,7 @@ struct GitLabIssueCreationEndpointTests {
                 projectID: 42
             )
         let members =
-            GitLabIssueCreationEndpoints.members(
+            GitLabProjectMemberEndpoints.members(
                 projectID: 42
             )
 
@@ -80,7 +80,7 @@ struct GitLabIssueCreationEndpointTests {
                 search: "  needs QA 👩🏽‍💻  "
             )
         let members =
-            GitLabIssueCreationEndpoints.members(
+            GitLabProjectMemberEndpoints.members(
                 projectID: 42,
                 search: "  helper bot  "
             )
@@ -113,7 +113,7 @@ struct GitLabIssueCreationEndpointTests {
                 search: " \n "
             )
         let members =
-            GitLabIssueCreationEndpoints.members(
+            GitLabProjectMemberEndpoints.members(
                 projectID: 42,
                 search: "\t"
             )

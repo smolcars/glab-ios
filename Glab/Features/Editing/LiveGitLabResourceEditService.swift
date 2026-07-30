@@ -134,7 +134,7 @@ nonisolated struct LiveGitLabResourceEditService:
     {
         try await loadMetadataPage(
             initial:
-                GitLabIssueCreationEndpoints
+                GitLabProjectMemberEndpoints
                 .members(
                     projectID: projectID,
                     search: search

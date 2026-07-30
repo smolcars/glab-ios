@@ -267,27 +267,37 @@ struct GitLabIssueCreationView: View {
             } else {
                 switch editorMode {
                 case .edit:
-                    TextEditor(
+                    GitLabMentionTextEditor(
                         text:
-                            model.rawDescription
-                    )
-                    .frame(minHeight: 180)
-                    .scrollContentBackground(
-                        .hidden
-                    )
-                    .focused(
-                        $focusedField,
-                        equals: .description
-                    )
-                    .accessibilityLabel(
-                        "Markdown description"
-                    )
-                    .accessibilityHint(
-                        "Edits raw GitLab Flavored Markdown."
-                    )
-                    .accessibilityIdentifier(
-                        "issueCreation.description"
-                    )
+                            model.rawDescription,
+                        projectID:
+                            model.wrappedValue
+                                .selectedProject?
+                                .id
+                    ) { text, selection in
+                        TextEditor(
+                            text: text,
+                            selection: selection
+                        )
+                        .frame(minHeight: 180)
+                        .scrollContentBackground(
+                            .hidden
+                        )
+                        .focused(
+                            $focusedField,
+                            equals:
+                                .description
+                        )
+                        .accessibilityLabel(
+                            "Markdown description"
+                        )
+                        .accessibilityHint(
+                            "Edits raw GitLab Flavored Markdown."
+                        )
+                        .accessibilityIdentifier(
+                            "issueCreation.description"
+                        )
+                    }
                 case .preview:
                     markdownPreview
                 }

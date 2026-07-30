@@ -10,6 +10,7 @@ struct GitLabDiscussionComposerView: View {
 
     private let accountID: GitLabAccountID
     private let appSession: AppSession
+    private let projectID: Int
 
     @Environment(\.dismiss) private var dismiss
 
@@ -30,6 +31,7 @@ struct GitLabDiscussionComposerView: View {
     ) {
         self.accountID = accountID
         self.appSession = appSession
+        projectID = resource.projectID
         _model = State(
             initialValue:
                 GitLabDiscussionComposerModel(
@@ -180,58 +182,75 @@ struct GitLabDiscussionComposerView: View {
                     .headline
                 )
 
-            ZStack(alignment: .topLeading) {
-                if model.body.wrappedValue
-                    .isEmpty
-                {
-                    Text(
-                        "Write a comment using Markdown…"
-                    )
-                    .foregroundStyle(
-                        .tertiary
-                    )
-                    .padding(.horizontal, 13)
-                    .padding(.vertical, 15)
-                    .accessibilityHidden(true)
-                }
+            GitLabMentionTextEditor(
+                text: model.body,
+                projectID: projectID
+            ) { text, selection in
+                ZStack(alignment: .topLeading) {
+                    if
+                        model.body.wrappedValue
+                            .isEmpty
+                    {
+                        Text(
+                            "Write a comment using Markdown…"
+                        )
+                        .foregroundStyle(
+                            .tertiary
+                        )
+                        .padding(
+                            .horizontal,
+                            13
+                        )
+                        .padding(
+                            .vertical,
+                            15
+                        )
+                        .accessibilityHidden(
+                            true
+                        )
+                    }
 
-                TextEditor(
-                    text: model.body
+                    TextEditor(
+                        text: text,
+                        selection: selection
+                    )
+                    .focused(
+                        $editorIsFocused
+                    )
+                    .scrollContentBackground(
+                        .hidden
+                    )
+                    .padding(8)
+                    .frame(minHeight: 220)
+                    .disabled(
+                        self.model.isSending
+                    )
+                    .accessibilityLabel(
+                        "Comment"
+                    )
+                    .accessibilityIdentifier(
+                        "discussion.composer.editor"
+                    )
+                }
+                .background(
+                    Color(
+                        uiColor:
+                            .secondarySystemGroupedBackground
+                    ),
+                    in: .rect(
+                        cornerRadius: 16
+                    )
                 )
-                .focused(
-                    $editorIsFocused
-                )
-                .scrollContentBackground(
-                    .hidden
-                )
-                .padding(8)
-                .frame(minHeight: 220)
-                .disabled(
-                    self.model.isSending
-                )
-                .accessibilityLabel(
-                    "Comment"
-                )
-                .accessibilityIdentifier(
-                    "discussion.composer.editor"
-                )
-            }
-            .background(
-                Color(
-                    uiColor:
-                        .secondarySystemGroupedBackground
-                ),
-                in: .rect(cornerRadius: 16)
-            )
-            .overlay {
-                RoundedRectangle(
-                    cornerRadius: 16
-                )
-                .stroke(
-                    Color.primary
-                        .opacity(0.08),
-                    lineWidth: 1
-                )
+                .overlay {
+                    RoundedRectangle(
+                        cornerRadius: 16
+                    )
+                    .stroke(
+                        Color.primary
+                            .opacity(0.08),
+                        lineWidth: 1
+                    )
+                }
             }
 
             Text(

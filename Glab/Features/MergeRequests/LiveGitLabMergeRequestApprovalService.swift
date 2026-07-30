@@ -214,7 +214,7 @@ nonisolated struct
                     .next(nextPageURL)
                 } else {
                     .initial(
-                        GitLabIssueCreationEndpoints
+                        GitLabProjectMemberEndpoints
                             .members(
                                 projectID:
                                     projectID,

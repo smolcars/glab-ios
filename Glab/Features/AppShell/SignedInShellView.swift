@@ -84,6 +84,8 @@ struct SignedInShellView: View {
         any GitLabIssueStatusServing
     private let issueCreationService:
         any GitLabIssueCreationServing
+    private let mentionService:
+        any GitLabMentionSearching
     private let projectLoader:
         any GitLabProjectLoading
             & GitLabProjectResolving
@@ -188,6 +190,10 @@ struct SignedInShellView: View {
             LiveGitLabIssueCreationService(
                 client: client
             )
+        let mentionService =
+            LiveGitLabMentionService(
+                client: client
+            )
         let todoService = LiveGitLabTodoLoader(
             client: client
         )
@@ -212,6 +218,8 @@ struct SignedInShellView: View {
             issueStatusService
         self.issueCreationService =
             issueCreationService
+        self.mentionService =
+            mentionService
         self.projectLoader = projectLoader
         markdownRenderer = GitLabMarkdownRenderer()
         diffRenderer = GitLabDiffRenderer()
@@ -441,6 +449,10 @@ struct SignedInShellView: View {
         .environment(
             \.gitLabPipelineActionService,
             pipelineActionService
+        )
+        .environment(
+            \.gitLabMentionService,
+            mentionService
         )
         .accessibilityIdentifier("signedIn.tabView")
         .task(

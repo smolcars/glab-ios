@@ -193,7 +193,7 @@ nonisolated struct LiveGitLabIssueCreationService:
     {
         try await loadPage(
             initial:
-                GitLabIssueCreationEndpoints
+                GitLabProjectMemberEndpoints
                 .members(projectID: projectID),
             after: nextPageURL
         )
@@ -212,7 +212,7 @@ nonisolated struct LiveGitLabIssueCreationService:
             ) async -> Void
     ) async throws(GitLabSessionClientError) {
         try await loadFirstPage(
-            GitLabIssueCreationEndpoints
+            GitLabProjectMemberEndpoints
                 .members(projectID: projectID),
             refreshBehavior:
                 refreshBehavior,

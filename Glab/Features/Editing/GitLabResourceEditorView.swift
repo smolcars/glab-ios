@@ -256,30 +256,45 @@ struct GitLabResourceEditorView: View {
         } else {
             switch mode {
             case .edit:
-                TextEditor(
-                    text: model.rawDescription
-                )
-                .font(.body)
-                .padding(12)
-                .scrollContentBackground(.hidden)
-                .background(
-                    Color(uiColor: .secondarySystemGroupedBackground)
-                )
-                .disabled(
-                    !model.wrappedValue.canEdit
-                )
-                .scrollDismissesKeyboard(
-                    .interactively
-                )
-                .accessibilityLabel(
-                    "Markdown description"
-                )
-                .accessibilityHint(
-                    "Edits the raw GitLab Flavored Markdown description."
-                )
-                .accessibilityIdentifier(
-                    "resourceEditor.description"
-                )
+                GitLabMentionTextEditor(
+                    text: model.rawDescription,
+                    projectID:
+                        model.wrappedValue
+                            .baseline.target
+                            .projectID
+                ) { text, selection in
+                    TextEditor(
+                        text: text,
+                        selection: selection
+                    )
+                    .font(.body)
+                    .padding(12)
+                    .scrollContentBackground(
+                        .hidden
+                    )
+                    .background(
+                        Color(
+                            uiColor:
+                                .secondarySystemGroupedBackground
+                        )
+                    )
+                    .disabled(
+                        !model.wrappedValue
+                            .canEdit
+                    )
+                    .scrollDismissesKeyboard(
+                        .interactively
+                    )
+                    .accessibilityLabel(
+                        "Markdown description"
+                    )
+                    .accessibilityHint(
+                        "Edits the raw GitLab Flavored Markdown description."
+                    )
+                    .accessibilityIdentifier(
+                        "resourceEditor.description"
+                    )
+                }
             case .preview:
                 preview
             }
