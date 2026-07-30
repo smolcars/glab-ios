@@ -704,6 +704,12 @@ private struct GitLabMergeRequestStateIcon: View {
 
     var body: some View {
         Image(systemName: systemImage)
+            .font(
+                .callout.weight(
+                    .semibold
+                )
+            )
+            .frame(width: 20)
             .foregroundStyle(color)
             .accessibilityHidden(true)
     }
@@ -711,7 +717,7 @@ private struct GitLabMergeRequestStateIcon: View {
     private var systemImage: String {
         switch mergeRequest.stateKind {
         case .opened:
-            "arrow.triangle.branch"
+            "arrow.triangle.pull"
         case .closed:
             "xmark.circle.fill"
         case .merged:
@@ -730,7 +736,7 @@ private struct GitLabMergeRequestStateIcon: View {
         case .closed:
             .red
         case .merged:
-            .purple
+            .blue
         case .locked:
             .orange
         case .unknown:

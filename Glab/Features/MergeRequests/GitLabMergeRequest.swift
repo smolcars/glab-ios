@@ -94,6 +94,15 @@ nonisolated enum GitLabProjectMergeRequestState:
         }
     }
 
+    var systemImage: String {
+        switch self {
+        case .opened:
+            "arrow.triangle.pull"
+        case .merged:
+            "arrow.triangle.merge"
+        }
+    }
+
     func contains(
         _ mergeRequest: GitLabMergeRequest
     ) -> Bool {

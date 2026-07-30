@@ -118,9 +118,7 @@ struct GitLabProjectMergeRequestsView: View {
                         emptyMessage,
                     emptySystemImage:
                         model.selectedState
-                            == .opened
-                        ? "arrow.triangle.branch"
-                        : "arrow.triangle.merge",
+                            .systemImage,
                     accessibilityIdentifier:
                         "projectMergeRequests.list"
                 ),
@@ -154,13 +152,83 @@ struct GitLabProjectMergeRequestsView: View {
                 statePickerContent(model: model)
                     .pickerStyle(.menu)
                     .frame(minHeight: 44)
+                    .accessibilityIdentifier(
+                        "projectMergeRequests.statePicker"
+                    )
             } else {
-                statePickerContent(model: model)
-                    .pickerStyle(.segmented)
+                HStack(spacing: 4) {
+                    ForEach(
+                        GitLabProjectMergeRequestState
+                            .allCases,
+                        id: \.self
+                    ) { state in
+                        stateButton(
+                            state,
+                            model: model
+                        )
+                    }
+                }
+                .padding(3)
+                .background(
+                    Color(
+                        uiColor:
+                            .tertiarySystemFill
+                    ),
+                    in: .capsule
+                )
             }
         }
+    }
+
+    private func stateButton(
+        _ state:
+            GitLabProjectMergeRequestState,
+        model:
+            Bindable<ProjectMergeRequestsModel>
+    ) -> some View {
+        let isSelected =
+            model.wrappedValue
+                .selectedState == state
+
+        return Button {
+            model.wrappedValue
+                .selectedState = state
+        } label: {
+            Label(
+                state.title,
+                systemImage:
+                    state.systemImage
+            )
+            .font(
+                .subheadline.weight(
+                    .semibold
+                )
+            )
+            .frame(
+                maxWidth: .infinity,
+                minHeight: 30
+            )
+            .foregroundStyle(
+                isSelected
+                    ? Color.black
+                        .opacity(0.78)
+                    : .secondary
+            )
+            .background(
+                isSelected
+                    ? state.tintColor
+                    : .clear,
+                in: .capsule
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(
+            isSelected
+                ? .isSelected
+                : []
+        )
         .accessibilityIdentifier(
-            "projectMergeRequests.statePicker"
+            "projectMergeRequests.state.\(state.rawValue)"
         )
     }
 
@@ -177,8 +245,15 @@ struct GitLabProjectMergeRequestsView: View {
                     .allCases,
                 id: \.self
             ) { state in
-                Text(state.title)
-                    .tag(state)
+                Label(
+                    state.title,
+                    systemImage:
+                        state.systemImage
+                )
+                .labelStyle(
+                    .titleAndIcon
+                )
+                .tag(state)
             }
         }
     }
@@ -207,5 +282,18 @@ struct GitLabProjectMergeRequestsView: View {
             )
         }
         onResourceEdited(result)
+    }
+}
+
+private extension
+    GitLabProjectMergeRequestState
+{
+    var tintColor: Color {
+        switch self {
+        case .opened:
+            .green
+        case .merged:
+            .blue
+        }
     }
 }

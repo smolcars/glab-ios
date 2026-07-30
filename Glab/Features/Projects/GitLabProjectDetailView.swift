@@ -440,7 +440,7 @@ struct GitLabProjectDetailView: View {
                 Label(
                     "Merge Requests",
                     systemImage:
-                        "arrow.triangle.branch"
+                        "arrow.triangle.pull"
                 )
                 Spacer(minLength: 8)
                 Text("Disabled")
@@ -485,7 +485,7 @@ struct GitLabProjectDetailView: View {
                     Label(
                         "Merge Requests",
                         systemImage:
-                            "arrow.triangle.branch"
+                            "arrow.triangle.pull"
                     )
                     Spacer(minLength: 8)
                     Text("Browse")
