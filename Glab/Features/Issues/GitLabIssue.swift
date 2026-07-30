@@ -83,6 +83,15 @@ nonisolated enum GitLabProjectIssueState:
         }
     }
 
+    var systemImage: String {
+        switch self {
+        case .opened:
+            "smallcircle.filled.circle"
+        case .closed:
+            "checkmark.circle.fill"
+        }
+    }
+
     func contains(
         _ issue: GitLabIssue
     ) -> Bool {

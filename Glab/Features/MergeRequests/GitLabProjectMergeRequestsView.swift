@@ -29,8 +29,6 @@ struct GitLabProjectMergeRequestsView: View {
 
     @State private var model:
         ProjectMergeRequestsModel
-    @Environment(\.dynamicTypeSize)
-    private var dynamicTypeSize
 
     init(
         project: GitLabProject,
@@ -147,115 +145,18 @@ struct GitLabProjectMergeRequestsView: View {
         model:
             Bindable<ProjectMergeRequestsModel>
     ) -> some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                statePickerContent(model: model)
-                    .pickerStyle(.menu)
-                    .frame(minHeight: 44)
-                    .accessibilityIdentifier(
-                        "projectMergeRequests.statePicker"
-                    )
-            } else {
-                HStack(spacing: 4) {
-                    ForEach(
-                        GitLabProjectMergeRequestState
-                            .allCases,
-                        id: \.self
-                    ) { state in
-                        stateButton(
-                            state,
-                            model: model
-                        )
-                    }
-                }
-                .padding(3)
-                .background(
-                    Color(
-                        uiColor:
-                            .tertiarySystemFill
-                    ),
-                    in: .capsule
-                )
-            }
-        }
-    }
-
-    private func stateButton(
-        _ state:
-            GitLabProjectMergeRequestState,
-        model:
-            Bindable<ProjectMergeRequestsModel>
-    ) -> some View {
-        let isSelected =
-            model.wrappedValue
-                .selectedState == state
-
-        return Button {
-            model.wrappedValue
-                .selectedState = state
-        } label: {
-            Label(
-                state.title,
-                systemImage:
-                    state.systemImage
-            )
-            .font(
-                .subheadline.weight(
-                    .semibold
-                )
-            )
-            .frame(
-                maxWidth: .infinity,
-                minHeight: 30
-            )
-            .foregroundStyle(
-                isSelected
-                    ? Color.black
-                        .opacity(0.78)
-                    : .secondary
-            )
-            .background(
-                isSelected
-                    ? state.tintColor
-                    : .clear,
-                in: .capsule
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(
-            isSelected
-                ? .isSelected
-                : []
-        )
-        .accessibilityIdentifier(
-            "projectMergeRequests.state.\(state.rawValue)"
-        )
-    }
-
-    private func statePickerContent(
-        model:
-            Bindable<ProjectMergeRequestsModel>
-    ) -> some View {
-        Picker(
-            "State",
-            selection: model.selectedState
-        ) {
-            ForEach(
+        GitLabLifecycleStatePicker(
+            states:
                 GitLabProjectMergeRequestState
                     .allCases,
-                id: \.self
-            ) { state in
-                Label(
-                    state.title,
-                    systemImage:
-                        state.systemImage
-                )
-                .labelStyle(
-                    .titleAndIcon
-                )
-                .tag(state)
-            }
-        }
+            selection: model.selectedState,
+            title: \.title,
+            systemImage: \.systemImage,
+            tintColor: \.tintColor,
+            accessibilityValue: \.rawValue,
+            accessibilityIdentifier:
+                "projectMergeRequests.state"
+        )
     }
 
     private var emptyMessage: String {

@@ -27,8 +27,6 @@ struct GitLabProjectIssuesView: View {
     @State private var createdIssueRoute:
         GitLabIssueRoute?
     @State private var creationRequestID = 0
-    @Environment(\.dynamicTypeSize)
-    private var dynamicTypeSize
 
     init(
         project: GitLabProject,
@@ -155,36 +153,18 @@ struct GitLabProjectIssuesView: View {
     private func statePicker(
         model: Bindable<ProjectIssuesModel>
     ) -> some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                statePickerContent(model: model)
-                    .pickerStyle(.menu)
-                    .frame(minHeight: 44)
-            } else {
-                statePickerContent(model: model)
-                    .pickerStyle(.segmented)
-            }
-        }
-        .accessibilityIdentifier(
-            "projectIssues.statePicker"
+        GitLabLifecycleStatePicker(
+            states:
+                GitLabProjectIssueState
+                    .allCases,
+            selection: model.selectedState,
+            title: \.title,
+            systemImage: \.systemImage,
+            tintColor: \.tintColor,
+            accessibilityValue: \.rawValue,
+            accessibilityIdentifier:
+                "projectIssues.state"
         )
-    }
-
-    private func statePickerContent(
-        model: Bindable<ProjectIssuesModel>
-    ) -> some View {
-        Picker(
-            "State",
-            selection: model.selectedState
-        ) {
-            ForEach(
-                GitLabProjectIssueState.allCases,
-                id: \.self
-            ) { state in
-                Text(state.title)
-                    .tag(state)
-            }
-        }
     }
 
     private var emptyMessage: String {
@@ -274,5 +254,16 @@ struct GitLabProjectIssuesView: View {
             onResourceEdited:
                 reconcileEditedResource
         )
+    }
+}
+
+private extension GitLabProjectIssueState {
+    var tintColor: Color {
+        switch self {
+        case .opened:
+            .green
+        case .closed:
+            .purple
+        }
     }
 }
