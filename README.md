@@ -7,6 +7,8 @@ focused, dense workflows of the GitHub iOS app.
 Glab is an independent project and is not affiliated with, endorsed by, or
 sponsored by GitLab.
 
+[![Join the Glab beta on TestFlight](https://img.shields.io/badge/TestFlight-Join_the_Beta-0D96F6?logo=testflight&logoColor=white)](https://testflight.apple.com/join/bXG8kPeS)
+
 ## Current status
 
 Glab is under active MVP development. The current app includes:
