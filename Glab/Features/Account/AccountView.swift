@@ -28,6 +28,7 @@ struct AccountView: View {
                 notificationsSection
                 accountSection
                 privacySection
+                removeCurrentAccountSection
 
                 if session.apiAccess == .readOnly {
                     readOnlySection
@@ -50,9 +51,6 @@ struct AccountView: View {
                     .disabled(isPerformingAccountAction)
                     .accessibilityIdentifier("account.doneButton")
                 }
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                removeCurrentAccountButton
             }
             .alert(
                 removalTitle,
@@ -340,6 +338,21 @@ struct AccountView: View {
         }
     }
 
+    private var removeCurrentAccountSection: some View {
+        Section {
+            removeCurrentAccountButton
+                .listRowInsets(
+                    EdgeInsets(
+                        top: 4,
+                        leading: 0,
+                        bottom: 4,
+                        trailing: 0
+                    )
+                )
+                .listRowBackground(Color.clear)
+        }
+    }
+
     private var appFooter: some View {
         Section {
             GlabAppFooter()
@@ -404,17 +417,12 @@ struct AccountView: View {
             .frame(maxWidth: .infinity)
             .frame(minHeight: 30)
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.glass)
         .controlSize(.large)
-        .tint(.red)
         .disabled(
             isPerformingAccountAction
                 || currentAccount == nil
         )
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
-        .background(.bar)
         .accessibilityIdentifier("account.signOutButton")
     }
 
