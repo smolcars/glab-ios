@@ -54,6 +54,8 @@ final class AppSession {
         AuthenticationNotice?
     private(set) var accounts:
         [GitLabAccountSummary] = []
+    private(set) var committedAccountIDs:
+        [GitLabAccountID] = []
     private(set) var activeAccountID:
         GitLabAccountID?
 
@@ -334,7 +336,10 @@ final class AppSession {
             throw .corruptData
         }
 
-        publish(updatedIndex)
+        publish(
+            updatedIndex,
+            commitsAccountList: false
+        )
         if previousIndex.activeAccountID == accountID {
             state = .restoring
         }
@@ -348,6 +353,7 @@ final class AppSession {
             }
         } catch {
             guard isCurrent(transition) else {
+                commitRemoval(of: accountID)
                 return
             }
             try? accountIndexStore.save(
@@ -357,6 +363,8 @@ final class AppSession {
             state = previousState
             throw error
         }
+
+        commitRemoval(of: accountID)
 
         if !accounts.contains(where: { $0.id == accountID }) {
             await purgeCaches(
@@ -533,10 +541,33 @@ final class AppSession {
     }
 
     private func publish(
-        _ index: GitLabAccountIndex
+        _ index: GitLabAccountIndex,
+        commitsAccountList: Bool = true
     ) {
         accounts = index.accounts
         activeAccountID = index.activeAccountID
+        if commitsAccountList {
+            commitPublishedAccountList()
+        }
+    }
+
+    private func commitPublishedAccountList() {
+        committedAccountIDs = accounts.map(\.id)
+    }
+
+    private func commitRemoval(
+        of accountID: GitLabAccountID
+    ) {
+        guard
+            !accounts.contains(
+                where: { $0.id == accountID }
+            )
+        else {
+            return
+        }
+        committedAccountIDs.removeAll {
+            $0 == accountID
+        }
     }
 
     private func purgeCaches(

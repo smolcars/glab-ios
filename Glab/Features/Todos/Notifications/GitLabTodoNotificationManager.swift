@@ -173,12 +173,6 @@ final class GitLabTodoNotificationManager {
         }
     }
 
-    func removeAccount(
-        _ accountID: GitLabAccountID
-    ) async {
-        await disable(for: accountID)
-    }
-
     func scheduleRefresh() {
         guard store.hasEnabledAccounts else {
             cancelRefresh()
@@ -216,11 +210,11 @@ final class GitLabTodoNotificationManager {
             await appSession.restore()
         }
         await reconcileAccounts(
-            appSession.accounts.map(\.id)
+            appSession.committedAccountIDs
         )
         await refresh(
             accountIDs:
-                appSession.accounts.map(\.id),
+                appSession.committedAccountIDs,
             appSession: appSession
         )
     }

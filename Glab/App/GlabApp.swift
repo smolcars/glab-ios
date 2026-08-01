@@ -59,8 +59,8 @@ struct GlabApp: App {
                         .refreshAuthorization()
                     await todoNotificationManager
                         .reconcileAccounts(
-                            appSession.accounts
-                                .map(\.id)
+                            appSession
+                                .committedAccountIDs
                         )
                 }
                 .onChange(of: scenePhase) {
@@ -73,8 +73,8 @@ struct GlabApp: App {
                 }
                 .onChange(
                     of:
-                        appSession.accounts
-                            .map(\.id)
+                        appSession
+                            .committedAccountIDs
                 ) { _, accountIDs in
                     Task {
                         await todoNotificationManager

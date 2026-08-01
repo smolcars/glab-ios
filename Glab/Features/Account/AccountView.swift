@@ -529,8 +529,6 @@ struct AccountView: View {
                 try await appSession.removeAccount(
                     account.id
                 )
-                await todoNotificationManager
-                    .removeAccount(account.id)
                 pendingRemoval = nil
                 isPerformingAccountAction = false
             } catch {
