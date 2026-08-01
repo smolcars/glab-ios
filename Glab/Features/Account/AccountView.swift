@@ -41,7 +41,7 @@ struct AccountView: View {
                     .accessibilityIdentifier("account.doneButton")
                 }
             }
-            .safeAreaInset(edge: .bottom) {
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 removeCurrentAccountButton
             }
             .alert(
@@ -254,7 +254,7 @@ struct AccountView: View {
             .frame(maxWidth: .infinity)
             .frame(minHeight: 30)
         }
-        .buttonStyle(.glass)
+        .buttonStyle(.borderedProminent)
         .controlSize(.large)
         .tint(.red)
         .disabled(
@@ -262,7 +262,9 @@ struct AccountView: View {
                 || currentAccount == nil
         )
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(.bar)
         .accessibilityIdentifier("account.signOutButton")
     }
 
