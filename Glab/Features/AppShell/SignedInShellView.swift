@@ -499,6 +499,9 @@ struct SignedInShellView: View {
             mentionService
         )
         .accessibilityIdentifier("signedIn.tabView")
+        .task(id: accountID) {
+            await loadPendingTodoBadge()
+        }
         .task(
             id: incomingLinkModel.decision
         ) {
@@ -527,6 +530,20 @@ struct SignedInShellView: View {
                     ?? ""
             )
         }
+    }
+
+    private func loadPendingTodoBadge() async {
+        await todosModel.loadIfNeeded()
+        guard
+            !Task.isCancelled,
+            let error = todosModel.authenticationFailure
+        else {
+            return
+        }
+        await appSession.handleAuthenticationFailure(
+            error,
+            for: accountID
+        )
     }
 
     private func handleTodoNotificationRoute()
