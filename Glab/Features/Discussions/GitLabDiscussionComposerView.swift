@@ -118,6 +118,17 @@ struct GitLabDiscussionComposerView: View {
                         "discussion.composer.send"
                     )
                 }
+
+                ToolbarItemGroup(
+                    placement: .keyboard
+                ) {
+                    if editorIsFocused {
+                        Spacer()
+                        GitLabKeyboardDismissButton {
+                            editorIsFocused = false
+                        }
+                    }
+                }
             }
             .task {
                 await model.restoreDraft()

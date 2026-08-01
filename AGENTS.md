@@ -7,6 +7,7 @@
 - Use liquid glass as much as possible for things.
 - Keep UI compact: minimize occupied screen space, group related controls into
   a single pill, and omit text when an icon is already clear.
+- Keep keyboard behavior native: use semantic Return keys for single-line inputs and a compact keyboard-dismiss toolbar button for multiline or Return-less keyboards, with interactive scroll dismissal where appropriate.
 - Use the ios simulator to test your changes for yourself after you build them.
 - Run the simulator and look at the UI and see if the UI looks good and not broken and tap around to test.
 - Always use the gitlab API documentation as the source of truth.
