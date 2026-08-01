@@ -99,6 +99,8 @@ struct SignedInShellView: View {
         any GitLabMarkdownRendering
     private let markdownImageLoader:
         any GitLabMarkdownImageLoading
+    private let avatarImageLoader:
+        any GitLabAvatarImageLoading
     private let diffRenderer:
         any GitLabDiffRendering
 
@@ -244,17 +246,32 @@ struct SignedInShellView: View {
                     session.credential
                         .authorization
             )
+        let imageTransport =
+            URLSessionGitLabMarkdownImageTransport(
+                requestPolicy: imageRequestPolicy
+            )
         markdownImageLoader =
             GitLabMarkdownImageLoader(
                 accountID: accountID,
                 requestPolicy:
                     imageRequestPolicy,
-                transport:
-                    URLSessionGitLabMarkdownImageTransport(
-                        requestPolicy:
-                            imageRequestPolicy
-                    )
+                transport: imageTransport
             )
+        let avatarBackingLoader =
+            GitLabMarkdownImageLoader(
+                accountID: accountID,
+                requestPolicy: imageRequestPolicy,
+                transport: imageTransport,
+                persistentResponseCache:
+                    appSession.avatarResponseCache,
+                persistentCachePolicy: .profile,
+                persistentCacheVariant: "avatar",
+                maximumImageCount: 64
+            )
+        avatarImageLoader = GitLabAvatarImageLoader(
+            accountID: accountID,
+            imageLoader: avatarBackingLoader
+        )
         _homeDashboardModel = State(
             initialValue: HomeDashboardModel(
                 loader: LiveHomeDashboardLoader(
@@ -433,6 +450,10 @@ struct SignedInShellView: View {
             markdownImageLoader
         )
         .environment(
+            \.gitLabAvatarImageLoader,
+            avatarImageLoader
+        )
+        .environment(
             \.gitLabMarkdownLinkHandler,
             GitLabMarkdownLinkHandler {
                 url in
@@ -478,6 +499,9 @@ struct SignedInShellView: View {
             mentionService
         )
         .accessibilityIdentifier("signedIn.tabView")
+        .task(id: accountID) {
+            await loadPendingTodoBadge()
+        }
         .task(
             id: incomingLinkModel.decision
         ) {
@@ -506,6 +530,20 @@ struct SignedInShellView: View {
                     ?? ""
             )
         }
+    }
+
+    private func loadPendingTodoBadge() async {
+        await todosModel.loadIfNeeded()
+        guard
+            !Task.isCancelled,
+            let error = todosModel.authenticationFailure
+        else {
+            return
+        }
+        await appSession.handleAuthenticationFailure(
+            error,
+            for: accountID
+        )
     }
 
     private func handleTodoNotificationRoute()

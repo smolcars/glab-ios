@@ -123,6 +123,11 @@ nonisolated struct GitLabResponseCachePolicy:
 }
 
 nonisolated extension GitLabResponseCachePolicy {
+    static let profile = Self(
+        freshFor: 24 * 60 * 60,
+        maximumAge: 30 * 24 * 60 * 60
+    )
+
     static let home = Self(
         freshFor: 60,
         maximumAge: 24 * 60 * 60

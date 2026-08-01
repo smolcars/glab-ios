@@ -596,27 +596,59 @@ struct AccountView: View {
     }
 }
 
+private struct GitLabAvatarImageLoaderEnvironmentKey:
+    EnvironmentKey
+{
+    static let defaultValue:
+        any GitLabAvatarImageLoading =
+            UnavailableGitLabAvatarImageLoader()
+}
+
+extension EnvironmentValues {
+    var gitLabAvatarImageLoader:
+        any GitLabAvatarImageLoading
+    {
+        get {
+            self[
+                GitLabAvatarImageLoaderEnvironmentKey
+                    .self
+            ]
+        }
+        set {
+            self[
+                GitLabAvatarImageLoaderEnvironmentKey
+                    .self
+            ] = newValue
+        }
+    }
+}
+
 struct GitLabUserAvatar: View {
+    private struct LoadIdentity: Hashable {
+        let url: URL
+        let targetPixelWidth: Int
+    }
+
     let user: GitLabUserSummary
     let size: CGFloat
 
+    @Environment(\.displayScale)
+    private var displayScale
+    @Environment(\.gitLabAvatarImageLoader)
+    private var imageLoader
+    @State private var image:
+        GitLabMarkdownDecodedImage?
+
     var body: some View {
         Group {
-            if let avatarURL = user.avatarURL {
-                AsyncImage(url: avatarURL) { phase in
-                    switch phase {
-                    case let .success(image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .empty:
-                        ProgressView()
-                    case .failure:
-                        fallback
-                    @unknown default:
-                        fallback
-                    }
-                }
+            if let image {
+                Image(
+                    image.cgImage,
+                    scale: displayScale,
+                    label: Text(user.displayName)
+                )
+                .resizable()
+                .scaledToFill()
             } else {
                 fallback
             }
@@ -629,6 +661,9 @@ struct GitLabUserAvatar: View {
                 .strokeBorder(.separator.opacity(0.35))
         }
         .accessibilityHidden(true)
+        .task(id: loadIdentity) {
+            await loadImage()
+        }
     }
 
     private var fallback: some View {
@@ -636,5 +671,45 @@ struct GitLabUserAvatar: View {
             .font(.system(size: size * 0.4, weight: .semibold))
             .foregroundStyle(.orange)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var loadIdentity: LoadIdentity? {
+        guard let url = user.avatarURL else {
+            return nil
+        }
+        return LoadIdentity(
+            url: url,
+            targetPixelWidth: max(
+                1,
+                Int(
+                    (size * displayScale)
+                        .rounded(.up)
+                )
+            )
+        )
+    }
+
+    private func loadImage() async {
+        guard let loadIdentity else {
+            image = nil
+            return
+        }
+
+        do {
+            let loaded = try await imageLoader.image(
+                at: loadIdentity.url,
+                targetPixelWidth:
+                    loadIdentity.targetPixelWidth
+            )
+            guard !Task.isCancelled else {
+                return
+            }
+            image = loaded
+        } catch {
+            guard !Task.isCancelled else {
+                return
+            }
+            image = nil
+        }
     }
 }

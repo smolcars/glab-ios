@@ -93,7 +93,7 @@ nonisolated struct LiveHomeDashboardLoader:
         do {
             try await client.loadResponse(
                 HomeDashboardEndpoints.currentUser,
-                cachePolicy: .home,
+                cachePolicy: .profile,
                 refreshBehavior: refreshBehavior
             ) {
                 await onUpdate(

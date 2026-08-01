@@ -61,6 +61,8 @@ final class AppSession {
 
     let credentialStore: any GitLabCredentialStore
     let responseCache: any GitLabResponseCaching
+    let avatarResponseCache:
+        any GitLabResponseCaching
     let jobTraceStore:
         any GitLabJobTraceStoring
     let discussionDraftStore:
@@ -90,6 +92,9 @@ final class AppSession {
                 InMemoryGitLabAccountIndexStore(),
         responseCache: any GitLabResponseCaching =
             InMemoryGitLabResponseCache(),
+        avatarResponseCache:
+            any GitLabResponseCaching =
+                InMemoryGitLabResponseCache(),
         jobTraceStore:
             any GitLabJobTraceStoring =
                 InMemoryGitLabJobTraceStore(),
@@ -107,6 +112,8 @@ final class AppSession {
         self.credentialStore = credentialStore
         self.accountIndexStore = accountIndexStore
         self.responseCache = responseCache
+        self.avatarResponseCache =
+            avatarResponseCache
         self.jobTraceStore = jobTraceStore
         self.discussionDraftStore =
             discussionDraftStore
@@ -575,6 +582,12 @@ final class AppSession {
         cancelIfAccountReturns: Bool = false
     ) async {
         await responseCache.removeAll(
+            for: GitLabCacheAccount(
+                host: accountID.host,
+                userID: accountID.userID
+            )
+        )
+        await avatarResponseCache.removeAll(
             for: GitLabCacheAccount(
                 host: accountID.host,
                 userID: accountID.userID

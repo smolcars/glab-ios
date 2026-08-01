@@ -28,6 +28,16 @@ struct HomeDashboardLoaderTests {
         let receivedUpdates = await updates.updates
         #expect(receivedUpdates.count >= 10)
         #expect(
+            await client.cachePolicies.filter {
+                $0 == .profile
+            }.count == 1
+        )
+        #expect(
+            await client.cachePolicies.filter {
+                $0 == .home
+            }.count == 7
+        )
+        #expect(
             receivedUpdates.contains {
                 if case .user(.success) = $0 {
                     true
@@ -69,6 +79,8 @@ private extension HomeDashboardLoaderTests {
         private(set) var requestCount = 0
         private(set) var refreshBehaviors:
             [GitLabCacheRefreshBehavior] = []
+        private(set) var cachePolicies:
+            [GitLabResponseCachePolicy] = []
         private var isReleased = false
 
         func send<Response>(
@@ -105,6 +117,7 @@ private extension HomeDashboardLoaderTests {
         ) async throws(GitLabSessionClientError) {
             requestCount += 1
             refreshBehaviors.append(refreshBehavior)
+            cachePolicies.append(cachePolicy)
             await onResponse(
                 GitLabAPIResponseEvent(
                     value: response(for: Response.self),

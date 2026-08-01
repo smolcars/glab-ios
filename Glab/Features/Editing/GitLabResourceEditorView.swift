@@ -10,6 +10,11 @@ private enum GitLabResourceEditorMode:
 }
 
 struct GitLabResourceEditorView: View {
+    private enum Field: Hashable {
+        case title
+        case description
+    }
+
     let model: GitLabResourceEditorModel
     let accountID: GitLabAccountID
     let appSession: AppSession
@@ -20,7 +25,7 @@ struct GitLabResourceEditorView: View {
     private var dynamicTypeSize
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
-    @FocusState private var titleIsFocused: Bool
+    @FocusState private var focusedField: Field?
     @State private var mode =
         GitLabResourceEditorMode.edit
     @State private var
@@ -67,7 +72,7 @@ struct GitLabResourceEditorView: View {
                     placement: .confirmationAction
                 ) {
                     Button("Save") {
-                        titleIsFocused = false
+                        focusedField = nil
                         Task {
                             await model.save()
                         }
@@ -83,6 +88,17 @@ struct GitLabResourceEditorView: View {
                     .accessibilityHint(
                         saveAccessibilityHint
                     )
+                }
+
+                ToolbarItemGroup(
+                    placement: .keyboard
+                ) {
+                    if focusedField == .description {
+                        Spacer()
+                        GitLabKeyboardDismissButton {
+                            focusedField = nil
+                        }
+                    }
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -123,7 +139,7 @@ struct GitLabResourceEditorView: View {
                 guard !Task.isCancelled else {
                     return
                 }
-                titleIsFocused = true
+                focusedField = .title
             }
             .onDisappear {
                 Task {
@@ -172,8 +188,14 @@ struct GitLabResourceEditorView: View {
             .textFieldStyle(.roundedBorder)
             .font(.headline)
             .lineLimit(1...4)
-            .focused($titleIsFocused)
+            .focused(
+                $focusedField,
+                equals: .title
+            )
             .submitLabel(.done)
+            .onSubmit {
+                focusedField = nil
+            }
             .disabled(
                 !model.wrappedValue.canEdit
             )
@@ -271,6 +293,10 @@ struct GitLabResourceEditorView: View {
                     .padding(12)
                     .scrollContentBackground(
                         .hidden
+                    )
+                    .focused(
+                        $focusedField,
+                        equals: .description
                     )
                     .background(
                         Color(
@@ -648,7 +674,7 @@ struct GitLabResourceEditorView: View {
     }
 
     private func cancelOrClose() {
-        titleIsFocused = false
+        focusedField = nil
         guard model.operation == nil else {
             model.cancelActiveOperation()
             return

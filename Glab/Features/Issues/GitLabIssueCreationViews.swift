@@ -84,9 +84,11 @@ struct GitLabIssueCreationView: View {
                 ToolbarItemGroup(
                     placement: .keyboard
                 ) {
-                    Spacer()
-                    Button("Done") {
-                        focusedField = nil
+                    if focusedField == .description {
+                        Spacer()
+                        GitLabKeyboardDismissButton {
+                            focusedField = nil
+                        }
                     }
                 }
             }

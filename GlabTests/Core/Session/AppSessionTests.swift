@@ -108,6 +108,22 @@ struct AppSessionTests {
             makeCachedResponse(),
             for: cacheKey
         )
+        let avatarCache = InMemoryGitLabResponseCache()
+        let avatarKey = GitLabResponseCacheKey(
+            account: GitLabCacheAccount(
+                session: storedSession
+            ),
+            requestURL: try #require(
+                URL(
+                    string:
+                        "https://gitlab.example.com/avatar.png"
+                )
+            )
+        )
+        try await avatarCache.store(
+            makeCachedResponse(),
+            for: avatarKey
+        )
         let traceStore =
             RecordingGitLabJobTraceStore()
         let appSession = AppSession(
@@ -119,6 +135,7 @@ struct AppSessionTests {
                 for: storedSession
             ),
             responseCache: cache,
+            avatarResponseCache: avatarCache,
             jobTraceStore: traceStore,
             currentDate: { now }
         )
@@ -131,6 +148,11 @@ struct AppSessionTests {
                 == .expiredOrRevoked
         )
         #expect(await cache.response(for: cacheKey) == nil)
+        #expect(
+            await avatarCache.response(
+                for: avatarKey
+            ) == nil
+        )
         #expect(
             await traceStore.removedAccountIDs
                 == [
