@@ -99,6 +99,8 @@ struct SignedInShellView: View {
         any GitLabMarkdownRendering
     private let markdownImageLoader:
         any GitLabMarkdownImageLoading
+    private let avatarImageLoader:
+        any GitLabAvatarImageLoading
     private let diffRenderer:
         any GitLabDiffRendering
 
@@ -244,17 +246,32 @@ struct SignedInShellView: View {
                     session.credential
                         .authorization
             )
+        let imageTransport =
+            URLSessionGitLabMarkdownImageTransport(
+                requestPolicy: imageRequestPolicy
+            )
         markdownImageLoader =
             GitLabMarkdownImageLoader(
                 accountID: accountID,
                 requestPolicy:
                     imageRequestPolicy,
-                transport:
-                    URLSessionGitLabMarkdownImageTransport(
-                        requestPolicy:
-                            imageRequestPolicy
-                    )
+                transport: imageTransport
             )
+        let avatarBackingLoader =
+            GitLabMarkdownImageLoader(
+                accountID: accountID,
+                requestPolicy: imageRequestPolicy,
+                transport: imageTransport,
+                persistentResponseCache:
+                    appSession.avatarResponseCache,
+                persistentCachePolicy: .profile,
+                persistentCacheVariant: "avatar",
+                maximumImageCount: 64
+            )
+        avatarImageLoader = GitLabAvatarImageLoader(
+            accountID: accountID,
+            imageLoader: avatarBackingLoader
+        )
         _homeDashboardModel = State(
             initialValue: HomeDashboardModel(
                 loader: LiveHomeDashboardLoader(
@@ -431,6 +448,10 @@ struct SignedInShellView: View {
         .environment(
             \.gitLabMarkdownImageLoader,
             markdownImageLoader
+        )
+        .environment(
+            \.gitLabAvatarImageLoader,
+            avatarImageLoader
         )
         .environment(
             \.gitLabMarkdownLinkHandler,

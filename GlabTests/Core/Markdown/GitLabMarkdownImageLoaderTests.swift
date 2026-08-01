@@ -338,6 +338,58 @@ struct GitLabMarkdownImageLoaderTests {
         #expect(await loader.cacheDecodedCost <= 1_024)
     }
 
+    @Test("Restores a fresh image from the persistent response cache")
+    func persistentCache() async throws {
+        let now = Date(
+            timeIntervalSince1970: 10_000
+        )
+        let persistentCache =
+            InMemoryGitLabResponseCache()
+        let networkTransport =
+            ControlledMarkdownImageTransport(
+                result: .success(
+                    response(
+                        data: pngData,
+                        contentType: "image/png"
+                    )
+                )
+            )
+        let firstLoader = try makeLoader(
+            transport: networkTransport,
+            persistentResponseCache:
+                persistentCache,
+            persistentCachePolicy: .profile,
+            currentDate: { now }
+        )
+
+        _ = try await firstLoader.image(request())
+        #expect(await networkTransport.callCount == 1)
+
+        let unavailableTransport =
+            ControlledMarkdownImageTransport(
+                result: .failure(
+                    GitLabMarkdownImageError
+                        .networkFailure
+                )
+            )
+        let restoredLoader = try makeLoader(
+            transport: unavailableTransport,
+            persistentResponseCache:
+                persistentCache,
+            persistentCachePolicy: .profile,
+            currentDate: {
+                now.addingTimeInterval(60 * 60)
+            }
+        )
+
+        let restored = try await restoredLoader.image(
+            request()
+        )
+
+        #expect(restored.pixelWidth == 1)
+        #expect(await unavailableTransport.callCount == 0)
+    }
+
     @Test("Coalesces identical requests and cancels the last waiter")
     func coalescingAndCancellation() async throws {
         let transport =
@@ -471,7 +523,13 @@ struct GitLabMarkdownImageLoaderTests {
         maximumDecodedCost: Int =
             24 * 1_024 * 1_024,
         maximumDownloadByteCount: Int =
-            5 * 1_024 * 1_024
+            5 * 1_024 * 1_024,
+        persistentResponseCache:
+            (any GitLabResponseCaching)? = nil,
+        persistentCachePolicy:
+            GitLabResponseCachePolicy? = nil,
+        currentDate:
+            @escaping @Sendable () -> Date = Date.init
     ) throws -> GitLabMarkdownImageLoader {
         let host = try GitLabHost(
             "https://gitlab.example.com"
@@ -490,12 +548,18 @@ struct GitLabMarkdownImageLoaderTests {
                         )
                 ),
             transport: transport,
+            persistentResponseCache:
+                persistentResponseCache,
+            persistentCachePolicy:
+                persistentCachePolicy,
+            persistentCacheVariant: "test-image",
             maximumImageCount:
                 maximumImageCount,
             maximumDecodedCost:
                 maximumDecodedCost,
             maximumDownloadByteCount:
-                maximumDownloadByteCount
+                maximumDownloadByteCount,
+            currentDate: currentDate
         )
     }
 

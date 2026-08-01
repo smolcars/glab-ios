@@ -10,6 +10,17 @@ struct GlabApp: App {
         accountIndexStore:
             UserDefaultsGitLabAccountIndexStore(),
         responseCache: FileGitLabResponseCache(),
+        avatarResponseCache:
+            FileGitLabResponseCache(
+                rootDirectory:
+                    URL.cachesDirectory
+                    .appending(
+                        path:
+                            "GlabGitLabAvatarCache",
+                        directoryHint:
+                            .isDirectory
+                    )
+            ),
         jobTraceStore:
             FileGitLabJobTraceStore(),
         discussionDraftStore:

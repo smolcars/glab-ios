@@ -499,6 +499,13 @@ actor GitLabMarkdownImageLoader:
         GitLabMarkdownImageRequestPolicy
     private let transport:
         any GitLabMarkdownImageTransport
+    private let persistentResponseCache:
+        (any GitLabResponseCaching)?
+    private let persistentCachePolicy:
+        GitLabResponseCachePolicy?
+    private let persistentCacheVariant: String?
+    private let currentDate:
+        @Sendable () -> Date
     private let maximumImageCount: Int
     private let maximumDecodedCost: Int
     private let maximumDownloadByteCount: Int
@@ -517,12 +524,19 @@ actor GitLabMarkdownImageLoader:
             GitLabMarkdownImageRequestPolicy,
         transport:
             any GitLabMarkdownImageTransport,
+        persistentResponseCache:
+            (any GitLabResponseCaching)? = nil,
+        persistentCachePolicy:
+            GitLabResponseCachePolicy? = nil,
+        persistentCacheVariant: String? = nil,
         maximumImageCount: Int = 24,
         maximumDecodedCost: Int =
             24 * 1_024 * 1_024,
         maximumDownloadByteCount: Int =
             5 * 1_024 * 1_024,
         maximumPixelCount: Int = 16_000_000,
+        currentDate:
+            @escaping @Sendable () -> Date = Date.init,
         decoder: @escaping Decoder =
             GitLabMarkdownImageDecoder.decode
     ) {
@@ -533,6 +547,12 @@ actor GitLabMarkdownImageLoader:
         self.accountID = accountID
         self.requestPolicy = requestPolicy
         self.transport = transport
+        self.persistentResponseCache =
+            persistentResponseCache
+        self.persistentCachePolicy =
+            persistentCachePolicy
+        self.persistentCacheVariant =
+            persistentCacheVariant
         self.maximumImageCount =
             maximumImageCount
         self.maximumDecodedCost =
@@ -541,6 +561,7 @@ actor GitLabMarkdownImageLoader:
             maximumDownloadByteCount
         self.maximumPixelCount =
             maximumPixelCount
+        self.currentDate = currentDate
         self.decoder = decoder
     }
 
@@ -656,6 +677,15 @@ actor GitLabMarkdownImageLoader:
                     maximumPixelCount:
                         maximumPixelCount,
                     transport: transport,
+                    persistentResponseCache:
+                        persistentResponseCache,
+                    persistentCacheKey:
+                        persistentCacheKey(
+                            for: key.url
+                        ),
+                    persistentCachePolicy:
+                        persistentCachePolicy,
+                    currentDate: currentDate,
                     decoder: decoder
                 )
             },
@@ -666,14 +696,60 @@ actor GitLabMarkdownImageLoader:
     }
 
     private static func load(
-        request: URLRequest,
+        request originalRequest: URLRequest,
         targetPixelWidth: Int,
         maximumDownloadByteCount: Int,
         maximumPixelCount: Int,
         transport:
             any GitLabMarkdownImageTransport,
+        persistentResponseCache:
+            (any GitLabResponseCaching)?,
+        persistentCacheKey:
+            GitLabResponseCacheKey?,
+        persistentCachePolicy:
+            GitLabResponseCachePolicy?,
+        currentDate:
+            @escaping @Sendable () -> Date,
         decoder: @escaping Decoder
     ) async throws -> GitLabMarkdownDecodedImage {
+        var request = originalRequest
+        var cached: GitLabCachedResponse?
+        if
+            let persistentResponseCache,
+            let persistentCacheKey,
+            let persistentCachePolicy,
+            let stored = await persistentResponseCache
+                .response(for: persistentCacheKey)
+        {
+            switch stored.freshness(
+                at: currentDate(),
+                policy: persistentCachePolicy
+            ) {
+            case .fresh:
+                if let image = try? await decoder(
+                    stored.body,
+                    targetPixelWidth,
+                    maximumPixelCount
+                ) {
+                    return image
+                }
+                await persistentResponseCache.remove(
+                    for: persistentCacheKey
+                )
+            case .stale:
+                cached = stored
+                GitLabConditionalRequestValidators(
+                    entityTag: stored.entityTag,
+                    lastModified: stored.lastModified
+                )
+                .apply(to: &request)
+            case .expired:
+                await persistentResponseCache.remove(
+                    for: persistentCacheKey
+                )
+            }
+        }
+
         let response:
             GitLabMarkdownImageHTTPResponse
         do {
@@ -690,40 +766,103 @@ actor GitLabMarkdownImageLoader:
             if Task.isCancelled {
                 throw CancellationError()
             }
+            if
+                let cached,
+                let image = try? await decoder(
+                    cached.body,
+                    targetPixelWidth,
+                    maximumPixelCount
+                )
+            {
+                return image
+            }
             throw GitLabMarkdownImageError
                 .networkFailure
         }
         try Task.checkCancellation()
 
-        guard
-            (200...299).contains(
-                response.response.statusCode
+        let body: Data
+        if response.response.statusCode == 304,
+           let cached
+        {
+            body = cached.body
+        } else {
+            guard
+                (200...299).contains(
+                    response.response.statusCode
+                )
+            else {
+                throw GitLabMarkdownImageError
+                    .unsuccessfulResponse
+            }
+            guard
+                let mimeType =
+                    response.response.mimeType?
+                        .lowercased(),
+                mimeType.hasPrefix("image/")
+            else {
+                throw GitLabMarkdownImageError
+                    .invalidContentType
+            }
+            guard
+                response.data.count
+                    <= maximumDownloadByteCount
+            else {
+                throw GitLabMarkdownImageError
+                    .byteLimitExceeded
+            }
+            body = response.data
+        }
+
+        if
+            let persistentResponseCache,
+            let persistentCacheKey
+        {
+            let date = currentDate()
+            try? await persistentResponseCache.store(
+                GitLabCachedResponse(
+                    body: body,
+                    nextPageURL: nil,
+                    totalCount: nil,
+                    entityTag:
+                        response.response.value(
+                            forHTTPHeaderField: "ETag"
+                        ) ?? cached?.entityTag,
+                    lastModified:
+                        response.response.value(
+                            forHTTPHeaderField:
+                                "Last-Modified"
+                        ) ?? cached?.lastModified,
+                    storedAt: date,
+                    lastAccessedAt: date
+                ),
+                for: persistentCacheKey
             )
-        else {
-            throw GitLabMarkdownImageError
-                .unsuccessfulResponse
-        }
-        guard
-            let mimeType =
-                response.response.mimeType?
-                    .lowercased(),
-            mimeType.hasPrefix("image/")
-        else {
-            throw GitLabMarkdownImageError
-                .invalidContentType
-        }
-        guard
-            response.data.count
-                <= maximumDownloadByteCount
-        else {
-            throw GitLabMarkdownImageError
-                .byteLimitExceeded
         }
 
         return try await decoder(
-            response.data,
+            body,
             targetPixelWidth,
             maximumPixelCount
+        )
+    }
+
+    private func persistentCacheKey(
+        for url: URL
+    ) -> GitLabResponseCacheKey? {
+        guard
+            persistentResponseCache != nil,
+            persistentCachePolicy != nil
+        else {
+            return nil
+        }
+        return GitLabResponseCacheKey(
+            account: GitLabCacheAccount(
+                host: accountID.host,
+                userID: accountID.userID
+            ),
+            requestURL: url,
+            variant: persistentCacheVariant
         )
     }
 

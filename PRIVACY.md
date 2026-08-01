@@ -44,10 +44,12 @@ Signing out removes the stored GitLab session and credentials. Non-secret
 self-managed OAuth application configuration may remain as an app preference
 until it is replaced or the app is deleted.
 
-Glab does not intentionally create a persistent offline copy of GitLab API
-response bodies. iOS and its networking components can maintain transient
-system caches. Deleting Glab removes its app container; you can separately
-revoke an OAuth grant or personal access token from your GitLab account.
+Glab keeps a bounded, account-scoped cache of GitLab API responses and avatar
+images in the app's cache directory to improve startup and offline behavior.
+iOS may remove this cache when space is needed, and Glab removes an account's
+cached data when you sign out of that account. Deleting Glab removes its app
+container; you can separately revoke an OAuth grant or personal access token
+from your GitLab account.
 
 If you enable new Todo alerts, iOS may periodically let Glab contact your
 GitLab instance directly in the background. Glab stores the per-account opt-in,
