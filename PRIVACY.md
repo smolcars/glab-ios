@@ -49,6 +49,13 @@ response bodies. iOS and its networking components can maintain transient
 system caches. Deleting Glab removes its app container; you can separately
 revoke an OAuth grant or personal access token from your GitLab account.
 
+If you enable new Todo alerts, iOS may periodically let Glab contact your
+GitLab instance directly in the background. Glab stores the per-account opt-in,
+an opaque account key, and previously observed Todo IDs in its local app
+container so old Todos are not reported as new. Alert text is generic and is
+scheduled locally through iOS; no Glab-operated server or Apple Push
+Notification service receives your GitLab credentials or Todo content.
+
 Glab cannot delete information held by a GitLab instance because the project
 does not control that service. Use the account and privacy controls supplied
 by your GitLab administrator or GitLab.com for server-side access, correction,

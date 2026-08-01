@@ -70,6 +70,60 @@ struct TodosModelTests {
         )
     }
 
+    @Test("Reports pending Todos loaded in the foreground")
+    func reportsLoadedPendingTodos() async throws {
+        let first = makeTestTodo(id: 1)
+        let second = makeTestTodo(id: 2)
+        let nextPageURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.example.com/api/v4/"
+                    + "todos?page=2"
+            )
+        )
+        let loader = StubTodoLoader(
+            pageResults: [
+                .success(
+                    GitLabTodoPage(
+                        todos: [first],
+                        nextPageURL: nextPageURL,
+                        totalCount: 2
+                    )
+                ),
+                .success(
+                    GitLabTodoPage(
+                        todos: [second],
+                        nextPageURL: nil,
+                        totalCount: 2
+                    )
+                ),
+            ]
+        )
+        var observedIDs: [[Int]] = []
+        let model = TodosModel(
+            loader: loader,
+            mutator: loader,
+            apiAccess: .readWrite,
+            todosDidLoad: {
+                observedIDs.append(
+                    $0.map(\.id)
+                )
+            }
+        )
+
+        await model.loadIfNeeded()
+        await model.loadNextPageIfNeeded(
+            after: try #require(model.todos.last)
+        )
+
+        #expect(
+            observedIDs == [
+                [1],
+                [1, 2],
+            ]
+        )
+    }
+
     @Test("Caches each state and target selection")
     func cachesSelections() async {
         let pending = makeTestTodo(

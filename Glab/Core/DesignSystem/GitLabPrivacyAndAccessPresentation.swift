@@ -70,8 +70,9 @@ nonisolated struct GitLabPrivacyAndAccessPresentation:
 
         dataUseSummary =
             "Glab has no analytics. API requests go to the "
-            + "GitLab instance you choose, and credentials are "
-            + "never attached to avatar images or links opened "
-            + "outside the app."
+            + "GitLab instance you choose, including optional "
+            + "background Todo checks. There is no Glab server, "
+            + "and credentials are never attached to avatar "
+            + "images or links opened outside the app."
     }
 }

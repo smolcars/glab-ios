@@ -95,4 +95,30 @@ struct AppBootstrapTests {
         )
         #expect(!iconFiles.isEmpty)
     }
+
+    @Test("Registers Todo background refresh")
+    func registersTodoBackgroundRefresh() throws {
+        let info = try #require(
+            Bundle.main.infoDictionary
+        )
+        let identifiers = try #require(
+            info[
+                "BGTaskSchedulerPermittedIdentifiers"
+            ] as? [String]
+        )
+        let backgroundModes = try #require(
+            info["UIBackgroundModes"]
+                as? [String]
+        )
+
+        #expect(
+            identifiers.contains(
+                GitLabTodoNotificationManager
+                    .backgroundTaskIdentifier
+            )
+        )
+        #expect(
+            backgroundModes.contains("fetch")
+        )
+    }
 }

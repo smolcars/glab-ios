@@ -3,7 +3,8 @@ import Foundation
 nonisolated enum GitLabTodoEndpoints {
     static func todos(
         state: GitLabTodoState,
-        targetFilter: GitLabTodoTargetFilter
+        targetFilter: GitLabTodoTargetFilter,
+        perPage: Int = 20
     ) -> GitLabAPIRequest<[GitLabTodo]> {
         var query = [
             URLQueryItem(
@@ -17,7 +18,10 @@ nonisolated enum GitLabTodoEndpoints {
             )
         }
         query.append(
-            URLQueryItem(name: "per_page", value: "20")
+            URLQueryItem(
+                name: "per_page",
+                value: String(perPage)
+            )
         )
 
         return .get(

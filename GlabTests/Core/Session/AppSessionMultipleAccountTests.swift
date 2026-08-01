@@ -257,6 +257,10 @@ struct AppSessionMultipleAccountTests {
             appSession.accounts.map(\.id)
                 == [GitLabAccountID(session: second)]
         )
+        #expect(
+            appSession.committedAccountIDs
+                == [GitLabAccountID(session: second)]
+        )
     }
 
     @Test("A missing active credential falls through to the next account")
@@ -453,6 +457,68 @@ struct AppSessionMultipleAccountTests {
             try await credentialStore.load(
                 for: accountID
             ) == replacement
+        )
+        #expect(
+            appSession.committedAccountIDs
+                == [accountID]
+        )
+    }
+
+    @Test("A failed removal does not commit its provisional account list")
+    func failedRemovalKeepsCommittedAccounts() async throws {
+        let session = try makeSession(
+            host: "gitlab.example.com",
+            userID: 1,
+            username: "kept"
+        )
+        let accountID = GitLabAccountID(
+            session: session
+        )
+        let failure =
+            GitLabCredentialStoreError.keychain(
+                status: -50
+            )
+        let credentialStore =
+            GatedDeletionCredentialStore(
+                sessions: [session],
+                gatedAccountID: accountID,
+                deletionError: failure
+            )
+        let appSession = AppSession(
+            credentialStore: credentialStore,
+            accountIndexStore: try makeIndexStore(
+                sessions: [session],
+                active: session
+            )
+        )
+        await appSession.restore()
+
+        let removal = Task {
+            try await appSession.removeAccount(
+                accountID
+            )
+        }
+        await credentialStore
+            .waitUntilDeleteRequested()
+
+        #expect(appSession.accounts.isEmpty)
+        #expect(
+            appSession.committedAccountIDs
+                == [accountID]
+        )
+
+        await credentialStore.finishDeletion()
+        await #expect(throws: failure) {
+            try await removal.value
+        }
+
+        #expect(
+            appSession.accounts.map(\.id)
+                == [accountID]
+        )
+        #expect(
+            appSession.committedAccountIDs
+                == [accountID]
         )
     }
 

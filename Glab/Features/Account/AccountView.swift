@@ -1,21 +1,31 @@
 import SwiftUI
+import UIKit
 
 struct AccountView: View {
     let session: GitLabStoredSession
     let appSession: AppSession
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(GitLabTodoNotificationManager.self)
+    private var todoNotificationManager
     @State private var showsAddAccount = false
     @State private var pendingRemoval:
         GitLabAccountSummary?
     @State private var isPerformingAccountAction = false
     @State private var accountActionError: String?
+    @State private var isUpdatingNotifications = false
+    @State private var showsNotificationSettingsAlert =
+        false
+    @State private var notificationError: String?
 
     var body: some View {
         NavigationStack {
             List {
                 profileSection
                 accountsSection
+                notificationsSection
                 accountSection
                 privacySection
 
@@ -66,6 +76,44 @@ struct AccountView: View {
                     appSession: appSession
                 )
                 .presentationDragIndicator(.visible)
+            }
+            .task {
+                await todoNotificationManager
+                    .refreshAuthorization()
+            }
+            .onChange(of: scenePhase) {
+                _, phase in
+                guard phase == .active else {
+                    return
+                }
+                Task {
+                    await todoNotificationManager
+                        .refreshAuthorization()
+                }
+            }
+            .alert(
+                "Notifications Are Off",
+                isPresented:
+                    $showsNotificationSettingsAlert
+            ) {
+                Button("Open Settings") {
+                    openNotificationSettings()
+                }
+                Button("Not Now", role: .cancel) {}
+            } message: {
+                Text(
+                    "Allow notifications in Settings "
+                        + "to receive new Todo alerts."
+                )
+            }
+            .alert(
+                "Couldn’t Update Notifications",
+                isPresented:
+                    notificationErrorIsPresented
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(notificationError ?? "")
             }
         }
     }
@@ -175,6 +223,74 @@ struct AccountView: View {
         }
     }
 
+    private var notificationsSection: some View {
+        Section {
+            Toggle(
+                isOn: todoNotificationsAreEnabled
+            ) {
+                Label(
+                    "New Todo alerts",
+                    systemImage: "bell.badge.fill"
+                )
+            }
+            .disabled(isUpdatingNotifications)
+            .accessibilityIdentifier(
+                "account.todoNotifications"
+            )
+
+            if
+                todoNotificationsEnabled,
+                todoNotificationManager
+                    .authorization == .denied
+            {
+                Button {
+                    openNotificationSettings()
+                } label: {
+                    Label(
+                        "Open Notification Settings",
+                        systemImage: "gear"
+                    )
+                }
+            }
+
+            if isUpdatingNotifications {
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text(
+                        todoNotificationsEnabled
+                            ? "Turning off…"
+                            : "Setting up…"
+                    )
+                    .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("Notifications")
+        } footer: {
+            VStack(
+                alignment: .leading,
+                spacing: 6
+            ) {
+                Text(
+                    "Glab checks for new Todos when "
+                        + "iOS allows. Alerts may be delayed."
+                )
+
+                if
+                    !todoNotificationManager
+                        .backgroundRefreshIsAvailable
+                {
+                    Label(
+                        "Background App Refresh is off.",
+                        systemImage:
+                            "exclamationmark.triangle.fill"
+                    )
+                    .foregroundStyle(.orange)
+                }
+            }
+        }
+    }
+
     private var readOnlySection: some View {
         Section {
             Label {
@@ -230,6 +346,40 @@ struct AccountView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
             .listRowBackground(Color.clear)
+        }
+    }
+
+    private var todoNotificationsEnabled:
+        Bool
+    {
+        todoNotificationManager.isEnabled(
+            for: GitLabAccountID(
+                session: session
+            )
+        )
+    }
+
+    private var todoNotificationsAreEnabled:
+        Binding<Bool>
+    {
+        Binding {
+            todoNotificationsEnabled
+        } set: { isEnabled in
+            updateTodoNotifications(
+                isEnabled
+            )
+        }
+    }
+
+    private var notificationErrorIsPresented:
+        Binding<Bool>
+    {
+        Binding {
+            notificationError != nil
+        } set: { isPresented in
+            if !isPresented {
+                notificationError = nil
+            }
         }
     }
 
@@ -389,6 +539,52 @@ struct AccountView: View {
                 isPerformingAccountAction = false
             }
         }
+    }
+
+    private func updateTodoNotifications(
+        _ isEnabled: Bool
+    ) {
+        guard !isUpdatingNotifications else {
+            return
+        }
+
+        notificationError = nil
+        isUpdatingNotifications = true
+        Task {
+            let result =
+                await todoNotificationManager
+                    .setEnabled(
+                        isEnabled,
+                        for: GitLabAccountID(
+                            session: session
+                        ),
+                        appSession: appSession
+                    )
+            isUpdatingNotifications = false
+
+            switch result {
+            case .enabled:
+                break
+            case .denied:
+                showsNotificationSettingsAlert =
+                    true
+            case let .failed(message):
+                notificationError = message
+            }
+        }
+    }
+
+    private func openNotificationSettings() {
+        guard
+            let url = URL(
+                string:
+                    UIApplication
+                        .openNotificationSettingsURLString
+            )
+        else {
+            return
+        }
+        openURL(url)
     }
 }
 

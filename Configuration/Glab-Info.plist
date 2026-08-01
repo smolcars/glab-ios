@@ -33,6 +33,10 @@
 	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.dunder.glab.todo-notifications</string>
+	</array>
 	<key>GLABGitLabComOAuthApplicationID</key>
 	<string>$(GLAB_GITLAB_COM_OAUTH_APPLICATION_ID)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
@@ -50,6 +54,10 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

@@ -6,7 +6,9 @@ nonisolated func makeTestTodo(
     title: String = "Review authentication changes",
     body: String? = "Please review the token refresh path.",
     state: GitLabTodoState = .pending,
-    targetType: GitLabTodoTargetType = .mergeRequest
+    targetType: GitLabTodoTargetType = .mergeRequest,
+    createdAt: Date =
+        Date(timeIntervalSince1970: 1_785_168_765)
 ) -> GitLabTodo {
     GitLabTodo(
         id: id,
@@ -40,7 +42,7 @@ nonisolated func makeTestTodo(
         ),
         body: body,
         state: state,
-        createdAt: Date(timeIntervalSince1970: 1_785_168_765),
+        createdAt: createdAt,
         updatedAt: Date(timeIntervalSince1970: 1_785_172_400)
     )
 }

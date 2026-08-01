@@ -43,6 +43,24 @@ struct GitLabTodoEndpointTests {
         )
     }
 
+    @Test("Supports the GitLab maximum page size")
+    func buildsMaximumPageSize() throws {
+        let url = try requestURL(
+            GitLabTodoEndpoints.todos(
+                state: .pending,
+                targetFilter: .all,
+                perPage: 100
+            ),
+            access: .read
+        )
+
+        #expect(
+            url.absoluteString
+                == "https://gitlab.example.com/api/v4/"
+                + "todos?state=pending&per_page=100"
+        )
+    }
+
     @Test("Builds the single Todo completion request")
     func buildsMarkDoneRequest() throws {
         let endpoint: GitLabAPIRequest<GitLabTodo> =
