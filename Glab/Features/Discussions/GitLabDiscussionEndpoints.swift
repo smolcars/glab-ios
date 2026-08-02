@@ -147,6 +147,52 @@ nonisolated enum GitLabDiscussionEndpoints {
         )
     }
 
+    static func updateNote(
+        _ noteID: Int,
+        in discussionID: String,
+        for resource: GitLabDiscussionResource,
+        body: GitLabDiscussionCommentBody
+    ) throws -> GitLabAPIRequest<GitLabDiscussionNote> {
+        try .put(
+            path:
+                notePath(
+                    noteID,
+                    in: discussionID,
+                    for: resource
+                ),
+            body: body
+        )
+    }
+
+    static func deleteNote(
+        _ noteID: Int,
+        in discussionID: String,
+        for resource: GitLabDiscussionResource
+    ) -> GitLabAPIRequest<GitLabEmptyResponse> {
+        .delete(
+            requires: .write,
+            path:
+                notePath(
+                    noteID,
+                    in: discussionID,
+                    for: resource
+                )
+        )
+    }
+
+    private static func notePath(
+        _ noteID: Int,
+        in discussionID: String,
+        for resource: GitLabDiscussionResource
+    ) -> [String] {
+        path(for: resource)
+            + [
+                discussionID,
+                "notes",
+                String(noteID),
+            ]
+    }
+
     private static func path(
         for resource: GitLabDiscussionResource
     ) -> [String] {

@@ -97,6 +97,41 @@ nonisolated protocol GitLabDiscussionMutating:
         body: GitLabDiscussionCommentBody
     ) async throws(GitLabDiscussionMutationError)
         -> GitLabDiscussionNote
+
+    func updateNote(
+        _ noteID: Int,
+        in discussionID: String,
+        for resource: GitLabDiscussionResource,
+        body: GitLabDiscussionCommentBody
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussionNote
+
+    func deleteNote(
+        _ noteID: Int,
+        in discussionID: String,
+        for resource: GitLabDiscussionResource
+    ) async throws(GitLabDiscussionMutationError)
+}
+
+extension GitLabDiscussionMutating {
+    func updateNote(
+        _ noteID: Int,
+        in discussionID: String,
+        for resource: GitLabDiscussionResource,
+        body: GitLabDiscussionCommentBody
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussionNote
+    {
+        throw .request(.api(.invalidResponse))
+    }
+
+    func deleteNote(
+        _ noteID: Int,
+        in discussionID: String,
+        for resource: GitLabDiscussionResource
+    ) async throws(GitLabDiscussionMutationError) {
+        throw .request(.api(.invalidResponse))
+    }
 }
 
 extension GitLabDiscussionLoading {
@@ -398,6 +433,85 @@ nonisolated struct LiveGitLabDiscussionService:
             for: resource
         )
         return note
+    }
+
+    @concurrent
+    func updateNote(
+        _ noteID: Int,
+        in discussionID: String,
+        for resource: GitLabDiscussionResource,
+        body: GitLabDiscussionCommentBody
+    ) async throws(GitLabDiscussionMutationError)
+        -> GitLabDiscussionNote
+    {
+        let endpoint:
+            GitLabAPIRequest<GitLabDiscussionNote>
+        do {
+            endpoint =
+                try GitLabDiscussionEndpoints
+                    .updateNote(
+                        noteID,
+                        in: discussionID,
+                        for: resource,
+                        body: body
+                    )
+        } catch {
+            throw .encoding
+        }
+
+        do {
+            let note = try await client.send(
+                endpoint
+            )
+            await invalidateDiscussions(
+                for: resource
+            )
+            return note
+        } catch {
+            if
+                error
+                    .mutationDeliveryCertainty
+                    == .deliveryUnknown
+            {
+                await invalidateDiscussions(
+                    for: resource
+                )
+            }
+            throw .request(error)
+        }
+    }
+
+    @concurrent
+    func deleteNote(
+        _ noteID: Int,
+        in discussionID: String,
+        for resource: GitLabDiscussionResource
+    ) async throws(GitLabDiscussionMutationError) {
+        do {
+            let _: GitLabEmptyResponse =
+                try await client.send(
+                    GitLabDiscussionEndpoints
+                        .deleteNote(
+                            noteID,
+                            in: discussionID,
+                            for: resource
+                        )
+                )
+            await invalidateDiscussions(
+                for: resource
+            )
+        } catch {
+            if
+                error
+                    .mutationDeliveryCertainty
+                    == .deliveryUnknown
+            {
+                await invalidateDiscussions(
+                    for: resource
+                )
+            }
+            throw .request(error)
+        }
     }
 
     private func invalidateDiscussions(

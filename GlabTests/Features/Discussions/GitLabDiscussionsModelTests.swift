@@ -523,6 +523,71 @@ struct GitLabDiscussionsModelTests {
         )
     }
 
+    @Test("Reconciles updated and deleted notes in place")
+    @MainActor
+    func reconcilesNoteMutations() async {
+        let first = makeTestDiscussionNote(
+            id: 101,
+            body: "First"
+        )
+        let second = makeTestDiscussionNote(
+            id: 202,
+            body: "Second"
+        )
+        let discussion = makeTestDiscussion(
+            id: "thread",
+            notes: [first, second]
+        )
+        let model = GitLabDiscussionsModel(
+            resource: resource,
+            loader:
+                StaticDiscussionLoader(
+                    discussions: [discussion],
+                    totalCount: 1
+                )
+        )
+        await model.loadIfNeeded()
+        let updated = makeTestDiscussionNote(
+            id: 202,
+            body: "Second, edited",
+            updatedAt: Date(
+                timeIntervalSince1970: 2_000
+            )
+        )
+
+        #expect(
+            model.reconcileUpdatedNote(
+                updated,
+                discussionID: "thread"
+            )
+        )
+        #expect(
+            model.discussions[0].notes
+                == [first, updated]
+        )
+
+        #expect(
+            model.reconcileDeletedNote(
+                noteID: first.id,
+                discussionID: "thread"
+            )
+        )
+        #expect(
+            model.discussions[0].notes
+                == [updated]
+        )
+        #expect(model.totalItemCount == 1)
+
+        #expect(
+            model.reconcileDeletedNote(
+                noteID: updated.id,
+                discussionID: "thread"
+            )
+        )
+        #expect(model.discussions.isEmpty)
+        #expect(model.totalItemCount == 0)
+    }
+
     @Test("Reconciles composer results through one shared path")
     @MainActor
     func reconcilesComposerResults() async {

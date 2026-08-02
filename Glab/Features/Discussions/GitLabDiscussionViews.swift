@@ -6,6 +6,8 @@ struct GitLabDiscussionSection: View {
     let accountID: GitLabAccountID
     let webURL: URL?
     let apiAccess: GitLabAPIAccess
+    let mutator:
+        (any GitLabDiscussionMutating)?
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
@@ -118,12 +120,14 @@ struct GitLabDiscussionSection: View {
                 discussion in
                 GitLabDiscussionCard(
                     discussion: discussion,
+                    model: model,
                     resource: resource,
                     accountID: accountID,
                     webURL: webURL,
                     markdownRenderer:
                         markdownRenderer,
                     apiAccess: apiAccess,
+                    mutator: mutator,
                     reactionService:
                         reactionService,
                     resolutionModel:
@@ -498,12 +502,15 @@ private struct GitLabActivityEventRow: View {
 
 struct GitLabDiscussionCard: View {
     let discussion: GitLabDiscussion
+    let model: GitLabDiscussionsModel
     let resource: GitLabDiscussionResource
     let accountID: GitLabAccountID
     let webURL: URL?
     let markdownRenderer:
         any GitLabMarkdownRendering
     let apiAccess: GitLabAPIAccess
+    let mutator:
+        (any GitLabDiscussionMutating)?
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
@@ -539,6 +546,8 @@ struct GitLabDiscussionCard: View {
 
                     GitLabDiscussionNoteView(
                         note: note,
+                        discussionID:
+                            discussion.id,
                         replyIndex: index,
                         replyCount:
                             discussion.notes.count,
@@ -548,6 +557,8 @@ struct GitLabDiscussionCard: View {
                         markdownRenderer:
                             markdownRenderer,
                         apiAccess: apiAccess,
+                        mutator: mutator,
+                        model: model,
                         reactionService:
                             reactionService,
                         reply:
@@ -602,6 +613,7 @@ struct GitLabDiscussionCard: View {
 
 private struct GitLabDiscussionNoteView: View {
     let note: GitLabDiscussionNote
+    let discussionID: String
     let replyIndex: Int
     let replyCount: Int
     let resource: GitLabDiscussionResource
@@ -610,6 +622,9 @@ private struct GitLabDiscussionNoteView: View {
     let markdownRenderer:
         any GitLabMarkdownRendering
     let apiAccess: GitLabAPIAccess
+    let mutator:
+        (any GitLabDiscussionMutating)?
+    let model: GitLabDiscussionsModel
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
@@ -618,6 +633,13 @@ private struct GitLabDiscussionNoteView: View {
         String
     let showsResolvedBadge: Bool
     let appSession: AppSession
+
+    @State private var showsEditor = false
+    @State private var
+        showsDeleteConfirmation = false
+    @State private var isDeleting = false
+    @State private var deleteFailure:
+        GitLabDiscussionMutationError?
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -671,6 +693,59 @@ private struct GitLabDiscussionNoteView: View {
         .accessibilityIdentifier(
             "discussion.note.\(note.id)"
         )
+        .sheet(isPresented: $showsEditor) {
+            if let mutator {
+                GitLabDiscussionNoteEditorView(
+                    note: note,
+                    discussionID: discussionID,
+                    resource: resource,
+                    accountID: accountID,
+                    mutator: mutator,
+                    appSession: appSession
+                ) { updatedNote in
+                    model.reconcileUpdatedNote(
+                        updatedNote,
+                        discussionID:
+                            discussionID
+                    )
+                }
+                .presentationDragIndicator(
+                    .visible
+                )
+            }
+        }
+        .confirmationDialog(
+            "Delete comment?",
+            isPresented:
+                $showsDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button(
+                "Delete Comment",
+                role: .destructive
+            ) {
+                deleteComment()
+            }
+
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "This comment will be permanently deleted from GitLab."
+            )
+        }
+        .alert(
+            "Couldn’t delete comment",
+            isPresented:
+                deleteFailureIsPresented
+        ) {
+            Button("OK", role: .cancel) {
+                deleteFailure = nil
+            }
+        } message: {
+            if let deleteFailure {
+                Text(deleteFailure.description)
+            }
+        }
     }
 
     @ViewBuilder
@@ -702,6 +777,10 @@ private struct GitLabDiscussionNoteView: View {
                 )
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(.secondary)
+
+                if canManageComment {
+                    commentActions
+                }
             }
 
             HStack(spacing: 5) {
@@ -715,6 +794,54 @@ private struct GitLabDiscussionNoteView: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var commentActions: some View {
+        if isDeleting {
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 28, height: 28)
+                .accessibilityLabel(
+                    "Deleting comment"
+                )
+        } else {
+            Menu {
+                Button(
+                    "Edit Comment",
+                    systemImage: "pencil"
+                ) {
+                    showsEditor = true
+                }
+
+                Button(
+                    "Delete Comment",
+                    systemImage: "trash",
+                    role: .destructive
+                ) {
+                    showsDeleteConfirmation =
+                        true
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(
+                        .caption
+                            .weight(.bold)
+                    )
+                    .frame(width: 28, height: 28)
+            }
+            .buttonStyle(.glass)
+            .controlSize(.small)
+            .accessibilityLabel(
+                "Comment actions"
+            )
+            .accessibilityHint(
+                "Opens edit and delete actions."
+            )
+            .accessibilityIdentifier(
+                "discussion.note.\(note.id).actions"
+            )
         }
     }
 
@@ -848,6 +975,82 @@ private struct GitLabDiscussionNoteView: View {
             parts.append("Resolved")
         }
         return parts.joined(separator: ", ")
+    }
+
+    private var canManageComment: Bool {
+        apiAccess.canWrite
+            && mutator != nil
+            && !note.isSystem
+            && note.author.id
+                == accountID.userID
+    }
+
+    private var deleteFailureIsPresented:
+        Binding<Bool>
+    {
+        Binding(
+            get: {
+                deleteFailure != nil
+            },
+            set: { isPresented in
+                if !isPresented {
+                    deleteFailure = nil
+                }
+            }
+        )
+    }
+
+    private func deleteComment() {
+        guard
+            canManageComment,
+            !isDeleting,
+            let mutator
+        else {
+            return
+        }
+
+        isDeleting = true
+        deleteFailure = nil
+        Task {
+            defer {
+                isDeleting = false
+            }
+            do {
+                try await mutator.deleteNote(
+                    note.id,
+                    in: discussionID,
+                    for: resource
+                )
+                model.reconcileDeletedNote(
+                    noteID: note.id,
+                    discussionID:
+                        discussionID
+                )
+            } catch let error as GitLabDiscussionMutationError {
+                deleteFailure = error
+                if
+                    error.deliveryCertainty
+                        == .deliveryUnknown
+                {
+                    await model.refresh()
+                }
+                if
+                    let authenticationFailure =
+                        error.authenticationFailure,
+                    authenticationFailure
+                        .requiresReauthentication
+                {
+                    await appSession
+                        .handleAuthenticationFailure(
+                            authenticationFailure,
+                            for: accountID
+                        )
+                }
+            } catch {
+                deleteFailure =
+                    .request(.api(.transport))
+            }
+        }
     }
 }
 

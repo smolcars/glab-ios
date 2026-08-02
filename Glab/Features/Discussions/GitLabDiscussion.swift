@@ -474,6 +474,19 @@ nonisolated struct GitLabDiscussion:
         )
     }
 
+    func removingNote(
+        withID noteID: Int
+    ) -> Self {
+        Self(
+            id: id,
+            individualNote: individualNote,
+            notes:
+                notes.filter {
+                    $0.id != noteID
+                }
+        )
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id
         case individualNote = "individual_note"

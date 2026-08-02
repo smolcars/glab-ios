@@ -824,6 +824,7 @@ private struct DiscussionScrollTestView:
                                 + "group/project/-/merge_requests/7"
                         ),
                         apiAccess: .readOnly,
+                        mutator: nil,
                         reactionService:
                             reactions,
                         resolutionModel: nil,

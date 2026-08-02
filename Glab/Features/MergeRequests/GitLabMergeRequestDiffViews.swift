@@ -700,6 +700,7 @@ private struct GitLabMergeRequestDiffFileView: View {
                 webURL:
                     mergeRequestWebURL,
                 apiAccess: apiAccess,
+                model: discussionModel,
                 mutator:
                     discussionMutator,
                 resolutionModel:
@@ -723,6 +724,7 @@ private struct GitLabMergeRequestDiffFileView: View {
                     webURL:
                         mergeRequestWebURL,
                     apiAccess: apiAccess,
+                    model: discussionModel,
                     mutator:
                         discussionMutator,
                     resolutionModel:

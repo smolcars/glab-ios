@@ -310,6 +310,73 @@ struct GitLabDiscussionEndpointTests {
     }
 
     @Test(
+        "Builds note update endpoints",
+        arguments: noteMutationCases
+    )
+    func buildsNoteUpdateEndpoint(
+        resource: GitLabDiscussionResource,
+        expectedPrefix: [String]
+    ) throws {
+        let body = try GitLabDiscussionCommentBody(
+            "Preserve **Markdown** and @mentions"
+        )
+        let endpoint =
+            try GitLabDiscussionEndpoints
+                .updateNote(
+                    909,
+                    in: "opaque-discussion-id",
+                    for: resource,
+                    body: body
+                )
+
+        #expect(endpoint.method == .put)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(
+            endpoint.pathComponents
+                == expectedPrefix
+                + [
+                    "opaque-discussion-id",
+                    "notes",
+                    "909",
+                ]
+        )
+        #expect(
+            try decodedBody(from: endpoint)
+                == body.body
+        )
+    }
+
+    @Test(
+        "Builds note delete endpoints",
+        arguments: noteMutationCases
+    )
+    func buildsNoteDeleteEndpoint(
+        resource: GitLabDiscussionResource,
+        expectedPrefix: [String]
+    ) {
+        let endpoint =
+            GitLabDiscussionEndpoints
+                .deleteNote(
+                    909,
+                    in: "opaque-discussion-id",
+                    for: resource
+                )
+
+        #expect(endpoint.method == .delete)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(endpoint.body == nil)
+        #expect(
+            endpoint.pathComponents
+                == expectedPrefix
+                + [
+                    "opaque-discussion-id",
+                    "notes",
+                    "909",
+                ]
+        )
+    }
+
+    @Test(
         "Rejects empty comment bodies",
         arguments: [
             "",
@@ -378,4 +445,43 @@ struct GitLabDiscussionEndpointTests {
             object["resolved"]
         )
     }
+
+    nonisolated private static let
+        noteMutationCases: [
+            (
+                resource: GitLabDiscussionResource,
+                expectedPrefix: [String]
+            )
+        ] = [
+            (
+                resource: .issue(
+                    GitLabIssueRoute(
+                        projectID: 42,
+                        issueIID: 7
+                    )
+                ),
+                expectedPrefix: [
+                    "projects",
+                    "42",
+                    "issues",
+                    "7",
+                    "discussions",
+                ]
+            ),
+            (
+                resource: .mergeRequest(
+                    GitLabMergeRequestRoute(
+                        projectID: 99,
+                        mergeRequestIID: 13
+                    )
+                ),
+                expectedPrefix: [
+                    "projects",
+                    "99",
+                    "merge_requests",
+                    "13",
+                    "discussions",
+                ]
+            ),
+        ]
 }

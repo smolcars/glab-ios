@@ -1844,6 +1844,8 @@ private struct GitLabMergeRequestDetailContent: View {
                     webURL:
                         mergeRequest.safeWebURL,
                     apiAccess: apiAccess,
+                    mutator:
+                        discussionMutator,
                     reactionService:
                         reactionService,
                     resolutionModel:
