@@ -316,6 +316,7 @@ nonisolated struct GitLabIssueStatusUpdateGraphQLResponse:
         workItemID expectedWorkItemID: String,
         issueIID expectedIssueIID: Int,
         selectedStatus: GitLabIssueWorkItemStatus,
+        baselineState: GitLabWorkItemState,
         baselineLockVersion: Int
     ) -> GitLabIssueStatusUpdateResult? {
         guard
@@ -338,7 +339,13 @@ nonisolated struct GitLabIssueStatusUpdateGraphQLResponse:
             ),
             let updatedAt = workItem.updatedAt,
             let lockVersion = workItem.lockVersion,
-            lockVersion > baselineLockVersion,
+            // Same-state changes update a separate status record,
+            // leaving the work item's lock version unchanged.
+            lockVersion > baselineLockVersion
+                || (
+                    lockVersion == baselineLockVersion
+                        && state == baselineState
+                ),
             let statusWidget =
                 GitLabIssueStatusGraphQLResponse
                     .onlyElement(

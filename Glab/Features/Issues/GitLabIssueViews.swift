@@ -1058,6 +1058,8 @@ struct GitLabIssueDetailView: View {
                         discussionResource,
                     accountID: accountID,
                     apiAccess: apiAccess,
+                    discussionMutator:
+                        discussionMutator,
                     reactionService:
                         reactionService,
                     launchComposer:
@@ -1649,6 +1651,8 @@ private struct GitLabIssueDetailContent: View {
         GitLabDiscussionResource
     let accountID: GitLabAccountID
     let apiAccess: GitLabAPIAccess
+    let discussionMutator:
+        any GitLabDiscussionMutating
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
@@ -1721,6 +1725,8 @@ private struct GitLabIssueDetailContent: View {
                     accountID: accountID,
                     webURL: issue.safeWebURL,
                     apiAccess: apiAccess,
+                    mutator:
+                        discussionMutator,
                     reactionService:
                         reactionService,
                     resolutionModel: nil,

@@ -18,6 +18,7 @@ struct GitLabDiffLineDiscussionSheet: View {
     let accountID: GitLabAccountID
     let webURL: URL?
     let apiAccess: GitLabAPIAccess
+    let model: GitLabDiscussionsModel
     let mutator: any GitLabDiscussionMutating
     let resolutionModel:
         GitLabDiscussionResolutionModel
@@ -49,6 +50,7 @@ struct GitLabDiffLineDiscussionSheet: View {
             accountID: accountID,
             webURL: webURL,
             apiAccess: apiAccess,
+            model: model,
             mutator: mutator,
             resolutionModel:
                 resolutionModel,
@@ -66,6 +68,7 @@ struct GitLabAllDiffDiscussionsSheet: View {
     let accountID: GitLabAccountID
     let webURL: URL?
     let apiAccess: GitLabAPIAccess
+    let model: GitLabDiscussionsModel
     let mutator: any GitLabDiscussionMutating
     let resolutionModel:
         GitLabDiscussionResolutionModel
@@ -90,6 +93,7 @@ struct GitLabAllDiffDiscussionsSheet: View {
             accountID: accountID,
             webURL: webURL,
             apiAccess: apiAccess,
+            model: model,
             mutator: mutator,
             resolutionModel:
                 resolutionModel,
@@ -136,6 +140,7 @@ private struct GitLabDiffDiscussionSheet:
     let accountID: GitLabAccountID
     let webURL: URL?
     let apiAccess: GitLabAPIAccess
+    let model: GitLabDiscussionsModel
     let mutator: any GitLabDiscussionMutating
     let resolutionModel:
         GitLabDiscussionResolutionModel
@@ -194,6 +199,8 @@ private struct GitLabDiffDiscussionSheet:
                                     markdownRenderer,
                                 apiAccess:
                                     apiAccess,
+                                model: model,
+                                mutator: mutator,
                                 reactionService:
                                     reactionService,
                                 resolutionModel:
@@ -322,6 +329,9 @@ private struct GitLabCollapsedDiffDiscussion:
     let markdownRenderer:
         any GitLabMarkdownRendering
     let apiAccess: GitLabAPIAccess
+    let model: GitLabDiscussionsModel
+    let mutator:
+        any GitLabDiscussionMutating
     let reactionService:
         any GitLabEmojiReactionLoading
             & GitLabEmojiReactionMutating
@@ -405,12 +415,14 @@ private struct GitLabCollapsedDiffDiscussion:
                 GitLabDiscussionCard(
                     discussion:
                         entry.discussion,
+                    model: model,
                     resource: resource,
                     accountID: accountID,
                     webURL: webURL,
                     markdownRenderer:
                         markdownRenderer,
                     apiAccess: apiAccess,
+                    mutator: mutator,
                     reactionService:
                         reactionService,
                     resolutionModel:

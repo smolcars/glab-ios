@@ -107,6 +107,66 @@ where
         return true
     }
 
+    @discardableResult
+    func reconcileUpdatedNote(
+        _ note: GitLabDiscussionNote,
+        discussionID: String
+    ) -> Bool {
+        guard
+            let discussion = discussions
+                .first(
+                    where: {
+                        $0.id == discussionID
+                    }
+                ),
+            discussion.notes.contains(
+                where: {
+                    $0.id == note.id
+                }
+            )
+        else {
+            return false
+        }
+
+        reconcileItem(
+            discussion.reconciling(note)
+        )
+        return true
+    }
+
+    @discardableResult
+    func reconcileDeletedNote(
+        noteID: Int,
+        discussionID: String
+    ) -> Bool {
+        guard
+            let discussion = discussions
+                .first(
+                    where: {
+                        $0.id == discussionID
+                    }
+                ),
+            discussion.notes.contains(
+                where: {
+                    $0.id == noteID
+                }
+            )
+        else {
+            return false
+        }
+
+        if discussion.notes.count == 1 {
+            removeItemIfPresent(discussion)
+        } else {
+            reconcileItem(
+                discussion.removingNote(
+                    withID: noteID
+                )
+            )
+        }
+        return true
+    }
+
     func reconcile(
         _ result:
             GitLabDiscussionComposerResult

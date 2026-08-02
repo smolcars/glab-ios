@@ -307,6 +307,85 @@ struct LiveGitLabDiscussionMutationTests {
         )
     }
 
+    @Test("Updates a note and invalidates its discussion cache")
+    func updatesNote() async throws {
+        let updated = makeTestDiscussionNote(
+            id: 909,
+            body: "Updated **Markdown**"
+        )
+        let client =
+            RecordingDiscussionMutationClient(
+                noteResult: .success(updated)
+            )
+        let service =
+            LiveGitLabDiscussionService(
+                client: client
+            )
+        let body =
+            try GitLabDiscussionCommentBody(
+                updated.body
+            )
+
+        let result = try await service
+            .updateNote(
+                909,
+                in: "thread-a",
+                for: issue,
+                body: body
+            )
+
+        #expect(result == updated)
+        #expect(
+            await client.sentPaths
+                == [
+                    "projects/42/issues/7/discussions/thread-a/notes/909",
+                ]
+        )
+        #expect(
+            await client.sentMethods
+                == [.put]
+        )
+        #expect(
+            await client.invalidatedPaths
+                == [
+                    "projects/42/issues/7/discussions",
+                ]
+        )
+    }
+
+    @Test("Deletes a note and invalidates its discussion cache")
+    func deletesNote() async throws {
+        let client =
+            RecordingDiscussionMutationClient()
+        let service =
+            LiveGitLabDiscussionService(
+                client: client
+            )
+
+        try await service.deleteNote(
+            909,
+            in: "thread-a",
+            for: issue
+        )
+
+        #expect(
+            await client.sentPaths
+                == [
+                    "projects/42/issues/7/discussions/thread-a/notes/909",
+                ]
+        )
+        #expect(
+            await client.sentMethods
+                == [.delete]
+        )
+        #expect(
+            await client.invalidatedPaths
+                == [
+                    "projects/42/issues/7/discussions",
+                ]
+        )
+    }
+
     @Test("Validates the latest version before a positional POST")
     func createsDiffDiscussion() async throws {
         let version = try diffVersionIdentity()
@@ -858,6 +937,12 @@ private actor RecordingDiscussionMutationClient:
         {
             return try versionResult
                 .get() as! Response
+        }
+        if Response.self
+            == GitLabEmptyResponse.self
+        {
+            return GitLabEmptyResponse()
+                as! Response
         }
         throw .api(.invalidResponse)
     }
