@@ -18,6 +18,15 @@ private struct
     let activeAccountID: GitLabAccountID?
 }
 
+private struct
+    GitLabClipboardSuggestionContext:
+    Equatable,
+    Hashable
+{
+    let isAppActive: Bool
+    let accountIDs: [GitLabAccountID]
+}
+
 struct AppRootView: View {
     let incomingLinkModel:
         GitLabIncomingLinkModel
@@ -27,6 +36,7 @@ struct AppRootView: View {
     private var todoNotificationManager
     @Environment(GitLabTodoNotificationRouteModel.self)
     private var todoNotificationRouteModel
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
     @State private var showsAddAccount = false
     @State private var addAccountBaseline:
@@ -34,6 +44,8 @@ struct AppRootView: View {
     @State private var didCompleteAddAccount = false
     @State private var showsAccountChoices = false
     @State private var accountActionError: String?
+    @State private var clipboardLinkSuggestionModel =
+        GitLabClipboardLinkSuggestionModel()
 
     var body: some View {
         content
@@ -81,6 +93,37 @@ struct AppRootView: View {
                 id: todoNotificationRouteContext
             ) {
                 await handleTodoNotificationRoute()
+            }
+            .task(
+                id: clipboardSuggestionContext
+            ) {
+                guard
+                    clipboardSuggestionContext
+                        .isAppActive
+                else {
+                    return
+                }
+
+                await clipboardLinkSuggestionModel
+                    .refresh(
+                        hasSavedAccounts:
+                            !clipboardSuggestionContext
+                                .accountIDs
+                                .isEmpty
+                    )
+            }
+            .overlay(alignment: .bottom) {
+                if showsClipboardLinkSuggestion {
+                    GitLabClipboardLinkSuggestionView(
+                        onPaste:
+                            handlePastedClipboardLinks,
+                        onDismiss:
+                            clipboardLinkSuggestionModel
+                                .dismiss
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 72)
+                }
             }
             .alert(
                 incomingAlertTitle,
@@ -143,6 +186,22 @@ struct AppRootView: View {
                 }
             } message: {
                 Text(accountActionError ?? "")
+            }
+            .alert(
+                "Can’t Open Copied Link",
+                isPresented:
+                    unavailableClipboardLinkIsPresented
+            ) {
+                Button("OK") {
+                    clipboardLinkSuggestionModel
+                        .clearUnavailablePasteMessage()
+                }
+            } message: {
+                Text(
+                    clipboardLinkSuggestionModel
+                        .unavailablePasteMessage
+                        ?? ""
+                )
             }
     }
 
@@ -218,6 +277,40 @@ struct AppRootView: View {
             activeAccountID:
                 appSession.activeAccountID
         )
+    }
+
+    private var clipboardSuggestionContext:
+        GitLabClipboardSuggestionContext
+    {
+        GitLabClipboardSuggestionContext(
+            isAppActive:
+                scenePhase == .active,
+            accountIDs:
+                appSession.accounts.map(\.id)
+        )
+    }
+
+    private var showsClipboardLinkSuggestion: Bool {
+        guard case .signedIn = appSession.state else {
+            return false
+        }
+        return clipboardLinkSuggestionModel
+            .isSuggestionPresented
+    }
+
+    private var unavailableClipboardLinkIsPresented:
+        Binding<Bool>
+    {
+        Binding {
+            clipboardLinkSuggestionModel
+                .unavailablePasteMessage
+                != nil
+        } set: { isPresented in
+            if !isPresented {
+                clipboardLinkSuggestionModel
+                    .clearUnavailablePasteMessage()
+            }
+        }
     }
 
     private var incomingAlertIsPresented:
@@ -457,6 +550,37 @@ struct AppRootView: View {
     private func reevaluateIncomingLink() {
         incomingLinkModel.reevaluate(
             accounts: accountContext.accountIDs,
+            activeAccountID:
+                accountContext.activeAccountID
+        )
+    }
+
+    private func handlePastedClipboardLinks(
+        _ candidates:
+            [GitLabClipboardLinkCandidate]
+    ) {
+        guard
+            let candidate = candidates.first,
+            case let .accepted(targetURL) =
+                GitLabClipboardLinkClassifier
+                    .classify(
+                        candidate.url,
+                        accounts:
+                            accountContext
+                                .accountIDs
+                    )
+        else {
+            clipboardLinkSuggestionModel
+                .didPasteUnavailableLink()
+            return
+        }
+
+        clipboardLinkSuggestionModel
+            .didAcceptPastedLink()
+        _ = incomingLinkModel.receive(
+            targetURL,
+            accounts:
+                accountContext.accountIDs,
             activeAccountID:
                 accountContext.activeAccountID
         )
