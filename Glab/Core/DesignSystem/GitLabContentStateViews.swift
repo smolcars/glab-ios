@@ -107,14 +107,16 @@ struct GitLabRetryStateView: View {
     }
 
     var body: some View {
-        ContentUnavailableView {
-            Label(
-                presentation.title,
-                systemImage: presentation.systemImage
-            )
-        } description: {
-            Text(presentation.message)
-        } actions: {
+        VStack(spacing: 12) {
+            ContentUnavailableView {
+                Label(
+                    presentation.title,
+                    systemImage: presentation.systemImage
+                )
+            } description: {
+                Text(presentation.message)
+            }
+
             if
                 presentation.retryAvailability
                     != .unavailable
@@ -124,13 +126,12 @@ struct GitLabRetryStateView: View {
                         presentation.retryAvailability,
                     action: retry
                 ) {
-                    Label(
-                        "Try Again",
-                        systemImage: "arrow.clockwise"
-                    )
+                    Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.glass)
                 .tint(.orange)
+                .frame(width: 44, height: 44)
+                .accessibilityLabel("Try Again")
                 .accessibilityIdentifier(
                     "gitlab.retryButton"
                 )

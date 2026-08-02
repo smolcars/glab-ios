@@ -446,18 +446,32 @@ struct HomeView: View {
     }
 
     private var readOnlyCallout: some View {
-        Label {
-            Text("Read-only access. Changes are disabled.")
-        } icon: {
-            Image(systemName: "eye.fill")
-        }
-        .font(.callout)
+        Label(
+            "Read-only · Changes disabled",
+            systemImage: "eye.fill"
+        )
+        .font(.footnote.weight(.medium))
         .foregroundStyle(.orange)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            Color.orange.opacity(0.1),
+            in: .rect(cornerRadius: 12)
+        )
         .accessibilityLabel(
             "This token is read-only. Actions such as completing "
                 + "Todos will be disabled."
         )
-        .listRowBackground(Color.orange.opacity(0.1))
+        .listRowInsets(
+            .init(
+                top: 4,
+                leading: 20,
+                bottom: 4,
+                trailing: 20
+            )
+        )
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     private var displayedUser: GitLabUserSummary {
