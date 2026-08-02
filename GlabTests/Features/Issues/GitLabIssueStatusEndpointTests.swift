@@ -349,6 +349,7 @@ struct GitLabIssueStatusEndpointTests {
                 workItemID: "opaque-work-item-id",
                 issueIID: 17,
                 selectedStatus: selectedStatus,
+                baselineState: .open,
                 baselineLockVersion: 8
             )
         )
@@ -358,6 +359,42 @@ struct GitLabIssueStatusEndpointTests {
         #expect(result.state == .closed)
         #expect(result.lockVersion == 9)
         #expect(result.status.id == "status-done")
+    }
+
+    @Test(
+        "Accepts a same-state status update with an unchanged lock version"
+    )
+    func validatesUnchangedMutationLockVersion() throws {
+        let selectedStatus =
+            GitLabIssueWorkItemStatus(
+                id: "status-review",
+                name: "Review",
+                description: "Optional hint",
+                iconName: "status-running",
+                color: "#1F75CB",
+                position: 2,
+                category: .inProgress
+            )
+        let response = try decodeUpdate(
+            updateResponse(
+                state: "OPEN",
+                lockVersion: 8,
+                statusID: "status-review",
+                statusCategory: "IN_PROGRESS"
+            )
+        )
+        let result = try #require(
+            response.validatedResult(
+                workItemID: "opaque-work-item-id",
+                issueIID: 17,
+                selectedStatus: selectedStatus,
+                baselineState: .open,
+                baselineLockVersion: 8
+            )
+        )
+
+        #expect(result.lockVersion == 8)
+        #expect(result.status.id == "status-review")
     }
 
     @Test(
@@ -371,7 +408,8 @@ struct GitLabIssueStatusEndpointTests {
             .wrongType,
             .wrongStatus,
             .stateCategoryMismatch,
-            .nonadvancingLockVersion,
+            .unadvancedStateTransition,
+            .regressedLockVersion,
         ]
     )
     fileprivate func rejectsInvalidMutation(
@@ -396,6 +434,7 @@ struct GitLabIssueStatusEndpointTests {
                 workItemID: "opaque-work-item-id",
                 issueIID: 17,
                 selectedStatus: selectedStatus,
+                baselineState: .open,
                 baselineLockVersion: 8
             ) == nil
         )
@@ -424,6 +463,7 @@ struct GitLabIssueStatusEndpointTests {
                 workItemID: " ",
                 issueIID: 17,
                 selectedStatus: selectedStatus,
+                baselineState: .open,
                 baselineLockVersion: 8
             ) == nil
         )
@@ -460,7 +500,8 @@ private extension GitLabIssueStatusEndpointTests {
         case wrongType
         case wrongStatus
         case stateCategoryMismatch
-        case nonadvancingLockVersion
+        case unadvancedStateTransition
+        case regressedLockVersion
     }
 
     nonisolated func buildRequest<Response>(
@@ -693,6 +734,7 @@ private extension GitLabIssueStatusEndpointTests {
         lockVersion: Int = 9,
         workItemType: String = "Issue",
         statusID: String = "status-done",
+        statusCategory: String = "DONE",
         payloadErrors: String = "[]"
     ) -> String {
         """
@@ -715,7 +757,7 @@ private extension GitLabIssueStatusEndpointTests {
                             ? "Done"
                             : "Other",
                         position: 2,
-                        category: "DONE"
+                        category: statusCategory
                     ))
                   }
                 ]
@@ -756,8 +798,10 @@ private extension GitLabIssueStatusEndpointTests {
             updateResponse(statusID: "another-status")
         case .stateCategoryMismatch:
             updateResponse(state: "OPEN")
-        case .nonadvancingLockVersion:
+        case .unadvancedStateTransition:
             updateResponse(lockVersion: 8)
+        case .regressedLockVersion:
+            updateResponse(lockVersion: 7)
         }
     }
 }

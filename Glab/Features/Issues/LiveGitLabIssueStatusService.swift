@@ -202,6 +202,8 @@ nonisolated struct LiveGitLabIssueStatusService:
                         baseline.issueIID,
                     selectedStatus:
                         selectedStatus,
+                    baselineState:
+                        baseline.state,
                     baselineLockVersion:
                         baseline.lockVersion
                 )
