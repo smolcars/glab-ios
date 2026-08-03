@@ -38,10 +38,7 @@ struct GitLabProjectCommitsView: View {
             content
         }
         .background(
-            Color(
-                uiColor:
-                    .systemGroupedBackground
-            )
+            Color.glabCanvas
         )
         .navigationTitle("Commits")
         .navigationBarTitleDisplayMode(.inline)
@@ -74,13 +71,13 @@ struct GitLabProjectCommitsView: View {
             Spacer(minLength: 12)
 
             Text("Default branch")
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 44)
         .background(
-            Color(uiColor: .systemBackground)
+            Color.glabSurface
         )
         .accessibilityElement(
             children: .combine
@@ -131,7 +128,7 @@ struct GitLabProjectCommitsView: View {
     }
 
     private var commitList: some View {
-        List {
+        GlabList {
             if
                 model.didFailRefresh,
                 let error = model.loadError
@@ -189,7 +186,7 @@ struct GitLabProjectCommitsView: View {
                 HStack {
                     Spacer()
                     ProgressView("Loading more…")
-                        .font(.footnote)
+                        .font(.glabFootnote)
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
@@ -277,17 +274,17 @@ private struct GitLabCommitRow: View {
             HStack(spacing: 7) {
                 Text(commit.authorMark)
                     .font(
-                        .caption2.weight(
+                        .glabCaption2.weight(
                             .bold
                         )
                     )
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.glabAccent)
                     .frame(
                         width: 24,
                         height: 24
                     )
                     .background(
-                        Color.orange
+                        Color.glabAccent
                             .opacity(0.13),
                         in: .circle
                     )
@@ -295,7 +292,7 @@ private struct GitLabCommitRow: View {
 
                 Text(commit.authorName)
                     .font(
-                        .subheadline
+                        .glabSubheadline
                             .weight(.semibold)
                     )
                     .lineLimit(
@@ -306,7 +303,7 @@ private struct GitLabCommitRow: View {
                     )
 
                 Text("authored")
-                    .font(.subheadline)
+                    .font(.glabSubheadline)
                     .foregroundStyle(
                         .secondary
                     )
@@ -339,7 +336,7 @@ private struct GitLabCommitRow: View {
 
     private var title: some View {
         Text(commit.title)
-            .font(.body.weight(.semibold))
+            .font(.glabBody.weight(.semibold))
             .foregroundStyle(.primary)
             .lineLimit(
                 dynamicTypeSize
@@ -432,10 +429,7 @@ struct GitLabCommitDetailView: View {
             }
         }
         .background(
-            Color(
-                uiColor:
-                    .systemGroupedBackground
-            )
+            Color.glabCanvas
         )
         .navigationTitle("Commit")
         .navigationBarTitleDisplayMode(.inline)
@@ -488,15 +482,15 @@ struct GitLabCommitDetailView: View {
             HStack(spacing: 9) {
                 Text(commit.authorMark)
                     .font(
-                        .caption.weight(.bold)
+                        .glabCaption.weight(.bold)
                     )
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.glabAccent)
                     .frame(
                         width: 28,
                         height: 28
                     )
                     .background(
-                        Color.orange
+                        Color.glabAccent
                             .opacity(0.13),
                         in: .circle
                     )
@@ -504,12 +498,12 @@ struct GitLabCommitDetailView: View {
 
                 Text(commit.authorName)
                     .font(
-                        .subheadline
+                        .glabSubheadline
                             .weight(.semibold)
                     )
 
                 Text("authored")
-                    .font(.subheadline)
+                    .font(.glabSubheadline)
                     .foregroundStyle(
                         .secondary
                     )
@@ -532,7 +526,7 @@ struct GitLabCommitDetailView: View {
 
             Text(commit.title)
                 .font(
-                    .headline.weight(
+                    .glabHeadline.weight(
                         .semibold
                     )
                 )
@@ -544,7 +538,7 @@ struct GitLabCommitDetailView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .background(
-            Color(uiColor: .systemBackground)
+            Color.glabSurface
         )
     }
 
@@ -604,7 +598,7 @@ struct GitLabCommitDetailView: View {
                         systemImage:
                             "doc.on.doc"
                     )
-                    .font(.subheadline.weight(.medium))
+                    .font(.glabSubheadline.weight(.medium))
 
                     Spacer(minLength: 10)
 
@@ -670,7 +664,7 @@ struct GitLabCommitDetailView: View {
     }
 
     private var detailsContent: some View {
-        List {
+        GlabList {
             Section("Commit") {
                 GitLabCopyableValueRow(
                     title: "SHA",
@@ -758,7 +752,7 @@ struct GitLabCommitDetailView: View {
     ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "person.crop.circle")
-                .font(.title3)
+                .font(.glabTitle3)
                 .foregroundStyle(.secondary)
                 .accessibilityHidden(true)
 
@@ -768,12 +762,12 @@ struct GitLabCommitDetailView: View {
             ) {
                 Text(name)
                     .font(
-                        .body.weight(
+                        .glabBody.weight(
                             .medium
                         )
                     )
                 Text(email)
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(
                         .secondary
                     )
@@ -783,7 +777,7 @@ struct GitLabCommitDetailView: View {
             Spacer(minLength: 8)
 
             Text(role)
-                .font(.subheadline)
+                .font(.glabSubheadline)
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(
@@ -866,7 +860,7 @@ private struct GitLabCommitDiffFileRow:
             ) {
                 Text(file.newPath)
                     .font(
-                        .body.weight(
+                        .glabBody.weight(
                             .medium
                         )
                     )
@@ -876,7 +870,7 @@ private struct GitLabCommitDiffFileRow:
                     Text(
                         "From \(file.oldPath)"
                     )
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(
                         .secondary
                     )
@@ -886,7 +880,7 @@ private struct GitLabCommitDiffFileRow:
                 HStack(spacing: 8) {
                     Text(file.kind.title)
                         .font(
-                            .caption2
+                            .glabCaption2
                                 .weight(
                                     .semibold
                                 )
@@ -909,7 +903,7 @@ private struct GitLabCommitDiffFileRow:
                                 .shortTitle
                         )
                         .font(
-                            .caption2.weight(
+                            .glabCaption2.weight(
                                 .semibold
                             )
                         )
@@ -938,7 +932,7 @@ private struct GitLabLineChangesLabel: View {
                 .foregroundStyle(.red)
         }
         .font(
-            .caption
+            .glabCaption
                 .weight(.semibold)
                 .monospacedDigit()
         )
@@ -1035,7 +1029,7 @@ private struct GitLabCommitFileDiffView:
             fileContent
         }
         .background(
-            Color(uiColor: .systemBackground)
+            Color.glabSurface
         )
         .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -1078,7 +1072,7 @@ private struct GitLabCommitFileDiffView:
         ) {
             Text(file.newPath)
                 .font(
-                    .subheadline.weight(
+                    .glabSubheadline.weight(
                         .semibold
                     )
                 )
@@ -1092,7 +1086,7 @@ private struct GitLabCommitFileDiffView:
                 Text(
                     "Renamed from \(file.oldPath)"
                 )
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(
                     .secondary
                 )
@@ -1106,7 +1100,7 @@ private struct GitLabCommitFileDiffView:
                         file.kind.systemImage
                 )
                 .font(
-                    .caption.weight(
+                    .glabCaption.weight(
                         .semibold
                     )
                 )

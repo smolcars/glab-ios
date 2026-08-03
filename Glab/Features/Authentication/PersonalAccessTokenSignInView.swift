@@ -60,7 +60,7 @@ struct PersonalAccessTokenSignInView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 32)
             }
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background(Color.glabCanvas)
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Sign in with a token")
             .navigationBarTitleDisplayMode(.inline)
@@ -85,17 +85,17 @@ struct PersonalAccessTokenSignInView: View {
         VStack(alignment: .leading, spacing: 12) {
             Image(systemName: "chevron.left.forwardslash.chevron.right")
                 .font(.system(size: 34, weight: .semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.glabBrandWarm)
                 .accessibilityHidden(true)
 
             Text("Connect your GitLab account")
-                .font(.title2.bold())
+                .font(.glabTitle2.bold())
 
             Text(
                 "Use a personal access token when web sign-in is unavailable "
                     + "or your GitLab administrator has not registered Glab."
             )
-            .font(.body)
+            .font(.glabBody)
             .foregroundStyle(.secondary)
             .fixedSize(
                 horizontal: false,
@@ -107,7 +107,7 @@ struct PersonalAccessTokenSignInView: View {
     private var instanceCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             Label("GitLab instance", systemImage: "server.rack")
-                .font(.headline)
+                .font(.glabHeadline)
 
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
@@ -140,7 +140,7 @@ struct PersonalAccessTokenSignInView: View {
                 .accessibilityIdentifier("signIn.instanceURL")
 
                 Text("HTTPS with a system-trusted certificate is required.")
-                    .font(.footnote)
+                    .font(.glabFootnote)
                     .foregroundStyle(.secondary)
                     .fixedSize(
                         horizontal: false,
@@ -148,7 +148,7 @@ struct PersonalAccessTokenSignInView: View {
                     )
             } else {
                 Text("gitlab.com")
-                    .font(.subheadline)
+                    .font(.glabSubheadline)
                     .foregroundStyle(.secondary)
             }
         }
@@ -171,7 +171,7 @@ struct PersonalAccessTokenSignInView: View {
     private var tokenCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             Label("Access token / API key", systemImage: "key.fill")
-                .font(.headline)
+                .font(.glabHeadline)
 
             SecureField("Personal access token", text: $model.token)
                 .focused($focusedField, equals: .token)
@@ -208,12 +208,12 @@ struct PersonalAccessTokenSignInView: View {
                         "Create a personal access token",
                         systemImage: "arrow.up.right"
                     )
-                    .font(.callout.weight(.semibold))
+                    .font(.glabCallout.weight(.semibold))
                 }
                 .accessibilityIdentifier("signIn.createToken")
             } else if model.usesCustomInstance {
                 Text("Enter a valid HTTPS instance to create a token there.")
-                    .font(.footnote)
+                    .font(.glabFootnote)
                     .foregroundStyle(.secondary)
             }
         }
@@ -236,7 +236,7 @@ struct PersonalAccessTokenSignInView: View {
                 Text(scope)
                     .font(.callout.monospaced().weight(.semibold))
                 Text(detail)
-                    .font(.footnote)
+                    .font(.glabFootnote)
                     .foregroundStyle(.secondary)
                     .fixedSize(
                         horizontal: false,
@@ -251,7 +251,7 @@ struct PersonalAccessTokenSignInView: View {
     ) -> some View {
         Label {
             Text(failure.description)
-                .font(.callout)
+                .font(.glabCallout)
                 .fixedSize(
                     horizontal: false,
                     vertical: true
@@ -281,13 +281,13 @@ struct PersonalAccessTokenSignInView: View {
                     ProgressView()
                 }
             }
-            .font(.headline)
+            .font(.glabHeadline)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 30)
         }
         .buttonStyle(.glassProminent)
         .controlSize(.large)
-        .tint(.orange)
+        .tint(Color.glabAccent)
         .disabled(!model.canSubmit)
         .accessibilityLabel(
             model.isSubmitting ? "Connecting to GitLab" : "Connect GitLab"
@@ -323,7 +323,7 @@ private extension View {
         padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                Color(uiColor: .secondarySystemGroupedBackground),
+                Color.glabRaisedSurface,
                 in: .rect(cornerRadius: 20)
             )
     }

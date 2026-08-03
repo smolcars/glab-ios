@@ -32,10 +32,7 @@ struct GitLabMergeRequestReadinessView: View {
                 }
             }
             .background(
-                Color(
-                    uiColor:
-                        .secondarySystemGroupedBackground
-                ),
+                Color.glabRaisedSurface,
                 in: RoundedRectangle(
                     cornerRadius: 18,
                     style: .continuous
@@ -67,7 +64,7 @@ struct GitLabMergeRequestReadinessView: View {
                             readiness.overall
                             .systemImage
                     )
-                    .font(.body)
+                    .font(.glabBody)
                     .foregroundStyle(
                         readiness.overall.tint
                     )
@@ -82,7 +79,7 @@ struct GitLabMergeRequestReadinessView: View {
                             readiness.overall.title
                         )
                         .font(
-                            .callout.weight(
+                            .glabCallout.weight(
                                 .semibold
                             )
                         )
@@ -90,7 +87,7 @@ struct GitLabMergeRequestReadinessView: View {
                         Text(
                             readiness.compactSummary
                         )
-                        .font(.caption)
+                        .font(.glabCaption)
                         .foregroundStyle(.secondary)
                     }
                     .frame(
@@ -105,7 +102,7 @@ struct GitLabMergeRequestReadinessView: View {
                             : "chevron.down"
                     )
                     .font(
-                        .caption.weight(.semibold)
+                        .glabCaption.weight(.semibold)
                     )
                     .foregroundStyle(.secondary)
                     .accessibilityHidden(true)
@@ -165,7 +162,7 @@ struct GitLabMergeRequestReadinessView: View {
                     systemName:
                         "clock.badge.checkmark"
                 )
-                .font(.body)
+                .font(.glabBody)
                 .foregroundStyle(.green)
                 .frame(width: 44, height: 44)
                 .accessibilityLabel(
@@ -195,7 +192,7 @@ struct GitLabMergeRequestReadinessView: View {
                     ? "arrow.triangle.merge"
                     : "clock.arrow.circlepath"
             )
-            .font(.callout.weight(.semibold))
+            .font(.glabCallout.weight(.semibold))
         }
         .buttonStyle(.glass)
         .controlSize(.small)
@@ -228,7 +225,7 @@ struct GitLabMergeRequestReadinessView: View {
                     systemName:
                         check.state.systemImage
                 )
-                .font(.callout)
+                .font(.glabCallout)
                 .foregroundStyle(
                     check.state.tint
                 )
@@ -240,20 +237,20 @@ struct GitLabMergeRequestReadinessView: View {
                     spacing: 2
                 ) {
                     Text(check.kind.title)
-                        .font(.caption)
+                        .font(.glabCaption)
                         .foregroundStyle(
                             .secondary
                         )
 
                     Text(check.title)
                         .font(
-                            .callout.weight(
+                            .glabCallout.weight(
                                 .semibold
                             )
                         )
 
                     Text(check.detail)
-                        .font(.caption)
+                        .font(.glabCaption)
                         .foregroundStyle(
                             .secondary
                         )
@@ -279,7 +276,7 @@ struct GitLabMergeRequestReadinessView: View {
                             "arrow.right"
                     )
                     .font(
-                        .caption
+                        .glabCaption
                             .weight(.semibold)
                     )
                 }
@@ -310,7 +307,7 @@ struct GitLabMergeRequestReadinessView: View {
                         systemName:
                             "arrow.up.right"
                     )
-                    .font(.caption.weight(.semibold))
+                    .font(.glabCaption.weight(.semibold))
                 }
                 .buttonStyle(.glass)
                 .controlSize(.small)

@@ -213,7 +213,7 @@ struct GitLabMarkdownContentView: View {
                 Text(kind.formattingMessage)
                     .foregroundStyle(.secondary)
             }
-            .font(.callout)
+            .font(.glabCallout)
             .accessibilityElement(children: .combine)
         case let .loaded(document):
             if let failureMessage =
@@ -256,7 +256,7 @@ struct GitLabMarkdownContentView: View {
             }
 
             Text(request.source)
-                .font(.body)
+                .font(.glabBody)
                 .textSelection(.enabled)
                 .accessibilityLabel(
                     kind.unformattedAccessibilityLabel
@@ -279,15 +279,15 @@ private struct GitLabMarkdownFailureNotice: View {
                 systemImage:
                     "exclamationmark.triangle.fill"
             )
-            .font(.callout.weight(.semibold))
+            .font(.glabCallout.weight(.semibold))
             .foregroundStyle(.orange)
 
             Text(message)
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
 
             Button("Try Again", action: retry)
-                .font(.callout.weight(.semibold))
+                .font(.glabCallout.weight(.semibold))
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -343,7 +343,7 @@ private struct GitLabMarkdownBlockView: View {
                 .textSelection(.enabled)
         case let .paragraph(paragraph):
             Text(paragraph.attributedString)
-                .font(.body)
+                .font(.glabBody)
                 .textSelection(.enabled)
         case let .list(list):
             GitLabMarkdownListView(
@@ -380,17 +380,17 @@ private struct GitLabMarkdownBlockView: View {
     ) -> Font {
         switch level {
         case 1:
-            .title2.bold()
+            .glabTitle2.bold()
         case 2:
-            .title3.bold()
+            .glabTitle3.bold()
         case 3:
-            .headline
+            .glabHeadline
         case 4:
-            .subheadline.weight(.semibold)
+            .glabSubheadline.weight(.semibold)
         case 5:
-            .callout.weight(.semibold)
+            .glabCallout.weight(.semibold)
         default:
-            .caption.weight(.semibold)
+            .glabCaption.weight(.semibold)
         }
     }
 }
@@ -466,11 +466,11 @@ private struct GitLabMarkdownListView: View {
                 systemName:
                     systemImage(for: taskState)
             )
-            .font(.body.weight(.semibold))
+            .font(.glabBody.weight(.semibold))
             .foregroundStyle(
                 taskState == .incomplete
                     ? Color.secondary
-                    : Color.orange
+                    : Color.glabAccent
             )
             .accessibilityLabel(
                 taskState.accessibilityTitle
@@ -481,7 +481,7 @@ private struct GitLabMarkdownListView: View {
                     ? "\(item.ordinal)."
                     : "•"
             )
-            .font(.body.weight(.medium))
+            .font(.glabBody.weight(.medium))
             .foregroundStyle(.secondary)
             .accessibilityHidden(true)
         }
@@ -556,13 +556,13 @@ private struct
                             )
                     )
                     .font(
-                        .body.weight(.semibold)
+                        .glabBody.weight(.semibold)
                     )
                     .foregroundStyle(
                         displayedState
                             == .incomplete
                             ? Color.secondary
-                            : Color.orange
+                            : Color.glabAccent
                     )
                 }
             }
@@ -661,7 +661,7 @@ private struct
                 }
 
                 Text(presentation.message)
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
                     .frame(
                         maxWidth: .infinity,
@@ -677,7 +677,7 @@ private struct
                         perform(action)
                     }
                     .font(
-                        .caption.weight(
+                        .glabCaption.weight(
                             .semibold
                         )
                     )
@@ -887,7 +887,7 @@ private struct GitLabMarkdownQuoteView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             RoundedRectangle(cornerRadius: 2)
-                .fill(.orange.opacity(0.72))
+                .fill(Color.glabAccent.opacity(0.72))
                 .frame(width: 4)
                 .accessibilityHidden(true)
 
@@ -925,7 +925,7 @@ private struct GitLabMarkdownCodeView: View {
                 !language.isEmpty
             {
                 Text(language.uppercased())
-                    .font(.caption2.weight(.bold))
+                    .font(.glabCaption2.weight(.bold))
                     .foregroundStyle(.secondary)
             }
 
@@ -1006,8 +1006,8 @@ private struct GitLabMarkdownTableView: View {
                 Text(cell.attributedString)
                     .font(
                         isHeader
-                            ? .callout.weight(.semibold)
-                            : .callout
+                            ? .glabCallout.weight(.semibold)
+                            : .glabCallout
                     )
                     .multilineTextAlignment(
                         textAlignment(at: index)
@@ -1195,7 +1195,7 @@ private struct GitLabMarkdownImageView: View {
             ProgressView()
 
             Text(image.accessibilityLabel)
-                .font(.callout)
+                .font(.glabCallout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
@@ -1224,16 +1224,16 @@ private struct GitLabMarkdownImageView: View {
                 systemImage:
                     "photo.badge.exclamationmark"
             )
-            .font(.callout.weight(.semibold))
+            .font(.glabCallout.weight(.semibold))
 
             Text(message)
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
 
             Button("Try Again") {
                 retry &+= 1
             }
-            .font(.callout.weight(.semibold))
+            .font(.glabCallout.weight(.semibold))
         }
         .padding(12)
         .frame(
@@ -1331,7 +1331,7 @@ private struct GitLabMarkdownUnsupportedView: View {
                 "View in GitLab for full rendering",
                 systemImage: "safari"
             )
-            .font(.callout.weight(.semibold))
+            .font(.glabCallout.weight(.semibold))
             .foregroundStyle(.orange)
 
             if !unsupported.source.isEmpty {

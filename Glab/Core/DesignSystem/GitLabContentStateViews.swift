@@ -129,7 +129,7 @@ struct GitLabRetryStateView: View {
                     Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.glass)
-                .tint(.orange)
+                .tint(Color.glabAccent)
                 .frame(width: 44, height: 44)
                 .accessibilityLabel("Try Again")
                 .accessibilityIdentifier(

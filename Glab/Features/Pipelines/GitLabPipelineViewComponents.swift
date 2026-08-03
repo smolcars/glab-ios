@@ -22,12 +22,12 @@ struct GitLabPipelineHistoryRow: View {
                     ?? "Pipeline \(pipeline.displayID)"
                 )
                 .font(
-                    .body.weight(.semibold)
+                    .glabBody.weight(.semibold)
                 )
                 .lineLimit(3)
 
                 metadata
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
             }
         }
@@ -77,7 +77,7 @@ struct GitLabPipelineHeader: View {
             if let name = pipeline.name {
                 Text(name)
                     .font(
-                        .headline
+                        .glabHeadline
                     )
             }
 
@@ -88,7 +88,7 @@ struct GitLabPipelineHeader: View {
 
                 Text(pipeline.status.title)
                     .font(
-                        .body.weight(.semibold)
+                        .glabBody.weight(.semibold)
                     )
                     .foregroundStyle(
                         pipeline.status.tint
@@ -115,14 +115,14 @@ struct GitLabPipelineHeader: View {
                 reference
                     .lineLimit(3)
             }
-            .font(.subheadline)
+            .font(.glabSubheadline)
             .foregroundStyle(.secondary)
 
             if !pipeline.metadataSummary.isEmpty {
                 Text(
                     pipeline.metadataSummary
                 )
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
             }
         }
@@ -164,12 +164,12 @@ struct GitLabPipelineJobRow: View {
             ) {
                 Text(row.name)
                     .font(
-                        .body.weight(.medium)
+                        .glabBody.weight(.medium)
                     )
                     .lineLimit(3)
 
                 Text(row.metadataSummary)
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
 
                 if
@@ -177,7 +177,7 @@ struct GitLabPipelineJobRow: View {
                         row.downstreamSummary
                 {
                     Text(downstreamSummary)
-                        .font(.caption)
+                        .font(.glabCaption)
                         .foregroundStyle(
                             .secondary
                         )
@@ -210,7 +210,7 @@ struct GitLabCIStatusIcon: View {
             systemName:
                 status.systemImage
         )
-        .font(.body)
+        .font(.glabBody)
         .foregroundStyle(status.tint)
         .frame(width: 22)
         .accessibilityHidden(true)

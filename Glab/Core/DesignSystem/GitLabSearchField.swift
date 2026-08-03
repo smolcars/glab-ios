@@ -67,7 +67,7 @@ struct GitLabSearchField: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(
-            Color(uiColor: .systemGroupedBackground)
+            Color.glabCanvas
         )
         .task {
             if focusesOnAppear {

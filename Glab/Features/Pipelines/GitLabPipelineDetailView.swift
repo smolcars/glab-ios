@@ -78,7 +78,7 @@ struct GitLabPipelineDetailView: View {
     }
 
     var body: some View {
-        List {
+        GlabList {
             pipelineSection
             failureRows
             stageRows
@@ -482,7 +482,7 @@ struct GitLabPipelineDetailView: View {
                 HStack(spacing: 8) {
                     Text(stage.name)
                         .font(
-                            .headline
+                            .glabHeadline
                                 .weight(.semibold)
                         )
                         .foregroundStyle(.primary)
@@ -509,11 +509,13 @@ struct GitLabPipelineDetailView: View {
                             systemName: "hourglass"
                         )
                         .font(
-                            .caption.weight(
+                            .glabCaption.weight(
                                 .semibold
                             )
                         )
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(
+                            Color.glabAccent
+                        )
                         .frame(width: 20)
                         .accessibilityHidden(true)
                     }
@@ -525,7 +527,7 @@ struct GitLabPipelineDetailView: View {
                             ? "chevron.up"
                             : "chevron.down"
                     )
-                    .font(.body.weight(.bold))
+                    .font(.glabBody.weight(.bold))
                     .foregroundStyle(.primary)
                     .frame(
                         width: 32,
@@ -880,7 +882,7 @@ struct GitLabPipelineDetailView: View {
         HStack {
             Spacer()
             ProgressView(title)
-                .font(.footnote)
+                .font(.glabFootnote)
             Spacer()
         }
     }

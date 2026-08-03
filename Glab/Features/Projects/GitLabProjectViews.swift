@@ -29,7 +29,7 @@ struct ProjectsView: View {
 
         content
             .background(
-                Color(uiColor: .systemGroupedBackground)
+                Color.glabCanvas
             )
             .navigationTitle(mode.title)
             .navigationBarTitleDisplayMode(.inline)
@@ -98,7 +98,7 @@ struct ProjectsView: View {
     }
 
     private var projectList: some View {
-        List {
+        GlabList {
             if
                 model.didFailRefresh,
                 let error = model.loadError
@@ -146,7 +146,7 @@ struct ProjectsView: View {
                 HStack {
                     Spacer()
                     ProgressView("Loading more…")
-                        .font(.footnote)
+                        .font(.glabFootnote)
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
@@ -258,7 +258,7 @@ private struct GitLabProjectRow: View {
 
     private var namespace: some View {
         Text(project.namespaceTitle)
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
             .lineLimit(
                 dynamicTypeSize.isAccessibilitySize
@@ -273,7 +273,7 @@ private struct GitLabProjectRow: View {
 
     private var name: some View {
         Text(project.name)
-            .font(.body.weight(.semibold))
+            .font(.glabBody.weight(.semibold))
             .foregroundStyle(.primary)
             .lineLimit(
                 dynamicTypeSize.isAccessibilitySize
@@ -288,7 +288,7 @@ private struct GitLabProjectRow: View {
 
     private var path: some View {
         Text(project.pathWithNamespace)
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
             .lineLimit(
                 dynamicTypeSize.isAccessibilitySize
@@ -315,7 +315,7 @@ private struct GitLabProjectRow: View {
                 activityMetadata
             }
         }
-        .font(.caption2)
+        .font(.glabCaption2)
         .foregroundStyle(.secondary)
     }
 
@@ -325,7 +325,7 @@ private struct GitLabProjectRow: View {
             starsMetadata
             activityMetadata
         }
-        .font(.caption2)
+        .font(.glabCaption2)
         .foregroundStyle(.secondary)
     }
 
@@ -393,7 +393,7 @@ private struct GitLabProjectAvatar: View {
             fallback
         }
         .frame(width: 44, height: 44)
-        .background(Color.orange.opacity(0.12))
+        .background(Color.glabBrandWarm.opacity(0.12))
         .clipShape(.rect(cornerRadius: 11))
         .overlay {
             RoundedRectangle(cornerRadius: 11)
@@ -407,8 +407,8 @@ private struct GitLabProjectAvatar: View {
 
     private var fallback: some View {
         Text(project.avatarMark)
-            .font(.caption.weight(.bold))
-            .foregroundStyle(.orange)
+            .font(.glabCaption.weight(.bold))
+            .foregroundStyle(Color.glabBrandWarm)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

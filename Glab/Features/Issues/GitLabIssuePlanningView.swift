@@ -7,7 +7,7 @@ struct GitLabIssueMilestonePicker: View {
     private var dismiss
 
     var body: some View {
-        List {
+        GlabList {
             Section {
                 choice(
                     title: "No milestone",
@@ -103,7 +103,7 @@ struct GitLabIssueIterationPicker: View {
     private var dismiss
 
     var body: some View {
-        List {
+        GlabList {
             Section {
                 choice(
                     title: "No iteration",
@@ -203,7 +203,7 @@ private struct GitLabIssuePlanningChoiceRow:
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: systemImage)
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.glabAccent)
                 .frame(width: 22)
             VStack(
                 alignment: .leading,
@@ -213,7 +213,7 @@ private struct GitLabIssuePlanningChoiceRow:
                     .foregroundStyle(.primary)
                 if let subtitle {
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.glabCaption)
                         .foregroundStyle(
                             .secondary
                         )
@@ -225,7 +225,7 @@ private struct GitLabIssuePlanningChoiceRow:
                     systemName:
                         "checkmark.circle.fill"
                 )
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.glabAccent)
             }
         }
         .contentShape(.rect)

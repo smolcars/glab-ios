@@ -137,11 +137,11 @@ struct GitLabIssueStatusControl: View {
                     systemName:
                         "exclamationmark.triangle.fill"
                 )
-                .font(.caption2)
+                .font(.glabCaption2)
             }
         }
         .font(
-            .subheadline.weight(.semibold)
+            .glabSubheadline.weight(.semibold)
         )
         .foregroundStyle(
             color(for: presentation.tone)

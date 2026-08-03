@@ -30,9 +30,9 @@ struct GitLabInlineRetryRow: View {
             Label {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.callout.weight(.semibold))
+                        .font(.glabCallout.weight(.semibold))
                     Text(presentation.message)
-                        .font(.caption)
+                        .font(.glabCaption)
                 }
                 .frame(
                     maxWidth: .infinity,
@@ -56,13 +56,13 @@ struct GitLabLabelPill: View {
 
     var body: some View {
         Text(name)
-            .font(.caption2.weight(.medium))
+            .font(.glabCaption2.weight(.medium))
             .lineLimit(1)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .foregroundStyle(.orange)
+            .foregroundStyle(Color.glabAccent)
             .background(
-                Color.orange.opacity(0.12),
+                Color.glabAccent.opacity(0.12),
                 in: .capsule
             )
     }
@@ -81,12 +81,12 @@ struct GitLabAPIUserRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(role)
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
                 Text(user.displayName)
-                    .font(.body.weight(.medium))
+                    .font(.glabBody.weight(.medium))
                 Text("@\(user.username)")
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
             }
         }
@@ -109,7 +109,7 @@ struct GitLabDetailSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title)
-                .font(.headline)
+                .font(.glabHeadline)
 
             content
                 .frame(
@@ -172,7 +172,7 @@ struct GitLabOpenInGitLabControl: View {
             HStack(spacing: 8) {
                 Text("Open in")
                     .font(
-                        .subheadline
+                        .glabSubheadline
                             .weight(.semibold)
                     )
 

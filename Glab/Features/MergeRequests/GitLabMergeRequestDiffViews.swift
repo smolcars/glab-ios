@@ -113,7 +113,7 @@ struct GitLabMergeRequestDiffListView: View {
 
         content
             .background(
-                Color(uiColor: .systemGroupedBackground)
+                Color.glabCanvas
             )
             .navigationTitle("Changed Files")
             .navigationBarTitleDisplayMode(.inline)
@@ -191,13 +191,13 @@ struct GitLabMergeRequestDiffListView: View {
     }
 
     private var fileList: some View {
-        List {
+        GlabList {
             if model.isRefreshing {
                 Label(
                     "Updating changed files…",
                     systemImage: "arrow.clockwise"
                 )
-                .font(.footnote)
+                .font(.glabFootnote)
                 .foregroundStyle(.secondary)
                 .listRowBackground(Color.clear)
                 .accessibilityIdentifier(
@@ -285,7 +285,7 @@ struct GitLabMergeRequestDiffListView: View {
                 HStack {
                     Spacer()
                     ProgressView("Loading more files…")
-                        .font(.footnote)
+                        .font(.glabFootnote)
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
@@ -392,7 +392,7 @@ struct GitLabMergeRequestDiffListView: View {
                 systemImage:
                     "bubble.left.and.text.bubble.right"
             )
-            .font(.footnote)
+            .font(.glabFootnote)
             .foregroundStyle(.secondary)
             .listRowBackground(Color.clear)
             .accessibilityIdentifier(
@@ -438,12 +438,12 @@ private struct GitLabMergeRequestDiffFileRow: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(file.newPath)
-                    .font(.body.weight(.medium))
+                    .font(.glabBody.weight(.medium))
                     .lineLimit(2)
 
                 if file.kind == .renamed {
                     Text("From \(file.oldPath)")
-                        .font(.caption)
+                        .font(.glabCaption)
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
@@ -557,7 +557,7 @@ private struct GitLabDiffBadge: View {
 
     var body: some View {
         Text(title)
-            .font(.caption2.weight(.semibold))
+            .font(.glabCaption2.weight(.semibold))
             .foregroundStyle(color)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -675,7 +675,7 @@ private struct GitLabMergeRequestDiffFileView: View {
             }
         }
         .background(
-            Color(uiColor: .systemBackground)
+            Color.glabSurface
         )
         .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -874,7 +874,7 @@ private struct GitLabMergeRequestDiffFileView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(file.newPath)
-                .font(.subheadline.weight(.semibold))
+                .font(.glabSubheadline.weight(.semibold))
                 .textSelection(.enabled)
                 .frame(
                     maxWidth: .infinity,
@@ -883,7 +883,7 @@ private struct GitLabMergeRequestDiffFileView: View {
 
             if file.kind == .renamed {
                 Text("Renamed from \(file.oldPath)")
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
                     .textSelection(.enabled)
             }
@@ -921,7 +921,7 @@ private struct GitLabMergeRequestDiffFileView: View {
                         systemImage:
                             "bubble.left.and.exclamationmark.bubble.right"
                     )
-                    .font(.caption.weight(.semibold))
+                    .font(.glabCaption.weight(.semibold))
                 }
                 .buttonStyle(.glass)
                 .accessibilityIdentifier(

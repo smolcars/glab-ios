@@ -35,11 +35,11 @@ struct HomeWorkShortcutRow: View {
 
     private var icon: some View {
         Image(systemName: section.systemImage)
-            .font(.headline)
-            .foregroundStyle(.orange)
+            .font(.glabHeadline)
+            .foregroundStyle(Color.glabAccent)
             .frame(width: 38, height: 38)
             .background(
-                Color.orange.opacity(0.12),
+                Color.glabAccent.opacity(0.12),
                 in: .rect(cornerRadius: 10)
             )
             .accessibilityHidden(true)
@@ -48,10 +48,10 @@ struct HomeWorkShortcutRow: View {
     private var textContent: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(section.title)
-                .font(.body.weight(.medium))
+                .font(.glabBody.weight(.medium))
 
             Text(presentation.subtitle)
-                .font(.subheadline)
+                .font(.glabSubheadline)
                 .foregroundStyle(
                     presentation.status == .failed
                         ? AnyShapeStyle(.red)

@@ -111,7 +111,7 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
             collectionViewLayout: layout
         )
         collectionView.backgroundColor =
-            .systemBackground
+            .glabSurface
         collectionView.alwaysBounceVertical = true
         collectionView.alwaysBounceHorizontal = true
         collectionView.showsVerticalScrollIndicator =
@@ -582,9 +582,9 @@ final class GitLabDiffCollectionViewCell:
         newLineLabel.adjustsFontForContentSizeCategory =
             true
         oldLineLabel.backgroundColor =
-            .secondarySystemBackground
+            .glabRaisedSurface
         newLineLabel.backgroundColor =
-            .secondarySystemBackground
+            .glabRaisedSurface
 
         textView.isEditable = false
         textView.isSelectable = true
@@ -771,7 +771,7 @@ final class GitLabDiffCollectionViewCell:
                 text,
                 textColor: .secondaryLabel,
                 backgroundColor:
-                    .secondarySystemBackground,
+                    .glabRaisedSurface,
                 accessibilityLabel: text
             )
         case let .fileMetadata(text):
@@ -779,7 +779,7 @@ final class GitLabDiffCollectionViewCell:
                 text,
                 textColor: .secondaryLabel,
                 backgroundColor:
-                    .secondarySystemBackground,
+                    .glabRaisedSurface,
                 accessibilityLabel:
                     "File metadata, \(text)"
             )

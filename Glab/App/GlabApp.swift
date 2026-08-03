@@ -40,6 +40,8 @@ struct GlabApp: App {
         GitLabTodoNotificationDelegate
 
     init() {
+        GlabTheme.configureUIKitAppearance()
+
         let routeModel =
             GitLabTodoNotificationRouteModel()
         _todoNotificationRouteModel = State(
@@ -57,6 +59,7 @@ struct GlabApp: App {
     var body: some Scene {
         WindowGroup {
             rootContent
+                .glabAppTheme()
                 .environment(appSession)
                 .environment(
                     todoNotificationManager

@@ -5,7 +5,7 @@ struct GitLabPrivacyAndAccessView: View {
         GitLabPrivacyAndAccessPresentation
 
     var body: some View {
-        List {
+        GlabList {
             Section("GitLab permission") {
                 LabeledContent(
                     "API scope",
@@ -26,14 +26,14 @@ struct GitLabPrivacyAndAccessView: View {
                         systemName:
                             "person.badge.shield.checkmark"
                     )
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.glabAccent)
                 }
 
                 Label {
                     Text(presentation.storageSummary)
                 } icon: {
                     Image(systemName: "key.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.glabAccent)
                 }
             }
 
@@ -42,7 +42,7 @@ struct GitLabPrivacyAndAccessView: View {
                     Text(presentation.dataUseSummary)
                 } icon: {
                     Image(systemName: "hand.raised.fill")
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.glabAccent)
                 }
 
                 if let privacyPolicyURL =

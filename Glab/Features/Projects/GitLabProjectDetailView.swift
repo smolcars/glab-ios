@@ -122,10 +122,7 @@ struct GitLabProjectDetailView: View {
             .navigationTitle("Project")
             .navigationBarTitleDisplayMode(.inline)
             .background(
-                Color(
-                    uiColor:
-                        .systemGroupedBackground
-                )
+                Color.glabCanvas
             )
             .task {
                 await load()
@@ -259,16 +256,16 @@ struct GitLabProjectDetailView: View {
                 default:
                     Text(project.avatarMark)
                         .font(
-                            .headline.weight(
+                            .glabHeadline.weight(
                                 .bold
                             )
                         )
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.glabBrandWarm)
                 }
             }
             .frame(width: 58, height: 58)
             .background(
-                Color.orange.opacity(0.12)
+                Color.glabBrandWarm.opacity(0.12)
             )
             .clipShape(
                 .rect(cornerRadius: 14)
@@ -290,11 +287,11 @@ struct GitLabProjectDetailView: View {
                 spacing: 5
             ) {
                 Text(project.name)
-                    .font(.title2.bold())
+                    .font(.glabTitle2.bold())
                 Text(
                     project.pathWithNamespace
                 )
-                .font(.subheadline)
+                .font(.glabSubheadline)
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
             }
@@ -387,12 +384,12 @@ struct GitLabProjectDetailView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Label(title, systemImage: systemImage)
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
 
             Text(value)
                 .font(
-                    .subheadline.weight(.semibold)
+                    .glabSubheadline.weight(.semibold)
                 )
                 .fixedSize(
                     horizontal: false,
@@ -657,17 +654,17 @@ private struct GitLabProjectDestinationLabel:
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: systemImage)
-                .font(.headline)
+                .font(.glabHeadline)
                 .foregroundStyle(
                     isAvailable
-                        ? Color.orange
+                        ? Color.glabAccent
                         : Color.secondary
                 )
                 .frame(width: 40, height: 40)
                 .background(
                     (
                         isAvailable
-                            ? Color.orange
+                            ? Color.glabAccent
                             : Color.secondary
                     )
                     .opacity(
@@ -683,12 +680,12 @@ private struct GitLabProjectDestinationLabel:
             ) {
                 Text(title)
                     .font(
-                        .body.weight(.semibold)
+                        .glabBody.weight(.semibold)
                     )
                     .foregroundStyle(.primary)
 
                 Text(subtitle)
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
@@ -698,7 +695,7 @@ private struct GitLabProjectDestinationLabel:
             if isAvailable {
                 Image(systemName: "chevron.forward")
                     .font(
-                        .caption.weight(.bold)
+                        .glabCaption.weight(.bold)
                     )
                     .foregroundStyle(.secondary)
                     .frame(width: 30, height: 30)
@@ -710,7 +707,7 @@ private struct GitLabProjectDestinationLabel:
             } else {
                 Text("Unavailable")
                     .font(
-                        .caption.weight(.medium)
+                        .glabCaption.weight(.medium)
                     )
                     .foregroundStyle(.secondary)
             }

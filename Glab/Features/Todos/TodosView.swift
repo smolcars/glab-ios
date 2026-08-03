@@ -37,7 +37,7 @@ struct TodosView: View {
         @Bindable var model = model
 
         NavigationStack {
-            List {
+            GlabList {
                 filterControls(model: $model)
                     .listRowInsets(
                         EdgeInsets(
@@ -75,9 +75,9 @@ struct TodosView: View {
             .id(model.query)
             .listStyle(.plain)
             .accessibilityIdentifier("todos.list")
-            .background(Color(uiColor: .systemBackground))
+            .background(Color.glabSurface)
             .navigationTitle("Todos")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if model.selectedState == .pending {
                     ToolbarItem(
@@ -219,11 +219,11 @@ struct TodosView: View {
                 ProgressView()
                     .controlSize(.large)
                 Text(completionProgressTitle)
-                    .font(.headline)
+                    .font(.glabHeadline)
                 Text(
                     "The change is being saved to GitLab."
                 )
-                .font(.subheadline)
+                .font(.glabSubheadline)
                 .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
@@ -292,7 +292,7 @@ struct TodosView: View {
                 HStack {
                     Spacer()
                     ProgressView("Loading more…")
-                        .font(.footnote)
+                        .font(.glabFootnote)
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
@@ -333,12 +333,12 @@ struct TodosView: View {
                         systemName:
                             "checkmark.circle"
                     )
-                    .font(.title3.weight(.semibold))
+                    .font(.glabTitle3.weight(.semibold))
                     .frame(width: 44, height: 44)
                     .contentShape(.circle)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.glabAccent)
                 .disabled(
                     !model.canComplete
                         || model.isMarkingAllDone
@@ -451,7 +451,7 @@ struct TodosView: View {
                 "Read-only access. The api scope is required "
                     + "to complete Todos."
             )
-            .font(.footnote)
+            .font(.glabFootnote)
         } icon: {
             Image(systemName: "lock.fill")
         }
@@ -468,7 +468,7 @@ struct TodosView: View {
         HStack(spacing: 10) {
             ProgressView()
             Text(completionProgressTitle)
-                .font(.footnote.weight(.medium))
+                .font(.glabFootnote.weight(.medium))
         }
         .foregroundStyle(.secondary)
         .accessibilityElement(children: .combine)
@@ -581,7 +581,7 @@ private struct GitLabTodoRow: View {
                 header
 
                 Text(todo.title)
-                    .font(.body.weight(.semibold))
+                    .font(.glabBody.weight(.semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(
                         dynamicTypeSize.isAccessibilitySize
@@ -591,7 +591,7 @@ private struct GitLabTodoRow: View {
 
                 if let body = todo.displayBody {
                     Text(body)
-                        .font(.subheadline)
+                        .font(.glabSubheadline)
                         .foregroundStyle(.secondary)
                         .lineLimit(
                             dynamicTypeSize.isAccessibilitySize
@@ -617,7 +617,7 @@ private struct GitLabTodoRow: View {
                 Text(todo.projectTitle)
                 updatedTime
             }
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
         } else {
             HStack(spacing: 6) {
@@ -633,7 +633,7 @@ private struct GitLabTodoRow: View {
                 Spacer(minLength: 8)
                 updatedTime
             }
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
         }
     }
@@ -661,7 +661,7 @@ private struct GitLabTodoRow: View {
                 author
                 Text(todo.action.title)
             }
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
         } else {
             HStack(spacing: 6) {
@@ -673,7 +673,7 @@ private struct GitLabTodoRow: View {
                 Text(todo.action.title)
                     .lineLimit(1)
             }
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
         }
     }
@@ -707,7 +707,7 @@ private struct GitLabTodoRow: View {
 
     private var typeIcon: some View {
         Image(systemName: todo.targetType.systemImage)
-            .font(.callout.weight(.semibold))
+            .font(.glabCallout.weight(.semibold))
             .foregroundStyle(accentColor)
             .frame(width: 34, height: 34)
             .background(
@@ -719,7 +719,7 @@ private struct GitLabTodoRow: View {
 
     private var accentColor: Color {
         todo.state == .pending
-            ? .orange
+            ? Color.glabAccent
             : .secondary
     }
 

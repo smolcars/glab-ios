@@ -251,7 +251,7 @@ struct AppRootView: View {
         )
         .accessibilityIdentifier("app.restoringSession")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(Color.glabCanvas)
     }
 
     private var accountContext:

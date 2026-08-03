@@ -95,7 +95,7 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            List {
+            GlabList {
                 if session.apiAccess == .readOnly {
                     Section {
                         readOnlyCallout
@@ -134,7 +134,7 @@ struct HomeView: View {
                     }
                 } header: {
                     Text("My Work")
-                        .font(.title2.bold())
+                        .font(.glabTitle2.bold())
                         .foregroundStyle(.primary)
                         .textCase(nil)
                         .padding(.bottom, 4)
@@ -143,7 +143,7 @@ struct HomeView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Home")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(for: HomeDashboardSection.self) {
                 section in
                 destination(for: section)
@@ -450,12 +450,12 @@ struct HomeView: View {
             "Read-only · Changes disabled",
             systemImage: "eye.fill"
         )
-        .font(.footnote.weight(.medium))
-        .foregroundStyle(.orange)
+        .font(.glabFootnote.weight(.medium))
+        .foregroundStyle(Color.glabAccent)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(
-            Color.orange.opacity(0.1),
+            Color.glabAccent.opacity(0.1),
             in: .rect(cornerRadius: 12)
         )
         .accessibilityLabel(

@@ -379,7 +379,7 @@ struct GitLabJobTraceView: View {
                     )
             }
         }
-        .font(.caption)
+        .font(.glabCaption)
         .foregroundStyle(.secondary)
         .lineLimit(1)
         .padding(.horizontal, 12)
@@ -401,7 +401,7 @@ struct GitLabJobTraceView: View {
         ) {
             if let text = status.text {
                 Text(text)
-                    .font(.caption2)
+                    .font(.glabCaption2)
                     .foregroundStyle(
                         status.isWarning
                         ? Color.orange
@@ -663,7 +663,7 @@ struct GitLabJobTraceView: View {
                 systemName: systemImage
             )
             .font(
-                .body.weight(.semibold)
+                .glabBody.weight(.semibold)
             )
             .frame(
                 width: 44,

@@ -53,7 +53,7 @@ struct GitLabLifecycleStatePicker<State: Hashable>: View {
                     systemImage(state)
             )
             .font(
-                .subheadline.weight(
+                .glabSubheadline.weight(
                     .semibold
                 )
             )

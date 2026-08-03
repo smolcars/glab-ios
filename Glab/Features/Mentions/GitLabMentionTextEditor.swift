@@ -517,7 +517,7 @@ private struct GitLabMentionLoadingView:
             ProgressView()
                 .controlSize(.small)
             Text("Finding people…")
-                .font(.callout)
+                .font(.glabCallout)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)
         }
@@ -566,7 +566,7 @@ private struct GitLabMentionSuggestionsView:
                                 summary.displayName
                             )
                             .font(
-                                .subheadline
+                                .glabSubheadline
                                     .weight(
                                         .medium
                                     )
@@ -579,7 +579,7 @@ private struct GitLabMentionSuggestionsView:
                             Text(
                                 "@\(member.username)"
                             )
-                            .font(.caption)
+                            .font(.glabCaption)
                             .foregroundStyle(
                                 .secondary
                             )

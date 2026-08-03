@@ -218,17 +218,17 @@ struct GitLabEmojiReactionView: View {
                     .accessibilityHidden(true)
             }
         }
-        .font(.callout)
+        .font(.glabCallout)
         .foregroundStyle(
             group.isSelectedByCurrentUser
-                ? Color.orange
+                ? Color.glabAccent
                 : Color.primary
         )
         .padding(.horizontal, 10)
         .frame(minHeight: 34)
         .background(
             group.isSelectedByCurrentUser
-                ? Color.orange.opacity(0.14)
+                ? Color.glabAccent.opacity(0.14)
                 : Color.secondary.opacity(0.1),
             in: .capsule
         )
@@ -236,7 +236,7 @@ struct GitLabEmojiReactionView: View {
             Capsule()
                 .stroke(
                     group.isSelectedByCurrentUser
-                        ? Color.orange
+                        ? Color.glabAccent
                             .opacity(0.5)
                         : Color.primary
                             .opacity(0.08),
@@ -265,7 +265,7 @@ struct GitLabEmojiReactionView: View {
                     systemName:
                         "arrowshape.turn.up.left"
                 )
-                .font(.body)
+                .font(.glabBody)
                 .frame(
                     width: 44,
                     height: 44
@@ -296,7 +296,7 @@ struct GitLabEmojiReactionView: View {
                 )
             }
         }
-        .foregroundStyle(.orange)
+        .foregroundStyle(Color.glabAccent)
         .glassEffect(
             .regular.interactive()
         )
@@ -323,7 +323,7 @@ struct GitLabEmojiReactionView: View {
                 }
 
                 Text("🙂")
-                    .font(.body)
+                    .font(.glabBody)
             }
             .frame(
                 width: 44,
@@ -417,7 +417,7 @@ struct GitLabEmojiReactionView: View {
         } label: {
             ZStack {
                 Text(item.display)
-                    .font(.title2)
+                    .font(.glabTitle2)
 
                 if isPending {
                     ProgressView()
@@ -503,7 +503,7 @@ struct GitLabEmojiReactionView: View {
                             : "exclamationmark.triangle"
                 )
             }
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.orange)
 
             Spacer(minLength: 8)
@@ -518,7 +518,7 @@ struct GitLabEmojiReactionView: View {
                         await handleAuthenticationFailure()
                     }
                 }
-                .font(.caption.weight(.semibold))
+                .font(.glabCaption.weight(.semibold))
                 .buttonStyle(.glass)
             } else {
                 Button {
@@ -549,7 +549,7 @@ struct GitLabEmojiReactionView: View {
                 systemImage:
                     "exclamationmark.triangle"
             )
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
 
             Spacer(minLength: 8)
@@ -560,7 +560,7 @@ struct GitLabEmojiReactionView: View {
                     await handleAuthenticationFailure()
                 }
             }
-            .font(.caption.weight(.semibold))
+            .font(.glabCaption.weight(.semibold))
             .buttonStyle(.glass)
             .accessibilityHint(
                 error.description

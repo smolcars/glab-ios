@@ -170,10 +170,7 @@ struct GitLabIssueListView: View {
 
         content
             .background(
-                Color(
-                    uiColor:
-                        .systemGroupedBackground
-                )
+                Color.glabCanvas
             )
             .navigationTitle(
                 configuration.title
@@ -269,7 +266,7 @@ struct GitLabIssueListView: View {
     }
 
     private var issueList: some View {
-        List {
+        GlabList {
             if model.didFailRefresh, let error = model.loadError {
                 GitLabInlineRetryRow(
                     title: "Couldn’t refresh issues",
@@ -323,7 +320,7 @@ struct GitLabIssueListView: View {
                 HStack {
                     Spacer()
                     ProgressView("Loading more…")
-                        .font(.footnote)
+                        .font(.glabFootnote)
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
@@ -418,7 +415,7 @@ struct GitLabIssueRow: View {
             header
 
             Text(issue.title)
-                .font(.body.weight(.semibold))
+                .font(.glabBody.weight(.semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(
                     dynamicTypeSize.isAccessibilitySize
@@ -456,7 +453,7 @@ struct GitLabIssueRow: View {
     private var reference: some View {
         HStack(spacing: 6) {
             Text(referenceText)
-                .font(.caption.weight(.medium))
+                .font(.glabCaption.weight(.medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(
                     dynamicTypeSize.isAccessibilitySize
@@ -466,7 +463,7 @@ struct GitLabIssueRow: View {
 
             if issue.confidential {
                 Image(systemName: "lock.fill")
-                    .font(.caption2)
+                    .font(.glabCaption2)
                     .foregroundStyle(.orange)
                     .accessibilityLabel("Confidential")
             }
@@ -520,7 +517,7 @@ struct GitLabIssueRow: View {
 
         if issue.labels.count > 3 {
             Text("+\(issue.labels.count - 3)")
-                .font(.caption2.weight(.semibold))
+                .font(.glabCaption2.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
     }
@@ -545,7 +542,7 @@ struct GitLabIssueRow: View {
 
     private var state: some View {
         GitLabIssueStateLabel(issue: issue)
-            .font(.caption)
+            .font(.glabCaption)
     }
 
     @ViewBuilder
@@ -557,7 +554,7 @@ struct GitLabIssueRow: View {
                     .joined(separator: ", "),
                 systemImage: "person.fill"
             )
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
             .lineLimit(
                 dynamicTypeSize.isAccessibilitySize
@@ -572,7 +569,7 @@ struct GitLabIssueRow: View {
             "\(issue.userNotesCount)",
             systemImage: "bubble.left"
         )
-        .font(.caption)
+        .font(.glabCaption)
         .foregroundStyle(.secondary)
     }
 
@@ -792,7 +789,7 @@ struct GitLabIssueDetailView: View {
 
     var body: some View {
         content
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background(Color.glabCanvas)
             .navigationTitle("Issue")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1697,7 +1694,7 @@ private struct GitLabIssueDetailContent: View {
                         "This issue is confidential",
                         systemImage: "lock.fill"
                     )
-                    .font(.callout.weight(.medium))
+                    .font(.glabCallout.weight(.medium))
                     .foregroundStyle(.orange)
                 }
 
@@ -1742,11 +1739,11 @@ private struct GitLabIssueDetailContent: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(issue.references.full)
-                .font(.subheadline.weight(.medium))
+                .font(.glabSubheadline.weight(.medium))
                 .foregroundStyle(.secondary)
 
             Text(issue.title)
-                .font(.title2.bold())
+                .font(.glabTitle2.bold())
                 .textSelection(.enabled)
 
             ViewThatFits(
@@ -1765,7 +1762,7 @@ private struct GitLabIssueDetailContent: View {
                     statusControl
                 }
             }
-            .font(.subheadline.weight(.medium))
+            .font(.glabSubheadline.weight(.medium))
         }
     }
 
@@ -1845,7 +1842,7 @@ private struct GitLabIssueDetailContent: View {
                 )
             } else {
                 Text("No description provided.")
-                    .font(.body)
+                    .font(.glabBody)
                     .foregroundStyle(.secondary)
             }
         }

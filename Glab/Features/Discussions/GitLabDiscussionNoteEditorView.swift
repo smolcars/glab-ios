@@ -57,7 +57,7 @@ struct GitLabDiscussionNoteEditorView: View {
                         systemImage:
                             "exclamationmark.triangle"
                     )
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.orange)
                     .accessibilityIdentifier(
                         "discussion.noteEditor.failure"
@@ -67,15 +67,12 @@ struct GitLabDiscussionNoteEditorView: View {
                 Text(
                     "Markdown, mentions, quick actions, and other GitLab formatting are preserved."
                 )
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
             }
             .padding(20)
             .background(
-                Color(
-                    uiColor:
-                        .systemGroupedBackground
-                )
+                Color.glabCanvas
             )
             .navigationTitle("Edit comment")
             .navigationBarTitleDisplayMode(.inline)
@@ -165,10 +162,7 @@ struct GitLabDiscussionNoteEditorView: View {
                 )
         }
         .background(
-            Color(
-                uiColor:
-                    .secondarySystemGroupedBackground
-            ),
+            Color.glabRaisedSurface,
             in: .rect(cornerRadius: 16)
         )
         .overlay {
