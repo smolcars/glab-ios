@@ -44,7 +44,7 @@ struct GitLabJobTraceCollectionView:
                 collectionViewLayout: layout
             )
         collectionView.backgroundColor =
-            .systemBackground
+            .glabSurface
         collectionView.alwaysBounceVertical =
             true
         collectionView.alwaysBounceHorizontal =
@@ -575,7 +575,7 @@ struct GitLabJobTraceCollectionView:
             errorLabel.textColor =
                 .systemOrange
             errorLabel.backgroundColor =
-                .secondarySystemBackground
+                .glabRaisedSurface
             errorLabel.textAlignment =
                 .center
             errorLabel.numberOfLines = 2
@@ -826,7 +826,7 @@ GitLabJobTraceCollectionViewCell:
         lineNumberLabel.textColor =
             .tertiaryLabel
         lineNumberLabel.backgroundColor =
-            .secondarySystemBackground
+            .glabRaisedSurface
         lineNumberLabel
             .adjustsFontForContentSizeCategory =
             true

@@ -63,7 +63,7 @@ struct GitLabDiscussionComposerView: View {
                             systemImage:
                                 "arrow.up.circle"
                         )
-                        .font(.callout)
+                        .font(.glabCallout)
                         .foregroundStyle(
                             .secondary
                         )
@@ -85,10 +85,7 @@ struct GitLabDiscussionComposerView: View {
                 .interactively
             )
             .background(
-                Color(
-                    uiColor:
-                        .systemGroupedBackground
-                )
+                Color.glabCanvas
             )
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(
@@ -190,7 +187,7 @@ struct GitLabDiscussionComposerView: View {
         ) {
             Text("Comment")
                 .font(
-                    .headline
+                    .glabHeadline
                 )
 
             GitLabMentionTextEditor(
@@ -244,10 +241,7 @@ struct GitLabDiscussionComposerView: View {
                     )
                 }
                 .background(
-                    Color(
-                        uiColor:
-                            .secondarySystemGroupedBackground
-                    ),
+                    Color.glabRaisedSurface,
                     in: .rect(
                         cornerRadius: 16
                     )
@@ -267,7 +261,7 @@ struct GitLabDiscussionComposerView: View {
             Text(
                 "Markdown is supported. Your draft is saved on this device."
             )
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
         }
     }
@@ -358,13 +352,13 @@ private struct GitLabDiscussionComposerFailureView:
                 ) {
                     Text(title)
                         .font(
-                            .callout
+                            .glabCallout
                                 .weight(
                                     .semibold
                                 )
                         )
                     Text(message)
-                        .font(.caption)
+                        .font(.glabCaption)
                 }
             } icon: {
                 Image(systemName: systemImage)

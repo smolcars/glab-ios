@@ -51,7 +51,7 @@ struct GitLabMergeRequestPipelinesView: View {
     }
 
     var body: some View {
-        List {
+        GlabList {
             pipelineRows
         }
         .listStyle(.plain)
@@ -360,7 +360,7 @@ struct GitLabMergeRequestPipelinesView: View {
         HStack {
             Spacer()
             ProgressView(title)
-                .font(.footnote)
+                .font(.glabFootnote)
             Spacer()
         }
         .listRowBackground(Color.clear)

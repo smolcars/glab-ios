@@ -26,10 +26,7 @@ struct
             }
         }
         .background(
-            Color(
-                uiColor:
-                    .secondarySystemGroupedBackground
-            ),
+            Color.glabRaisedSurface,
             in: RoundedRectangle(
                 cornerRadius: 18,
                 style: .continuous
@@ -99,7 +96,7 @@ struct
 
                 Text(summaryTitle)
                     .font(
-                        .callout.weight(
+                        .glabCallout.weight(
                             .semibold
                         )
                     )
@@ -118,7 +115,7 @@ struct
                         : "chevron.down"
                 )
                 .font(
-                    .caption.weight(
+                    .glabCaption.weight(
                         .semibold
                     )
                 )
@@ -208,7 +205,7 @@ struct
                         "+\(approvingUsers.count - 3)"
                     )
                     .font(
-                        .caption2.weight(
+                        .glabCaption2.weight(
                             .semibold
                         )
                     )
@@ -252,7 +249,7 @@ struct
         ) {
             Text("Approved")
                 .font(
-                    .caption.weight(
+                    .glabCaption.weight(
                         .semibold
                     )
                 )
@@ -263,7 +260,7 @@ struct
                 != false
             {
                 Text("No approvals yet")
-                    .font(.callout)
+                    .font(.glabCallout)
                     .foregroundStyle(
                         .secondary
                     )
@@ -296,7 +293,7 @@ struct
                                     user.displayName
                                 )
                                 .font(
-                                    .callout
+                                    .glabCallout
                                         .weight(
                                             .medium
                                         )
@@ -315,7 +312,7 @@ struct
                                                     .shortened
                                             )
                                     )
-                                    .font(.caption2)
+                                    .font(.glabCaption2)
                                     .foregroundStyle(
                                         .secondary
                                     )
@@ -358,7 +355,7 @@ struct
                 ProgressView()
                     .controlSize(.small)
                 Text("Loading rules")
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(
                         .secondary
                     )
@@ -380,7 +377,7 @@ struct
                     systemImage:
                         "arrow.triangle.branch"
                 )
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
             }
 
@@ -423,7 +420,7 @@ struct
                 ) {
                     Text(presentation.title)
                         .font(
-                            .callout.weight(
+                            .glabCallout.weight(
                                 .semibold
                             )
                         )
@@ -435,7 +432,7 @@ struct
                             .state
                             .systemImage
                     )
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(
                         presentation
                             .state.tint
@@ -504,14 +501,14 @@ struct
                         person.user
                             .displayName
                     )
-                    .font(.caption)
+                    .font(.glabCaption)
                     .lineLimit(1)
                     Spacer(minLength: 0)
                     Text(
                         person.state.title
                     )
                     .font(
-                        .caption2.weight(
+                        .glabCaption2.weight(
                             .medium
                         )
                     )
@@ -531,7 +528,7 @@ struct
                     .lockMessage
             {
                 Text(lockMessage)
-                    .font(.caption2)
+                    .font(.glabCaption2)
                     .foregroundStyle(
                         .secondary
                     )
@@ -549,7 +546,7 @@ struct
                 ProgressView()
                     .controlSize(.small)
                 Text(model.phase.title)
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(
                         .secondary
                     )
@@ -606,7 +603,7 @@ struct
                     "GitLab sign-in required",
                     systemImage: "lock.fill"
                 )
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.orange)
                 .accessibilityIdentifier(
                     "mergeRequests.approvals.reauthentication"
@@ -633,7 +630,7 @@ struct
             Text(
                 "Rules couldn’t be refreshed."
             )
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
 
             Spacer(minLength: 0)
@@ -670,7 +667,7 @@ struct
             systemImage:
                 "exclamationmark.circle"
         )
-        .font(.caption)
+        .font(.glabCaption)
         .foregroundStyle(.orange)
         .accessibilityIdentifier(
             "mergeRequests.approvals.failure"
@@ -919,7 +916,7 @@ private struct
                     )
             )
         } else {
-            List {
+            GlabList {
                 ForEach(
                     model.availableMembers
                 ) { member in
@@ -963,7 +960,7 @@ private struct
                                 Text(
                                     "@\(member.username)"
                                 )
-                                .font(.caption)
+                                .font(.glabCaption)
                                 .foregroundStyle(
                                     .secondary
                                 )
@@ -1021,7 +1018,7 @@ private struct
             .foregroundStyle(.orange)
 
             Text(failure.userMessage)
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(
                     .secondary
                 )

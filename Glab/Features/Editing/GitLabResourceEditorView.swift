@@ -44,7 +44,7 @@ struct GitLabResourceEditorView: View {
                 editorContent(model: $model)
             }
             .background(
-                Color(uiColor: .systemGroupedBackground)
+                Color.glabCanvas
             )
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
@@ -186,7 +186,7 @@ struct GitLabResourceEditorView: View {
                 axis: .vertical
             )
             .textFieldStyle(.roundedBorder)
-            .font(.headline)
+            .font(.glabHeadline)
             .lineLimit(1...4)
             .focused(
                 $focusedField,
@@ -257,11 +257,11 @@ struct GitLabResourceEditorView: View {
                 ProgressView()
                     .controlSize(.large)
                 Text("Restoring draft…")
-                    .font(.headline)
+                    .font(.glabHeadline)
                 Text(
                     "Your account-scoped draft is loading."
                 )
-                .font(.subheadline)
+                .font(.glabSubheadline)
                 .foregroundStyle(.secondary)
             }
             .frame(
@@ -289,7 +289,7 @@ struct GitLabResourceEditorView: View {
                         text: text,
                         selection: selection
                     )
-                    .font(.body)
+                    .font(.glabBody)
                     .padding(12)
                     .scrollContentBackground(
                         .hidden
@@ -299,10 +299,7 @@ struct GitLabResourceEditorView: View {
                         equals: .description
                     )
                     .background(
-                        Color(
-                            uiColor:
-                                .secondarySystemGroupedBackground
-                        )
+                        Color.glabRaisedSurface
                     )
                     .disabled(
                         !model.wrappedValue
@@ -793,10 +790,10 @@ private struct GitLabResourceEditorStatusView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(status.title)
-                    .font(.callout.weight(.semibold))
+                    .font(.glabCallout.weight(.semibold))
 
                 Text(status.message)
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
 
                 switch status.action {
@@ -805,7 +802,7 @@ private struct GitLabResourceEditorStatusView: View {
                         "Try Saving Draft Again",
                         action: retryDraftStorage
                     )
-                    .font(.callout.weight(.semibold))
+                    .font(.glabCallout.weight(.semibold))
                     .accessibilityIdentifier(
                         "resourceEditor.retryDraft"
                     )
@@ -814,7 +811,7 @@ private struct GitLabResourceEditorStatusView: View {
                         "Check GitLab",
                         action: checkGitLab
                     )
-                    .font(.callout.weight(.semibold))
+                    .font(.glabCallout.weight(.semibold))
                     .accessibilityIdentifier(
                         "resourceEditor.checkGitLab"
                     )

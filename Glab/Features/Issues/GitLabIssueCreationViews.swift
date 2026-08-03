@@ -194,7 +194,7 @@ struct GitLabIssueCreationView: View {
                     ? "square.stack"
                     : "square.stack.fill"
             )
-            .foregroundStyle(.orange)
+            .foregroundStyle(Color.glabAccent)
             .frame(width: 24)
 
             VStack(
@@ -214,7 +214,7 @@ struct GitLabIssueCreationView: View {
                         .pathWithNamespace
                 {
                     Text(path)
-                        .font(.caption)
+                        .font(.glabCaption)
                         .foregroundStyle(
                             .secondary
                         )
@@ -594,7 +594,7 @@ struct GitLabIssueCreationView: View {
                     systemImage: "lock"
                 )
             }
-            .tint(.orange)
+            .tint(Color.glabAccent)
             .accessibilityHint(
                 "Limits visibility according to GitLab project permissions."
             )
@@ -610,7 +610,7 @@ struct GitLabIssueCreationView: View {
                     systemImage: "calendar"
                 )
             }
-            .tint(.orange)
+            .tint(Color.glabAccent)
             .accessibilityIdentifier(
                 "issueCreation.dueDateToggle"
             )
@@ -636,7 +636,7 @@ struct GitLabIssueCreationView: View {
     ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: systemImage)
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.glabAccent)
                 .frame(width: 24)
             Text(title)
             Spacer()
@@ -685,8 +685,8 @@ struct GitLabIssueCreationView: View {
                 "Read-only — Create disabled",
                 systemImage: "eye.fill"
             )
-            .font(.callout)
-            .foregroundStyle(.orange)
+            .font(.glabCallout)
+            .foregroundStyle(Color.glabAccent)
             .accessibilityLabel(
                 "Read-only account. You can compose and keep a local draft, but Create is disabled."
             )
@@ -754,9 +754,9 @@ struct GitLabIssueCreationView: View {
                 spacing: 3
             ) {
                 Text(title)
-                    .font(.callout.weight(.semibold))
+                    .font(.glabCallout.weight(.semibold))
                 Text(message)
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
 
                 if let action {
@@ -765,7 +765,7 @@ struct GitLabIssueCreationView: View {
                     ) {
                         perform(action)
                     }
-                    .font(.caption.weight(.semibold))
+                    .font(.glabCaption.weight(.semibold))
                     .padding(.top, 3)
                 }
             }
@@ -885,7 +885,7 @@ private struct GitLabIssueCreationStatusPicker:
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        List {
+        GlabList {
             choice(
                 title: "Default status",
                 subtitle:
@@ -937,7 +937,7 @@ private struct GitLabIssueCreationStatusPicker:
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.glabAccent)
                     .frame(width: 24)
                 VStack(
                     alignment: .leading,
@@ -950,7 +950,7 @@ private struct GitLabIssueCreationStatusPicker:
                         !subtitle.isEmpty
                     {
                         Text(subtitle)
-                            .font(.caption)
+                            .font(.glabCaption)
                             .foregroundStyle(
                                 .secondary
                             )
@@ -961,7 +961,7 @@ private struct GitLabIssueCreationStatusPicker:
                 if isSelected {
                     Image(systemName: "checkmark")
                         .fontWeight(.semibold)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.glabAccent)
                 }
             }
             .contentShape(.rect)
@@ -983,7 +983,7 @@ private struct GitLabIssueCreationMilestonePicker:
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        List {
+        GlabList {
             option(
                 title: "No milestone",
                 subtitle: nil,
@@ -1051,7 +1051,7 @@ private struct GitLabIssueCreationIterationPicker:
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        List {
+        GlabList {
             option(
                 title: "No iteration",
                 subtitle: nil,
@@ -1122,7 +1122,7 @@ private struct GitLabIssueFieldOptionButton: View {
         Button(action: action) {
             HStack(spacing: 12) {
                 Image(systemName: systemImage)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.glabAccent)
                     .frame(width: 24)
                 VStack(
                     alignment: .leading,
@@ -1135,7 +1135,7 @@ private struct GitLabIssueFieldOptionButton: View {
                         !subtitle.isEmpty
                     {
                         Text(subtitle)
-                            .font(.caption)
+                            .font(.glabCaption)
                             .foregroundStyle(
                                 .secondary
                             )
@@ -1145,7 +1145,7 @@ private struct GitLabIssueFieldOptionButton: View {
                 if isSelected {
                     Image(systemName: "checkmark")
                         .fontWeight(.semibold)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(Color.glabAccent)
                 }
             }
             .contentShape(.rect)
@@ -1279,7 +1279,7 @@ private struct GitLabIssueCreationProjectPicker:
                 "issueCreation.projects.empty"
             )
         } else {
-            List {
+            GlabList {
                 ForEach(
                     projectsModel.items
                 ) { project in
@@ -1346,11 +1346,11 @@ private struct GitLabIssueCreationProjectPicker:
     ) -> some View {
         HStack(spacing: 12) {
             Text(project.avatarMark)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.orange)
+                .font(.glabCaption.weight(.bold))
+                .foregroundStyle(Color.glabAccent)
                 .frame(width: 36, height: 36)
                 .background(
-                    Color.orange.opacity(0.12),
+                    Color.glabAccent.opacity(0.12),
                     in: .rect(
                         cornerRadius: 9
                     )
@@ -1365,7 +1365,7 @@ private struct GitLabIssueCreationProjectPicker:
                 Text(
                     project.pathWithNamespace
                 )
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             }
@@ -1380,7 +1380,7 @@ private struct GitLabIssueCreationProjectPicker:
                     systemName: "checkmark"
                 )
                 .fontWeight(.semibold)
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.glabAccent)
             }
         }
         .contentShape(.rect)
@@ -1526,7 +1526,7 @@ private struct GitLabIssueCreationLabelList:
                 text: labelsModel.searchText
             )
         } else {
-            List {
+            GlabList {
                 ForEach(
                     labelsModel.displayedItems
                 ) { label in
@@ -1539,7 +1539,7 @@ private struct GitLabIssueCreationLabelList:
                                     "tag.fill"
                             )
                             .foregroundStyle(
-                                .orange
+                                Color.glabAccent
                             )
                             Text(label.name)
                                 .foregroundStyle(
@@ -1561,7 +1561,7 @@ private struct GitLabIssueCreationLabelList:
                                     .semibold
                                 )
                                 .foregroundStyle(
-                                    .orange
+                                    Color.glabAccent
                                 )
                             }
                         }
@@ -1677,7 +1677,7 @@ private struct GitLabIssueCreationAssigneeList:
                     Text(
                         "Multiple assignees require GitLab Premium or Ultimate."
                     )
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
                     .frame(
                         maxWidth: .infinity,
@@ -1726,7 +1726,7 @@ private struct GitLabIssueCreationAssigneeList:
                 text: membersModel.searchText
             )
         } else {
-            List {
+            GlabList {
                 ForEach(
                     model
                         .displayedAssignableMembers
@@ -1766,7 +1766,7 @@ private struct GitLabIssueCreationAssigneeList:
                                 Text(
                                     "@\(member.username)"
                                 )
-                                .font(.caption)
+                                .font(.glabCaption)
                                 .foregroundStyle(
                                     .secondary
                                 )
@@ -1787,7 +1787,7 @@ private struct GitLabIssueCreationAssigneeList:
                                     .semibold
                                 )
                                 .foregroundStyle(
-                                    .orange
+                                    Color.glabAccent
                                 )
                             }
                         }

@@ -8,7 +8,7 @@ struct GlabAppFooter: View {
                 .foregroundStyle(.secondary)
 
             Text("Made with ❤️ by Nitesh")
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
 
             Link(destination: repositoryURL) {

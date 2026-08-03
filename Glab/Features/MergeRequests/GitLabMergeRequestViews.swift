@@ -224,7 +224,7 @@ struct GitLabMergeRequestListView: View {
 
         content
             .background(
-                Color(uiColor: .systemGroupedBackground)
+                Color.glabCanvas
             )
             .navigationTitle(
                 configuration.title
@@ -304,7 +304,7 @@ struct GitLabMergeRequestListView: View {
     }
 
     private var mergeRequestList: some View {
-        List {
+        GlabList {
             if
                 model.didFailRefresh,
                 let error = model.loadError
@@ -365,7 +365,7 @@ struct GitLabMergeRequestListView: View {
                 HStack {
                     Spacer()
                     ProgressView("Loading more…")
-                        .font(.footnote)
+                        .font(.glabFootnote)
                     Spacer()
                 }
                 .listRowBackground(Color.clear)
@@ -449,7 +449,7 @@ private struct GitLabMergeRequestRow: View {
             header
 
             Text(mergeRequest.title)
-                .font(.body.weight(.semibold))
+                .font(.glabBody.weight(.semibold))
                 .foregroundStyle(.primary)
                 .lineLimit(
                     dynamicTypeSize.isAccessibilitySize
@@ -487,7 +487,7 @@ private struct GitLabMergeRequestRow: View {
 
     private var reference: some View {
         Text(mergeRequest.references.full)
-            .font(.caption.weight(.medium))
+            .font(.glabCaption.weight(.medium))
             .foregroundStyle(.secondary)
             .lineLimit(
                 dynamicTypeSize.isAccessibilitySize
@@ -543,7 +543,7 @@ private struct GitLabMergeRequestRow: View {
             Text(
                 "+\(mergeRequest.labels.count - 3)"
             )
-            .font(.caption2.weight(.semibold))
+            .font(.glabCaption2.weight(.semibold))
             .foregroundStyle(.secondary)
         }
     }
@@ -582,7 +582,7 @@ private struct GitLabMergeRequestRow: View {
                 mergeRequest: mergeRequest
             )
         }
-        .font(.caption)
+        .font(.glabCaption)
         .lineLimit(
             dynamicTypeSize.isAccessibilitySize
                 ? nil
@@ -601,7 +601,7 @@ private struct GitLabMergeRequestRow: View {
     private var draft: some View {
         if mergeRequest.isDraft {
             GitLabMergeRequestDraftLabel()
-                .font(.caption)
+                .font(.glabCaption)
         }
     }
 
@@ -610,7 +610,7 @@ private struct GitLabMergeRequestRow: View {
             "\(mergeRequest.userNotesCount)",
             systemImage: "bubble.left"
         )
-        .font(.caption)
+        .font(.glabCaption)
         .foregroundStyle(.secondary)
     }
 
@@ -623,7 +623,7 @@ private struct GitLabMergeRequestRow: View {
                     Text(peopleSummary)
                 }
             }
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
         } else {
             HStack(spacing: 6) {
@@ -635,7 +635,7 @@ private struct GitLabMergeRequestRow: View {
                         .lineLimit(1)
                 }
             }
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
         }
     }
@@ -713,7 +713,7 @@ private struct GitLabMergeRequestStateIcon: View {
     var body: some View {
         Image(systemName: systemImage)
             .font(
-                .callout.weight(
+                .glabCallout.weight(
                     .semibold
                 )
             )
@@ -1090,7 +1090,7 @@ struct GitLabMergeRequestDetailView: View {
     var body: some View {
         content
             .background(
-                Color(uiColor: .systemGroupedBackground)
+                Color.glabCanvas
             )
             .navigationTitle("Merge Request")
             .navigationBarTitleDisplayMode(.inline)
@@ -1867,11 +1867,11 @@ private struct GitLabMergeRequestDetailContent: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(mergeRequest.references.full)
-                .font(.subheadline.weight(.medium))
+                .font(.glabSubheadline.weight(.medium))
                 .foregroundStyle(.secondary)
 
             Text(mergeRequest.title)
-                .font(.title2.bold())
+                .font(.glabTitle2.bold())
                 .textSelection(.enabled)
 
             HStack(spacing: 12) {
@@ -1889,7 +1889,7 @@ private struct GitLabMergeRequestDetailContent: View {
                 )
                 .foregroundStyle(.secondary)
             }
-            .font(.subheadline.weight(.medium))
+            .font(.glabSubheadline.weight(.medium))
 
             compactMetadata
         }
@@ -1902,7 +1902,7 @@ private struct GitLabMergeRequestDetailContent: View {
                     + " ← "
                     + mergeRequest.sourceBranch
             )
-            .font(.caption.weight(.medium))
+            .font(.glabCaption.weight(.medium))
             .fontDesign(.monospaced)
             .foregroundStyle(.secondary)
             .lineLimit(
@@ -2040,7 +2040,7 @@ private struct GitLabMergeRequestDetailContent: View {
                 )
             } else {
                 Text("No description provided.")
-                    .font(.body)
+                    .font(.glabBody)
                     .foregroundStyle(.secondary)
             }
         }
@@ -2083,7 +2083,7 @@ private struct GitLabMergeRequestDetailContent: View {
                         "hourglass"
                 )
                 .font(
-                    .caption
+                    .glabCaption
                         .weight(.medium)
                 )
                 .foregroundStyle(
@@ -2130,11 +2130,11 @@ private struct GitLabMergeRequestCompactPeople: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(role)
-                    .font(.caption2)
+                    .font(.glabCaption2)
                     .foregroundStyle(.secondary)
 
                 Text(displaySummary)
-                    .font(.caption.weight(.semibold))
+                    .font(.glabCaption.weight(.semibold))
                     .lineLimit(
                         dynamicTypeSize.isAccessibilitySize
                             ? nil
@@ -2158,7 +2158,7 @@ private struct GitLabMergeRequestCompactPeople: View {
                 systemName:
                     "person.crop.circle.badge.questionmark"
             )
-            .font(.title3)
+            .font(.glabTitle3)
             .foregroundStyle(.secondary)
             .frame(width: 26, height: 26)
         }
@@ -2351,7 +2351,7 @@ private struct
                     systemName:
                         "doc.on.doc"
                 )
-                .font(.caption)
+                .font(.glabCaption)
                 .accessibilityHidden(true)
             }
 
@@ -2374,7 +2374,7 @@ private struct
             }
         }
         .font(
-            .subheadline
+            .glabSubheadline
                 .weight(.semibold)
                 .monospacedDigit()
         )

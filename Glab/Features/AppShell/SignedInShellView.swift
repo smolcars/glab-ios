@@ -440,7 +440,6 @@ struct SignedInShellView: View {
             }
             .badge(todosModel.pendingBadgeCount ?? 0)
         }
-        .tint(.orange)
         .environment(
             \.gitLabMarkdownRenderer,
             markdownRenderer

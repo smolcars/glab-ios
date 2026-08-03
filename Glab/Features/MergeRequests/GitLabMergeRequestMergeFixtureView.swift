@@ -98,14 +98,14 @@
                         Text(
                             "Safe merge fixture"
                         )
-                        .font(.title2.bold())
+                        .font(.glabTitle2.bold())
                         .frame(
                             maxWidth: .infinity,
                             alignment: .leading
                         )
 
                         Text(mode.title)
-                            .font(.caption)
+                            .font(.glabCaption)
                             .foregroundStyle(
                                 .secondary
                             )
@@ -138,10 +138,7 @@
                     .inline
                 )
                 .background(
-                    Color(
-                        uiColor:
-                            .systemGroupedBackground
-                    )
+                    Color.glabCanvas
                 )
             }
             .gitLabMergeRequestMergeAlerts(

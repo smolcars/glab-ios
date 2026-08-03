@@ -22,7 +22,7 @@ struct AccountView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            GlabList {
                 profileSection
                 accountsSection
                 notificationsSection
@@ -126,7 +126,7 @@ struct AccountView: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(session.user.displayName)
-                        .font(.title3.bold())
+                        .font(.glabTitle3.bold())
 
                     Text("@\(session.user.username)")
                         .foregroundStyle(.secondary)
@@ -192,7 +192,7 @@ struct AccountView: View {
                     "@\(account.user.username) · "
                         + instanceName(for: account.host)
                 )
-                .font(.footnote)
+                .font(.glabFootnote)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             }
@@ -201,11 +201,11 @@ struct AccountView: View {
 
             if account.id == appSession.activeAccountID {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.glabAccent)
                     .accessibilityLabel("Current account")
             } else {
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
+                    .font(.glabFootnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
@@ -298,7 +298,7 @@ struct AccountView: View {
                 )
             } icon: {
                 Image(systemName: "eye.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.glabAccent)
             }
         }
     }
@@ -413,7 +413,7 @@ struct AccountView: View {
                         : currentAccountRemovalTitle
                 )
             }
-            .font(.headline)
+            .font(.glabHeadline)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 30)
         }
@@ -654,7 +654,7 @@ struct GitLabUserAvatar: View {
             }
         }
         .frame(width: size, height: size)
-        .background(Color.orange.opacity(0.12))
+        .background(Color.glabAccent.opacity(0.12))
         .clipShape(.circle)
         .overlay {
             Circle()
@@ -669,7 +669,7 @@ struct GitLabUserAvatar: View {
     private var fallback: some View {
         Text(user.avatarInitial)
             .font(.system(size: size * 0.4, weight: .semibold))
-            .foregroundStyle(.orange)
+            .foregroundStyle(Color.glabAccent)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 

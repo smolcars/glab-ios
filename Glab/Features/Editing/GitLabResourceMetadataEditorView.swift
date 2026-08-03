@@ -39,7 +39,7 @@ struct GitLabResourceMetadataEditorView: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            GlabList {
                 issueFieldsSection
                 statusSection
 
@@ -386,7 +386,7 @@ struct GitLabResourceMetadataEditorView: View {
                                 ? "questionmark.circle"
                                 : "exclamationmark.triangle"
                         )
-                        .font(.callout)
+                        .font(.glabCallout)
                         .foregroundStyle(.orange)
 
                         if
@@ -453,7 +453,7 @@ struct GitLabResourceMetadataEditorView: View {
                         ? "questionmark.circle"
                         : "exclamationmark.triangle"
                 )
-                .font(.callout)
+                .font(.glabCallout)
                 .foregroundStyle(.orange)
 
                 if model.requiresDeliveryCheck {
@@ -478,7 +478,7 @@ struct GitLabResourceMetadataEditorView: View {
                     spacing: 8
                 ) {
                     Text(error.description)
-                        .font(.callout)
+                        .font(.glabCallout)
                         .foregroundStyle(
                             .secondary
                         )
@@ -525,7 +525,7 @@ struct GitLabResourceMetadataEditorView: View {
             Text(title)
         } icon: {
             Image(systemName: systemImage)
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.glabAccent)
         }
     }
 
@@ -541,7 +541,7 @@ struct GitLabResourceMetadataEditorView: View {
             ) {
                 Text(title)
                 Text(value)
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(
                         .secondary
                     )
@@ -549,7 +549,7 @@ struct GitLabResourceMetadataEditorView: View {
             }
         } icon: {
             Image(systemName: systemImage)
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.glabAccent)
         }
     }
 
@@ -571,13 +571,13 @@ struct GitLabResourceMetadataEditorView: View {
                             separator: ", "
                         )
                 )
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             }
         } icon: {
             Image(systemName: systemImage)
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.glabAccent)
         }
     }
 
@@ -612,7 +612,7 @@ private struct GitLabMetadataLabelPicker: View {
     var body: some View {
         @Bindable var model = model
 
-        List {
+        GlabList {
             if
                 !model
                     .selectedLabelNames
@@ -639,7 +639,7 @@ private struct GitLabMetadataLabelPicker: View {
                                         "checkmark.circle.fill"
                                 )
                                 .foregroundStyle(
-                                    .orange
+                                    Color.glabAccent
                                 )
                             }
                         }
@@ -810,7 +810,7 @@ private struct GitLabMetadataMemberPicker: View {
     var body: some View {
         @Bindable var model = model
 
-        List {
+        GlabList {
             if model.members.isEmpty,
                 !model.isLoadingOptions
             {
@@ -867,7 +867,7 @@ private struct GitLabMetadataMemberPicker: View {
                 Text(
                     "Reviewers are separate from approval-rule approvers."
                 )
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
@@ -933,7 +933,7 @@ private func memberChoiceRow(
                 Text(member.name)
                     .foregroundStyle(.primary)
                 Text("@\(member.username)")
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -943,7 +943,7 @@ private func memberChoiceRow(
                     systemName:
                         "checkmark.circle.fill"
                 )
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.glabAccent)
             }
         }
         .contentShape(.rect)
@@ -984,7 +984,7 @@ private func choiceRow(
                     !subtitle.isEmpty
                 {
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.glabCaption)
                         .foregroundStyle(
                             .secondary
                         )
@@ -997,7 +997,7 @@ private func choiceRow(
                     systemName:
                         "checkmark.circle.fill"
                 )
-                .foregroundStyle(.orange)
+                .foregroundStyle(Color.glabAccent)
             }
         }
         .contentShape(.rect)

@@ -167,7 +167,7 @@ private struct GitLabDiffDiscussionSheet:
                     spacing: 14
                 ) {
                     Text(location)
-                        .font(.subheadline)
+                        .font(.glabSubheadline)
                         .foregroundStyle(.secondary)
                         .textSelection(.enabled)
                         .frame(
@@ -220,10 +220,7 @@ private struct GitLabDiffDiscussionSheet:
                 .padding(20)
             }
             .background(
-                Color(
-                    uiColor:
-                        .systemGroupedBackground
-                )
+                Color.glabCanvas
             )
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(
@@ -285,7 +282,7 @@ private struct GitLabDiffDiscussionSheet:
                 )
             }
             .buttonStyle(.glassProminent)
-            .tint(.orange)
+            .tint(Color.glabAccent)
             .accessibilityIdentifier(
                 "mergeRequestDiffs.addLineDiscussion"
             )
@@ -294,7 +291,7 @@ private struct GitLabDiffDiscussionSheet:
                 "Read-only access",
                 systemImage: "lock.fill"
             )
-            .font(.footnote)
+            .font(.glabFootnote)
             .foregroundStyle(.orange)
         }
     }
@@ -366,7 +363,7 @@ private struct GitLabCollapsedDiffDiscussion:
                     ) {
                         Text(summary)
                             .font(
-                                .subheadline
+                                .glabSubheadline
                                     .weight(
                                         .semibold
                                     )
@@ -375,7 +372,7 @@ private struct GitLabCollapsedDiffDiscussion:
                                 .primary
                             )
                         Text(entry.status.title)
-                            .font(.caption)
+                            .font(.glabCaption)
                             .foregroundStyle(
                                 entry.status.color
                             )
@@ -389,15 +386,12 @@ private struct GitLabCollapsedDiffDiscussion:
                                 ? "chevron.up"
                                 : "chevron.down"
                     )
-                    .font(.caption.weight(.bold))
+                    .font(.glabCaption.weight(.bold))
                     .foregroundStyle(.secondary)
                 }
                 .padding(14)
                 .background(
-                    Color(
-                        uiColor:
-                            .secondarySystemGroupedBackground
-                    ),
+                    Color.glabRaisedSurface,
                     in: .rect(cornerRadius: 14)
                 )
             }
@@ -487,7 +481,7 @@ private enum GitLabDiffDiscussionStatus {
     var color: Color {
         switch self {
         case .current:
-            .orange
+            Color.glabAccent
         case .outdated:
             .secondary
         case .unmapped:

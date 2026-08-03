@@ -8,7 +8,7 @@ struct GitLabGlobalSearchView: View {
     var body: some View {
         @Bindable var model = model
 
-        List {
+        GlabList {
             if model.normalizedQuery.isEmpty {
                 searchPrompt
                 recentQueries
@@ -63,7 +63,7 @@ struct GitLabGlobalSearchView: View {
             await handleAuthenticationFailure()
         }
         .background(
-            Color(uiColor: .systemGroupedBackground)
+            Color.glabCanvas
         )
         .accessibilityIdentifier(
             "search.screen"
@@ -87,14 +87,14 @@ struct GitLabGlobalSearchView: View {
                         "Couldn’t search GitLab"
                     )
                     .font(
-                        .callout.weight(
+                        .glabCallout.weight(
                             .semibold
                         )
                     )
                     Text(
                         "Try all three categories again."
                     )
-                    .font(.caption)
+                    .font(.glabCaption)
                 }
                 .frame(
                     maxWidth: .infinity,
@@ -186,7 +186,7 @@ struct GitLabGlobalSearchView: View {
                     "exclamationmark.triangle.fill"
             )
         }
-        .font(.callout)
+        .font(.glabCallout)
         .foregroundStyle(.orange)
         .listRowBackground(
             Color.orange.opacity(0.1)
@@ -300,7 +300,7 @@ struct GitLabGlobalSearchView: View {
                             + " aren’t available"
                     )
                     .font(
-                        .callout.weight(
+                        .glabCallout.weight(
                             .semibold
                         )
                     )
@@ -309,7 +309,7 @@ struct GitLabGlobalSearchView: View {
                             error: error
                         ).message
                     )
-                    .font(.caption)
+                    .font(.glabCaption)
                 }
             } icon: {
                 Image(
@@ -350,7 +350,7 @@ struct GitLabGlobalSearchView: View {
             HStack {
                 Spacer()
                 ProgressView("Loading more…")
-                    .font(.footnote)
+                    .font(.glabFootnote)
                 Spacer()
             }
             .accessibilityIdentifier(
@@ -439,11 +439,11 @@ private struct GitLabSearchResultRow: View {
             Image(
                 systemName: result.systemImage
             )
-            .font(.body.weight(.semibold))
-            .foregroundStyle(.orange)
+            .font(.glabBody.weight(.semibold))
+            .foregroundStyle(Color.glabAccent)
             .frame(width: 34, height: 34)
             .background(
-                Color.orange.opacity(0.12),
+                Color.glabAccent.opacity(0.12),
                 in: .rect(cornerRadius: 9)
             )
             .accessibilityHidden(true)
@@ -454,13 +454,13 @@ private struct GitLabSearchResultRow: View {
             ) {
                 Text(result.title)
                     .font(
-                        .body.weight(.semibold)
+                        .glabBody.weight(.semibold)
                     )
                     .foregroundStyle(.primary)
                     .lineLimit(2)
 
                 Text(result.subtitle)
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
 
@@ -469,7 +469,7 @@ private struct GitLabSearchResultRow: View {
                         result.summaryPreview
                 {
                     Text(description)
-                        .font(.caption)
+                        .font(.glabCaption)
                         .foregroundStyle(
                             .secondary
                         )

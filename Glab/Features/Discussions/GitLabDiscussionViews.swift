@@ -78,7 +78,7 @@ struct GitLabDiscussionSection: View {
                     "Refreshing discussion…",
                     systemImage: "arrow.clockwise"
                 )
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier(
                     "discussion.refreshing"
@@ -171,7 +171,7 @@ struct GitLabDiscussionSection: View {
                 HStack {
                     Spacer()
                     ProgressView("Loading more…")
-                        .font(.footnote)
+                        .font(.glabFootnote)
                     Spacer()
                 }
                 .accessibilityIdentifier(
@@ -238,12 +238,12 @@ private struct GitLabActivityStrip: View {
                         systemName:
                             "bolt.horizontal.circle.fill"
                     )
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(Color.glabAccent)
                     .accessibilityHidden(true)
 
                     Text("Activity")
                         .font(
-                            .subheadline
+                            .glabSubheadline
                                 .weight(.semibold)
                         )
 
@@ -253,7 +253,7 @@ private struct GitLabActivityStrip: View {
                                 ? "event"
                                 : "events")
                     )
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
 
                     Spacer(minLength: 8)
@@ -263,7 +263,7 @@ private struct GitLabActivityStrip: View {
                             "chevron.down"
                     )
                     .font(
-                        .caption.weight(.bold)
+                        .glabCaption.weight(.bold)
                     )
                     .foregroundStyle(.secondary)
                     .rotationEffect(
@@ -329,10 +329,7 @@ private struct GitLabActivityStrip: View {
             }
         }
         .background(
-            Color(
-                uiColor:
-                    .secondarySystemGroupedBackground
-            ),
+            Color.glabRaisedSurface,
             in: .rect(cornerRadius: 16)
         )
         .overlay {
@@ -378,7 +375,7 @@ private struct GitLabActivityEventRow: View {
                     systemName:
                         "bolt.horizontal"
                 )
-                .font(.callout)
+                .font(.glabCallout)
                 .foregroundStyle(.secondary)
                 .frame(width: 24, height: 24)
                 .accessibilityHidden(true)
@@ -397,7 +394,7 @@ private struct GitLabActivityEventRow: View {
                                 .displayName
                         )
                         .font(
-                            .caption
+                            .glabCaption
                                 .weight(
                                     .semibold
                                 )
@@ -426,7 +423,7 @@ private struct GitLabActivityEventRow: View {
                         note.activityText
                             ?? "Activity details unavailable"
                     )
-                    .font(.callout)
+                    .font(.glabCallout)
                     .foregroundStyle(.secondary)
                     .lineLimit(
                         isExpanded
@@ -446,7 +443,7 @@ private struct GitLabActivityEventRow: View {
                     systemName:
                         "chevron.down"
                 )
-                .font(.caption2.weight(.bold))
+                .font(.glabCaption2.weight(.bold))
                 .foregroundStyle(.tertiary)
                 .rotationEffect(
                     .degrees(
@@ -529,7 +526,7 @@ struct GitLabDiscussionCard: View {
                     "This discussion has no visible notes.",
                     systemImage: "bubble.left"
                 )
-                .font(.callout)
+                .font(.glabCallout)
                 .foregroundStyle(.secondary)
                 .padding(14)
             } else {
@@ -595,7 +592,7 @@ struct GitLabDiscussionCard: View {
             }
         }
         .background(
-            Color(uiColor: .secondarySystemGroupedBackground),
+            Color.glabRaisedSurface,
             in: .rect(cornerRadius: 16)
         )
         .overlay {
@@ -681,7 +678,7 @@ private struct GitLabDiscussionNoteView: View {
         .overlay(alignment: .leading) {
             if replyIndex > 0 {
                 Capsule()
-                    .fill(Color.orange.opacity(0.45))
+                    .fill(Color.glabAccent.opacity(0.45))
                     .frame(width: 3)
                     .padding(.vertical, 12)
                     .padding(.leading, 7)
@@ -752,7 +749,7 @@ private struct GitLabDiscussionNoteView: View {
     private var leadingView: some View {
         if note.isSystem {
             Image(systemName: "bolt.horizontal.circle")
-                .font(.title3)
+                .font(.glabTitle3)
                 .foregroundStyle(.secondary)
                 .frame(width: 34, height: 34)
                 .accessibilityHidden(true)
@@ -768,7 +765,7 @@ private struct GitLabDiscussionNoteView: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline) {
                 Text(note.author.displayName)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.glabSubheadline.weight(.semibold))
                 Spacer(minLength: 8)
                 Text(
                     GitLabRelativeTimeFormatter.string(
@@ -792,7 +789,7 @@ private struct GitLabDiscussionNoteView: View {
                     Text("• Activity")
                 }
             }
-            .font(.caption)
+            .font(.glabCaption)
             .foregroundStyle(.secondary)
         }
     }
@@ -826,7 +823,7 @@ private struct GitLabDiscussionNoteView: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(
-                        .caption
+                        .glabCaption
                             .weight(.bold)
                     )
                     .frame(width: 28, height: 28)
@@ -922,11 +919,11 @@ private struct GitLabDiscussionNoteView: View {
                 note.activityText
                     ?? "Activity details unavailable"
             )
-            .font(.body)
+            .font(.glabBody)
             .foregroundStyle(.secondary)
         } else if source.isEmpty {
             Text("No note content.")
-                .font(.body)
+                .font(.glabBody)
                 .foregroundStyle(.secondary)
         } else {
             GitLabMarkdownContentView(
@@ -1112,7 +1109,7 @@ private struct GitLabDiscussionThreadFooter:
                     systemImage: "lock.fill"
                 )
                 .font(
-                    .caption
+                    .glabCaption
                         .weight(.semibold)
                 )
                 .foregroundStyle(.secondary)
@@ -1167,13 +1164,13 @@ private struct GitLabDiscussionThreadFooter:
                         )
                     }
                     .font(
-                        .callout
+                        .glabCallout
                             .weight(.semibold)
                     )
                 }
                 .buttonStyle(.glass)
                 .controlSize(.small)
-                .tint(.orange)
+                .tint(Color.glabAccent)
                 .frame(minHeight: 44)
                 .contentShape(.rect)
                 .disabled(
@@ -1247,7 +1244,7 @@ private struct GitLabDiscussionThreadFooter:
                             )
                         }
                     }
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(
                         .secondary
                     )
@@ -1259,7 +1256,7 @@ private struct GitLabDiscussionThreadFooter:
                             .failureMessage
                 {
                     Text(failureMessage)
-                        .font(.caption)
+                        .font(.glabCaption)
                         .foregroundStyle(
                             presentation
                                 .showsUnavailableAccessLabel
@@ -1316,12 +1313,12 @@ private struct GitLabDiscussionBadge: View {
 
     var body: some View {
         Label(title, systemImage: systemImage)
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(.orange)
+            .font(.glabCaption2.weight(.semibold))
+            .foregroundStyle(Color.glabAccent)
             .padding(.horizontal, 7)
             .padding(.vertical, 4)
             .background(
-                Color.orange.opacity(0.12),
+                Color.glabAccent.opacity(0.12),
                 in: .capsule
             )
     }
@@ -1333,11 +1330,11 @@ private struct GitLabDiscussionSkeleton: View {
             ForEach(0..<2, id: \.self) { _ in
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Loading discussion author")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.glabSubheadline.weight(.semibold))
                     Text(
                         "Loading the discussion content from GitLab."
                     )
-                    .font(.body)
+                    .font(.glabBody)
                 }
                 .frame(
                     maxWidth: .infinity,
@@ -1345,10 +1342,7 @@ private struct GitLabDiscussionSkeleton: View {
                 )
                 .padding(14)
                 .background(
-                    Color(
-                        uiColor:
-                            .secondarySystemGroupedBackground
-                    ),
+                    Color.glabRaisedSurface,
                     in: .rect(cornerRadius: 16)
                 )
                 .redacted(reason: .placeholder)
@@ -1367,11 +1361,11 @@ private struct GitLabDiscussionEmptyState: View {
         Label {
             VStack(alignment: .leading, spacing: 3) {
                 Text("No discussion yet")
-                    .font(.callout.weight(.semibold))
+                    .font(.glabCallout.weight(.semibold))
                 Text(
                     "Comments and activity will appear here."
                 )
-                .font(.caption)
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
             }
         } icon: {
@@ -1384,7 +1378,7 @@ private struct GitLabDiscussionEmptyState: View {
             alignment: .leading
         )
         .background(
-            Color(uiColor: .secondarySystemGroupedBackground),
+            Color.glabRaisedSurface,
             in: .rect(cornerRadius: 16)
         )
         .accessibilityElement(children: .combine)
@@ -1423,9 +1417,9 @@ private struct GitLabDiscussionRetryCard: View {
             Label {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.callout.weight(.semibold))
+                        .font(.glabCallout.weight(.semibold))
                     Text(presentation.message)
-                        .font(.caption)
+                        .font(.glabCaption)
                 }
                 .frame(
                     maxWidth: .infinity,

@@ -239,7 +239,7 @@ struct GitLabClipboardLinkSuggestionView: View {
                 "Copied link",
                 systemImage: "link"
             )
-            .font(.subheadline.weight(.semibold))
+            .font(.glabSubheadline.weight(.semibold))
             .lineLimit(1)
 
             PasteButton(
@@ -248,8 +248,8 @@ struct GitLabClipboardLinkSuggestionView: View {
                 onPaste: onPaste
             )
             .buttonStyle(.plain)
-            .font(.subheadline.weight(.semibold))
-            .tint(.orange)
+            .font(.glabSubheadline.weight(.semibold))
+            .tint(Color.glabAccent)
             .accessibilityLabel(
                 "Open copied GitLab link"
             )
@@ -263,7 +263,7 @@ struct GitLabClipboardLinkSuggestionView: View {
                 action: onDismiss
             ) {
                 Image(systemName: "xmark")
-                    .font(.caption.weight(.bold))
+                    .font(.glabCaption.weight(.bold))
                     .frame(width: 28, height: 28)
                     .contentShape(.rect)
             }

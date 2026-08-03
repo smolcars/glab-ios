@@ -130,11 +130,11 @@ struct GitLabOAuthSignInView: View {
 
     private var backdrop: some View {
         ZStack {
-            Color(uiColor: .systemBackground)
+            Color.glabSurface
 
             RadialGradient(
                 colors: [
-                    Color.orange.opacity(
+                    Color.glabBrandWarm.opacity(
                         colorScheme == .dark ? 0.22 : 0.13
                     ),
                     .clear,
@@ -190,7 +190,7 @@ struct GitLabOAuthSignInView: View {
             )
             .clipShape(.rect(cornerRadius: 20))
             .shadow(
-                color: .orange.opacity(
+                color: Color.glabBrandWarm.opacity(
                     colorScheme == .dark ? 0.22 : 0.12
                 ),
                 radius: 20,
@@ -208,13 +208,13 @@ struct GitLabOAuthSignInView: View {
             spacing: 3
         ) {
             Text("Glab")
-                .font(.largeTitle.bold())
+                .font(.glabLargeTitle.bold())
 
             Text("Your GitLab, in your pocket.")
-                .font(.headline)
+                .font(.glabHeadline)
 
             Text("Independent client for iPhone")
-                .font(.subheadline)
+                .font(.glabSubheadline)
                 .foregroundStyle(.secondary)
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -225,10 +225,10 @@ struct GitLabOAuthSignInView: View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Sign in")
-                    .font(.title2.bold())
+                    .font(.glabTitle2.bold())
 
                 Text("Choose where your GitLab account lives.")
-                    .font(.subheadline)
+                    .font(.glabSubheadline)
                     .foregroundStyle(.secondary)
             }
 
@@ -325,17 +325,17 @@ struct GitLabOAuthSignInView: View {
         } label: {
             HStack(alignment: .top, spacing: 11) {
                 Image(systemName: "lock.shield.fill")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.orange)
+                    .font(.glabBody.weight(.semibold))
+                    .foregroundStyle(Color.glabAccent)
                     .frame(width: 24)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(gitLabDotComActionDetail)
-                        .font(.footnote)
+                        .font(.glabFootnote)
                         .foregroundStyle(.secondary)
 
                     Text("Privacy & API access")
-                        .font(.footnote.weight(.semibold))
+                        .font(.glabFootnote.weight(.semibold))
                         .foregroundStyle(.primary)
                 }
                 .multilineTextAlignment(.leading)
@@ -343,7 +343,7 @@ struct GitLabOAuthSignInView: View {
                 Spacer(minLength: 8)
 
                 Image(systemName: "chevron.right")
-                    .font(.caption.bold())
+                    .font(.glabCaption.bold())
                     .foregroundStyle(.tertiary)
                     .padding(.top, 4)
             }
@@ -359,7 +359,7 @@ struct GitLabOAuthSignInView: View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Text("Made with ❤️ by Nitesh · v\(appVersion)")
-                    .font(.caption)
+                    .font(.glabCaption)
                     .foregroundStyle(.secondary)
 
                 Link(destination: repositoryURL) {
@@ -376,7 +376,7 @@ struct GitLabOAuthSignInView: View {
             }
 
             Text("Independent and not affiliated with GitLab Inc.")
-                .font(.caption2)
+                .font(.glabCaption2)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
         }
@@ -396,22 +396,22 @@ struct GitLabOAuthSignInView: View {
                 systemImage: systemImage,
                 showsProgress: showsProgress
             )
-            .font(.body.weight(.semibold))
+            .font(.glabBody.weight(.semibold))
             .foregroundStyle(
-                usesAccentColor ? Color.orange : Color.white
+                usesAccentColor ? Color.glabBrandWarm : Color.white
             )
             .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.headline)
+                    .font(.glabHeadline)
                     .foregroundStyle(
                         usesAccentColor ? Color.primary : Color.white
                     )
 
                 if let subtitle {
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.glabCaption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -422,7 +422,7 @@ struct GitLabOAuthSignInView: View {
 
             if !showsProgress {
                 Image(systemName: "chevron.right")
-                    .font(.caption.bold())
+                    .font(.glabCaption.bold())
                     .foregroundStyle(
                         usesAccentColor
                             ? Color.secondary
@@ -530,7 +530,7 @@ private struct SelfManagedGitLabOAuthView: View {
                 .padding(.top, 12)
                 .padding(.bottom, 36)
             }
-            .background(Color(uiColor: .systemGroupedBackground))
+            .background(Color.glabCanvas)
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Self-managed GitLab")
             .navigationBarTitleDisplayMode(.inline)
@@ -563,7 +563,7 @@ private struct SelfManagedGitLabOAuthView: View {
                 "Use your instance’s normal web sign-in. Passwords, "
                     + "2FA, and SSO never enter Glab."
             )
-            .font(.subheadline)
+            .font(.glabSubheadline)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
         }
@@ -572,11 +572,11 @@ private struct SelfManagedGitLabOAuthView: View {
     private var configuration: some View {
         VStack(alignment: .leading, spacing: 16) {
             Label("GitLab instance", systemImage: "server.rack")
-                .font(.headline)
+                .font(.glabHeadline)
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Instance URL")
-                    .font(.caption.weight(.semibold))
+                    .font(.glabCaption.weight(.semibold))
                     .foregroundStyle(.secondary)
 
                 TextField(
@@ -600,7 +600,7 @@ private struct SelfManagedGitLabOAuthView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("OAuth Application ID")
-                    .font(.caption.weight(.semibold))
+                    .font(.glabCaption.weight(.semibold))
                     .foregroundStyle(.secondary)
 
                 TextField(
@@ -620,7 +620,7 @@ private struct SelfManagedGitLabOAuthView: View {
                     "A public identifier from your GitLab "
                         + "administrator—not a secret or API key."
                 )
-                .font(.footnote)
+                .font(.glabFootnote)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             }
@@ -628,7 +628,7 @@ private struct SelfManagedGitLabOAuthView: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            Color(uiColor: .secondarySystemGroupedBackground),
+            Color.glabRaisedSurface,
             in: .rect(cornerRadius: 20)
         )
     }
@@ -650,13 +650,13 @@ private struct SelfManagedGitLabOAuthView: View {
                         : "Continue in GitLab"
                 )
             }
-            .font(.headline)
+            .font(.glabHeadline)
             .frame(maxWidth: .infinity)
             .frame(minHeight: 30)
         }
         .buttonStyle(.glassProminent)
         .controlSize(.large)
-        .tint(.orange)
+        .tint(Color.glabAccent)
         .disabled(!model.canSubmit)
         .accessibilityIdentifier("oauth.selfManagedSubmit")
     }
@@ -687,18 +687,18 @@ private struct SelfManagedGitLabOAuthView: View {
                             "Open GitLab OAuth applications",
                             systemImage: "arrow.up.right"
                         )
-                        .font(.callout.weight(.semibold))
+                        .font(.glabCallout.weight(.semibold))
                     }
                 }
             }
-            .font(.callout)
+            .font(.glabCallout)
             .padding(.top, 12)
         } label: {
             Label(
                 "Self-managed setup",
                 systemImage: "questionmark.circle"
             )
-            .font(.headline)
+            .font(.glabHeadline)
         }
         .padding(.horizontal, 2)
         .accessibilityIdentifier("oauth.setupHelp")
@@ -735,7 +735,7 @@ private struct GitLabOAuthCallout: View {
     var body: some View {
         Label {
             Text(message)
-                .font(.callout)
+                .font(.glabCallout)
                 .fixedSize(
                     horizontal: false,
                     vertical: true
@@ -758,10 +758,10 @@ private extension View {
     func oauthPrimaryButtonStyle() -> some View {
         if #available(iOS 26.0, *) {
             buttonStyle(.glassProminent)
-                .tint(.orange)
+                .tint(Color.glabAccent)
         } else {
             buttonStyle(.borderedProminent)
-                .tint(.orange)
+                .tint(Color.glabAccent)
         }
     }
 
