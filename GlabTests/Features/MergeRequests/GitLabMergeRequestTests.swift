@@ -285,6 +285,24 @@ struct GitLabMergeRequestTests {
         #expect(mergeRequest.stateTitle == expectedTitle)
     }
 
+    @Test(
+        "Maps merge request states to official GitLab icons",
+        arguments: [
+            (
+                GitLabMergeRequestStateKind.opened,
+                GitLabIcon.mergeRequestOpen
+            ),
+            (.closed, .mergeRequestClosed),
+            (.merged, .merged),
+        ]
+    )
+    func mapsStateIcons(
+        state: GitLabMergeRequestStateKind,
+        expectedIcon: GitLabIcon
+    ) {
+        #expect(state.gitLabIcon == expectedIcon)
+    }
+
     @Test("Rejects unsafe merge request web URLs")
     func validatesWebURL() {
         let insecure = makeTestMergeRequest(

@@ -206,11 +206,17 @@ struct GitLabCIStatusIcon: View {
     let status: GitLabCIStatus
 
     var body: some View {
-        Image(
-            systemName:
-                status.systemImage
-        )
-        .font(.glabBody)
+        Group {
+            if let gitLabIcon = status.gitLabIcon {
+                GitLabIconView(gitLabIcon)
+            } else {
+                Image(
+                    systemName:
+                        "questionmark.circle.fill"
+                )
+                .font(.glabBody)
+            }
+        }
         .foregroundStyle(status.tint)
         .frame(width: 22)
         .accessibilityHidden(true)
@@ -395,35 +401,35 @@ extension GitLabPipelineJobAttempt {
 }
 
 extension GitLabCIStatus {
-    var systemImage: String {
+    var gitLabIcon: GitLabIcon? {
         switch rawValue {
         case "created":
-            "hourglass"
+            .pipelineCreated
         case "waiting_for_resource",
              "waiting_for_callback":
-            "hourglass"
+            .pipelinePending
         case "preparing":
-            "wrench.and.screwdriver.fill"
+            .pipelinePreparing
         case "pending":
-            "clock.fill"
+            .pipelinePending
         case "running":
-            "play.circle.fill"
+            .pipelineRunning
         case "canceling":
-            "xmark.circle"
+            .pipelineCanceled
         case "scheduled":
-            "calendar.badge.clock"
+            .pipelineScheduled
         case "manual":
-            "hand.tap.fill"
+            .pipelineManual
         case "success":
-            "checkmark.circle.fill"
+            .pipelineSuccess
         case "failed":
-            "xmark.circle.fill"
+            .pipelineFailed
         case "canceled":
-            "slash.circle.fill"
+            .pipelineCanceled
         case "skipped":
-            "forward.end.circle.fill"
+            .pipelineSkipped
         default:
-            "questionmark.circle.fill"
+            nil
         }
     }
 

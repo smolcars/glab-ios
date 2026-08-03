@@ -4,8 +4,7 @@ struct GitLabLifecycleStatePicker<State: Hashable>: View {
     let states: [State]
     @Binding var selection: State
     let title: (State) -> String
-    let systemImage: (State) -> String
-    let tintColor: (State) -> Color
+    let gitLabIcon: (State) -> GitLabIcon
     let accessibilityValue: (State) -> String
     let accessibilityIdentifier: String
 
@@ -47,11 +46,13 @@ struct GitLabLifecycleStatePicker<State: Hashable>: View {
         return Button {
             selection = state
         } label: {
-            Label(
-                title(state),
-                systemImage:
-                    systemImage(state)
-            )
+            Label {
+                Text(title(state))
+            } icon: {
+                GitLabIconView(
+                    gitLabIcon(state)
+                )
+            }
             .font(
                 .glabSubheadline.weight(
                     .semibold
@@ -63,13 +64,12 @@ struct GitLabLifecycleStatePicker<State: Hashable>: View {
             )
             .foregroundStyle(
                 isSelected
-                    ? Color.black
-                        .opacity(0.78)
+                    ? Color.glabCanvas
                     : .secondary
             )
             .background(
                 isSelected
-                    ? tintColor(state)
+                    ? Color.glabAccent
                     : .clear,
                 in: .capsule
             )
@@ -91,11 +91,13 @@ struct GitLabLifecycleStatePicker<State: Hashable>: View {
             selection: $selection
         ) {
             ForEach(states, id: \.self) { state in
-                Label(
-                    title(state),
-                    systemImage:
-                        systemImage(state)
-                )
+                Label {
+                    Text(title(state))
+                } icon: {
+                    GitLabIconView(
+                        gitLabIcon(state)
+                    )
+                }
                 .labelStyle(
                     .titleAndIcon
                 )

@@ -73,14 +73,56 @@ extension View {
 struct GitLabEmptyStateView: View {
     let title: String
     let message: String
-    let systemImage: String
+    private let icon: Icon
+
+    init(
+        title: String,
+        message: String,
+        systemImage: String
+    ) {
+        self.title = title
+        self.message = message
+        icon = .system(systemImage)
+    }
+
+    init(
+        title: String,
+        message: String,
+        gitLabIcon: GitLabIcon
+    ) {
+        self.title = title
+        self.message = message
+        icon = .gitLab(gitLabIcon)
+    }
 
     var body: some View {
         ContentUnavailableView {
-            Label(title, systemImage: systemImage)
+            Label {
+                Text(title)
+            } icon: {
+                iconView
+            }
         } description: {
             Text(message)
         }
+    }
+
+    @ViewBuilder
+    private var iconView: some View {
+        switch icon {
+        case let .system(systemImage):
+            Image(systemName: systemImage)
+        case let .gitLab(gitLabIcon):
+            GitLabIconView(
+                gitLabIcon,
+                pointSize: 32
+            )
+        }
+    }
+
+    private enum Icon {
+        case system(String)
+        case gitLab(GitLabIcon)
     }
 }
 

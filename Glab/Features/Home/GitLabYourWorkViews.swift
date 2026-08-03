@@ -191,8 +191,8 @@ struct YourMergeRequestsView: View {
                         selectedMode.emptyTitle,
                     emptyMessage:
                         selectedMode.emptyMessage,
-                    emptySystemImage:
-                        selectedMode.emptySystemImage,
+                    emptyGitLabIcon:
+                        selectedMode.emptyGitLabIcon,
                     accessibilityIdentifier:
                         "mergeRequests.\(selectedMode.rawValue).list"
                 ),

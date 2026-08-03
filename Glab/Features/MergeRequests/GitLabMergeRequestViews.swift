@@ -92,8 +92,8 @@ struct MergeRequestsView: View {
                         mode.emptyTitle,
                     emptyMessage:
                         mode.emptyMessage,
-                    emptySystemImage:
-                        mode.emptySystemImage,
+                    emptyGitLabIcon:
+                        mode.emptyGitLabIcon,
                     accessibilityIdentifier:
                         "mergeRequests.\(mode.rawValue).list"
                 ),
@@ -125,7 +125,7 @@ struct GitLabMergeRequestListConfiguration {
     let loadingMessage: String
     let emptyTitle: String
     let emptyMessage: String
-    let emptySystemImage: String
+    let emptyGitLabIcon: GitLabIcon
     let accessibilityIdentifier: String
 }
 
@@ -293,9 +293,9 @@ struct GitLabMergeRequestListView: View {
                     message:
                         configuration
                         .emptyMessage,
-                    systemImage:
+                    gitLabIcon:
                         configuration
-                        .emptySystemImage
+                        .emptyGitLabIcon
                 )
             }
         } else {
@@ -711,40 +711,39 @@ private struct GitLabMergeRequestStateIcon: View {
     let mergeRequest: GitLabMergeRequest
 
     var body: some View {
-        Image(systemName: systemImage)
-            .font(
-                .glabCallout.weight(
-                    .semibold
-                )
-            )
+        stateIcon
             .frame(width: 20)
             .foregroundStyle(color)
             .accessibilityHidden(true)
     }
 
-    private var systemImage: String {
-        switch mergeRequest.stateKind {
-        case .opened:
-            "arrow.triangle.pull"
-        case .closed:
-            "xmark.circle.fill"
-        case .merged:
-            "arrow.triangle.merge"
-        case .locked:
-            "lock.fill"
-        case .unknown:
-            "questionmark.circle"
+    @ViewBuilder
+    private var stateIcon: some View {
+        if let icon = mergeRequest.stateKind.gitLabIcon {
+            GitLabIconView(icon)
+        } else {
+            Image(
+                systemName:
+                    mergeRequest.stateKind == .locked
+                    ? "lock.fill"
+                    : "questionmark.circle"
+            )
+            .font(
+                .glabCallout.weight(
+                    .semibold
+                )
+            )
         }
     }
 
     private var color: Color {
         switch mergeRequest.stateKind {
         case .opened:
-            .green
+            .glabAccent
         case .closed:
-            .red
+            .secondary
         case .merged:
-            .blue
+            .glabAccent
         case .locked:
             .orange
         case .unknown:

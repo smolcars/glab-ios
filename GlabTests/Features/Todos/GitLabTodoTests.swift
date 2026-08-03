@@ -61,6 +61,31 @@ struct GitLabTodoTests {
     }
 
     @Test(
+        "Maps supported Todo targets to official GitLab icons",
+        arguments: [
+            (
+                GitLabTodoTargetType.issue,
+                GitLabIcon.workItemIssue
+            ),
+            (.mergeRequest, .mergeRequest),
+            (.commit, .commit),
+            (.epic, .epic),
+            (.alert, .alertManagement),
+            (.project, .project),
+            (.namespace, .group),
+        ]
+    )
+    func mapsTargetIcons(
+        targetType: GitLabTodoTargetType,
+        expectedIcon: GitLabIcon
+    ) {
+        #expect(
+            targetType.gitLabIcon
+                == expectedIcon
+        )
+    }
+
+    @Test(
         "Decodes every documented action and an unknown value",
         arguments: [
             ("assigned", GitLabTodoAction.assigned),

@@ -242,8 +242,8 @@ struct GitLabIssueListView: View {
                         message:
                             configuration
                             .emptyMessage,
-                        systemImage:
-                            "smallcircle.filled.circle"
+                        gitLabIcon:
+                            .workItemIssue
                     )
 
                     if let emptyAction {
@@ -602,31 +602,28 @@ private struct GitLabIssueStateLabel: View {
     let issue: GitLabIssue
 
     var body: some View {
-        Label(
-            issue.stateTitle,
-            systemImage: systemImage
-        )
+        Label {
+            Text(issue.stateTitle)
+        } icon: {
+            stateIcon
+        }
         .foregroundStyle(color)
     }
 
-    private var systemImage: String {
-        switch issue.stateKind {
-        case .opened:
-            "smallcircle.filled.circle"
-        case .closed:
-            "checkmark.circle.fill"
-        case .unknown:
-            "questionmark.circle"
+    @ViewBuilder
+    private var stateIcon: some View {
+        if let icon = issue.stateKind.gitLabIcon {
+            GitLabIconView(icon)
+        } else {
+            Image(systemName: "questionmark.circle")
         }
     }
 
     private var color: Color {
         switch issue.stateKind {
         case .opened:
-            .green
-        case .closed:
-            .purple
-        case .unknown:
+            .glabAccent
+        case .closed, .unknown:
             .secondary
         }
     }

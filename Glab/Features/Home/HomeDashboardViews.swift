@@ -34,8 +34,14 @@ struct HomeWorkShortcutRow: View {
     }
 
     private var icon: some View {
-        Image(systemName: section.systemImage)
-            .font(.glabHeadline)
+        Group {
+            if let gitLabIcon = section.gitLabIcon {
+                GitLabIconView(gitLabIcon)
+            } else {
+                Image(systemName: section.systemImage)
+                    .font(.glabHeadline)
+            }
+        }
             .foregroundStyle(Color.glabAccent)
             .frame(width: 38, height: 38)
             .background(

@@ -372,11 +372,15 @@ struct
                     .approvalRulesOverwritten
                     == true
             {
-                Label(
-                    "Rules overridden for this merge request",
-                    systemImage:
-                        "arrow.triangle.branch"
-                )
+                Label {
+                    Text(
+                        "Rules overridden for this merge request"
+                    )
+                } icon: {
+                    GitLabIconView(
+                        .mergeRequest
+                    )
+                }
                 .font(.glabCaption)
                 .foregroundStyle(.secondary)
             }

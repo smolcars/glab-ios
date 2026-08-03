@@ -208,11 +208,13 @@ struct GitLabGlobalSearchView: View {
             )
         } header: {
             HStack {
-                Label(
-                    scope.title,
-                    systemImage:
-                        scope.systemImage
-                )
+                Label {
+                    Text(scope.title)
+                } icon: {
+                    GitLabIconView(
+                        scope.gitLabIcon
+                    )
+                }
 
                 Spacer()
 
@@ -436,10 +438,7 @@ private struct GitLabSearchResultRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Image(
-                systemName: result.systemImage
-            )
-            .font(.glabBody.weight(.semibold))
+            GitLabIconView(result.gitLabIcon)
             .foregroundStyle(Color.glabAccent)
             .frame(width: 34, height: 34)
             .background(
@@ -504,14 +503,14 @@ private extension GitLabSearchScope {
         }
     }
 
-    var systemImage: String {
+    var gitLabIcon: GitLabIcon {
         switch self {
         case .projects:
-            "shippingbox"
+            .project
         case .issues:
-            "smallcircle.filled.circle"
+            .workItemIssue
         case .mergeRequests:
-            "arrow.triangle.branch"
+            .mergeRequest
         }
     }
 
@@ -523,14 +522,14 @@ private extension GitLabSearchScope {
 }
 
 private extension GitLabSearchResult {
-    var systemImage: String {
+    var gitLabIcon: GitLabIcon {
         switch self {
         case .project:
-            "shippingbox.fill"
+            .project
         case .issue:
-            "smallcircle.filled.circle"
+            .workItemIssue
         case .mergeRequest:
-            "arrow.triangle.branch"
+            .mergeRequest
         }
     }
 

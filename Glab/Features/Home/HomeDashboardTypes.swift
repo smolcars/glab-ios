@@ -45,6 +45,19 @@ nonisolated enum HomeDashboardSection:
         }
     }
 
+    var gitLabIcon: GitLabIcon? {
+        switch self {
+        case .assignedIssues:
+            .workItemIssue
+        case .assignedMergeRequests:
+            .mergeRequest
+        case .recentProjects:
+            .project
+        case .starredProjects:
+            nil
+        }
+    }
+
     var emptyMessage: String {
         switch self {
         case .assignedIssues:
