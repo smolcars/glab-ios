@@ -388,6 +388,11 @@ struct GitLabMergeRequestListView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .contentMargins(
+            .top,
+            8,
+            for: .scrollContent
+        )
         .accessibilityIdentifier(
             configuration
                 .accessibilityIdentifier
