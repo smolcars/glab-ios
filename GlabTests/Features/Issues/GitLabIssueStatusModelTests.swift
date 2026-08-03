@@ -1032,7 +1032,7 @@ private func makeModel(
                         ),
                     userID: 1
                 ),
-            issue: issue,
+            route: issue.route,
             apiAccess: apiAccess,
             statusService:
                 statusService,
@@ -1139,7 +1139,7 @@ private actor RecordingStatusService:
     }
 
     func loadStatus(
-        for issue: GitLabIssue
+        at route: GitLabIssueRoute
     ) async throws(GitLabSessionClientError)
         -> GitLabIssueStatusAvailability
     {
@@ -1275,7 +1275,7 @@ private actor SuspendedStatusService:
     private var started = false
 
     func loadStatus(
-        for issue: GitLabIssue
+        at route: GitLabIssueRoute
     ) async throws(GitLabSessionClientError)
         -> GitLabIssueStatusAvailability
     {
@@ -1347,7 +1347,7 @@ private actor SuspendedPreflightStatusService:
     }
 
     func loadStatus(
-        for issue: GitLabIssue
+        at route: GitLabIssueRoute
     ) async throws(GitLabSessionClientError)
         -> GitLabIssueStatusAvailability
     {

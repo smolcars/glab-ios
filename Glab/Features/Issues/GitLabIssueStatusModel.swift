@@ -102,7 +102,7 @@ final class GitLabIssueStatusModel {
     private let onIssueReconciled:
         @MainActor (GitLabIssue) -> Void
     @ObservationIgnored
-    private var issue: GitLabIssue
+    private let route: GitLabIssueRoute
     @ObservationIgnored
     private var pendingMutation:
         PendingMutation?
@@ -115,7 +115,7 @@ final class GitLabIssueStatusModel {
 
     init(
         accountID: GitLabAccountID,
-        issue: GitLabIssue,
+        route: GitLabIssueRoute,
         apiAccess: GitLabAPIAccess,
         statusService:
             any GitLabIssueStatusServing,
@@ -129,7 +129,7 @@ final class GitLabIssueStatusModel {
             ) -> Void
     ) {
         self.accountID = accountID
-        self.issue = issue
+        self.route = route
         self.apiAccess = apiAccess
         self.statusService =
             statusService
@@ -197,11 +197,10 @@ final class GitLabIssueStatusModel {
     ) async {
         guard
             updatedIssue.route
-                == issue.route
+                == route
         else {
             return
         }
-        issue = updatedIssue
         await refresh()
     }
 
@@ -359,7 +358,7 @@ final class GitLabIssueStatusModel {
                             pending
                                 .projectPath,
                         issueIID:
-                            issue.iid
+                            route.issueIID
                     )
         } catch {
             guard canPublish(generation) else {
@@ -467,13 +466,13 @@ private extension GitLabIssueStatusModel {
                                 existingSnapshot
                                     .projectPath,
                             issueIID:
-                                issue.iid
+                                route.issueIID
                         )
             } else {
                 availability =
                     try await statusService
                         .loadStatus(
-                            for: issue
+                            at: route
                         )
             }
         } catch {
@@ -707,7 +706,7 @@ private extension GitLabIssueStatusModel {
     ) async -> Bool {
         let target =
             GitLabResourceEditTarget
-                .issue(issue.route)
+                .issue(route)
         await resourceService
             .invalidateAffectedReads(
                 for: target
@@ -739,7 +738,7 @@ private extension GitLabIssueStatusModel {
                 reconciledIssue
             ) = result,
             reconciledIssue.route
-                == issue.route,
+                == route,
             reconciledIssue.stateKind
                 == statusSnapshot
                     .state.issueState
@@ -753,7 +752,6 @@ private extension GitLabIssueStatusModel {
             return false
         }
 
-        issue = reconciledIssue
         pendingReconciliation = nil
         failure = completionFailure
         onIssueReconciled(

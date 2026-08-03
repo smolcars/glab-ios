@@ -25,7 +25,7 @@ nonisolated protocol GitLabIssueStatusServing:
     Sendable
 {
     func loadStatus(
-        for issue: GitLabIssue
+        at route: GitLabIssueRoute
     ) async throws(GitLabSessionClientError)
         -> GitLabIssueStatusAvailability
 
@@ -63,27 +63,27 @@ nonisolated struct LiveGitLabIssueStatusService:
 
     @concurrent
     func loadStatus(
-        for issue: GitLabIssue
+        at route: GitLabIssueRoute
     ) async throws(GitLabSessionClientError)
         -> GitLabIssueStatusAvailability
     {
         try ensureNotCancelled()
         guard
-            issue.projectID > 0,
-            issue.iid > 0
+            route.projectID > 0,
+            route.issueIID > 0
         else {
             return .unavailable
         }
         let project = try await client.send(
             GitLabIssueStatusEndpoints
                 .project(
-                    projectID: issue.projectID
+                    projectID: route.projectID
                 )
         )
         try ensureNotCancelled()
 
         guard
-            project.id == issue.projectID,
+            project.id == route.projectID,
             let projectPath =
                 Self.validatedProjectPath(
                     project.pathWithNamespace
@@ -94,7 +94,7 @@ nonisolated struct LiveGitLabIssueStatusService:
 
         return try await refreshStatus(
             projectPath: projectPath,
-            issueIID: issue.iid
+            issueIID: route.issueIID
         )
     }
 
