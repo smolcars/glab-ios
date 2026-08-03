@@ -1,0 +1,33 @@
+{
+  "package": "@gitlab/svgs",
+  "version": "3.163.0",
+  "tag": "@gitlab/svgs@3.163.0",
+  "source": "https://gitlab.com/gitlab-org/gitlab-services/design.gitlab.com",
+  "icons": [
+    "alert-management",
+    "commit",
+    "epic",
+    "group",
+    "issue-closed",
+    "job",
+    "merge",
+    "merge-request",
+    "merge-request-close",
+    "merge-request-open",
+    "pipeline",
+    "project",
+    "status_canceled",
+    "status_created",
+    "status_failed",
+    "status_manual",
+    "status_pending",
+    "status_preparing",
+    "status_running",
+    "status_scheduled",
+    "status_skipped",
+    "status_success",
+    "todo-add",
+    "todo-done",
+    "work-item-issue"
+  ]
+}
