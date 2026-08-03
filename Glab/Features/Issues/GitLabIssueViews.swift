@@ -646,8 +646,6 @@ struct GitLabIssueDetailView: View {
             & GitLabEmojiReactionMutating
     let editService:
         any GitLabResourceEditing
-    let issueStatusService:
-        any GitLabIssueStatusServing
     let onResourceEdited:
         (GitLabResourceEditResult) -> Void
 
@@ -674,7 +672,7 @@ struct GitLabIssueDetailView: View {
     @State private var stateFailureMessage:
         String?
     @State private var issueStatusModel:
-        GitLabIssueStatusModel?
+        GitLabIssueStatusModel
     @State private var statusRefreshCoordinator:
         GitLabIssueStatusRefreshCoordinator
     @State private var statusFailureMessage:
@@ -710,8 +708,6 @@ struct GitLabIssueDetailView: View {
         self.reactionService =
             reactionService
         self.editService = editService
-        self.issueStatusService =
-            issueStatusService
         self.onResourceEdited =
             onResourceEdited
         let discussionResource =
@@ -740,45 +736,87 @@ struct GitLabIssueDetailView: View {
                 initialValue:
                     statusRefreshCoordinator
             )
-        _taskToggleModel = State(
-            initialValue:
-                GitLabDescriptionTaskToggleModel(
-                    accountID: accountID,
-                    apiAccess: apiAccess,
-                    service: editService,
-                    draftStore:
-                        appSession
-                            .resourceEditDraftStore,
-                    isAccountCurrent: {
-                        appSession
-                            .activeAccountID
-                            == accountID
-                    },
-                    onSuccess: {
-                        result in
-                        guard
-                            case let .issue(
+        let taskToggleModel =
+            GitLabDescriptionTaskToggleModel(
+                accountID: accountID,
+                apiAccess: apiAccess,
+                service: editService,
+                draftStore:
+                    appSession
+                        .resourceEditDraftStore,
+                isAccountCurrent: {
+                    appSession
+                        .activeAccountID
+                        == accountID
+                },
+                onSuccess: {
+                    result in
+                    guard
+                        case let .issue(
+                            updatedIssue
+                        ) = result,
+                        detailModel
+                            .reconcileAuthoritative(
                                 updatedIssue
-                            ) = result,
-                            detailModel
-                                .reconcileAuthoritative(
-                                    updatedIssue
-                                )
-                        else {
-                            return
-                        }
-                        onResourceEdited(result)
-                        Task {
-                            await statusRefreshCoordinator
-                                .refreshAfterIssueMutation(
-                                    updatedIssue
-                                )
-                        }
-                    },
-                    onStale: {
-                        await detailModel.retry()
+                            )
+                    else {
+                        return
                     }
+                    onResourceEdited(result)
+                    Task {
+                        await statusRefreshCoordinator
+                            .refreshAfterIssueMutation(
+                                updatedIssue
+                            )
+                    }
+                },
+                onStale: {
+                    await detailModel.retry()
+                }
+            )
+        _taskToggleModel = State(
+            initialValue: taskToggleModel
+        )
+        let issueStatusModel =
+            GitLabIssueStatusModel(
+                accountID: accountID,
+                route: route,
+                apiAccess: apiAccess,
+                statusService:
+                    issueStatusService,
+                resourceService:
+                    editService,
+                isAccountCurrent: {
+                    appSession
+                        .activeAccountID
+                        == accountID
+                },
+                onIssueReconciled: {
+                    updatedIssue in
+                    guard
+                        detailModel
+                            .reconcileAuthoritative(
+                                updatedIssue
+                            )
+                    else {
+                        return
+                    }
+                    taskToggleModel.cancel()
+                    onResourceEdited(
+                        .issue(updatedIssue)
+                    )
+                }
+            )
+        statusRefreshCoordinator.register {
+            [weak issueStatusModel]
+            updatedIssue in
+            await issueStatusModel?
+                .refreshAfterIssueMutation(
+                    updatedIssue
                 )
+        }
+        _issueStatusModel = State(
+            initialValue: issueStatusModel
         )
         _discussionModel = State(
             initialValue:
@@ -795,49 +833,49 @@ struct GitLabIssueDetailView: View {
             .navigationTitle("Issue")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if isDetailLoaded {
-                    GitLabResourceDetailToolbarActions(
-                        destination:
-                            detailWebURL,
-                        openInGitLabAccessibilityIdentifier:
-                            "issues.openInGitLab",
-                        canEdit:
-                            !taskToggleModel
+                GitLabResourceDetailToolbarActions(
+                    destination:
+                        detailWebURL,
+                    openInGitLabAccessibilityIdentifier:
+                        "issues.openInGitLab",
+                    isReady: isDetailLoaded,
+                    canEdit:
+                        isDetailLoaded
+                        && !taskToggleModel
+                            .isBusy
+                        && !statusMutationIsBlocking
+                        && !(
+                            metadataEditorModel?
                                 .isBusy
-                            && !statusMutationIsBlocking
-                            && !(
-                                metadataEditorModel?
-                                    .isBusy
-                                ?? false
-                            )
-                            && !(
-                                planningEditorModel?
-                                    .isBusy
-                                ?? false
-                            )
-                            && !(
-                                stateMutationModel?
-                                    .isBusy
-                                ?? false
-                            ),
-                        canComment:
-                            apiAccess.canWrite,
-                        edit: launchEditor,
-                        editMetadata:
-                            launchMetadataEditor,
-                        stateEvent:
-                            apiAccess.canWrite
-                            ? availableStateEvent
-                            : nil,
-                        changeState:
-                            requestStateChange,
-                        addComment: {
-                            launchComposer(
-                                .newDiscussion
-                            )
-                        }
-                    )
-                }
+                            ?? false
+                        )
+                        && !(
+                            planningEditorModel?
+                                .isBusy
+                            ?? false
+                        )
+                        && !(
+                            stateMutationModel?
+                                .isBusy
+                            ?? false
+                        ),
+                    canComment:
+                        apiAccess.canWrite,
+                    edit: launchEditor,
+                    editMetadata:
+                        launchMetadataEditor,
+                    stateEvent:
+                        apiAccess.canWrite
+                        ? availableStateEvent
+                        : nil,
+                    changeState:
+                        requestStateChange,
+                    addComment: {
+                        launchComposer(
+                            .newDiscussion
+                        )
+                    }
+                )
             }
             .refreshable {
                 await refresh()
@@ -968,7 +1006,7 @@ struct GitLabIssueDetailView: View {
                 Button(
                     statusConfirmationActionTitle,
                     role:
-                        issueStatusModel?
+                        issueStatusModel
                             .selectionConfirmation?
                             .resultingState
                             == .closed
@@ -981,7 +1019,7 @@ struct GitLabIssueDetailView: View {
                     "Cancel",
                     role: .cancel
                 ) {
-                    issueStatusModel?
+                    issueStatusModel
                         .cancelSelection()
                 }
             } message: {
@@ -1095,7 +1133,7 @@ struct GitLabIssueDetailView: View {
             ?? discussionModel.authenticationFailure
             ?? taskToggleModel
                 .authenticationFailure
-            ?? issueStatusModel?
+            ?? issueStatusModel
                 .authenticationFailure
             ?? planningEditorModel?
                 .authenticationFailure
@@ -1401,16 +1439,9 @@ struct GitLabIssueDetailView: View {
     }
 
     private var statusMutationIsBlocking: Bool {
-        (
-            issueStatusModel?
-                .isBusy
-            ?? false
-        )
-            || (
-                issueStatusModel?
-                    .requiresDeliveryCheck
-                ?? false
-            )
+        issueStatusModel.isBusy
+            || issueStatusModel
+                .requiresDeliveryCheck
     }
 
     private var stateConfirmationTitle: String {
@@ -1436,7 +1467,7 @@ struct GitLabIssueDetailView: View {
     private var statusConfirmationTitle:
         String
     {
-        issueStatusModel?
+        issueStatusModel
             .selectionConfirmation?
             .resultingState
             == .closed
@@ -1447,7 +1478,7 @@ struct GitLabIssueDetailView: View {
     private var statusConfirmationActionTitle:
         String
     {
-        issueStatusModel?
+        issueStatusModel
             .selectionConfirmation?
             .resultingState
             == .closed
@@ -1460,7 +1491,7 @@ struct GitLabIssueDetailView: View {
     {
         guard
             let confirmation =
-                issueStatusModel?
+                issueStatusModel
                     .selectionConfirmation
         else {
             return ""
@@ -1476,13 +1507,13 @@ struct GitLabIssueDetailView: View {
     {
         Binding(
             get: {
-                issueStatusModel?
+                issueStatusModel
                     .selectionConfirmation
                     != nil
             },
             set: {
                 if !$0 {
-                    issueStatusModel?
+                    issueStatusModel
                         .cancelSelection()
                 }
             }
@@ -1491,7 +1522,7 @@ struct GitLabIssueDetailView: View {
 
     private func confirmStatusSelection() {
         Task {
-            await issueStatusModel?
+            await issueStatusModel
                 .confirmSelection()
             handleStatusActionResult()
         }
@@ -1500,7 +1531,7 @@ struct GitLabIssueDetailView: View {
     private func handleStatusActionResult() {
         guard
             let failure =
-                issueStatusModel?
+                issueStatusModel
                     .failure
         else {
             statusFailureMessage = nil
@@ -1571,75 +1602,28 @@ struct GitLabIssueDetailView: View {
     private func load() async {
         async let detail: Void =
             model.loadIfNeeded()
+        async let status: Void =
+            issueStatusModel.load()
         async let discussion: Void =
             discussionModel.loadIfNeeded()
-        await detail
-        await loadStatusIfNeeded()
-        await discussion
+        _ = await (
+            detail,
+            status,
+            discussion
+        )
     }
 
     private func refresh() async {
         async let detail: Void = model.retry()
+        async let status: Void =
+            issueStatusModel.refresh()
         async let discussion: Void =
             discussionModel.refresh()
-        await detail
-        if let issueStatusModel {
-            await issueStatusModel.refresh()
-        } else {
-            await loadStatusIfNeeded()
-        }
-        await discussion
-    }
-
-    private func loadStatusIfNeeded() async {
-        guard
-            issueStatusModel == nil,
-            case let .loaded(issue) =
-                model.state
-        else {
-            return
-        }
-
-        let statusModel =
-            GitLabIssueStatusModel(
-                accountID: accountID,
-                issue: issue,
-                apiAccess: apiAccess,
-                statusService:
-                    issueStatusService,
-                resourceService:
-                    editService,
-                isAccountCurrent: {
-                    appSession
-                        .activeAccountID
-                        == accountID
-                },
-                onIssueReconciled: {
-                    updatedIssue in
-                    guard
-                        model
-                            .reconcileAuthoritative(
-                                updatedIssue
-                            )
-                    else {
-                        return
-                    }
-                    taskToggleModel.cancel()
-                    onResourceEdited(
-                        .issue(updatedIssue)
-                    )
-                }
-            )
-        statusRefreshCoordinator.register {
-            [weak statusModel]
-            updatedIssue in
-            await statusModel?
-                .refreshAfterIssueMutation(
-                    updatedIssue
-                )
-        }
-        issueStatusModel = statusModel
-        await statusModel.load()
+        _ = await (
+            detail,
+            status,
+            discussion
+        )
     }
 }
 
@@ -1659,7 +1643,7 @@ private struct GitLabIssueDetailContent: View {
         (GitLabDiscussionComposerTarget) -> Void
     let appSession: AppSession
     let issueStatusModel:
-        GitLabIssueStatusModel?
+        GitLabIssueStatusModel
     let isResourceMutationBusy: Bool
     let statusActionDidFinish:
         () -> Void
@@ -1813,15 +1797,13 @@ private struct GitLabIssueDetailContent: View {
     private var statusControl:
         some View
     {
-        if let issueStatusModel {
-            GitLabIssueStatusControl(
-                model: issueStatusModel,
-                isExternallyDisabled:
-                    isResourceMutationBusy,
-                actionDidFinish:
-                    statusActionDidFinish
-            )
-        }
+        GitLabIssueStatusControl(
+            model: issueStatusModel,
+            isExternallyDisabled:
+                isResourceMutationBusy,
+            actionDidFinish:
+                statusActionDidFinish
+        )
     }
 
     private var descriptionSection: some View {

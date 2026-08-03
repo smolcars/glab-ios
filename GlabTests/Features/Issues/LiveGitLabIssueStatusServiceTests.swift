@@ -14,9 +14,9 @@ struct LiveGitLabIssueStatusServiceTests {
             )
 
         let result = try await service.loadStatus(
-            for: makeTestIssue(
+            at: makeTestIssue(
                 iid: 17
-            )
+            ).route
         )
 
         guard case let .supported(snapshot) = result else {
@@ -89,9 +89,9 @@ struct LiveGitLabIssueStatusServiceTests {
             )
 
         let result = try await service.loadStatus(
-            for: makeTestIssue(
+            at: makeTestIssue(
                 iid: 17
-            )
+            ).route
         )
 
         #expect(result == .unavailable)
@@ -101,7 +101,7 @@ struct LiveGitLabIssueStatusServiceTests {
         )
     }
 
-    @Test("Invalid REST issue identity sends no request")
+    @Test("Invalid issue route sends no request")
     func rejectsInvalidIssueIdentity() async throws {
         let client = RecordingIssueStatusClient()
         let service =
@@ -111,10 +111,10 @@ struct LiveGitLabIssueStatusServiceTests {
             )
 
         let result = try await service.loadStatus(
-            for: makeTestIssue(
+            at: makeTestIssue(
                 iid: 0,
                 projectID: 0
-            )
+            ).route
         )
 
         #expect(result == .unavailable)
@@ -143,9 +143,9 @@ struct LiveGitLabIssueStatusServiceTests {
             )
 
         let result = try await service.loadStatus(
-            for: makeTestIssue(
+            at: makeTestIssue(
                 iid: 17
-            )
+            ).route
         )
 
         guard case let .supported(snapshot) = result else {
@@ -178,9 +178,9 @@ struct LiveGitLabIssueStatusServiceTests {
             )
 
         let result = try await service.loadStatus(
-            for: makeTestIssue(
+            at: makeTestIssue(
                 iid: 17
-            )
+            ).route
         )
 
         #expect(result == .unavailable)
@@ -203,9 +203,9 @@ struct LiveGitLabIssueStatusServiceTests {
 
         await #expect(throws: failure) {
             try await service.loadStatus(
-                for: makeTestIssue(
+                at: makeTestIssue(
                     iid: 17
-                )
+                ).route
             )
         }
         #expect(

@@ -1127,43 +1127,43 @@ struct GitLabMergeRequestDetailView: View {
                 )
             }
             .toolbar {
-                if isDetailLoaded {
-                    GitLabResourceDetailToolbarActions(
-                        destination:
-                            detailWebURL,
-                        openInGitLabAccessibilityIdentifier:
-                            "mergeRequests.openInGitLab",
-                        canEdit:
-                            !taskToggleModel
+                GitLabResourceDetailToolbarActions(
+                    destination:
+                        detailWebURL,
+                    openInGitLabAccessibilityIdentifier:
+                        "mergeRequests.openInGitLab",
+                    isReady: isDetailLoaded,
+                    canEdit:
+                        isDetailLoaded
+                        && !taskToggleModel
+                            .isBusy
+                        && !(
+                            metadataEditorModel?
                                 .isBusy
-                            && !(
-                                metadataEditorModel?
-                                    .isBusy
-                                ?? false
-                            )
-                            && !(
-                                stateMutationModel?
-                                    .isBusy
-                                ?? false
-                            ),
-                        canComment:
-                            apiAccess.canWrite,
-                        edit: launchEditor,
-                        editMetadata:
-                            launchMetadataEditor,
-                        stateEvent:
-                            apiAccess.canWrite
-                            ? availableStateEvent
-                            : nil,
-                        changeState:
-                            requestStateChange,
-                        addComment: {
-                            launchComposer(
-                                .newDiscussion
-                            )
-                        }
-                    )
-                }
+                            ?? false
+                        )
+                        && !(
+                            stateMutationModel?
+                                .isBusy
+                            ?? false
+                        ),
+                    canComment:
+                        apiAccess.canWrite,
+                    edit: launchEditor,
+                    editMetadata:
+                        launchMetadataEditor,
+                    stateEvent:
+                        apiAccess.canWrite
+                        ? availableStateEvent
+                        : nil,
+                    changeState:
+                        requestStateChange,
+                    addComment: {
+                        launchComposer(
+                            .newDiscussion
+                        )
+                    }
+                )
             }
             .refreshable {
                 await refresh()

@@ -141,6 +141,21 @@ struct GitLabProjectDetailView: View {
                     )
                 }
             }
+            .gitLabProjectIssueCreation(
+                project: loadedProject,
+                apiAccess: apiAccess,
+                isAvailable:
+                    projectIssueCreationIsAvailable,
+                service:
+                    issueCreationService,
+                accountID: accountID,
+                appSession: appSession,
+                accessibilityIdentifier:
+                    "project.newIssueButton"
+            ) { issue in
+                createdIssueRoute =
+                    issue.route
+            }
     }
 
     @ViewBuilder
@@ -223,22 +238,29 @@ struct GitLabProjectDetailView: View {
         .refreshable {
             await retry()
         }
-        .gitLabProjectIssueCreation(
-            project: project,
-            apiAccess: apiAccess,
-            isAvailable:
-                project.issuesAccessLevel?
-                    .isDisabled != true,
-            service:
-                issueCreationService,
-            accountID: accountID,
-            appSession: appSession,
-            accessibilityIdentifier:
-                "project.newIssueButton"
-        ) { issue in
-            createdIssueRoute =
-                issue.route
+    }
+
+    private var loadedProject:
+        GitLabProject?
+    {
+        guard
+            case let .loaded(project) =
+                model.state
+        else {
+            return nil
         }
+        return project
+    }
+
+    private var projectIssueCreationIsAvailable:
+        Bool
+    {
+        guard let loadedProject else {
+            return false
+        }
+        return loadedProject
+            .issuesAccessLevel?
+            .isDisabled != true
     }
 
     private func projectHeader(

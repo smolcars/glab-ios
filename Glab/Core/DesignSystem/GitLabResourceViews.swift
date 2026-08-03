@@ -195,9 +195,13 @@ struct GitLabOpenInGitLabControl: View {
 struct GitLabResourceDetailToolbarActions:
     ToolbarContent
 {
+    @Environment(\.openURL)
+    private var openURL
+
     let destination: URL?
     let openInGitLabAccessibilityIdentifier:
         String
+    let isReady: Bool
     let canEdit: Bool
     let canComment: Bool
     let edit: () -> Void
@@ -212,20 +216,21 @@ struct GitLabResourceDetailToolbarActions:
         ToolbarItemGroup(
             placement: .topBarTrailing
         ) {
-            if let destination {
-                Link(
-                    destination:
-                        destination
-                ) {
-                    GitLabLogoMark()
+            Button {
+                guard let destination else {
+                    return
                 }
-                .accessibilityLabel(
-                    "Open in GitLab"
-                )
-                .accessibilityIdentifier(
-                    openInGitLabAccessibilityIdentifier
-                )
+                openURL(destination)
+            } label: {
+                GitLabLogoMark()
             }
+            .disabled(destination == nil)
+            .accessibilityLabel(
+                "Open in GitLab"
+            )
+            .accessibilityIdentifier(
+                openInGitLabAccessibilityIdentifier
+            )
 
             Menu {
                 Button {
@@ -283,7 +288,9 @@ struct GitLabResourceDetailToolbarActions:
                 "resource.edit"
             )
             .accessibilityHint(
-                canEdit
+                !isReady
+                    ? "Available when the details finish loading."
+                    : canEdit
                     ? "Shows compact editing actions."
                     : "Wait for the current task update to finish."
             )
@@ -300,8 +307,11 @@ struct GitLabResourceDetailToolbarActions:
             .accessibilityIdentifier(
                 "discussion.addComment"
             )
+            .disabled(!isReady)
             .accessibilityHint(
-                canComment
+                !isReady
+                    ? "Available when the details finish loading."
+                    : canComment
                     ? "Opens a Markdown comment editor."
                     : "Explains why commenting is unavailable."
             )

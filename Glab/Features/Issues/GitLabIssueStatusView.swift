@@ -5,13 +5,17 @@ struct GitLabIssueStatusControl: View {
     let isExternallyDisabled: Bool
     let actionDidFinish: () -> Void
 
+    @ViewBuilder
     var body: some View {
-        if
-            case let .supported(
+        switch model.state {
+        case .idle, .loading:
+            loadingStatusControl
+        case .unavailable:
+            EmptyView()
+        case let .supported(
                 snapshot,
                 isStale
-            ) = model.state
-        {
+            ):
             if model.requiresDeliveryCheck {
                 checkGitLabButton
             } else if
@@ -29,6 +33,28 @@ struct GitLabIssueStatusControl: View {
                 )
             }
         }
+    }
+
+    private var loadingStatusControl:
+        some View
+    {
+        Button {} label: {
+            HStack(spacing: 6) {
+                ProgressView()
+                    .controlSize(.small)
+
+                Text("Status")
+            }
+        }
+        .buttonStyle(.glass)
+        .controlSize(.small)
+        .disabled(true)
+        .accessibilityLabel(
+            "Loading work item status"
+        )
+        .accessibilityIdentifier(
+            "issues.status.loading"
+        )
     }
 
     private func statusMenu(

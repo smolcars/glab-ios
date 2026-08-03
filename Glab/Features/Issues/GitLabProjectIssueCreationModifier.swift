@@ -4,7 +4,7 @@ private struct
     GitLabProjectIssueCreationModifier:
     ViewModifier
 {
-    let project: GitLabProject
+    let project: GitLabProject?
     let apiAccess: GitLabAPIAccess
     let isAvailable: Bool
     let service:
@@ -25,10 +25,7 @@ private struct
     ) -> some View {
         content
             .toolbar {
-                if
-                    isAvailable
-                        && apiAccess.canWrite
-                {
+                if apiAccess.canWrite {
                     ToolbarItem(
                         placement:
                             .topBarTrailing
@@ -42,13 +39,20 @@ private struct
                             )
                         }
                         .accessibilityLabel(
-                            "New issue in \(project.name)"
+                            project.map {
+                                "New issue in \($0.name)"
+                            }
+                            ?? "New issue"
                         )
                         .accessibilityHint(
                             "Opens the issue composer with this project selected."
                         )
                         .accessibilityIdentifier(
                             accessibilityIdentifier
+                        )
+                        .disabled(
+                            project == nil
+                                || !isAvailable
                         )
                     }
                 }
@@ -94,7 +98,10 @@ private struct
 
     @MainActor
     private func launch() {
-        guard isAvailable else {
+        guard
+            isAvailable,
+            let project
+        else {
             return
         }
         let model =
@@ -138,7 +145,7 @@ private struct
 
 extension View {
     func gitLabProjectIssueCreation(
-        project: GitLabProject,
+        project: GitLabProject?,
         apiAccess: GitLabAPIAccess,
         isAvailable: Bool = true,
         service:
