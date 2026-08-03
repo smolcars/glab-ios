@@ -62,6 +62,17 @@ nonisolated enum GitLabIssueStateKind:
     case opened
     case closed
     case unknown
+
+    var gitLabIcon: GitLabIcon? {
+        switch self {
+        case .opened:
+            .workItemIssue
+        case .closed:
+            .issueClosed
+        case .unknown:
+            nil
+        }
+    }
 }
 
 nonisolated enum GitLabProjectIssueState:
@@ -83,12 +94,12 @@ nonisolated enum GitLabProjectIssueState:
         }
     }
 
-    var systemImage: String {
+    var gitLabIcon: GitLabIcon {
         switch self {
         case .opened:
-            "smallcircle.filled.circle"
+            .workItemIssue
         case .closed:
-            "checkmark.circle.fill"
+            .issueClosed
         }
     }
 

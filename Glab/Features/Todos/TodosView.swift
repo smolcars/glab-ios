@@ -83,13 +83,17 @@ struct TodosView: View {
                     ToolbarItem(
                         placement: .topBarTrailing
                     ) {
-                        Button(
-                            "Mark All",
-                            systemImage:
-                                "checkmark.circle"
-                        ) {
+                        Button {
                             isConfirmingMarkAllDone =
                                 true
+                        } label: {
+                            Label {
+                                Text("Mark All")
+                            } icon: {
+                                GitLabIconView(
+                                    .todoDone
+                                )
+                            }
                         }
                         .disabled(
                             !model.canMarkAllDone
@@ -259,10 +263,10 @@ struct TodosView: View {
             GitLabEmptyStateView(
                 title: emptyTitle,
                 message: emptyMessage,
-                systemImage:
+                gitLabIcon:
                     model.selectedState == .pending
-                    ? "checklist"
-                    : "checkmark.circle"
+                    ? .todoAdd
+                    : .todoDone
             )
             .frame(maxWidth: .infinity)
             .frame(minHeight: 430)
@@ -329,11 +333,7 @@ struct TodosView: View {
                         await handleAuthenticationFailure()
                     }
                 } label: {
-                    Image(
-                        systemName:
-                            "checkmark.circle"
-                    )
-                    .font(.glabTitle3.weight(.semibold))
+                    GitLabIconView(.todoDone)
                     .frame(width: 44, height: 44)
                     .contentShape(.circle)
                 }
@@ -706,8 +706,21 @@ private struct GitLabTodoRow: View {
     }
 
     private var typeIcon: some View {
-        Image(systemName: todo.targetType.systemImage)
-            .font(.glabCallout.weight(.semibold))
+        Group {
+            if let gitLabIcon = todo.targetType.gitLabIcon {
+                GitLabIconView(gitLabIcon)
+            } else {
+                Image(
+                    systemName:
+                        todo.targetType.systemImage
+                )
+                .font(
+                    .glabCallout.weight(
+                        .semibold
+                    )
+                )
+            }
+        }
             .foregroundStyle(accentColor)
             .frame(width: 34, height: 34)
             .background(

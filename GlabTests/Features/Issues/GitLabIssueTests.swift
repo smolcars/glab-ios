@@ -114,6 +114,23 @@ struct GitLabIssueTests {
         #expect(issue.stateTitle == expectedTitle)
     }
 
+    @Test(
+        "Maps issue states to official GitLab icons",
+        arguments: [
+            (
+                GitLabIssueStateKind.opened,
+                GitLabIcon.workItemIssue
+            ),
+            (.closed, .issueClosed),
+        ]
+    )
+    func mapsIssueIcons(
+        state: GitLabIssueStateKind,
+        expectedIcon: GitLabIcon
+    ) {
+        #expect(state.gitLabIcon == expectedIcon)
+    }
+
     @Test("Rejects non-HTTPS issue web URLs")
     func validatesWebURL() {
         let insecure = makeTestIssue(

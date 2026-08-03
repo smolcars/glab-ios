@@ -125,32 +125,41 @@ struct GitLabPipelineTests {
     }
 
     @Test(
-        "Maps every CI state to a nonempty status icon",
+        "Maps CI states to official pipeline icons",
         arguments: [
-            "created",
-            "waiting_for_resource",
-            "preparing",
-            "waiting_for_callback",
-            "pending",
-            "running",
-            "canceling",
-            "scheduled",
-            "manual",
-            "success",
-            "failed",
-            "canceled",
-            "skipped",
-            "future_pipeline_state",
+            ("created", GitLabIcon.pipelineCreated),
+            ("waiting_for_resource", .pipelinePending),
+            ("preparing", .pipelinePreparing),
+            ("waiting_for_callback", .pipelinePending),
+            ("pending", .pipelinePending),
+            ("running", .pipelineRunning),
+            ("canceling", .pipelineCanceled),
+            ("scheduled", .pipelineScheduled),
+            ("manual", .pipelineManual),
+            ("success", .pipelineSuccess),
+            ("failed", .pipelineFailed),
+            ("canceled", .pipelineCanceled),
+            ("skipped", .pipelineSkipped),
         ]
     )
     func mapsStatusIcons(
-        rawValue: String
+        rawValue: String,
+        expectedIcon: GitLabIcon
     ) {
         #expect(
-            !GitLabCIStatus(
+            GitLabCIStatus(
                 rawValue: rawValue
             )
-            .systemImage.isEmpty
+            .gitLabIcon == expectedIcon
+        )
+    }
+
+    @Test("Leaves future CI states on the neutral fallback icon")
+    func preservesFutureStatusFallback() {
+        #expect(
+            GitLabCIStatus(
+                rawValue: "future_pipeline_state"
+            ).gitLabIcon == nil
         )
     }
 

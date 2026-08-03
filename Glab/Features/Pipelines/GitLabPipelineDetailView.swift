@@ -374,14 +374,11 @@ struct GitLabPipelineDetailView: View {
                 == nil
         {
             Section {
-                ContentUnavailableView(
-                    "No jobs",
-                    systemImage:
-                        "square.stack.3d.up.slash",
-                    description:
-                        Text(
-                            "This pipeline has no jobs."
-                        )
+                GitLabEmptyStateView(
+                    title: "No jobs",
+                    message:
+                        "This pipeline has no jobs.",
+                    gitLabIcon: .job
                 )
                 .accessibilityIdentifier(
                     "pipelines.detail.empty"

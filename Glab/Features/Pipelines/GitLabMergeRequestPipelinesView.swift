@@ -214,14 +214,11 @@ struct GitLabMergeRequestPipelinesView: View {
             model.pipelines.items.isEmpty,
             model.pipelines.hasLoaded
         {
-            ContentUnavailableView(
-                "No pipelines",
-                systemImage:
-                    "point.3.connected.trianglepath.dotted",
-                description:
-                    Text(
-                        "This merge request has no pipelines."
-                    )
+            GitLabEmptyStateView(
+                title: "No pipelines",
+                message:
+                    "This merge request has no pipelines.",
+                gitLabIcon: .pipeline
             )
             .listRowBackground(Color.clear)
             .accessibilityIdentifier(

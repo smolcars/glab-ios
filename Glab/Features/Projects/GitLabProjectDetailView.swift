@@ -417,8 +417,8 @@ struct GitLabProjectDetailView: View {
                 title: "Issues",
                 subtitle:
                     "Disabled for this project",
-                systemImage:
-                    "smallcircle.filled.circle",
+                gitLabIcon:
+                    .workItemIssue,
                 isAvailable: false
             )
             .accessibilityIdentifier(
@@ -452,8 +452,8 @@ struct GitLabProjectDetailView: View {
                     title: "Issues",
                     subtitle:
                         "Plan and track project work",
-                    systemImage:
-                        "smallcircle.filled.circle"
+                    gitLabIcon:
+                        .workItemIssue
                 )
             }
             .buttonStyle(
@@ -480,8 +480,8 @@ struct GitLabProjectDetailView: View {
                 title: "Merge Requests",
                 subtitle:
                     "Disabled for this project",
-                systemImage:
-                    "arrow.triangle.pull",
+                gitLabIcon:
+                    .mergeRequest,
                 isAvailable: false
             )
             .accessibilityIdentifier(
@@ -517,8 +517,8 @@ struct GitLabProjectDetailView: View {
                     title: "Merge Requests",
                     subtitle:
                         "Review proposed changes",
-                    systemImage:
-                        "arrow.triangle.pull"
+                    gitLabIcon:
+                        .mergeRequest
                 )
             }
             .buttonStyle(
@@ -549,8 +549,8 @@ struct GitLabProjectDetailView: View {
                 subtitle:
                     "History on "
                     + defaultBranchTitle(project),
-                systemImage:
-                    "point.bottomleft.forward.to.point.topright.scurvepath"
+                gitLabIcon:
+                    .commit
             )
         }
         .buttonStyle(
@@ -648,13 +648,12 @@ private struct GitLabProjectDestinationLabel:
 {
     let title: String
     let subtitle: String
-    let systemImage: String
+    let gitLabIcon: GitLabIcon
     var isAvailable = true
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.glabHeadline)
+            GitLabIconView(gitLabIcon)
                 .foregroundStyle(
                     isAvailable
                         ? Color.glabAccent

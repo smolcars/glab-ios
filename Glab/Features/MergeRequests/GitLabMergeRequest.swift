@@ -63,15 +63,8 @@ nonisolated enum GitLabMergeRequestListMode:
         }
     }
 
-    var emptySystemImage: String {
-        switch self {
-        case .assigned:
-            "arrow.triangle.branch"
-        case .created:
-            "square.and.pencil"
-        case .reviewRequested:
-            "person.crop.circle.badge.checkmark"
-        }
+    var emptyGitLabIcon: GitLabIcon {
+        .mergeRequest
     }
 }
 
@@ -94,12 +87,12 @@ nonisolated enum GitLabProjectMergeRequestState:
         }
     }
 
-    var systemImage: String {
+    var gitLabIcon: GitLabIcon {
         switch self {
         case .opened:
-            "arrow.triangle.pull"
+            .mergeRequestOpen
         case .merged:
-            "arrow.triangle.merge"
+            .merged
         }
     }
 
@@ -125,6 +118,19 @@ nonisolated enum GitLabMergeRequestStateKind:
     case merged
     case locked
     case unknown
+
+    var gitLabIcon: GitLabIcon? {
+        switch self {
+        case .opened:
+            .mergeRequestOpen
+        case .closed:
+            .mergeRequestClosed
+        case .merged:
+            .merged
+        case .locked, .unknown:
+            nil
+        }
+    }
 }
 
 nonisolated struct GitLabMergeRequestReferences:

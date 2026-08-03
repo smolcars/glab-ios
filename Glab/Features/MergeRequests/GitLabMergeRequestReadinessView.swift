@@ -186,13 +186,19 @@ struct GitLabMergeRequestReadinessView: View {
                     .request(action)
             }
         } label: {
-            Image(
-                systemName:
-                    action == .mergeNow
-                    ? "arrow.triangle.merge"
-                    : "clock.arrow.circlepath"
-            )
-            .font(.glabCallout.weight(.semibold))
+            if action == .mergeNow {
+                GitLabIconView(.merged)
+            } else {
+                Image(
+                    systemName:
+                        "clock.arrow.circlepath"
+                )
+                .font(
+                    .glabCallout.weight(
+                        .semibold
+                    )
+                )
+            }
         }
         .buttonStyle(.glass)
         .controlSize(.small)

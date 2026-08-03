@@ -114,9 +114,9 @@ struct GitLabProjectMergeRequestsView: View {
                         "No \(model.selectedState.title.lowercased()) merge requests",
                     emptyMessage:
                         emptyMessage,
-                    emptySystemImage:
+                    emptyGitLabIcon:
                         model.selectedState
-                            .systemImage,
+                            .gitLabIcon,
                     accessibilityIdentifier:
                         "projectMergeRequests.list"
                 ),
@@ -151,8 +151,7 @@ struct GitLabProjectMergeRequestsView: View {
                     .allCases,
             selection: model.selectedState,
             title: \.title,
-            systemImage: \.systemImage,
-            tintColor: \.tintColor,
+            gitLabIcon: \.gitLabIcon,
             accessibilityValue: \.rawValue,
             accessibilityIdentifier:
                 "projectMergeRequests.state"
@@ -183,18 +182,5 @@ struct GitLabProjectMergeRequestsView: View {
             )
         }
         onResourceEdited(result)
-    }
-}
-
-private extension
-    GitLabProjectMergeRequestState
-{
-    var tintColor: Color {
-        switch self {
-        case .opened:
-            .green
-        case .merged:
-            .blue
-        }
     }
 }

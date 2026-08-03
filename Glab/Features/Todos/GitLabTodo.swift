@@ -151,6 +151,30 @@ nonisolated enum GitLabTodoTargetType:
             "questionmark.circle"
         }
     }
+
+    var gitLabIcon: GitLabIcon? {
+        switch self {
+        case .issue:
+            .workItemIssue
+        case .mergeRequest:
+            .mergeRequest
+        case .commit:
+            .commit
+        case .epic:
+            .epic
+        case .alert:
+            .alertManagement
+        case .project:
+            .project
+        case .namespace:
+            .group
+        case .design,
+             .vulnerability,
+             .wikiPage,
+             .unknown:
+            nil
+        }
+    }
 }
 
 nonisolated enum GitLabTodoAction:

@@ -160,8 +160,7 @@ struct GitLabProjectIssuesView: View {
                     .allCases,
             selection: model.selectedState,
             title: \.title,
-            systemImage: \.systemImage,
-            tintColor: \.tintColor,
+            gitLabIcon: \.gitLabIcon,
             accessibilityValue: \.rawValue,
             accessibilityIdentifier:
                 "projectIssues.state"
@@ -255,16 +254,5 @@ struct GitLabProjectIssuesView: View {
             onResourceEdited:
                 reconcileEditedResource
         )
-    }
-}
-
-private extension GitLabProjectIssueState {
-    var tintColor: Color {
-        switch self {
-        case .opened:
-            .green
-        case .closed:
-            .purple
-        }
     }
 }
