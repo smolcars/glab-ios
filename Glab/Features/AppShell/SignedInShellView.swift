@@ -492,6 +492,14 @@ struct SignedInShellView: View {
             }
         )
         .environment(
+            \.gitLabNativeNavigationAction,
+            {
+                route in
+                selectedTab = .home
+                incomingRoute = route
+            }
+        )
+        .environment(
             \.gitLabDiffRenderer,
             diffRenderer
         )

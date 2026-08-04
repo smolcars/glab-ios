@@ -120,6 +120,47 @@ struct GitLabDetailSection<Content: View>: View {
     }
 }
 
+struct GitLabProjectBreadcrumbButton:
+    View
+{
+    let reference: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Text(reference)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Image(
+                    systemName:
+                        "chevron.right"
+                )
+                .font(.glabCaption.bold())
+                .foregroundStyle(.tertiary)
+            }
+            .font(
+                .glabSubheadline
+                    .weight(.medium)
+            )
+            .foregroundStyle(.secondary)
+            .frame(
+                maxWidth: .infinity,
+                alignment: .leading
+            )
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            "Open project for \(reference)"
+        )
+        .accessibilityHint(
+            "Shows the project overview"
+        )
+    }
+}
+
 struct GitLabDetailScrollContent<Content: View>: View {
     let bottomPadding: CGFloat
     let content: Content

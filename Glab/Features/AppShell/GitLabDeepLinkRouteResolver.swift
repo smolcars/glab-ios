@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 
 nonisolated enum GitLabNativeRoute:
     Equatable,
@@ -11,6 +12,38 @@ nonisolated enum GitLabNativeRoute:
     case mergeRequest(
         GitLabMergeRequestRoute
     )
+}
+
+typealias GitLabNativeNavigationAction =
+    @MainActor @Sendable
+    (GitLabNativeRoute) -> Void
+
+private struct
+    GitLabNativeNavigationActionEnvironmentKey:
+    EnvironmentKey
+{
+    static let defaultValue:
+        GitLabNativeNavigationAction =
+            { _ in }
+}
+
+extension EnvironmentValues {
+    var gitLabNativeNavigationAction:
+        GitLabNativeNavigationAction
+    {
+        get {
+            self[
+                GitLabNativeNavigationActionEnvironmentKey
+                    .self
+            ]
+        }
+        set {
+            self[
+                GitLabNativeNavigationActionEnvironmentKey
+                    .self
+            ] = newValue
+        }
+    }
 }
 
 nonisolated protocol

@@ -311,6 +311,15 @@ nonisolated struct GitLabMergeRequest:
         GitLabWebURL.validated(webURL)
     }
 
+    var projectWebURL: URL? {
+        GitLabWebURL.projectURL(
+            from: webURL,
+            matchingPathSuffixes: [
+                "/-/merge_requests/\(iid)"
+            ]
+        )
+    }
+
     var safeChangesURL: URL? {
         safeWebURL?
             .appendingPathComponent("diffs")

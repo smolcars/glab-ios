@@ -53,6 +53,10 @@ struct GitLabIssueTests {
         #expect(issue.dueDate == nil)
         #expect(issue.closedAt == nil)
         #expect(issue.safeWebURL?.scheme == "https")
+        #expect(
+            issue.projectWebURL?.absoluteString
+                == "https://gitlab.example.com/group/project"
+        )
     }
 
     @Test("Uses project ID and IID for route identity")
@@ -147,5 +151,32 @@ struct GitLabIssueTests {
 
         #expect(insecure.safeWebURL == nil)
         #expect(credentialBearing.safeWebURL == nil)
+        #expect(insecure.projectWebURL == nil)
+        #expect(credentialBearing.projectWebURL == nil)
+    }
+
+    @Test("Requires the issue URL to match its IID")
+    func validatesProjectWebURL() {
+        let mismatched = makeTestIssue(
+            iid: 7,
+            webURL: URL(
+                string:
+                    "https://gitlab.example.com/group/project/-/issues/8"
+            )
+        )
+        let workItem = makeTestIssue(
+            iid: 7,
+            webURL: URL(
+                string:
+                    "https://gitlab.example.com/group/project/-/work_items/7"
+            )
+        )
+
+        #expect(mismatched.safeWebURL != nil)
+        #expect(mismatched.projectWebURL == nil)
+        #expect(
+            workItem.projectWebURL?.absoluteString
+                == "https://gitlab.example.com/group/project"
+        )
     }
 }

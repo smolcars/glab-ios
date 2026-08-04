@@ -247,6 +247,16 @@ nonisolated struct GitLabIssue:
         GitLabWebURL.validated(webURL)
     }
 
+    var projectWebURL: URL? {
+        GitLabWebURL.projectURL(
+            from: webURL,
+            matchingPathSuffixes: [
+                "/-/issues/\(iid)",
+                "/-/work_items/\(iid)",
+            ]
+        )
+    }
+
     private var normalizedState: String {
         state.trimmingCharacters(
             in: .whitespacesAndNewlines

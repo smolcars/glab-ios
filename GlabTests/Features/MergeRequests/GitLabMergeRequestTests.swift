@@ -36,6 +36,11 @@ struct GitLabMergeRequestTests {
         #expect(mergeRequest.mergedAt == nil)
         #expect(mergeRequest.safeWebURL?.scheme == "https")
         #expect(
+            mergeRequest.projectWebURL?
+                .absoluteString
+                == "https://gitlab.example.com/group/project"
+        )
+        #expect(
             mergeRequest.safeChangesURL?
                 .absoluteString
                 == "https://gitlab.example.com/group/project/"
@@ -323,6 +328,8 @@ struct GitLabMergeRequestTests {
         #expect(credentialBearing.safeWebURL == nil)
         #expect(insecure.safeChangesURL == nil)
         #expect(credentialBearing.safeChangesURL == nil)
+        #expect(insecure.projectWebURL == nil)
+        #expect(credentialBearing.projectWebURL == nil)
     }
 }
 
