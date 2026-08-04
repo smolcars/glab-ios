@@ -125,7 +125,9 @@ nonisolated struct LiveHomeDashboardLoader:
                     .section(
                         section,
                         .success(
-                            $0.value.map(transform)
+                            $0.value
+                                .prefix(3)
+                                .map(transform)
                         )
                     )
                 )

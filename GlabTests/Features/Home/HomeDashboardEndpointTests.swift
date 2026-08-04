@@ -110,7 +110,7 @@ struct HomeDashboardEndpointTests {
                     "order_by": "last_activity_at",
                     "sort": "desc",
                     "simple": "true",
-                    "per_page": "3",
+                    "per_page": "100",
                 ]
         )
         #expect(

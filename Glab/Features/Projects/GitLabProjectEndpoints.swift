@@ -1,6 +1,10 @@
 import Foundation
 
 nonisolated enum GitLabProjectEndpoints {
+    /// Smaller membership/activity limits can time out on GitLab.com.
+    /// Work around gitlab-org/gitlab#591064 with the documented maximum.
+    static let membershipActivityPageSize = 100
+
     static func star(
         projectID: Int
     ) -> GitLabAPIRequest<GitLabProject> {
@@ -41,9 +45,15 @@ nonisolated enum GitLabProjectEndpoints {
 
     static func projects(
         for mode: GitLabProjectListMode,
-        perPage: Int = 20
+        perPage: Int? = nil
     ) -> GitLabAPIRequest<[GitLabProject]> {
-        .get(
+        let pageSize = perPage ?? (
+            mode == .recent
+                ? membershipActivityPageSize
+                : 20
+        )
+
+        return .get(
             requires: .read,
             path: ["projects"],
             query: [
@@ -59,7 +69,7 @@ nonisolated enum GitLabProjectEndpoints {
                 .init(name: "simple", value: "true"),
                 .init(
                     name: "per_page",
-                    value: String(perPage)
+                    value: String(pageSize)
                 ),
             ]
         )
@@ -83,7 +93,10 @@ nonisolated enum GitLabProjectEndpoints {
             ),
             .init(name: "sort", value: "desc"),
             .init(name: "simple", value: "true"),
-            .init(name: "per_page", value: "20"),
+            .init(
+                name: "per_page",
+                value: String(membershipActivityPageSize)
+            ),
         ]
         if
             let search =

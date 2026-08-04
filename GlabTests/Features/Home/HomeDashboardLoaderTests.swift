@@ -61,6 +61,54 @@ struct HomeDashboardLoaderTests {
             }
         )
     }
+
+    @Test("Limits project previews to three rows")
+    func limitsProjectPreviews() async throws {
+        let projects = (1...4).map {
+            GitLabHomeProject(
+                id: $0,
+                name: "Project \($0)",
+                nameWithNamespace: "Group / Project \($0)",
+                pathWithNamespace: "group/project-\($0)",
+                webURL: nil
+            )
+        }
+        let client = GatedDashboardRequestSender(
+            projects: projects
+        )
+        let loader = LiveHomeDashboardLoader(client: client)
+        let updates = DashboardUpdateCollector()
+
+        let load = Task {
+            try await loader.load(
+                refreshBehavior: .ifStale
+            ) {
+                await updates.append($0)
+            }
+        }
+
+        await client.waitUntilRequestCount(8)
+        await client.releaseAll()
+        try await load.value
+
+        let recentProjectUpdates = await updates.updates.compactMap {
+            if case let .section(.recentProjects, .success(items)) = $0 {
+                return items
+            }
+            return nil
+        }
+
+        #expect(recentProjectUpdates.count == 2)
+        #expect(
+            recentProjectUpdates.allSatisfy {
+                $0.map(\.id) == [
+                    "project:1",
+                    "project:2",
+                    "project:3",
+                ]
+            }
+        )
+    }
 }
 
 private extension HomeDashboardLoaderTests {
@@ -73,6 +121,7 @@ private extension HomeDashboardLoaderTests {
     }
 
     actor GatedDashboardRequestSender: GitLabSessionRequestSending {
+        private let projects: [GitLabHomeProject]
         private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
         private var countWaiters:
             [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
@@ -82,6 +131,10 @@ private extension HomeDashboardLoaderTests {
         private(set) var cachePolicies:
             [GitLabResponseCachePolicy] = []
         private var isReleased = false
+
+        init(projects: [GitLabHomeProject] = []) {
+            self.projects = projects
+        }
 
         func send<Response>(
             _ endpoint: GitLabAPIRequest<Response>
@@ -188,7 +241,7 @@ private extension HomeDashboardLoaderTests {
                 return [GitLabHomeMergeRequest]() as! Response
             }
             if type == [GitLabHomeProject].self {
-                return [GitLabHomeProject]() as! Response
+                return projects as! Response
             }
 
             preconditionFailure("Unexpected dashboard response type")

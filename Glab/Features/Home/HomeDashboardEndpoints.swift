@@ -46,14 +46,21 @@ nonisolated enum HomeDashboardEndpoints {
         GitLabAPIRequest<[GitLabHomeProject]> = .get(
             requires: .read,
             path: ["projects"],
-            query: projectQuery(filter: .init(name: "membership", value: "true"))
+            query: projectQuery(
+                filter: .init(name: "membership", value: "true"),
+                perPage: GitLabProjectEndpoints
+                    .membershipActivityPageSize
+            )
         )
 
     static let starredProjects:
         GitLabAPIRequest<[GitLabHomeProject]> = .get(
             requires: .read,
             path: ["projects"],
-            query: projectQuery(filter: .init(name: "starred", value: "true"))
+            query: projectQuery(
+                filter: .init(name: "starred", value: "true"),
+                perPage: 3
+            )
         )
 
     private static func workQuery(
@@ -69,14 +76,15 @@ nonisolated enum HomeDashboardEndpoints {
     }
 
     private static func projectQuery(
-        filter: URLQueryItem
+        filter: URLQueryItem,
+        perPage: Int
     ) -> [URLQueryItem] {
         [
             filter,
             .init(name: "order_by", value: "last_activity_at"),
             .init(name: "sort", value: "desc"),
             .init(name: "simple", value: "true"),
-            .init(name: "per_page", value: "3"),
+            .init(name: "per_page", value: String(perPage)),
         ]
     }
 }

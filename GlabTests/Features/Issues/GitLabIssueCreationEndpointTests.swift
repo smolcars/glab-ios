@@ -19,7 +19,7 @@ struct GitLabIssueCreationEndpointTests {
                 == "https://gitlab.example.com/api/v4/projects"
                 + "?membership=true&archived=false"
                 + "&order_by=last_activity_at&sort=desc"
-                + "&simple=true&per_page=20"
+                + "&simple=true&per_page=100"
         )
     }
 
@@ -36,7 +36,7 @@ struct GitLabIssueCreationEndpointTests {
                 == "https://gitlab.example.com/api/v4/projects"
                 + "?membership=true&archived=false"
                 + "&order_by=last_activity_at&sort=desc"
-                + "&simple=true&per_page=20"
+                + "&simple=true&per_page=100"
                 + "&search=wallet%20service"
         )
     }

@@ -9,17 +9,20 @@ struct GitLabProjectEndpointTests {
         arguments: [
             (
                 GitLabProjectListMode.recent,
-                "membership"
+                "membership",
+                100
             ),
             (
                 GitLabProjectListMode.starred,
-                "starred"
+                "starred",
+                20
             ),
         ]
     )
     func buildsListQuery(
         mode: GitLabProjectListMode,
-        filter: String
+        filter: String,
+        perPage: Int
     ) throws {
         let url = try requestURL(
             GitLabProjectEndpoints.projects(for: mode)
@@ -30,7 +33,7 @@ struct GitLabProjectEndpointTests {
                 == "https://gitlab.example.com/api/v4/projects"
                 + "?\(filter)=true"
                 + "&order_by=last_activity_at&sort=desc"
-                + "&simple=true&per_page=20"
+                + "&simple=true&per_page=\(perPage)"
         )
     }
 
