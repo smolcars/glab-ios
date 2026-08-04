@@ -4,6 +4,8 @@ struct ProjectsView: View {
     let mode: GitLabProjectListMode
     let accountID: GitLabAccountID
     let appSession: AppSession
+    let projectStarChange:
+        GitLabProjectStarChange?
 
     @State private var model: ProjectsModel
 
@@ -11,11 +13,15 @@ struct ProjectsView: View {
         mode: GitLabProjectListMode,
         loader: any GitLabProjectLoading,
         accountID: GitLabAccountID,
-        appSession: AppSession
+        appSession: AppSession,
+        projectStarChange:
+            GitLabProjectStarChange?
     ) {
         self.mode = mode
         self.accountID = accountID
         self.appSession = appSession
+        self.projectStarChange =
+            projectStarChange
         _model = State(
             initialValue: ProjectsModel(
                 mode: mode,
@@ -55,6 +61,14 @@ struct ProjectsView: View {
             .task {
                 await model.loadIfNeeded()
                 await handleAuthenticationFailure()
+            }
+            .onChange(
+                of: projectStarChange?.id
+            ) { _, _ in
+                guard let projectStarChange else {
+                    return
+                }
+                reconcile(projectStarChange)
             }
     }
 
@@ -205,6 +219,28 @@ struct ProjectsView: View {
             error,
             for: accountID
         )
+    }
+
+    private func reconcile(
+        _ change: GitLabProjectStarChange
+    ) {
+        switch mode {
+        case .recent:
+            model.reconcileItemIfPresent(
+                change.project
+            )
+        case .starred:
+            if change.isStarred {
+                model.reconcileItemAtStart(
+                    change.project,
+                    countAdjustmentIfInserted: 1
+                )
+            } else {
+                model.removeItemIfPresent(
+                    change.project
+                )
+            }
+        }
     }
 }
 

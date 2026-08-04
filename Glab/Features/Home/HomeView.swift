@@ -77,6 +77,8 @@ struct HomeView: View {
     let projectLoader:
         any GitLabProjectLoading
             & GitLabProjectResolving
+    let projectStarringService:
+        any GitLabProjectStarringServing
     let commitLoader:
         any GitLabCommitLoading
     let searchModel: GitLabGlobalSearchModel
@@ -92,6 +94,8 @@ struct HomeView: View {
     @State private var
         createdIssueRoute:
         GitLabIssueRoute?
+    @State private var projectStarChange:
+        GitLabProjectStarChange?
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -367,6 +371,8 @@ struct HomeView: View {
             GitLabProjectDetailView(
                 route: projectRoute,
                 loader: projectLoader,
+                starringService:
+                    projectStarringService,
                 apiAccess:
                     session.apiAccess,
                 issueLoader:
@@ -396,7 +402,14 @@ struct HomeView: View {
                 accountID: accountID,
                 appSession: appSession,
                 onResourceEdited:
-                    onResourceEdited
+                    onResourceEdited,
+                onProjectStarChanged: {
+                    change in
+                    projectStarChange = change
+                    Task {
+                        await model.refresh()
+                    }
+                }
             )
         case let .issue(issueRoute):
             GitLabIssueDetailView(
@@ -545,14 +558,18 @@ struct HomeView: View {
                 mode: .recent,
                 loader: projectLoader,
                 accountID: accountID,
-                appSession: appSession
+                appSession: appSession,
+                projectStarChange:
+                    projectStarChange
             )
         case .starredProjects:
             ProjectsView(
                 mode: .starred,
                 loader: projectLoader,
                 accountID: accountID,
-                appSession: appSession
+                appSession: appSession,
+                projectStarChange:
+                    projectStarChange
             )
         }
     }
