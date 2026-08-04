@@ -71,6 +71,8 @@ final class AppSession {
         any GitLabResourceEditDraftStoring
     let issueCreationDraftStore:
         any GitLabIssueCreationDraftStoring
+    let projectStarStateStore:
+        GitLabProjectStarStateStore
 
     private let accountIndexStore:
         any GitLabAccountIndexStoring
@@ -107,6 +109,9 @@ final class AppSession {
         issueCreationDraftStore:
             any GitLabIssueCreationDraftStoring =
                 InMemoryGitLabIssueCreationDraftStore(),
+        projectStarStateStore:
+            GitLabProjectStarStateStore =
+                GitLabProjectStarStateStore(),
         currentDate: @escaping () -> Date = Date.init
     ) {
         self.credentialStore = credentialStore
@@ -121,6 +126,8 @@ final class AppSession {
             resourceEditDraftStore
         self.issueCreationDraftStore =
             issueCreationDraftStore
+        self.projectStarStateStore =
+            projectStarStateStore
         self.currentDate = currentDate
     }
 
@@ -592,6 +599,9 @@ final class AppSession {
                 host: accountID.host,
                 userID: accountID.userID
             )
+        )
+        projectStarStateStore.removeAll(
+            for: accountID
         )
         if
             cancelIfAccountReturns,

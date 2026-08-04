@@ -6,6 +6,34 @@ nonisolated struct GitLabProjectRoute:
     Sendable
 {
     let pathWithNamespace: String
+    let initialProject: GitLabProject?
+    let initialIsStarred: Bool?
+
+    init(
+        pathWithNamespace: String,
+        initialProject: GitLabProject? = nil,
+        initialIsStarred: Bool? = nil
+    ) {
+        self.pathWithNamespace =
+            pathWithNamespace
+        self.initialProject = initialProject
+        self.initialIsStarred =
+            initialIsStarred
+    }
+
+    static func == (
+        lhs: Self,
+        rhs: Self
+    ) -> Bool {
+        lhs.pathWithNamespace
+            == rhs.pathWithNamespace
+    }
+
+    func hash(
+        into hasher: inout Hasher
+    ) {
+        hasher.combine(pathWithNamespace)
+    }
 }
 
 nonisolated enum GitLabProjectListMode:

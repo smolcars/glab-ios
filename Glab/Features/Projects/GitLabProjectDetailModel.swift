@@ -18,6 +18,8 @@ where
     ) {
         self.init(
             route: route,
+            initialResource:
+                route.initialProject,
             loadResource: {
                 (route: GitLabProjectRoute)
                     async throws(

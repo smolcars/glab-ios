@@ -3,6 +3,8 @@ import SwiftUI
 struct GitLabProjectDetailView: View {
     let route: GitLabProjectRoute
     let apiAccess: GitLabAPIAccess
+    let onProjectStarChanged:
+        (GitLabProjectStarChange) -> Void
     let issueLoader:
         any GitLabIssueLoading
     let mergeRequestLoader:
@@ -38,12 +40,16 @@ struct GitLabProjectDetailView: View {
 
     @State private var model:
         GitLabProjectDetailModel
+    @State private var starModel:
+        GitLabProjectStarModel
     @State private var createdIssueRoute:
         GitLabIssueRoute?
 
     init(
         route: GitLabProjectRoute,
         loader: any GitLabProjectResolving,
+        starringService:
+            any GitLabProjectStarringServing,
         apiAccess: GitLabAPIAccess,
         issueLoader:
             any GitLabIssueLoading,
@@ -78,6 +84,10 @@ struct GitLabProjectDetailView: View {
         onResourceEdited:
             @escaping (
                 GitLabResourceEditResult
+            ) -> Void,
+        onProjectStarChanged:
+            @escaping (
+                GitLabProjectStarChange
             ) -> Void
     ) {
         self.route = route
@@ -108,11 +118,34 @@ struct GitLabProjectDetailView: View {
         self.appSession = appSession
         self.onResourceEdited =
             onResourceEdited
+        self.onProjectStarChanged =
+            onProjectStarChanged
         _model = State(
             initialValue:
                 GitLabProjectDetailModel(
                     route: route,
                     loader: loader
+                )
+        )
+        _starModel = State(
+            initialValue:
+                GitLabProjectStarModel(
+                    accountID: accountID,
+                    apiAccess: apiAccess,
+                    projectPathWithNamespace:
+                        route.pathWithNamespace,
+                    initialIsStarred:
+                        route.initialIsStarred,
+                    service:
+                        starringService,
+                    stateStore:
+                        appSession
+                        .projectStarStateStore,
+                    isAccountCurrent: {
+                        appSession
+                            .activeAccountID
+                            == accountID
+                    }
                 )
         )
     }
@@ -126,6 +159,30 @@ struct GitLabProjectDetailView: View {
             )
             .task {
                 await load()
+            }
+            .task(id: loadedProject?.id) {
+                guard let loadedProject else {
+                    return
+                }
+                await starModel.loadIfNeeded(
+                    project: loadedProject
+                )
+                await handleAuthenticationFailure()
+            }
+            .alert(
+                "Couldn’t update star",
+                isPresented:
+                    starFailureIsPresented
+            ) {
+                Button("OK") {
+                    starModel.dismissFailure()
+                }
+            } message: {
+                Text(
+                    starModel.failure?
+                        .localizedDescription
+                        ?? ""
+                )
             }
             .accessibilityIdentifier(
                 "project.detail"
@@ -237,6 +294,12 @@ struct GitLabProjectDetailView: View {
         }
         .refreshable {
             await retry()
+            if let loadedProject {
+                await starModel.refresh(
+                    project: loadedProject
+                )
+                await handleAuthenticationFailure()
+            }
         }
     }
 
@@ -344,13 +407,7 @@ struct GitLabProjectDetailView: View {
                     Divider()
                         .frame(height: 42)
 
-                    projectFact(
-                        title: "Stars",
-                        value:
-                            project.starCount
-                                .formatted(),
-                        systemImage: "star"
-                    )
+                    projectStars(project)
                 }
 
                 VStack(
@@ -366,13 +423,7 @@ struct GitLabProjectDetailView: View {
                                 .systemImage
                     )
 
-                    projectFact(
-                        title: "Stars",
-                        value:
-                            project.starCount
-                                .formatted(),
-                        systemImage: "star"
-                    )
+                    projectStars(project)
                 }
             }
 
@@ -425,6 +476,151 @@ struct GitLabProjectDetailView: View {
         .accessibilityElement(
             children: .combine
         )
+    }
+
+    @ViewBuilder
+    private func projectStars(
+        _ project: GitLabProject
+    ) -> some View {
+        if apiAccess.canWrite {
+            projectStarButton(project)
+        } else {
+            projectFact(
+                title: "Stars",
+                value:
+                    project.starCount
+                        .formatted(),
+                systemImage: "star"
+            )
+        }
+    }
+
+    private func projectStarButton(
+        _ project: GitLabProject
+    ) -> some View {
+        HStack(spacing: 7) {
+            Button {
+                Task {
+                    if starModel.canRetry {
+                        await retryStarStatus(
+                            for: project
+                        )
+                    } else {
+                        await toggleStar(
+                            for: project
+                        )
+                    }
+                }
+            } label: {
+                if starModel.isMutating {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 18, height: 18)
+                } else {
+                    switch starModel.state {
+                    case .idle, .loading:
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 18, height: 18)
+                    case .failed:
+                        Image(
+                            systemName: "arrow.clockwise"
+                        )
+                        .foregroundStyle(.primary)
+                        .frame(width: 18, height: 18)
+                    case let .ready(isStarred):
+                        Image(
+                            systemName:
+                                isStarred
+                                ? "star.fill"
+                                : "star"
+                        )
+                        .foregroundStyle(
+                            isStarred
+                            ? Color.glabBrandWarm
+                            : Color.primary
+                        )
+                        .frame(width: 18, height: 18)
+                    }
+                }
+            }
+            .font(
+                .glabSubheadline.weight(
+                    .semibold
+                )
+            )
+            .frame(width: 44, height: 44)
+            .buttonBorderShape(.circle)
+            .buttonStyle(.glass(.clear))
+            .disabled(
+                !starModel.canToggle
+                    && !starModel.canRetry
+            )
+            .accessibilityLabel(
+                starAccessibilityLabel(
+                    starModel.state
+                )
+            )
+            .accessibilityValue(
+                project.starCount == 1
+                ? "1 star"
+                : "\(project.starCount) stars"
+            )
+            .accessibilityHint(
+                starAccessibilityHint(
+                    starModel.state
+                )
+            )
+            .accessibilityIdentifier(
+                "project.starButton"
+            )
+
+            Text(
+                project.starCount
+                    .formatted()
+            )
+            .font(
+                .glabSubheadline.weight(
+                    .semibold
+                )
+            )
+            .monospacedDigit()
+            .accessibilityHidden(true)
+        }
+        .frame(
+            maxWidth: .infinity,
+            alignment: .leading
+        )
+    }
+
+    private func starAccessibilityLabel(
+        _ state: GitLabProjectStarState
+    ) -> String {
+        switch state {
+        case .idle, .loading:
+            "Loading star status"
+        case .failed:
+            "Retry star status"
+        case .ready(isStarred: true):
+            "Unstar project"
+        case .ready(isStarred: false):
+            "Star project"
+        }
+    }
+
+    private func starAccessibilityHint(
+        _ state: GitLabProjectStarState
+    ) -> String {
+        switch state {
+        case .idle, .loading:
+            "Checks whether this project is starred."
+        case .failed:
+            "Checks the current star status again."
+        case .ready(isStarred: true):
+            "Removes this project from your starred projects."
+        case .ready(isStarred: false):
+            "Adds this project to your starred projects."
+        }
     }
 
     @ViewBuilder
@@ -615,6 +811,18 @@ struct GitLabProjectDetailView: View {
         }
     }
 
+    private var starFailureIsPresented:
+        Binding<Bool>
+    {
+        Binding {
+            starModel.failure != nil
+        } set: { isPresented in
+            if !isPresented {
+                starModel.dismissFailure()
+            }
+        }
+    }
+
     private func issueDetail(
         route: GitLabIssueRoute
     ) -> some View {
@@ -648,12 +856,64 @@ struct GitLabProjectDetailView: View {
         await handleAuthenticationFailure()
     }
 
+    private func toggleStar(
+        for project: GitLabProject
+    ) async {
+        let previousIsStarred =
+            starModel.isStarred
+        let change = await starModel.toggle(
+            project: project
+        )
+
+        if let change {
+            _ = model.reconcileAuthoritative(
+                change.project
+            )
+            onProjectStarChanged(change)
+        } else if
+            starModel.failure?
+                .requiresProjectRefresh == true
+        {
+            await model.retry()
+            if
+                model.refreshError == nil,
+                let refreshedProject =
+                    loadedProject,
+                let previousIsStarred,
+                let isStarred =
+                    starModel.isStarred,
+                isStarred != previousIsStarred
+            {
+                onProjectStarChanged(
+                    GitLabProjectStarChange(
+                        project:
+                            refreshedProject,
+                        isStarred:
+                            isStarred
+                    )
+                )
+            }
+        }
+        await handleAuthenticationFailure()
+    }
+
+    private func retryStarStatus(
+        for project: GitLabProject
+    ) async {
+        await starModel.refresh(
+            project: project
+        )
+        await handleAuthenticationFailure()
+    }
+
     private func handleAuthenticationFailure()
         async
     {
         guard
             let error =
                 model.authenticationFailure
+                ?? starModel
+                    .authenticationFailure
         else {
             return
         }

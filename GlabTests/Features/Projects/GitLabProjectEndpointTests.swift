@@ -49,6 +49,34 @@ struct GitLabProjectEndpointTests {
                 + "projects/group%2Fsubgroup%2Fglab%20ios"
         )
     }
+
+    @Test(
+        "Builds project star mutations",
+        arguments: [true, false]
+    )
+    func buildsStarMutation(
+        isStarred: Bool
+    ) throws {
+        let endpoint =
+            isStarred
+            ? GitLabProjectEndpoints.star(
+                projectID: 42
+            )
+            : GitLabProjectEndpoints.unstar(
+                projectID: 42
+            )
+        let request = try request(endpoint)
+        let url = try #require(request.url)
+
+        #expect(endpoint.method == .post)
+        #expect(endpoint.requiredAccess == .write)
+        #expect(
+            url.absoluteString
+                == "https://gitlab.example.com/api/v4/"
+                + "projects/42/"
+                + (isStarred ? "star" : "unstar")
+        )
+    }
 }
 
 private extension GitLabProjectEndpointTests {
@@ -56,11 +84,17 @@ private extension GitLabProjectEndpointTests {
         _ endpoint: GitLabAPIRequest<Response>
     ) throws -> URL {
         #expect(endpoint.requiredAccess == .read)
-        let request = try GitLabRequestBuilder(
+        let request = try request(endpoint)
+
+        return try #require(request.url)
+    }
+
+    nonisolated func request<Response>(
+        _ endpoint: GitLabAPIRequest<Response>
+    ) throws -> URLRequest {
+        try GitLabRequestBuilder(
             host: GitLabHost("gitlab.example.com"),
             authorization: .personalAccessToken("pat-secret")
         ).build(endpoint)
-
-        return try #require(request.url)
     }
 }
