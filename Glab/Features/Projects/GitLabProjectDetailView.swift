@@ -483,11 +483,7 @@ struct GitLabProjectDetailView: View {
         _ project: GitLabProject
     ) -> some View {
         if apiAccess.canWrite {
-            projectStarButton(
-                project,
-                isStarred:
-                    starModel.isStarred
-            )
+            projectStarButton(project)
         } else {
             projectFact(
                 title: "Stars",
@@ -500,37 +496,52 @@ struct GitLabProjectDetailView: View {
     }
 
     private func projectStarButton(
-        _ project: GitLabProject,
-        isStarred: Bool?
+        _ project: GitLabProject
     ) -> some View {
         HStack(spacing: 7) {
             Button {
                 Task {
-                    await toggleStar(
-                        for: project
-                    )
+                    if starModel.canRetry {
+                        await retryStarStatus(
+                            for: project
+                        )
+                    } else {
+                        await toggleStar(
+                            for: project
+                        )
+                    }
                 }
             } label: {
-                if
-                    starModel.isMutating
-                        || isStarred == nil
-                {
+                if starModel.isMutating {
                     ProgressView()
                         .controlSize(.small)
                         .frame(width: 18, height: 18)
-                } else if let isStarred {
-                    Image(
-                        systemName:
+                } else {
+                    switch starModel.state {
+                    case .idle, .loading:
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 18, height: 18)
+                    case .failed:
+                        Image(
+                            systemName: "arrow.clockwise"
+                        )
+                        .foregroundStyle(.primary)
+                        .frame(width: 18, height: 18)
+                    case let .ready(isStarred):
+                        Image(
+                            systemName:
+                                isStarred
+                                ? "star.fill"
+                                : "star"
+                        )
+                        .foregroundStyle(
                             isStarred
-                            ? "star.fill"
-                            : "star"
-                    )
-                    .foregroundStyle(
-                        isStarred
-                        ? Color.glabBrandWarm
-                        : Color.primary
-                    )
-                    .frame(width: 18, height: 18)
+                            ? Color.glabBrandWarm
+                            : Color.primary
+                        )
+                        .frame(width: 18, height: 18)
+                    }
                 }
             }
             .font(
@@ -541,10 +552,13 @@ struct GitLabProjectDetailView: View {
             .frame(width: 44, height: 44)
             .buttonBorderShape(.circle)
             .buttonStyle(.glass(.clear))
-            .disabled(!starModel.canToggle)
+            .disabled(
+                !starModel.canToggle
+                    && !starModel.canRetry
+            )
             .accessibilityLabel(
                 starAccessibilityLabel(
-                    isStarred
+                    starModel.state
                 )
             )
             .accessibilityValue(
@@ -554,7 +568,7 @@ struct GitLabProjectDetailView: View {
             )
             .accessibilityHint(
                 starAccessibilityHint(
-                    isStarred
+                    starModel.state
                 )
             )
             .accessibilityIdentifier(
@@ -580,28 +594,32 @@ struct GitLabProjectDetailView: View {
     }
 
     private func starAccessibilityLabel(
-        _ isStarred: Bool?
+        _ state: GitLabProjectStarState
     ) -> String {
-        switch isStarred {
-        case true:
-            "Unstar project"
-        case false:
-            "Star project"
-        case nil:
+        switch state {
+        case .idle, .loading:
             "Loading star status"
+        case .failed:
+            "Retry star status"
+        case .ready(isStarred: true):
+            "Unstar project"
+        case .ready(isStarred: false):
+            "Star project"
         }
     }
 
     private func starAccessibilityHint(
-        _ isStarred: Bool?
+        _ state: GitLabProjectStarState
     ) -> String {
-        switch isStarred {
-        case true:
-            "Removes this project from your starred projects."
-        case false:
-            "Adds this project to your starred projects."
-        case nil:
+        switch state {
+        case .idle, .loading:
             "Checks whether this project is starred."
+        case .failed:
+            "Checks the current star status again."
+        case .ready(isStarred: true):
+            "Removes this project from your starred projects."
+        case .ready(isStarred: false):
+            "Adds this project to your starred projects."
         }
     }
 
@@ -876,6 +894,15 @@ struct GitLabProjectDetailView: View {
                 )
             }
         }
+        await handleAuthenticationFailure()
+    }
+
+    private func retryStarStatus(
+        for project: GitLabProject
+    ) async {
+        await starModel.refresh(
+            project: project
+        )
         await handleAuthenticationFailure()
     }
 

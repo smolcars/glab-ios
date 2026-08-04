@@ -10,7 +10,7 @@ struct LiveGitLabProjectStarringServiceTests {
             URL(
                 string:
                     "https://gitlab.example.com/api/v4/"
-                    + "users/17/starred_projects?page=2"
+                    + "projects?starred=true&page=2"
             )
         )
         let client = ProjectStarringClient(
@@ -31,16 +31,17 @@ struct LiveGitLabProjectStarringServiceTests {
             )
 
         let isStarred = try await service.isStarred(
-            makeTestProject(),
-            byUserID: 17
+            makeTestProject()
         )
 
         #expect(isStarred)
         #expect(
             await client.pageRequests
                 == [
-                    "users/17/starred_projects"
-                        + "?simple=true&per_page=100",
+                    "projects?starred=true"
+                        + "&order_by=last_activity_at"
+                        + "&sort=desc&simple=true"
+                        + "&per_page=100",
                     "next:\(nextPageURL.absoluteString)",
                 ]
         )
@@ -62,8 +63,7 @@ struct LiveGitLabProjectStarringServiceTests {
             )
 
         let isStarred = try await service.isStarred(
-            makeTestProject(),
-            byUserID: 17
+            makeTestProject()
         )
 
         #expect(!isStarred)
@@ -90,8 +90,7 @@ struct LiveGitLabProjectStarringServiceTests {
 
         let result = try await service.setStarred(
             isStarred,
-            for: makeTestProject(),
-            byUserID: 17
+            for: makeTestProject()
         )
 
         #expect(result == updatedProject)
@@ -114,31 +113,6 @@ struct LiveGitLabProjectStarringServiceTests {
         )
     }
 
-    @Test("Rejects a mutation response for another project")
-    func rejectsMismatchedMutationResponse() async {
-        let client = ProjectStarringClient(
-            mutationResult:
-                .success(
-                    makeTestProject(id: 99)
-                )
-        )
-        let service =
-            LiveGitLabProjectStarringService(
-                client: client
-            )
-
-        await #expect {
-            try await service.setStarred(
-                true,
-                for: makeTestProject(),
-                byUserID: 17
-            )
-        } throws: { error in
-            error as? GitLabSessionClientError
-                == .api(.invalidResponse)
-        }
-    }
-
     @Test("Invalidates reads when mutation delivery is unknown")
     func invalidatesAfterUncertainDelivery() async {
         let client = ProjectStarringClient(
@@ -157,8 +131,7 @@ struct LiveGitLabProjectStarringServiceTests {
         await #expect {
             try await service.setStarred(
                 true,
-                for: makeTestProject(),
-                byUserID: 17
+                for: makeTestProject()
             )
         } throws: { error in
             error as? GitLabSessionClientError
@@ -200,8 +173,7 @@ struct LiveGitLabProjectStarringServiceTests {
 
         let result = try await service.setStarred(
             isStarred,
-            for: makeTestProject(),
-            byUserID: 17
+            for: makeTestProject()
         )
 
         #expect(result == updatedProject)
@@ -305,11 +277,11 @@ private actor ProjectStarringClient:
             throw .api(.invalidResponse)
         }
         let responsePage = pages.removeFirst()
-        let references = responsePage.ids.map {
-            GitLabStarredProjectReference(id: $0)
+        let projects = responsePage.ids.map {
+            makeTestProject(id: $0)
         }
         return GitLabAPIResponse(
-            value: references as! Response,
+            value: projects as! Response,
             metadata: GitLabResponseMetadata(
                 nextPageURL:
                     responsePage.nextPageURL

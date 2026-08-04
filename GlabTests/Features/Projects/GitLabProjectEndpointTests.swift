@@ -50,25 +50,6 @@ struct GitLabProjectEndpointTests {
         )
     }
 
-    @Test("Builds the current user's starred-project lookup")
-    func buildsStarredProjectLookup() throws {
-        let endpoint = GitLabProjectEndpoints
-            .starredProjects(
-                userID: 17
-            )
-        let request = try request(endpoint)
-        let url = try #require(request.url)
-
-        #expect(endpoint.method == .get)
-        #expect(endpoint.requiredAccess == .read)
-        #expect(
-            url.absoluteString
-                == "https://gitlab.example.com/api/v4/"
-                + "users/17/starred_projects"
-                + "?simple=true&per_page=100"
-        )
-    }
-
     @Test(
         "Builds project star mutations",
         arguments: [true, false]

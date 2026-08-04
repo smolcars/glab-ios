@@ -1,25 +1,15 @@
 import Foundation
 
-nonisolated struct GitLabStarredProjectReference:
-    Decodable,
-    Equatable,
-    Sendable
-{
-    let id: Int
-}
-
 nonisolated protocol GitLabProjectStarringServing:
     Sendable
 {
     func isStarred(
-        _ project: GitLabProject,
-        byUserID userID: Int
+        _ project: GitLabProject
     ) async throws(GitLabSessionClientError) -> Bool
 
     func setStarred(
         _ isStarred: Bool,
-        for project: GitLabProject,
-        byUserID userID: Int
+        for project: GitLabProject
     ) async throws(GitLabSessionClientError)
         -> GitLabProject
 }
@@ -40,16 +30,16 @@ nonisolated struct LiveGitLabProjectStarringService:
 
     @concurrent
     func isStarred(
-        _ project: GitLabProject,
-        byUserID userID: Int
+        _ project: GitLabProject
     ) async throws(GitLabSessionClientError) -> Bool {
         var page:
             GitLabAPIPageRequest<
-                [GitLabStarredProjectReference]
+                [GitLabProject]
             > = .initial(
                 GitLabProjectEndpoints
-                    .starredProjects(
-                        userID: userID
+                    .projects(
+                        for: .starred,
+                        perPage: 100
                     )
             )
 
@@ -75,8 +65,7 @@ nonisolated struct LiveGitLabProjectStarringService:
     @concurrent
     func setStarred(
         _ isStarred: Bool,
-        for project: GitLabProject,
-        byUserID userID: Int
+        for project: GitLabProject
     ) async throws(GitLabSessionClientError)
         -> GitLabProject
     {
@@ -102,8 +91,7 @@ nonisolated struct LiveGitLabProjectStarringService:
                     mutationError
                         == .api(.invalidResponse),
                     try await self.isStarred(
-                        project,
-                        byUserID: userID
+                        project
                     ) == isStarred
                 else {
                     throw mutationError
@@ -114,10 +102,6 @@ nonisolated struct LiveGitLabProjectStarringService:
                             project.pathWithNamespace
                     )
                 )
-            }
-            guard updatedProject.id == project.id else {
-                throw GitLabSessionClientError
-                    .api(.invalidResponse)
             }
             await invalidateProjectReads(
                 pathWithNamespace:

@@ -107,22 +107,10 @@ nonisolated enum GitLabProjectStarFailure:
 
 nonisolated struct GitLabProjectStarChange:
     Equatable,
-    Identifiable,
     Sendable
 {
-    let id: UUID
     let project: GitLabProject
     let isStarred: Bool
-
-    init(
-        project: GitLabProject,
-        isStarred: Bool,
-        id: UUID = UUID()
-    ) {
-        self.id = id
-        self.project = project
-        self.isStarred = isStarred
-    }
 }
 
 @MainActor
@@ -201,6 +189,18 @@ final class GitLabProjectStarModel {
             && !isMutating
     }
 
+    var canRetry: Bool {
+        guard
+            apiAccess.canWrite,
+            isAccountCurrent(),
+            !isMutating,
+            case .failed = state
+        else {
+            return false
+        }
+        return true
+    }
+
     var authenticationFailure:
         GitLabSessionClientError?
     {
@@ -216,7 +216,11 @@ final class GitLabProjectStarModel {
     func loadIfNeeded(
         project: GitLabProject
     ) async {
-        guard !hasLoaded, !isMutating else {
+        guard
+            apiAccess.canWrite,
+            !hasLoaded,
+            !isMutating
+        else {
             return
         }
         hasLoaded = true
@@ -229,7 +233,10 @@ final class GitLabProjectStarModel {
     func refresh(
         project: GitLabProject
     ) async {
-        guard !isMutating else {
+        guard
+            apiAccess.canWrite,
+            !isMutating
+        else {
             return
         }
         hasLoaded = true
@@ -269,8 +276,7 @@ final class GitLabProjectStarModel {
             let updatedProject =
                 try await service.setStarred(
                     desiredState,
-                    for: project,
-                    byUserID: accountID.userID
+                    for: project
                 )
             guard isAccountCurrent() else {
                 failure = .accountChanged
@@ -325,8 +331,7 @@ final class GitLabProjectStarModel {
         do {
             let isStarred = try await service
                 .isStarred(
-                    project,
-                    byUserID: accountID.userID
+                    project
                 )
             guard isAccountCurrent() else {
                 state = previousState

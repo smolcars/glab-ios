@@ -26,12 +26,7 @@ struct GitLabProjectStarModelTests {
         )
         #expect(
             await context.service.statusRequests
-                == [
-                    ProjectStarStatusRequest(
-                        projectID: 42,
-                        userID: 17
-                    )
-                ]
+                == [42]
         )
     }
 
@@ -80,6 +75,42 @@ struct GitLabProjectStarModelTests {
             await context.service
                 .statusRequests.count
                 == 1
+        )
+    }
+
+    @Test("Retries a failed star-status load")
+    func retriesFailedStatusLoad() async throws {
+        let error = GitLabSessionClientError
+            .api(.connectivity(.timedOut))
+        let context = try StarModelContext(
+            statusResults: [
+                .failure(error),
+                .success(true),
+            ]
+        )
+
+        await context.model.loadIfNeeded(
+            project: makeTestProject()
+        )
+
+        #expect(
+            context.model.state
+                == .failed(error)
+        )
+        #expect(context.model.canRetry)
+
+        await context.model.refresh(
+            project: makeTestProject()
+        )
+
+        #expect(
+            context.model.state
+                == .ready(isStarred: true)
+        )
+        #expect(!context.model.canRetry)
+        #expect(
+            await context.service.statusRequests
+                == [42, 42]
         )
     }
 
@@ -168,8 +199,7 @@ struct GitLabProjectStarModelTests {
                 == [
                     ProjectStarMutationRequest(
                         isStarred: true,
-                        projectID: 42,
-                        userID: 17
+                        projectID: 42
                     )
                 ]
         )
@@ -179,7 +209,7 @@ struct GitLabProjectStarModelTests {
     func blocksReadOnlyMutation() async throws {
         let context = try StarModelContext(
             apiAccess: .readOnly,
-            statusResults: [.success(false)]
+            statusResults: []
         )
         await context.model.loadIfNeeded(
             project: makeTestProject()
@@ -191,6 +221,10 @@ struct GitLabProjectStarModelTests {
 
         #expect(change == nil)
         #expect(context.model.failure == .readOnly)
+        #expect(
+            await context.service
+                .statusRequests.isEmpty
+        )
         #expect(
             await context.service
                 .mutationRequests.isEmpty
@@ -271,7 +305,6 @@ private struct StarModelContext {
     let service: RecordingProjectStarringService
     let stateStore:
         GitLabProjectStarStateStore
-    let account = ProjectStarCurrentAccountBox()
     let model: GitLabProjectStarModel
 
     init(
@@ -290,8 +323,7 @@ private struct StarModelContext {
         ] = [],
         stateStore:
             GitLabProjectStarStateStore =
-                GitLabProjectStarStateStore(),
-        initialIsStarred: Bool? = nil
+                GitLabProjectStarStateStore()
     ) throws {
         let service = RecordingProjectStarringService(
             statusResults: statusResults,
@@ -299,7 +331,6 @@ private struct StarModelContext {
         )
         self.service = service
         self.stateStore = stateStore
-        let account = self.account
         model = GitLabProjectStarModel(
             accountID: GitLabAccountID(
                 host: try GitLabHost(
@@ -310,20 +341,13 @@ private struct StarModelContext {
             apiAccess: apiAccess,
             projectPathWithNamespace:
                 "mobile/glab-ios",
-            initialIsStarred:
-                initialIsStarred,
             service: service,
             stateStore: stateStore,
             isAccountCurrent: {
-                account.isCurrent
+                true
             }
         )
     }
-}
-
-@MainActor
-private final class ProjectStarCurrentAccountBox {
-    var isCurrent = true
 }
 
 private actor RecordingProjectStarringService:
@@ -341,9 +365,7 @@ private actor RecordingProjectStarringService:
             GitLabSessionClientError
         >
     ]
-    private(set) var statusRequests: [
-        ProjectStarStatusRequest
-    ] = []
+    private(set) var statusRequests: [Int] = []
     private(set) var mutationRequests: [
         ProjectStarMutationRequest
     ] = []
@@ -367,15 +389,9 @@ private actor RecordingProjectStarringService:
     }
 
     func isStarred(
-        _ project: GitLabProject,
-        byUserID userID: Int
+        _ project: GitLabProject
     ) async throws(GitLabSessionClientError) -> Bool {
-        statusRequests.append(
-            ProjectStarStatusRequest(
-                projectID: project.id,
-                userID: userID
-            )
-        )
+        statusRequests.append(project.id)
         guard !statusResults.isEmpty else {
             throw .api(.invalidResponse)
         }
@@ -384,16 +400,14 @@ private actor RecordingProjectStarringService:
 
     func setStarred(
         _ isStarred: Bool,
-        for project: GitLabProject,
-        byUserID userID: Int
+        for project: GitLabProject
     ) async throws(GitLabSessionClientError)
         -> GitLabProject
     {
         mutationRequests.append(
             ProjectStarMutationRequest(
                 isStarred: isStarred,
-                projectID: project.id,
-                userID: userID
+                projectID: project.id
             )
         )
         guard !mutationResults.isEmpty else {
@@ -405,19 +419,10 @@ private actor RecordingProjectStarringService:
     }
 }
 
-private struct ProjectStarStatusRequest:
-    Equatable,
-    Sendable
-{
-    let projectID: Int
-    let userID: Int
-}
-
 private struct ProjectStarMutationRequest:
     Equatable,
     Sendable
 {
     let isStarred: Bool
     let projectID: Int
-    let userID: Int
 }

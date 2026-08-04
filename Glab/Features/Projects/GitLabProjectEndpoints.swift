@@ -1,25 +1,6 @@
 import Foundation
 
 nonisolated enum GitLabProjectEndpoints {
-    static func starredProjects(
-        userID: Int
-    ) -> GitLabAPIRequest<
-        [GitLabStarredProjectReference]
-    > {
-        .get(
-            requires: .read,
-            path: [
-                "users",
-                String(userID),
-                "starred_projects",
-            ],
-            query: [
-                .init(name: "simple", value: "true"),
-                .init(name: "per_page", value: "100"),
-            ]
-        )
-    }
-
     static func star(
         projectID: Int
     ) -> GitLabAPIRequest<GitLabProject> {
@@ -59,7 +40,8 @@ nonisolated enum GitLabProjectEndpoints {
     }
 
     static func projects(
-        for mode: GitLabProjectListMode
+        for mode: GitLabProjectListMode,
+        perPage: Int = 20
     ) -> GitLabAPIRequest<[GitLabProject]> {
         .get(
             requires: .read,
@@ -75,7 +57,10 @@ nonisolated enum GitLabProjectEndpoints {
                 ),
                 .init(name: "sort", value: "desc"),
                 .init(name: "simple", value: "true"),
-                .init(name: "per_page", value: "20"),
+                .init(
+                    name: "per_page",
+                    value: String(perPage)
+                ),
             ]
         )
     }

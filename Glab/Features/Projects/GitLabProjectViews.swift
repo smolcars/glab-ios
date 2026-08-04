@@ -63,8 +63,8 @@ struct ProjectsView: View {
                 await handleAuthenticationFailure()
             }
             .onChange(
-                of: projectStarChange?.id
-            ) { _, _ in
+                of: projectStarChange
+            ) { _, projectStarChange in
                 guard let projectStarChange else {
                     return
                 }
