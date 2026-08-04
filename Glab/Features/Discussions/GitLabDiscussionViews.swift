@@ -637,6 +637,8 @@ private struct GitLabDiscussionNoteView: View {
     @State private var isDeleting = false
     @State private var deleteFailure:
         GitLabDiscussionMutationError?
+    @Environment(\.gitLabNativeNavigationAction)
+    private var nativeNavigation
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -754,9 +756,28 @@ private struct GitLabDiscussionNoteView: View {
                 .frame(width: 34, height: 34)
                 .accessibilityHidden(true)
         } else {
-            GitLabUserAvatar(
-                user: note.author.summary,
-                size: 34
+            Button {
+                nativeNavigation(
+                    .user(
+                        GitLabUserRoute(
+                            user: note.author
+                        )
+                    )
+                )
+            } label: {
+                GitLabUserAvatar(
+                    user: note.author.summary,
+                    size: 34
+                )
+                .frame(width: 44, height: 44)
+                .contentShape(.circle)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                "Profile for \(note.author.displayName)"
+            )
+            .accessibilityHint(
+                "Opens this user’s profile."
             )
         }
     }

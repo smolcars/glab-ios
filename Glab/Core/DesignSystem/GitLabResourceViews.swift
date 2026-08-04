@@ -72,25 +72,49 @@ struct GitLabAPIUserRow: View {
     let user: GitLabAPIUser
     let role: String
 
-    var body: some View {
-        HStack(spacing: 12) {
-            GitLabUserAvatar(
-                user: user.summary,
-                size: 34
-            )
+    @Environment(\.gitLabNativeNavigationAction)
+    private var nativeNavigation
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(role)
-                    .font(.glabCaption)
-                    .foregroundStyle(.secondary)
-                Text(user.displayName)
-                    .font(.glabBody.weight(.medium))
-                Text("@\(user.username)")
-                    .font(.glabCaption)
-                    .foregroundStyle(.secondary)
+    var body: some View {
+        Button {
+            nativeNavigation(
+                .user(
+                    GitLabUserRoute(user: user)
+                )
+            )
+        } label: {
+            HStack(spacing: 12) {
+                GitLabUserAvatar(
+                    user: user.summary,
+                    size: 34
+                )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(role)
+                        .font(.glabCaption)
+                        .foregroundStyle(.secondary)
+                    Text(user.displayName)
+                        .font(.glabBody.weight(.medium))
+                        .foregroundStyle(.primary)
+                    Text("@\(user.username)")
+                        .font(.glabCaption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.glabCaption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
             }
+            .contentShape(.rect)
         }
+        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        .accessibilityHint(
+            "Opens \(user.displayName)’s profile."
+        )
     }
 }
 

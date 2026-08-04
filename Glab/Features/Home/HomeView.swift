@@ -79,6 +79,8 @@ struct HomeView: View {
             & GitLabProjectResolving
     let projectStarringService:
         any GitLabProjectStarringServing
+    let userService:
+        any GitLabUserServing
     let commitLoader:
         any GitLabCommitLoading
     let searchModel: GitLabGlobalSearchModel
@@ -356,7 +358,8 @@ struct HomeView: View {
         case .account:
             AccountView(
                 session: session,
-                appSession: appSession
+                appSession: appSession,
+                userService: userService
             )
         case let .issueCreation(
             presentation
@@ -461,6 +464,14 @@ struct HomeView: View {
                 appSession: appSession,
                 onResourceEdited:
                     onResourceEdited
+            )
+        case let .user(userRoute):
+            GitLabUserProfileView(
+                route: userRoute,
+                service: userService,
+                session: session,
+                accountID: accountID,
+                appSession: appSession
             )
         }
     }

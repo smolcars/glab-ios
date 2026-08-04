@@ -12,6 +12,7 @@ nonisolated enum GitLabNativeRoute:
     case mergeRequest(
         GitLabMergeRequestRoute
     )
+    case user(GitLabUserRoute)
 }
 
 typealias GitLabNativeNavigationAction =
