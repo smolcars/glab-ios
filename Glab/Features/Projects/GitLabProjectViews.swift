@@ -194,7 +194,12 @@ struct ProjectsView: View {
             value: GitLabNativeRoute.project(
                 GitLabProjectRoute(
                     pathWithNamespace:
-                        project.pathWithNamespace
+                        project.pathWithNamespace,
+                    initialProject: project,
+                    initialIsStarred:
+                        initialStarState(
+                            for: project
+                        )
                 )
             )
         ) {
@@ -202,6 +207,21 @@ struct ProjectsView: View {
                 project: project
             )
         }
+    }
+
+    private func initialStarState(
+        for project: GitLabProject
+    ) -> Bool? {
+        if mode == .starred {
+            return true
+        }
+        return appSession
+            .projectStarStateStore
+            .isStarred(
+                for: accountID,
+                pathWithNamespace:
+                    project.pathWithNamespace
+            )
     }
 
     private func refresh() async {

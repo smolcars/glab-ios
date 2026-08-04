@@ -27,6 +27,7 @@ where
     private(set) var cacheStoredAt: Date?
 
     private let route: Route
+    private var hasLoaded = false
     private let loadResource:
         @Sendable (Route) async throws(GitLabSessionClientError)
             -> Resource
@@ -41,6 +42,7 @@ where
 
     init(
         route: Route,
+        initialResource: Resource? = nil,
         loadResource: @escaping @Sendable (Route) async throws(
             GitLabSessionClientError
         ) -> Resource,
@@ -54,6 +56,9 @@ where
             ) async throws(GitLabSessionClientError) -> Void)? = nil
     ) {
         self.route = route
+        if let initialResource {
+            state = .loaded(initialResource)
+        }
         self.loadResource = loadResource
         self.loadResourceEvents = loadResourceEvents
     }
@@ -75,13 +80,15 @@ where
     }
 
     func loadIfNeeded() async {
-        guard state == .idle else {
+        guard !hasLoaded else {
             return
         }
+        hasLoaded = true
         await load()
     }
 
     func retry() async {
+        hasLoaded = true
         await load()
     }
 

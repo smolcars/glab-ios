@@ -29,6 +29,45 @@ struct GitLabProjectDetailModelTests {
         )
     }
 
+    @Test("Shows a routed project while revalidating")
+    func showsRoutedProjectWhileRevalidating() async {
+        let initialProject = makeTestProject(
+            starCount: 2
+        )
+        let refreshedProject = makeTestProject(
+            starCount: 3
+        )
+        let loader = ProjectDetailLoader(
+            result: .success(refreshedProject)
+        )
+        let model = GitLabProjectDetailModel(
+            route: GitLabProjectRoute(
+                pathWithNamespace:
+                    "mobile/glab-ios",
+                initialProject:
+                    initialProject
+            ),
+            loader: loader
+        )
+
+        #expect(
+            model.state
+                == .loaded(initialProject)
+        )
+
+        await model.loadIfNeeded()
+        await model.loadIfNeeded()
+
+        #expect(
+            model.state
+                == .loaded(refreshedProject)
+        )
+        #expect(
+            await loader.paths
+                == ["mobile/glab-ios"]
+        )
+    }
+
     @Test("Exposes a project loading failure")
     func exposesFailure() async {
         let loader =

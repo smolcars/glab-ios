@@ -16,6 +16,9 @@ struct GitLabProjectStarModelTests {
         await context.model.loadIfNeeded(
             project: makeTestProject()
         )
+        await context.model.loadIfNeeded(
+            project: makeTestProject()
+        )
 
         #expect(
             context.model.state
@@ -29,6 +32,102 @@ struct GitLabProjectStarModelTests {
                         userID: 17
                     )
                 ]
+        )
+    }
+
+    @Test("Shows cached state while revalidating")
+    func showsCachedStateWhileRevalidating() async throws {
+        let stateStore =
+            GitLabProjectStarStateStore()
+        let accountID = GitLabAccountID(
+            host: try GitLabHost(
+                "gitlab.example.com"
+            ),
+            userID: 17
+        )
+        stateStore.setIsStarred(
+            true,
+            for: accountID,
+            pathWithNamespace:
+                "mobile/glab-ios"
+        )
+        let context = try StarModelContext(
+            statusResults: [.success(false)],
+            stateStore: stateStore
+        )
+
+        #expect(
+            context.model.state
+                == .ready(isStarred: true)
+        )
+
+        await context.model.loadIfNeeded(
+            project: makeTestProject()
+        )
+
+        #expect(
+            context.model.state
+                == .ready(isStarred: false)
+        )
+        #expect(
+            stateStore.isStarred(
+                for: accountID,
+                pathWithNamespace:
+                    "mobile/glab-ios"
+            ) == false
+        )
+        #expect(
+            await context.service
+                .statusRequests.count
+                == 1
+        )
+    }
+
+    @Test("Keeps cached states isolated by account")
+    func isolatesCachedStatesByAccount() throws {
+        let stateStore =
+            GitLabProjectStarStateStore()
+        let host = try GitLabHost(
+            "gitlab.example.com"
+        )
+        let firstAccount = GitLabAccountID(
+            host: host,
+            userID: 17
+        )
+        let secondAccount = GitLabAccountID(
+            host: host,
+            userID: 18
+        )
+
+        stateStore.setIsStarred(
+            true,
+            for: firstAccount,
+            pathWithNamespace:
+                "mobile/glab-ios"
+        )
+        stateStore.setIsStarred(
+            false,
+            for: secondAccount,
+            pathWithNamespace:
+                "mobile/glab-ios"
+        )
+        stateStore.removeAll(
+            for: firstAccount
+        )
+
+        #expect(
+            stateStore.isStarred(
+                for: firstAccount,
+                pathWithNamespace:
+                    "mobile/glab-ios"
+            ) == nil
+        )
+        #expect(
+            stateStore.isStarred(
+                for: secondAccount,
+                pathWithNamespace:
+                    "mobile/glab-ios"
+            ) == false
         )
     }
 
@@ -57,6 +156,13 @@ struct GitLabProjectStarModelTests {
         )
         #expect(change?.project == updatedProject)
         #expect(change?.isStarred == true)
+        #expect(
+            context.stateStore.isStarred(
+                for: context.model.accountID,
+                pathWithNamespace:
+                    "mobile/glab-ios"
+            ) == true
+        )
         #expect(
             await context.service.mutationRequests
                 == [
@@ -163,6 +269,8 @@ struct GitLabProjectStarModelTests {
 @MainActor
 private struct StarModelContext {
     let service: RecordingProjectStarringService
+    let stateStore:
+        GitLabProjectStarStateStore
     let account = ProjectStarCurrentAccountBox()
     let model: GitLabProjectStarModel
 
@@ -179,13 +287,18 @@ private struct StarModelContext {
                 GitLabProject,
                 GitLabSessionClientError
             >
-        ] = []
+        ] = [],
+        stateStore:
+            GitLabProjectStarStateStore =
+                GitLabProjectStarStateStore(),
+        initialIsStarred: Bool? = nil
     ) throws {
         let service = RecordingProjectStarringService(
             statusResults: statusResults,
             mutationResults: mutationResults
         )
         self.service = service
+        self.stateStore = stateStore
         let account = self.account
         model = GitLabProjectStarModel(
             accountID: GitLabAccountID(
@@ -195,7 +308,12 @@ private struct StarModelContext {
                 userID: 17
             ),
             apiAccess: apiAccess,
+            projectPathWithNamespace:
+                "mobile/glab-ios",
+            initialIsStarred:
+                initialIsStarred,
             service: service,
+            stateStore: stateStore,
             isAccountCurrent: {
                 account.isCurrent
             }

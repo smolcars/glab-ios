@@ -132,8 +132,15 @@ struct GitLabProjectDetailView: View {
                 GitLabProjectStarModel(
                     accountID: accountID,
                     apiAccess: apiAccess,
+                    projectPathWithNamespace:
+                        route.pathWithNamespace,
+                    initialIsStarred:
+                        route.initialIsStarred,
                     service:
                         starringService,
+                    stateStore:
+                        appSession
+                        .projectStarStateStore,
                     isAccountCurrent: {
                         appSession
                             .activeAccountID
@@ -475,13 +482,11 @@ struct GitLabProjectDetailView: View {
     private func projectStars(
         _ project: GitLabProject
     ) -> some View {
-        if
-            apiAccess.canWrite,
-            let isStarred = starModel.isStarred
-        {
+        if apiAccess.canWrite {
             projectStarButton(
                 project,
-                isStarred: isStarred
+                isStarred:
+                    starModel.isStarred
             )
         } else {
             projectFact(
@@ -496,7 +501,7 @@ struct GitLabProjectDetailView: View {
 
     private func projectStarButton(
         _ project: GitLabProject,
-        isStarred: Bool
+        isStarred: Bool?
     ) -> some View {
         HStack(spacing: 7) {
             Button {
@@ -506,11 +511,14 @@ struct GitLabProjectDetailView: View {
                     )
                 }
             } label: {
-                if starModel.isMutating {
+                if
+                    starModel.isMutating
+                        || isStarred == nil
+                {
                     ProgressView()
                         .controlSize(.small)
                         .frame(width: 18, height: 18)
-                } else {
+                } else if let isStarred {
                     Image(
                         systemName:
                             isStarred
@@ -535,9 +543,9 @@ struct GitLabProjectDetailView: View {
             .buttonStyle(.glass(.clear))
             .disabled(!starModel.canToggle)
             .accessibilityLabel(
-                isStarred
-                ? "Unstar project"
-                : "Star project"
+                starAccessibilityLabel(
+                    isStarred
+                )
             )
             .accessibilityValue(
                 project.starCount == 1
@@ -545,9 +553,9 @@ struct GitLabProjectDetailView: View {
                 : "\(project.starCount) stars"
             )
             .accessibilityHint(
-                isStarred
-                ? "Removes this project from your starred projects."
-                : "Adds this project to your starred projects."
+                starAccessibilityHint(
+                    isStarred
+                )
             )
             .accessibilityIdentifier(
                 "project.starButton"
@@ -569,6 +577,32 @@ struct GitLabProjectDetailView: View {
             maxWidth: .infinity,
             alignment: .leading
         )
+    }
+
+    private func starAccessibilityLabel(
+        _ isStarred: Bool?
+    ) -> String {
+        switch isStarred {
+        case true:
+            "Unstar project"
+        case false:
+            "Star project"
+        case nil:
+            "Loading star status"
+        }
+    }
+
+    private func starAccessibilityHint(
+        _ isStarred: Bool?
+    ) -> String {
+        switch isStarred {
+        case true:
+            "Removes this project from your starred projects."
+        case false:
+            "Adds this project to your starred projects."
+        case nil:
+            "Checks whether this project is starred."
+        }
     }
 
     @ViewBuilder

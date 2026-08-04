@@ -1,6 +1,51 @@
 import Foundation
 import Observation
 
+@MainActor
+final class GitLabProjectStarStateStore {
+    private struct Key: Hashable {
+        let accountID: GitLabAccountID
+        let pathWithNamespace: String
+    }
+
+    private var states: [Key: Bool] = [:]
+
+    func isStarred(
+        for accountID: GitLabAccountID,
+        pathWithNamespace: String
+    ) -> Bool? {
+        states[
+            Key(
+                accountID: accountID,
+                pathWithNamespace:
+                    pathWithNamespace
+            )
+        ]
+    }
+
+    func setIsStarred(
+        _ isStarred: Bool,
+        for accountID: GitLabAccountID,
+        pathWithNamespace: String
+    ) {
+        states[
+            Key(
+                accountID: accountID,
+                pathWithNamespace:
+                    pathWithNamespace
+            )
+        ] = isStarred
+    }
+
+    func removeAll(
+        for accountID: GitLabAccountID
+    ) {
+        states = states.filter {
+            $0.key.accountID != accountID
+        }
+    }
+}
+
 nonisolated enum GitLabProjectStarState:
     Equatable,
     Sendable
@@ -86,8 +131,8 @@ final class GitLabProjectStarModel {
     let accountID: GitLabAccountID
     let apiAccess: GitLabAPIAccess
 
-    private(set) var state =
-        GitLabProjectStarState.idle
+    private(set) var state:
+        GitLabProjectStarState
     private(set) var isMutating = false
     private(set) var failure:
         GitLabProjectStarFailure?
@@ -96,22 +141,50 @@ final class GitLabProjectStarModel {
     private let service:
         any GitLabProjectStarringServing
     @ObservationIgnored
+    private let stateStore:
+        GitLabProjectStarStateStore
+    @ObservationIgnored
     private let isAccountCurrent:
         @MainActor () -> Bool
+    @ObservationIgnored
+    private var hasLoaded = false
 
     init(
         accountID: GitLabAccountID,
         apiAccess: GitLabAPIAccess,
+        projectPathWithNamespace: String,
+        initialIsStarred: Bool? = nil,
         service:
             any GitLabProjectStarringServing,
+        stateStore:
+            GitLabProjectStarStateStore,
         isAccountCurrent:
             @escaping @MainActor () -> Bool
     ) {
         self.accountID = accountID
         self.apiAccess = apiAccess
         self.service = service
+        self.stateStore = stateStore
         self.isAccountCurrent =
             isAccountCurrent
+        let isStarred =
+            initialIsStarred
+            ?? stateStore.isStarred(
+                for: accountID,
+                pathWithNamespace:
+                    projectPathWithNamespace
+            )
+        if let initialIsStarred {
+            stateStore.setIsStarred(
+                initialIsStarred,
+                for: accountID,
+                pathWithNamespace:
+                    projectPathWithNamespace
+            )
+        }
+        state = isStarred.map {
+            .ready(isStarred: $0)
+        } ?? .idle
     }
 
     var isStarred: Bool? {
@@ -143,12 +216,13 @@ final class GitLabProjectStarModel {
     func loadIfNeeded(
         project: GitLabProject
     ) async {
-        guard state == .idle, !isMutating else {
+        guard !hasLoaded, !isMutating else {
             return
         }
+        hasLoaded = true
         await load(
             project: project,
-            showsLoading: true
+            showsLoading: isStarred == nil
         )
     }
 
@@ -158,6 +232,7 @@ final class GitLabProjectStarModel {
         guard !isMutating else {
             return
         }
+        hasLoaded = true
         await load(
             project: project,
             showsLoading: isStarred == nil
@@ -201,6 +276,12 @@ final class GitLabProjectStarModel {
                 failure = .accountChanged
                 return nil
             }
+            stateStore.setIsStarred(
+                desiredState,
+                for: accountID,
+                pathWithNamespace:
+                    project.pathWithNamespace
+            )
             state = .ready(
                 isStarred: desiredState
             )
@@ -251,6 +332,12 @@ final class GitLabProjectStarModel {
                 state = previousState
                 return
             }
+            stateStore.setIsStarred(
+                isStarred,
+                for: accountID,
+                pathWithNamespace:
+                    project.pathWithNamespace
+            )
             state = .ready(
                 isStarred: isStarred
             )
