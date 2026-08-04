@@ -21,6 +21,28 @@ nonisolated struct GitLabProjectRoute:
             initialIsStarred
     }
 
+    init?(
+        webURL: URL?,
+        for gitLabHost: GitLabHost
+    ) {
+        guard
+            let webURL,
+            case let .supported(
+                .project(pathWithNamespace)
+            ) = GitLabDeepLinkParser.parse(
+                webURL,
+                for: gitLabHost
+            )
+        else {
+            return nil
+        }
+
+        self.init(
+            pathWithNamespace:
+                pathWithNamespace
+        )
+    }
+
     static func == (
         lhs: Self,
         rhs: Self

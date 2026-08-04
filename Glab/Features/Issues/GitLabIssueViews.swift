@@ -1652,6 +1652,8 @@ private struct GitLabIssueDetailContent: View {
 
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
+    @Environment(\.gitLabNativeNavigationAction)
+    private var nativeNavigation
     @Environment(\.dynamicTypeSize)
     private var dynamicTypeSize
 
@@ -1724,9 +1726,24 @@ private struct GitLabIssueDetailContent: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(issue.references.full)
-                .font(.glabSubheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+            if let projectRoute
+            {
+                GitLabProjectBreadcrumbButton(
+                    reference:
+                        issue.references.full
+                ) {
+                    nativeNavigation(
+                        .project(projectRoute)
+                    )
+                }
+            } else {
+                Text(issue.references.full)
+                    .font(
+                        .glabSubheadline
+                            .weight(.medium)
+                    )
+                    .foregroundStyle(.secondary)
+            }
 
             Text(issue.title)
                 .font(.glabTitle2.bold())
@@ -1750,6 +1767,15 @@ private struct GitLabIssueDetailContent: View {
             }
             .font(.glabSubheadline.weight(.medium))
         }
+    }
+
+    private var projectRoute:
+        GitLabProjectRoute?
+    {
+        GitLabProjectRoute(
+            webURL: issue.projectWebURL,
+            for: accountID.host
+        )
     }
 
     private var issueMetadata:

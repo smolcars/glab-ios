@@ -1784,6 +1784,8 @@ private struct GitLabMergeRequestDetailContent: View {
 
     @Environment(\.gitLabMarkdownRenderer)
     private var markdownRenderer
+    @Environment(\.gitLabNativeNavigationAction)
+    private var nativeNavigation
     @Environment(\.dynamicTypeSize)
     private var dynamicTypeSize
 
@@ -1870,9 +1872,26 @@ private struct GitLabMergeRequestDetailContent: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(mergeRequest.references.full)
-                .font(.glabSubheadline.weight(.medium))
+            if let projectRoute {
+                GitLabProjectBreadcrumbButton(
+                    reference:
+                        mergeRequest
+                            .references.full
+                ) {
+                    nativeNavigation(
+                        .project(projectRoute)
+                    )
+                }
+            } else {
+                Text(
+                    mergeRequest.references.full
+                )
+                .font(
+                    .glabSubheadline
+                        .weight(.medium)
+                )
                 .foregroundStyle(.secondary)
+            }
 
             Text(mergeRequest.title)
                 .font(.glabTitle2.bold())
@@ -1897,6 +1916,16 @@ private struct GitLabMergeRequestDetailContent: View {
 
             compactMetadata
         }
+    }
+
+    private var projectRoute:
+        GitLabProjectRoute?
+    {
+        GitLabProjectRoute(
+            webURL:
+                mergeRequest.projectWebURL,
+            for: accountID.host
+        )
     }
 
     private var compactMetadata: some View {

@@ -250,6 +250,13 @@ struct HomeView: View {
                 }
             }
         }
+        .environment(
+            \.gitLabNativeNavigationAction,
+            {
+                route in
+                path.append(route)
+            }
+        )
         .sheet(
             isPresented:
                 sheetIsPresented,
