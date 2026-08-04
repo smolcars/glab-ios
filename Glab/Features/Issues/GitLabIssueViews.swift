@@ -627,7 +627,7 @@ private struct GitLabIssueStateLabel: View {
     private var color: Color {
         switch issue.stateKind {
         case .opened:
-            .glabAccent
+            .green
         case .closed, .unknown:
             .secondary
         }

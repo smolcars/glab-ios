@@ -762,34 +762,36 @@ private struct GitLabDiscussionNoteView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .firstTextBaseline) {
+        HStack(alignment: .top, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(note.author.displayName)
                     .font(.glabSubheadline.weight(.semibold))
-                Spacer(minLength: 8)
-                Text(
-                    GitLabRelativeTimeFormatter.string(
-                        from: note.createdAt
-                    )
-                )
-                .font(.caption.monospacedDigit())
+
+                HStack(spacing: 5) {
+                    Text("@\(note.author.username)")
+                    if note.showsEditedStatus {
+                        Text("• Edited")
+                    }
+                    if note.isSystem {
+                        Text("• Activity")
+                    }
+                }
+                .font(.glabCaption)
                 .foregroundStyle(.secondary)
-
-                if canManageComment {
-                    commentActions
-                }
             }
 
-            HStack(spacing: 5) {
-                Text("@\(note.author.username)")
-                if note.showsEditedStatus {
-                    Text("• Edited")
-                }
-                if note.isSystem {
-                    Text("• Activity")
-                }
+            Spacer(minLength: 8)
+
+            if canManageComment {
+                commentActions
             }
-            .font(.glabCaption)
+
+            Text(
+                GitLabRelativeTimeFormatter.string(
+                    from: note.createdAt
+                )
+            )
+            .font(.caption.monospacedDigit())
             .foregroundStyle(.secondary)
         }
     }

@@ -744,7 +744,7 @@ private struct GitLabMergeRequestStateIcon: View {
     private var color: Color {
         switch mergeRequest.stateKind {
         case .opened:
-            .glabAccent
+            .green
         case .closed:
             .secondary
         case .merged:
