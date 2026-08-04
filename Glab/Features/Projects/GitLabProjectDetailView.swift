@@ -498,25 +498,18 @@ struct GitLabProjectDetailView: View {
         _ project: GitLabProject,
         isStarred: Bool
     ) -> some View {
-        let glass =
-            isStarred
-            ? Glass.regular.tint(
-                Color.glabBrandWarm
-            )
-            : Glass.regular
-
-        return Button {
-            Task {
-                await toggleStar(
-                    for: project
-                )
-            }
-        } label: {
-            HStack(spacing: 7) {
+        HStack(spacing: 7) {
+            Button {
+                Task {
+                    await toggleStar(
+                        for: project
+                    )
+                }
+            } label: {
                 if starModel.isMutating {
                     ProgressView()
                         .controlSize(.small)
-                        .frame(width: 16)
+                        .frame(width: 18, height: 18)
                 } else {
                     Image(
                         systemName:
@@ -524,45 +517,57 @@ struct GitLabProjectDetailView: View {
                             ? "star.fill"
                             : "star"
                     )
-                    .frame(width: 16)
+                    .foregroundStyle(
+                        isStarred
+                        ? Color.glabBrandWarm
+                        : Color.primary
+                    )
+                    .frame(width: 18, height: 18)
                 }
-
-                Text(
-                    project.starCount
-                        .formatted()
-                )
-                .monospacedDigit()
             }
             .font(
                 .glabSubheadline.weight(
                     .semibold
                 )
             )
-            .frame(minWidth: 44, minHeight: 44)
+            .frame(width: 44, height: 44)
+            .buttonBorderShape(.circle)
+            .buttonStyle(.glass(.clear))
+            .disabled(!starModel.canToggle)
+            .accessibilityLabel(
+                isStarred
+                ? "Unstar project"
+                : "Star project"
+            )
+            .accessibilityValue(
+                project.starCount == 1
+                ? "1 star"
+                : "\(project.starCount) stars"
+            )
+            .accessibilityHint(
+                isStarred
+                ? "Removes this project from your starred projects."
+                : "Adds this project to your starred projects."
+            )
+            .accessibilityIdentifier(
+                "project.starButton"
+            )
+
+            Text(
+                project.starCount
+                    .formatted()
+            )
+            .font(
+                .glabSubheadline.weight(
+                    .semibold
+                )
+            )
+            .monospacedDigit()
+            .accessibilityHidden(true)
         }
-        .buttonStyle(.glass(glass))
-        .disabled(!starModel.canToggle)
         .frame(
             maxWidth: .infinity,
             alignment: .leading
-        )
-        .accessibilityLabel(
-            isStarred
-            ? "Unstar project"
-            : "Star project"
-        )
-        .accessibilityValue(
-            project.starCount == 1
-            ? "1 star"
-            : "\(project.starCount) stars"
-        )
-        .accessibilityHint(
-            isStarred
-            ? "Removes this project from your starred projects."
-            : "Adds this project to your starred projects."
-        )
-        .accessibilityIdentifier(
-            "project.starButton"
         )
     }
 
