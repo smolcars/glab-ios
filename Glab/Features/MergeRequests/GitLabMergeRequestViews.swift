@@ -2156,8 +2156,31 @@ private struct GitLabMergeRequestCompactPeople: View {
 
     @Environment(\.dynamicTypeSize)
     private var dynamicTypeSize
+    @Environment(\.gitLabNativeNavigationAction)
+    private var nativeNavigation
 
+    @ViewBuilder
     var body: some View {
+        if let user = users.onlyElement {
+            Button {
+                nativeNavigation(
+                    .user(
+                        GitLabUserRoute(user: user)
+                    )
+                )
+            } label: {
+                content
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(
+                "Opens \(user.displayName)’s profile."
+            )
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
         HStack(spacing: 7) {
             avatar
 
@@ -2218,6 +2241,15 @@ private struct GitLabMergeRequestCompactPeople: View {
                 "\($0.displayName), @\($0.username)"
             }
             .joined(separator: ", ")
+    }
+}
+
+private nonisolated extension Array {
+    var onlyElement: Element? {
+        guard count == 1 else {
+            return nil
+        }
+        return first
     }
 }
 

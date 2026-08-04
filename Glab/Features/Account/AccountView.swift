@@ -4,6 +4,8 @@ import UIKit
 struct AccountView: View {
     let session: GitLabStoredSession
     let appSession: AppSession
+    let userService:
+        (any GitLabUserServing)?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -19,6 +21,17 @@ struct AccountView: View {
     @State private var showsNotificationSettingsAlert =
         false
     @State private var notificationError: String?
+
+    init(
+        session: GitLabStoredSession,
+        appSession: AppSession,
+        userService:
+            (any GitLabUserServing)? = nil
+    ) {
+        self.session = session
+        self.appSession = appSession
+        self.userService = userService
+    }
 
     var body: some View {
         NavigationStack {
@@ -116,25 +129,52 @@ struct AccountView: View {
         }
     }
 
+    @ViewBuilder
     private var profileSection: some View {
         Section {
-            HStack(spacing: 16) {
-                GitLabUserAvatar(
-                    user: session.user,
-                    size: 68
-                )
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(session.user.displayName)
-                        .font(.glabTitle3.bold())
-
-                    Text("@\(session.user.username)")
-                        .foregroundStyle(.secondary)
+            if let userService {
+                NavigationLink {
+                    GitLabUserProfileView(
+                        route: GitLabUserRoute(
+                            user: session.user
+                        ),
+                        service: userService,
+                        session: session,
+                        accountID:
+                            GitLabAccountID(
+                                session: session
+                            ),
+                        appSession: appSession
+                    )
+                } label: {
+                    profileLabel
                 }
+                .accessibilityHint(
+                    "Opens your public GitLab profile."
+                )
+            } else {
+                profileLabel
             }
-            .padding(.vertical, 8)
-            .accessibilityElement(children: .combine)
         }
+    }
+
+    private var profileLabel: some View {
+        HStack(spacing: 16) {
+            GitLabUserAvatar(
+                user: session.user,
+                size: 68
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(session.user.displayName)
+                    .font(.glabTitle3.bold())
+
+                Text("@\(session.user.username)")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 8)
+        .accessibilityElement(children: .combine)
     }
 
     private var accountsSection: some View {

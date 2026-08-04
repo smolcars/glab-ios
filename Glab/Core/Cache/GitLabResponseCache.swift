@@ -128,6 +128,11 @@ nonisolated extension GitLabResponseCachePolicy {
         maximumAge: 30 * 24 * 60 * 60
     )
 
+    static let userProfile = Self(
+        freshFor: 5 * 60,
+        maximumAge: 24 * 60 * 60
+    )
+
     static let home = Self(
         freshFor: 60,
         maximumAge: 24 * 60 * 60
