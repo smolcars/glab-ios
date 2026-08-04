@@ -40,7 +40,7 @@ struct LiveGitLabProjectStarringServiceTests {
             await client.pageRequests
                 == [
                     "users/17/starred_projects"
-                        + "?search=mobile/glab-ios",
+                        + "?simple=true&per_page=100",
                     "next:\(nextPageURL.absoluteString)",
                 ]
         )
@@ -90,7 +90,8 @@ struct LiveGitLabProjectStarringServiceTests {
 
         let result = try await service.setStarred(
             isStarred,
-            for: makeTestProject()
+            for: makeTestProject(),
+            byUserID: 17
         )
 
         #expect(result == updatedProject)
@@ -129,7 +130,8 @@ struct LiveGitLabProjectStarringServiceTests {
         await #expect {
             try await service.setStarred(
                 true,
-                for: makeTestProject()
+                for: makeTestProject(),
+                byUserID: 17
             )
         } throws: { error in
             error as? GitLabSessionClientError
@@ -155,7 +157,8 @@ struct LiveGitLabProjectStarringServiceTests {
         await #expect {
             try await service.setStarred(
                 true,
-                for: makeTestProject()
+                for: makeTestProject(),
+                byUserID: 17
             )
         } throws: { error in
             error as? GitLabSessionClientError
@@ -163,6 +166,55 @@ struct LiveGitLabProjectStarringServiceTests {
                     .connectivity(.timedOut)
                 )
         }
+        #expect(
+            await client.invalidatedReads.count
+                == 3
+        )
+    }
+
+    @Test(
+        "Accepts an already-applied star state",
+        arguments: [true, false]
+    )
+    func acceptsAlreadyAppliedState(
+        isStarred: Bool
+    ) async throws {
+        let updatedProject = makeTestProject(
+            starCount: isStarred ? 18 : 16
+        )
+        let client = ProjectStarringClient(
+            pages: [
+                .init(
+                    ids: isStarred ? [42] : [1],
+                    nextPageURL: nil
+                )
+            ],
+            mutationResult:
+                .failure(.api(.invalidResponse)),
+            projectResult: .success(updatedProject)
+        )
+        let service =
+            LiveGitLabProjectStarringService(
+                client: client
+            )
+
+        let result = try await service.setStarred(
+            isStarred,
+            for: makeTestProject(),
+            byUserID: 17
+        )
+
+        #expect(result == updatedProject)
+        #expect(
+            await client.mutationPaths
+                == [
+                    "projects/42/"
+                        + (isStarred
+                            ? "star"
+                            : "unstar"),
+                    "projects/mobile/glab-ios",
+                ]
+        )
         #expect(
             await client.invalidatedReads.count
                 == 3
@@ -179,11 +231,13 @@ private actor ProjectStarringClient:
     }
 
     private var pages: [Page]
-    private let mutationResult:
+    private var projectResults:
+        [
         Result<
             GitLabProject,
             GitLabSessionClientError
         >
+        ]
     private(set) var pageRequests: [String] = []
     private(set) var mutationPaths: [String] = []
     private(set) var invalidatedReads: [String] = []
@@ -194,10 +248,18 @@ private actor ProjectStarringClient:
             Result<
                 GitLabProject,
                 GitLabSessionClientError
-            > = .success(makeTestProject())
+            > = .success(makeTestProject()),
+        projectResult:
+            Result<
+                GitLabProject,
+                GitLabSessionClientError
+            >? = nil
     ) {
         self.pages = pages
-        self.mutationResult = mutationResult
+        projectResults = [mutationResult]
+        if let projectResult {
+            projectResults.append(projectResult)
+        }
     }
 
     func send<Response>(
@@ -209,7 +271,10 @@ private actor ProjectStarringClient:
             endpoint.pathComponents
                 .joined(separator: "/")
         )
-        return try mutationResult.get()
+        guard !projectResults.isEmpty else {
+            throw .api(.invalidResponse)
+        }
+        return try projectResults.removeFirst().get()
             as! Response
     }
 
@@ -220,16 +285,15 @@ private actor ProjectStarringClient:
     {
         switch page {
         case let .initial(endpoint):
-            let search = endpoint.queryItems
-                .first(where: {
-                    $0.name == "search"
-                })?
-                .value
-                ?? ""
+            let query = endpoint.queryItems
+                .map {
+                    "\($0.name)=\($0.value ?? "")"
+                }
+                .joined(separator: "&")
             pageRequests.append(
                 endpoint.pathComponents
                     .joined(separator: "/")
-                    + "?search=\(search)"
+                    + "?\(query)"
             )
         case let .next(url):
             pageRequests.append(

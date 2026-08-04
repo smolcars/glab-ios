@@ -54,9 +54,7 @@ struct GitLabProjectEndpointTests {
     func buildsStarredProjectLookup() throws {
         let endpoint = GitLabProjectEndpoints
             .starredProjects(
-                userID: 17,
-                matching:
-                    "group/subgroup/glab ios"
+                userID: 17
             )
         let request = try request(endpoint)
         let url = try #require(request.url)
@@ -67,8 +65,7 @@ struct GitLabProjectEndpointTests {
             url.absoluteString
                 == "https://gitlab.example.com/api/v4/"
                 + "users/17/starred_projects"
-                + "?search=group/subgroup/glab%20ios"
-                + "&simple=true&per_page=100"
+                + "?simple=true&per_page=100"
         )
     }
 

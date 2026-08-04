@@ -194,7 +194,8 @@ final class GitLabProjectStarModel {
             let updatedProject =
                 try await service.setStarred(
                     desiredState,
-                    for: project
+                    for: project,
+                    byUserID: accountID.userID
                 )
             guard isAccountCurrent() else {
                 failure = .accountChanged

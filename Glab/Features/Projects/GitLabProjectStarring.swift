@@ -18,7 +18,8 @@ nonisolated protocol GitLabProjectStarringServing:
 
     func setStarred(
         _ isStarred: Bool,
-        for project: GitLabProject
+        for project: GitLabProject,
+        byUserID userID: Int
     ) async throws(GitLabSessionClientError)
         -> GitLabProject
 }
@@ -48,9 +49,7 @@ nonisolated struct LiveGitLabProjectStarringService:
             > = .initial(
                 GitLabProjectEndpoints
                     .starredProjects(
-                        userID: userID,
-                        matching:
-                            project.pathWithNamespace
+                        userID: userID
                     )
             )
 
@@ -76,7 +75,8 @@ nonisolated struct LiveGitLabProjectStarringService:
     @concurrent
     func setStarred(
         _ isStarred: Bool,
-        for project: GitLabProject
+        for project: GitLabProject,
+        byUserID userID: Int
     ) async throws(GitLabSessionClientError)
         -> GitLabProject
     {
@@ -92,9 +92,29 @@ nonisolated struct LiveGitLabProjectStarringService:
             }
 
         do {
-            let updatedProject = try await client.send(
-                endpoint
-            )
+            let updatedProject: GitLabProject
+            do {
+                updatedProject = try await client.send(
+                    endpoint
+                )
+            } catch let mutationError {
+                guard
+                    mutationError
+                        == .api(.invalidResponse),
+                    try await self.isStarred(
+                        project,
+                        byUserID: userID
+                    ) == isStarred
+                else {
+                    throw mutationError
+                }
+                updatedProject = try await client.send(
+                    GitLabProjectEndpoints.project(
+                        pathWithNamespace:
+                            project.pathWithNamespace
+                    )
+                )
+            }
             guard updatedProject.id == project.id else {
                 throw GitLabSessionClientError
                     .api(.invalidResponse)

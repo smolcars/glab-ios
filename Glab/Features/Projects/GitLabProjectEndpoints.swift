@@ -2,8 +2,7 @@ import Foundation
 
 nonisolated enum GitLabProjectEndpoints {
     static func starredProjects(
-        userID: Int,
-        matching pathWithNamespace: String
+        userID: Int
     ) -> GitLabAPIRequest<
         [GitLabStarredProjectReference]
     > {
@@ -15,10 +14,6 @@ nonisolated enum GitLabProjectEndpoints {
                 "starred_projects",
             ],
             query: [
-                .init(
-                    name: "search",
-                    value: pathWithNamespace
-                ),
                 .init(name: "simple", value: "true"),
                 .init(name: "per_page", value: "100"),
             ]

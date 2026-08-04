@@ -62,7 +62,8 @@ struct GitLabProjectStarModelTests {
                 == [
                     ProjectStarMutationRequest(
                         isStarred: true,
-                        projectID: 42
+                        projectID: 42,
+                        userID: 17
                     )
                 ]
         )
@@ -265,14 +266,16 @@ private actor RecordingProjectStarringService:
 
     func setStarred(
         _ isStarred: Bool,
-        for project: GitLabProject
+        for project: GitLabProject,
+        byUserID userID: Int
     ) async throws(GitLabSessionClientError)
         -> GitLabProject
     {
         mutationRequests.append(
             ProjectStarMutationRequest(
                 isStarred: isStarred,
-                projectID: project.id
+                projectID: project.id,
+                userID: userID
             )
         )
         guard !mutationResults.isEmpty else {
@@ -298,4 +301,5 @@ private struct ProjectStarMutationRequest:
 {
     let isStarred: Bool
     let projectID: Int
+    let userID: Int
 }
