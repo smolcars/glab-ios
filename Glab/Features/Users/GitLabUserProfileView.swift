@@ -7,8 +7,6 @@ struct GitLabUserProfileView: View {
     @State private var model:
         GitLabUserProfileModel
     @State private var showsGPGKeys = false
-    @Environment(\.dynamicTypeSize)
-    private var dynamicTypeSize
 
     init(
         route: GitLabUserRoute,
@@ -261,19 +259,14 @@ struct GitLabUserProfileView: View {
     private func actionControls(
         _ profile: GitLabUserProfile
     ) -> some View {
-        GlassEffectContainer(spacing: 12) {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 12) {
-                    followControl(profile)
-                    gpgKeyControl
-                }
-            } else {
-                HStack(spacing: 12) {
-                    followControl(profile)
-                    gpgKeyControl
-                }
+        GlassEffectContainer(spacing: 8) {
+            HStack(spacing: 8) {
+                followControl(profile)
+                gpgKeyControl
             }
+            .fixedSize(horizontal: true, vertical: false)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder
@@ -324,13 +317,11 @@ struct GitLabUserProfileView: View {
                     Image(systemName: systemImage)
                 }
                 Text(title)
-                    .fontWeight(.semibold)
             }
-            .frame(
-                maxWidth: .infinity,
-                minHeight: 48
-            )
+            .font(.glabSubheadline.weight(.semibold))
+            .padding(.horizontal, 4)
         }
+        .buttonBorderShape(.capsule)
         .disabled(!model.canToggleFollow)
         .accessibilityHint(
             model.apiAccess.canWrite
@@ -354,12 +345,11 @@ struct GitLabUserProfileView: View {
                     Image(systemName: "key.horizontal")
                 }
             }
-            .font(.glabHeadline)
+            .font(.glabBody.weight(.semibold))
             .frame(width: 22, height: 22)
         }
         .buttonStyle(.glass)
         .buttonBorderShape(.circle)
-        .padding(5)
         .contentShape(.circle)
         .accessibilityLabel(gpgKeyLabel)
         .accessibilityHint(
