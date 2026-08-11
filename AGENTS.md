@@ -14,6 +14,7 @@
 - Always plan first before coding.
 - When making UI changes, always consider the user experience and design guidelines/design skill.
 - Do not write tests for the sake of writing tests, only write tests when a test is important for that specific scenario.
+- DO NOT RUN full test suite several times, run the focused tests when you make changes, run the full test suite just once per PR before opening.
 - Keep UI simple and compact and try and use less real estate for things. If something can be combined together with another thing like 2 buttons in a pill, do so. If something can be a collapsible, do so.
 - When building the app, try and reuse the derived data directory unless you're working in a context where the derived data directory is not available.
 - After every feature that you implement, do a deep code review for yourself, look for bugs, bad code, any code that needs to be refactored. If you find any, plan on how to fix it and fix it before moving on.
