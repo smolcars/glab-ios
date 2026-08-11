@@ -163,6 +163,11 @@ nonisolated extension GitLabResponseCachePolicy {
         maximumAge: 30 * 24 * 60 * 60
     )
 
+    static let repositoryTree = Self(
+        freshFor: 2 * 60,
+        maximumAge: 24 * 60 * 60
+    )
+
     static let workItemDetail = Self(
         freshFor: 5 * 60,
         maximumAge: 24 * 60 * 60

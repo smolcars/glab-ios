@@ -33,6 +33,8 @@ struct GitLabProjectDetailView: View {
         any GitLabIssueCreationServing
     let commitLoader:
         any GitLabCommitLoading
+    let repositoryLoader:
+        any GitLabRepositoryLoading
     let accountID: GitLabAccountID
     let appSession: AppSession
     let onResourceEdited:
@@ -79,6 +81,8 @@ struct GitLabProjectDetailView: View {
             any GitLabIssueCreationServing,
         commitLoader:
             any GitLabCommitLoading,
+        repositoryLoader:
+            any GitLabRepositoryLoading,
         accountID: GitLabAccountID,
         appSession: AppSession,
         onResourceEdited:
@@ -114,6 +118,8 @@ struct GitLabProjectDetailView: View {
             issueCreationService
         self.commitLoader =
             commitLoader
+        self.repositoryLoader =
+            repositoryLoader
         self.accountID = accountID
         self.appSession = appSession
         self.onResourceEdited =
@@ -263,6 +269,8 @@ struct GitLabProjectDetailView: View {
                         alignment: .leading,
                         spacing: 10
                     ) {
+                        projectCodeRow(project)
+
                         projectIssuesRow(
                             project
                         )
@@ -621,6 +629,36 @@ struct GitLabProjectDetailView: View {
         case .ready(isStarred: false):
             "Adds this project to your starred projects."
         }
+    }
+
+    @ViewBuilder
+    private func projectCodeRow(
+        _ project: GitLabProject
+    ) -> some View {
+        NavigationLink {
+            GitLabRepositoryView(
+                project: project,
+                loader: repositoryLoader,
+                accountID: accountID,
+                appSession: appSession
+            )
+        } label: {
+            GitLabProjectDestinationLabel(
+                title: "Code",
+                subtitle:
+                    "Browse files and branches",
+                gitLabIcon: .project
+            )
+        }
+        .buttonStyle(
+            GitLabProjectDestinationButtonStyle()
+        )
+        .accessibilityHint(
+            "Browses files in this project."
+        )
+        .accessibilityIdentifier(
+            "project.code"
+        )
     }
 
     @ViewBuilder

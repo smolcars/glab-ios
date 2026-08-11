@@ -17,6 +17,7 @@
 - Keep UI simple and compact and try and use less real estate for things. If something can be combined together with another thing like 2 buttons in a pill, do so. If something can be a collapsible, do so.
 - When building the app, try and reuse the derived data directory unless you're working in a context where the derived data directory is not available.
 - After every feature that you implement, do a deep code review for yourself, look for bugs, bad code, any code that needs to be refactored. If you find any, plan on how to fix it and fix it before moving on.
+- In the docs folder, maintain a file called LESSONS_LEARNED.md where you append to that file common mistakes/bugs that frequently occur when building the app and how to fix them. Keep the comments short and simple.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
 
