@@ -875,8 +875,8 @@ struct GitLabRepositoryFileView: View {
     let accountID: GitLabAccountID
     let appSession: AppSession
 
-    @Environment(\.gitLabMarkdownRenderer)
-    private var markdownRenderer
+    @Environment(\.gitLabReadOnlyMarkdownRenderer)
+    private var readOnlyMarkdownRenderer
     @State private var model:
         GitLabRepositoryFileModel
     @State private var presentation:
@@ -1026,16 +1026,17 @@ struct GitLabRepositoryFileView: View {
                 )
                 .background(Color.glabCanvas)
         case let .loaded(document):
-            if
-                presentation == .rendered,
-                GitLabRepositoryFilePresentation
-                    .supportsRenderedMarkdown(
-                        document
-                    )
+            if !GitLabRepositoryFilePresentation
+                .supportsRenderedMarkdown(document)
             {
-                renderedMarkdown(document)
-            } else {
                 rawSource(document)
+            } else {
+                switch presentation {
+                case .rendered:
+                    renderedMarkdown(document)
+                case .raw:
+                    rawSource(document)
+                }
             }
         case let .failed(error):
             ContentUnavailableView {
@@ -1071,7 +1072,8 @@ struct GitLabRepositoryFileView: View {
                 route: route,
                 document: document,
                 accountID: accountID,
-                renderer: markdownRenderer
+                renderer:
+                    readOnlyMarkdownRenderer
             )
             .padding(16)
         }
@@ -1116,21 +1118,22 @@ struct GitLabRepositoryFileView: View {
             GitLabRepositoryFilePresentation
                 .supportsRenderedMarkdown(document)
         {
-            Button {
-                presentation =
-                    presentation == .rendered
-                    ? .raw
-                    : .rendered
-            } label: {
-                Label(
-                    presentation == .rendered
-                        ? "View Raw"
-                        : "View Rendered",
-                    systemImage:
-                        presentation == .rendered
-                        ? "text.page"
-                        : "doc.richtext"
-                )
+            Picker(
+                "View",
+                selection: $presentation
+            ) {
+                ForEach(
+                    GitLabRepositoryFilePresentation
+                        .allCases,
+                    id: \.self
+                ) { option in
+                    Label(
+                        option.title,
+                        systemImage:
+                            option.systemImage
+                    )
+                    .tag(option)
+                }
             }
             .accessibilityIdentifier(
                 "repository.file.presentationToggle"

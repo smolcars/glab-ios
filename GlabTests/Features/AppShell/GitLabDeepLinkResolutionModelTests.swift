@@ -247,6 +247,20 @@ private actor ControllableDeepLinkResolver:
                     mergeRequestIID: 8
                 )
             )
+        case let .repositoryFile(
+            _,
+            ref,
+            path
+        ):
+            return .repositoryFile(
+                GitLabRepositoryFileRoute(
+                    projectID: 42,
+                    projectWebURL: nil,
+                    ref: ref,
+                    path: path,
+                    blobID: nil
+                )
+            )
         }
     }
 

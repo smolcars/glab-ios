@@ -984,11 +984,10 @@ private struct GitLabProjectReadmeView: View {
     let accountID: GitLabAccountID
     let appSession: AppSession
 
-    @Environment(\.gitLabMarkdownRenderer)
-    private var markdownRenderer
+    @Environment(\.gitLabReadOnlyMarkdownRenderer)
+    private var readOnlyMarkdownRenderer
     @State private var model:
         GitLabRepositoryFileModel
-
     init(
         route: GitLabRepositoryFileRoute,
         loader: any GitLabRepositorySourceLoading,
@@ -1066,8 +1065,9 @@ private struct GitLabProjectReadmeView: View {
                     )
                 } label: {
                     Label(
-                        "Open README",
-                        systemImage: "doc.richtext"
+                        "Open Full Screen",
+                        systemImage:
+                            "arrow.up.left.and.arrow.down.right"
                     )
                 }
 
@@ -1123,12 +1123,7 @@ private struct GitLabProjectReadmeView: View {
                         document
                     )
             {
-                GitLabRepositoryMarkdownContentView(
-                    route: route,
-                    document: document,
-                    accountID: accountID,
-                    renderer: markdownRenderer
-                )
+                readmePreview(document)
             } else {
                 Text(
                     document.language == .markdown
@@ -1173,6 +1168,19 @@ private struct GitLabProjectReadmeView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func readmePreview(
+        _ document: GitLabSourceDocument
+    ) -> some View {
+        GitLabRepositoryMarkdownContentView(
+            route: route,
+            document: document,
+            accountID: accountID,
+            renderer:
+                readOnlyMarkdownRenderer
+        )
     }
 
     private func fileView(

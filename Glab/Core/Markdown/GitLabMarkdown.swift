@@ -95,6 +95,55 @@ nonisolated struct GitLabMarkdownText:
     }
 }
 
+nonisolated struct GitLabMarkdownRichText:
+    Equatable,
+    @unchecked Sendable
+{
+    // Keep the stored value immutable. The defensive copy prevents a mutable
+    // attributed string from crossing the renderer actor boundary.
+    let attributedString: NSAttributedString
+
+    init(_ attributedString: NSAttributedString) {
+        self.attributedString = NSAttributedString(
+            attributedString: attributedString
+        )
+    }
+
+    static func == (
+        lhs: GitLabMarkdownRichText,
+        rhs: GitLabMarkdownRichText
+    ) -> Bool {
+        lhs.attributedString.isEqual(
+            to: rhs.attributedString
+        )
+    }
+
+    var plainText: String {
+        attributedString.string
+    }
+
+    var links: [URL] {
+        var result: [URL] = []
+        attributedString.enumerateAttribute(
+            .link,
+            in: NSRange(
+                location: 0,
+                length: attributedString.length
+            )
+        ) { value, _, _ in
+            if let url = value as? URL {
+                result.append(url)
+            } else if
+                let rawValue = value as? String,
+                let url = URL(string: rawValue)
+            {
+                result.append(url)
+            }
+        }
+        return result
+    }
+}
+
 nonisolated struct GitLabMarkdownHeading:
     Equatable,
     Sendable
@@ -244,10 +293,39 @@ nonisolated struct GitLabMarkdownImage:
     let accountID: GitLabAccountID
     let url: URL
     let altText: String
+    let linkURL: URL?
+
+    init(
+        accountID: GitLabAccountID,
+        url: URL,
+        altText: String,
+        linkURL: URL? = nil
+    ) {
+        self.accountID = accountID
+        self.url = url
+        self.altText = altText
+        self.linkURL = linkURL
+    }
 
     var accessibilityLabel: String {
         altText.isEmpty ? "Markdown image" : altText
     }
+}
+
+nonisolated enum GitLabMarkdownBlockAlignment:
+    Equatable,
+    Sendable
+{
+    case leading
+    case center
+}
+
+nonisolated struct GitLabMarkdownImageGroup:
+    Equatable,
+    Sendable
+{
+    let images: [GitLabMarkdownImage]
+    let alignment: GitLabMarkdownBlockAlignment
 }
 
 nonisolated enum GitLabMarkdownUnsupportedKind:
@@ -284,6 +362,8 @@ nonisolated indirect enum GitLabMarkdownBlock:
     case code(GitLabMarkdownCodeBlock)
     case table(GitLabMarkdownTable)
     case image(GitLabMarkdownImage)
+    case imageGroup(GitLabMarkdownImageGroup)
+    case richText(GitLabMarkdownRichText)
     case thematicBreak
     case unsupported(GitLabMarkdownUnsupported)
 
@@ -336,6 +416,13 @@ nonisolated indirect enum GitLabMarkdownBlock:
         return value
     }
 
+    var imageGroup: GitLabMarkdownImageGroup? {
+        guard case let .imageGroup(value) = self else {
+            return nil
+        }
+        return value
+    }
+
     var unsupported: GitLabMarkdownUnsupported? {
         guard case let .unsupported(value) = self else {
             return nil
@@ -366,6 +453,12 @@ nonisolated indirect enum GitLabMarkdownBlock:
                 .joined(separator: "\n")
         case let .image(value):
             value.altText
+        case let .imageGroup(value):
+            value.images.map(\.altText)
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+        case let .richText(value):
+            value.plainText
         case .thematicBreak:
             ""
         case let .unsupported(value):
@@ -389,8 +482,14 @@ nonisolated indirect enum GitLabMarkdownBlock:
             ([value.header] + value.rows)
                 .flatMap { $0 }
                 .flatMap(\.links)
-        case .code, .image, .thematicBreak, .unsupported:
+        case .code, .thematicBreak, .unsupported:
             []
+        case let .image(value):
+            value.linkURL.map { [$0] } ?? []
+        case let .imageGroup(value):
+            value.images.compactMap(\.linkURL)
+        case let .richText(value):
+            value.links
         }
     }
 }
@@ -438,6 +537,8 @@ private extension GitLabMarkdownBlock {
              .code,
              .table,
              .image,
+             .imageGroup,
+             .richText,
              .thematicBreak,
              .unsupported:
             false
@@ -1056,7 +1157,7 @@ nonisolated private enum GitLabMarkdownTreeConverter {
     }
 }
 
-nonisolated private struct GitLabMarkdownLinkContext {
+nonisolated struct GitLabMarkdownLinkContext {
     let accountID: GitLabAccountID
     let resource: GitLabMarkdownResourceID
     let resourceURL: URL?

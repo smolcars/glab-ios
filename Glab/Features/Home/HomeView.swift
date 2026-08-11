@@ -179,14 +179,6 @@ struct HomeView: View {
             .task {
                 await loadDashboard()
             }
-            .task(id: incomingRoute) {
-                guard let incomingRoute else {
-                    return
-                }
-
-                path.append(incomingRoute)
-                didOpenIncomingRoute()
-            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -253,6 +245,16 @@ struct HomeView: View {
                     )
                 }
             }
+        }
+        .onChange(
+            of: incomingRoute,
+            initial: true
+        ) { _, route in
+            guard let route else {
+                return
+            }
+            path.append(route)
+            didOpenIncomingRoute()
         }
         .environment(
             \.gitLabNativeNavigationAction,
@@ -468,6 +470,15 @@ struct HomeView: View {
                 appSession: appSession,
                 onResourceEdited:
                     onResourceEdited
+            )
+        case let .repositoryFile(
+            fileRoute
+        ):
+            GitLabRepositoryFileView(
+                route: fileRoute,
+                loader: repositoryLoader,
+                accountID: accountID,
+                appSession: appSession
             )
         case let .user(userRoute):
             GitLabUserProfileView(

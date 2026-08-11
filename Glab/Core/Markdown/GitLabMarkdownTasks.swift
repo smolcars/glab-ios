@@ -250,6 +250,8 @@ nonisolated enum GitLabMarkdownTaskSourceMapper {
                  .code,
                  .table,
                  .image,
+                 .imageGroup,
+                 .richText,
                  .thematicBreak,
                  .unsupported:
                 break
@@ -322,6 +324,8 @@ nonisolated enum GitLabMarkdownTaskSourceMapper {
                  .code,
                  .table,
                  .image,
+                 .imageGroup,
+                 .richText,
                  .thematicBreak,
                  .unsupported:
                 block

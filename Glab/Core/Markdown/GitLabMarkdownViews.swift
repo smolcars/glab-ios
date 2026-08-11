@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 private struct GitLabMarkdownRendererEnvironmentKey:
     EnvironmentKey
@@ -20,6 +21,38 @@ extension EnvironmentValues {
         set {
             self[
                 GitLabMarkdownRendererEnvironmentKey.self
+            ] = newValue
+        }
+    }
+}
+
+private struct
+    GitLabReadOnlyMarkdownRendererEnvironmentKey:
+    EnvironmentKey
+{
+    static let defaultValue:
+        any GitLabMarkdownRendering =
+            GitLabMarkdownRenderer(
+                rendererVersion: 2,
+                parser:
+                    GitLabReadOnlyMarkdownParser.parse
+            )
+}
+
+extension EnvironmentValues {
+    var gitLabReadOnlyMarkdownRenderer:
+        any GitLabMarkdownRendering
+    {
+        get {
+            self[
+                GitLabReadOnlyMarkdownRendererEnvironmentKey
+                    .self
+            ]
+        }
+        set {
+            self[
+                GitLabReadOnlyMarkdownRendererEnvironmentKey
+                    .self
             ] = newValue
         }
     }
@@ -371,6 +404,14 @@ private struct GitLabMarkdownBlockView: View {
         case let .image(image):
             GitLabMarkdownImageView(
                 image: image
+            )
+        case let .imageGroup(group):
+            GitLabMarkdownImageGroupView(
+                group: group
+            )
+        case let .richText(richText):
+            GitLabMarkdownRichTextView(
+                richText: richText
             )
         case .thematicBreak:
             Divider()
@@ -1114,7 +1155,69 @@ private struct GitLabMarkdownTableView: View {
     }
 }
 
+private struct GitLabMarkdownImageGroupView: View {
+    let group: GitLabMarkdownImageGroup
+
+    @ViewBuilder
+    var body: some View {
+        if group.images.count == 1,
+           let image = group.images.first
+        {
+            GitLabMarkdownImageView(
+                image: image,
+                presentation: .document
+            )
+            .frame(
+                maxWidth: .infinity,
+                alignment:
+                    group.alignment == .center
+                        ? .center
+                        : .leading
+            )
+        } else {
+            LazyVGrid(
+                columns: [
+                    GridItem(
+                        .adaptive(
+                            minimum: 96,
+                            maximum: 180
+                        ),
+                        spacing: 8
+                    ),
+                ],
+                alignment:
+                    group.alignment == .center
+                        ? .center
+                        : .leading,
+                spacing: 8
+            ) {
+                ForEach(
+                    Array(group.images.enumerated()),
+                    id: \.offset
+                ) { _, image in
+                    GitLabMarkdownImageView(
+                        image: image,
+                        presentation: .compact
+                    )
+                }
+            }
+            .frame(
+                maxWidth: .infinity,
+                alignment:
+                    group.alignment == .center
+                        ? .center
+                        : .leading
+            )
+        }
+    }
+}
+
 private struct GitLabMarkdownImageView: View {
+    enum Presentation {
+        case document
+        case compact
+    }
+
     private enum Phase {
         case idle
         case loading
@@ -1133,6 +1236,7 @@ private struct GitLabMarkdownImageView: View {
     }
 
     let image: GitLabMarkdownImage
+    let presentation: Presentation
 
     @Environment(\.displayScale)
     private var displayScale
@@ -1142,12 +1246,23 @@ private struct GitLabMarkdownImageView: View {
     @State private var targetPixelWidth = 0
     @State private var retry: UInt64 = 0
 
+    init(
+        image: GitLabMarkdownImage,
+        presentation: Presentation = .document
+    ) {
+        self.image = image
+        self.presentation = presentation
+    }
+
     var body: some View {
         let currentDisplayScale = displayScale
 
         content
             .frame(
-                maxWidth: .infinity,
+                maxWidth:
+                    presentation == .compact
+                        ? 180
+                        : .infinity,
                 alignment: .leading
             )
             .onGeometryChange(
@@ -1176,28 +1291,91 @@ private struct GitLabMarkdownImageView: View {
         case .idle, .loading:
             placeholder
         case let .loaded(_, decodedImage):
-            Image(
-                decodedImage.cgImage,
-                scale: displayScale,
-                label: Text(
-                    image.accessibilityLabel
-                )
-            )
-            .resizable()
-            .scaledToFit()
-            .frame(
-                maxWidth: .infinity,
-                maxHeight: 420
-            )
-            .clipShape(
-                .rect(cornerRadius: 12)
-            )
+            loadedImage(decodedImage)
         case let .failed(message):
             failureView(message: message)
         }
     }
 
+    @ViewBuilder
+    private func loadedImage(
+        _ decodedImage: GitLabMarkdownDecodedImage
+    ) -> some View {
+        let content = Image(
+            decodedImage.cgImage,
+            scale: displayScale,
+            label: Text(
+                image.accessibilityLabel
+            )
+        )
+        .resizable()
+        .scaledToFit()
+        .frame(
+            maxWidth:
+                presentation == .compact
+                    ? 180
+                    : .infinity,
+            maxHeight:
+                presentation == .compact
+                    ? 48
+                    : 420
+        )
+        .clipShape(
+            .rect(
+                cornerRadius:
+                    presentation == .compact
+                        ? 4
+                        : 12
+            )
+        )
+
+        if let linkURL = image.linkURL {
+            Button {
+                openURL(linkURL)
+            } label: {
+                content
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(
+                "Opens the linked page"
+            )
+        } else {
+            content
+        }
+    }
+
+    @Environment(\.openURL)
+    private var openURL
+
+    @ViewBuilder
     private var placeholder: some View {
+        if presentation == .compact {
+            HStack(spacing: 6) {
+                ProgressView()
+                    .controlSize(.mini)
+
+                if !image.altText.isEmpty {
+                    Text(image.altText)
+                        .font(.glabCaption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 8)
+            .frame(
+                maxWidth: 180,
+                minHeight: 32
+            )
+            .background(
+                Color.secondary.opacity(0.08),
+                in: .rect(cornerRadius: 6)
+            )
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                "Loading image, "
+                    + image.accessibilityLabel
+            )
+        } else {
         VStack(spacing: 10) {
             ProgressView()
 
@@ -1220,42 +1398,89 @@ private struct GitLabMarkdownImageView: View {
             "Loading image, "
                 + image.accessibilityLabel
         )
+        }
     }
 
+    @ViewBuilder
     private func failureView(
         message: String
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(
-                image.accessibilityLabel,
-                systemImage:
-                    "photo.badge.exclamationmark"
-            )
-            .font(.glabCallout.weight(.semibold))
-
-            Text(message)
-                .font(.glabCaption)
+        if presentation == .compact {
+            HStack(spacing: 6) {
+                Image(
+                    systemName:
+                        "photo.badge.exclamationmark"
+                )
                 .foregroundStyle(.secondary)
 
-            Button("Try Again") {
-                retry &+= 1
+                Text(image.accessibilityLabel)
+                    .font(.glabCaption2)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                Button {
+                    retry &+= 1
+                } label: {
+                    Image(
+                        systemName: "arrow.clockwise"
+                    )
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+                .accessibilityLabel("Try Again")
             }
-            .font(.glabCallout.weight(.semibold))
+            .padding(.horizontal, 8)
+            .frame(
+                maxWidth: 180,
+                minHeight: 32
+            )
+            .background(
+                Color.secondary.opacity(0.08),
+                in: .rect(cornerRadius: 6)
+            )
+            .accessibilityElement(
+                children: .contain
+            )
+            .accessibilityLabel(
+                "Image failed to load, "
+                    + image.accessibilityLabel
+                    + ". "
+                    + message
+            )
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(
+                    image.accessibilityLabel,
+                    systemImage:
+                        "photo.badge.exclamationmark"
+                )
+                .font(.glabCallout.weight(.semibold))
+
+                Text(message)
+                    .font(.glabCaption)
+                    .foregroundStyle(.secondary)
+
+                Button("Try Again") {
+                    retry &+= 1
+                }
+                .font(.glabCallout.weight(.semibold))
+            }
+            .padding(12)
+            .frame(
+                maxWidth: .infinity,
+                alignment: .leading
+            )
+            .background(
+                Color.secondary.opacity(0.08),
+                in: .rect(cornerRadius: 12)
+            )
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(
+                "Image failed to load, "
+                    + image.accessibilityLabel
+            )
         }
-        .padding(12)
-        .frame(
-            maxWidth: .infinity,
-            alignment: .leading
-        )
-        .background(
-            Color.secondary.opacity(0.08),
-            in: .rect(cornerRadius: 12)
-        )
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(
-            "Image failed to load, "
-                + image.accessibilityLabel
-        )
     }
 
     private var loadIdentity: LoadIdentity {
@@ -1324,6 +1549,102 @@ private struct GitLabMarkdownImageView: View {
                 phase = .failed(
                     error.localizedDescription
                 )
+            }
+        }
+    }
+}
+
+private struct GitLabMarkdownRichTextView:
+    UIViewRepresentable
+{
+    let richText: GitLabMarkdownRichText
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> UITextView {
+        let textView = UITextView()
+        textView.adjustsFontForContentSizeCategory = true
+        textView.backgroundColor = .clear
+        textView.delegate = context.coordinator
+        textView.isEditable = false
+        textView.isScrollEnabled = false
+        textView.isSelectable = true
+        textView.linkTextAttributes = [
+            .foregroundColor: UIColor.tintColor,
+            .underlineStyle:
+                NSUnderlineStyle.single.rawValue,
+        ]
+        textView.textColor = .label
+        textView.textContainerInset = .zero
+        textView.textContainer.lineFragmentPadding = 0
+        return textView
+    }
+
+    func updateUIView(
+        _ textView: UITextView,
+        context: Context
+    ) {
+        let displayText = NSMutableAttributedString(
+            attributedString:
+                richText.attributedString
+        )
+        displayText.addAttribute(
+            .foregroundColor,
+            value: UIColor.label,
+            range: NSRange(
+                location: 0,
+                length: displayText.length
+            )
+        )
+        textView.attributedText = displayText
+        context.coordinator.openURL =
+            context.environment.openURL
+    }
+
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        uiView: UITextView,
+        context: Context
+    ) -> CGSize? {
+        guard
+            let width = proposal.width,
+            width > 0
+        else {
+            return nil
+        }
+        let size = uiView.sizeThatFits(
+            CGSize(
+                width: width,
+                height: .greatestFiniteMagnitude
+            )
+        )
+        return CGSize(
+            width: width,
+            height: ceil(size.height)
+        )
+    }
+
+    final class Coordinator:
+        NSObject,
+        UITextViewDelegate
+    {
+        var openURL: OpenURLAction?
+
+        func textView(
+            _ textView: UITextView,
+            primaryActionFor textItem: UITextItem,
+            defaultAction: UIAction
+        ) -> UIAction? {
+            guard
+                case let .link(url) =
+                    textItem.content
+            else {
+                return defaultAction
+            }
+            return UIAction { [openURL] _ in
+                openURL?(url)
             }
         }
     }
