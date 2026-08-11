@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import ImageIO
+import SwiftDraw
 
 nonisolated enum GitLabMarkdownImageError:
     Error,
@@ -300,6 +301,14 @@ nonisolated enum GitLabMarkdownImageDecoder {
         maximumPixelCount: Int
     ) async throws -> GitLabMarkdownDecodedImage {
         try Task.checkCancellation()
+        if isLikelySVG(data) {
+            return try decodeSVG(
+                data,
+                targetPixelWidth: targetPixelWidth,
+                maximumPixelCount: maximumPixelCount
+            )
+        }
+
         guard
             let source =
                 CGImageSourceCreateWithData(
@@ -380,6 +389,116 @@ nonisolated enum GitLabMarkdownImageDecoder {
         return GitLabMarkdownDecodedImage(
             cgImage: cgImage
         )
+    }
+
+    private static func decodeSVG(
+        _ data: Data,
+        targetPixelWidth: Int,
+        maximumPixelCount: Int
+    ) throws -> GitLabMarkdownDecodedImage {
+        guard
+            let svg = SVG(data: data),
+            svg.size.width.isFinite,
+            svg.size.height.isFinite,
+            svg.size.width > 0,
+            svg.size.height > 0
+        else {
+            throw GitLabMarkdownImageError.invalidImage
+        }
+
+        let boundedWidth = CGFloat(
+            min(2_048, max(128, targetPixelWidth))
+        )
+        let aspectRatio =
+            svg.size.height / svg.size.width
+        guard
+            aspectRatio.isFinite,
+            aspectRatio > 0
+        else {
+            throw GitLabMarkdownImageError.invalidImage
+        }
+
+        var outputWidth = boundedWidth
+        var outputHeight = boundedWidth * aspectRatio
+        let maximumHeight = boundedWidth * 2
+        if outputHeight > maximumHeight {
+            outputHeight = maximumHeight
+            outputWidth = outputHeight / aspectRatio
+        }
+
+        let outputPixelCount =
+            outputWidth * outputHeight
+        guard
+            outputPixelCount.isFinite,
+            outputPixelCount > 0,
+            maximumPixelCount > 0
+        else {
+            throw GitLabMarkdownImageError.pixelLimitExceeded
+        }
+        if outputPixelCount > CGFloat(maximumPixelCount) {
+            let scale = sqrt(
+                CGFloat(maximumPixelCount)
+                    / outputPixelCount
+            )
+            outputWidth *= scale
+            outputHeight *= scale
+        }
+
+        try Task.checkCancellation()
+        let rasterized = svg.rasterize(
+            size: CGSize(
+                width: max(1, outputWidth.rounded(.down)),
+                height: max(1, outputHeight.rounded(.down))
+            ),
+            scale: 1
+        )
+        guard let cgImage = rasterized.cgImage else {
+            throw GitLabMarkdownImageError.invalidImage
+        }
+        guard
+            cgImage.width > 0,
+            cgImage.height > 0,
+            cgImage.width <= maximumPixelCount / cgImage.height
+        else {
+            throw GitLabMarkdownImageError.pixelLimitExceeded
+        }
+        try Task.checkCancellation()
+        return GitLabMarkdownDecodedImage(
+            cgImage: cgImage
+        )
+    }
+
+    private static func isLikelySVG(
+        _ data: Data
+    ) -> Bool {
+        let prefix = data.prefix(4_096)
+        guard
+            let source = String(
+                data: prefix,
+                encoding: .utf8
+            )?
+            .trimmingCharacters(
+                in:
+                    .whitespacesAndNewlines
+                    .union(
+                        CharacterSet(
+                            charactersIn: "\u{feff}"
+                        )
+                    )
+            )
+            .lowercased()
+        else {
+            return false
+        }
+        return source.hasPrefix("<svg")
+            || (
+                source.hasPrefix("<?xml")
+                    && source.contains("<svg")
+            )
+            || (
+                source.hasPrefix("<!--")
+                    && source.contains("<svg")
+            )
     }
 
     static func hasValidPixelDimensions(

@@ -875,8 +875,8 @@ struct GitLabRepositoryFileView: View {
     let accountID: GitLabAccountID
     let appSession: AppSession
 
-    @Environment(\.gitLabMarkdownRenderer)
-    private var markdownRenderer
+    @Environment(\.gitLabReadOnlyMarkdownRenderer)
+    private var readOnlyMarkdownRenderer
     @State private var model:
         GitLabRepositoryFileModel
     @State private var presentation:
@@ -889,7 +889,7 @@ struct GitLabRepositoryFileView: View {
         appSession: AppSession,
         initialPresentation:
             GitLabRepositoryFilePresentation =
-                .markdownKit
+                .rendered
     ) {
         self.route = route
         self.accountID = accountID
@@ -1032,8 +1032,6 @@ struct GitLabRepositoryFileView: View {
                 rawSource(document)
             } else {
                 switch presentation {
-                case .markdownKit:
-                    markdownKit(document)
                 case .rendered:
                     renderedMarkdown(document)
                 case .raw:
@@ -1074,7 +1072,8 @@ struct GitLabRepositoryFileView: View {
                 route: route,
                 document: document,
                 accountID: accountID,
-                renderer: markdownRenderer
+                renderer:
+                    readOnlyMarkdownRenderer
             )
             .padding(16)
         }
@@ -1082,18 +1081,6 @@ struct GitLabRepositoryFileView: View {
         .accessibilityIdentifier(
             "repository.markdown"
         )
-    }
-
-    private func markdownKit(
-        _ document: GitLabSourceDocument
-    ) -> some View {
-        ScrollView {
-            GitLabMarkdownKitPrototypeView(
-                source: document.source
-            )
-            .padding(16)
-        }
-        .background(Color.glabCanvas)
     }
 
     private func rawSource(

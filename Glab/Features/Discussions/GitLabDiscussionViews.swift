@@ -17,7 +17,7 @@ struct GitLabDiscussionSection: View {
     let launchComposer:
         (GitLabDiscussionComposerTarget) -> Void
 
-    @Environment(\.gitLabMarkdownRenderer)
+    @Environment(\.gitLabReadOnlyMarkdownRenderer)
     private var markdownRenderer
 
     var body: some View {

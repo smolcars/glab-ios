@@ -156,7 +156,7 @@ private struct GitLabDiffDiscussionSheet:
     @State private var composerTarget:
         GitLabDiscussionComposerTarget?
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.gitLabMarkdownRenderer)
+    @Environment(\.gitLabReadOnlyMarkdownRenderer)
     private var markdownRenderer
 
     var body: some View {

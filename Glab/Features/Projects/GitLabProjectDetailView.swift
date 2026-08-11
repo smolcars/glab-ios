@@ -984,14 +984,10 @@ private struct GitLabProjectReadmeView: View {
     let accountID: GitLabAccountID
     let appSession: AppSession
 
-    @Environment(\.gitLabMarkdownRenderer)
-    private var markdownRenderer
+    @Environment(\.gitLabReadOnlyMarkdownRenderer)
+    private var readOnlyMarkdownRenderer
     @State private var model:
         GitLabRepositoryFileModel
-    @State private var presentation:
-        GitLabRepositoryFilePresentation =
-            .markdownKit
-
     init(
         route: GitLabRepositoryFileRoute,
         loader: any GitLabRepositorySourceLoading,
@@ -1063,32 +1059,9 @@ private struct GitLabProjectReadmeView: View {
             Spacer(minLength: 8)
 
             Menu {
-                Picker(
-                    "Preview",
-                    selection: $presentation
-                ) {
-                    ForEach(
-                        [
-                            GitLabRepositoryFilePresentation
-                                .markdownKit,
-                            .rendered,
-                        ],
-                        id: \.self
-                    ) { option in
-                        Label(
-                            option.title,
-                            systemImage:
-                                option.systemImage
-                        )
-                        .tag(option)
-                    }
-                }
-
-                Divider()
-
                 NavigationLink {
                     fileView(
-                        presentation: presentation
+                        presentation: .rendered
                     )
                 } label: {
                     Label(
@@ -1201,21 +1174,13 @@ private struct GitLabProjectReadmeView: View {
     private func readmePreview(
         _ document: GitLabSourceDocument
     ) -> some View {
-        switch presentation {
-        case .markdownKit:
-            GitLabMarkdownKitPrototypeView(
-                source: document.source
-            )
-        case .rendered:
-            GitLabRepositoryMarkdownContentView(
-                route: route,
-                document: document,
-                accountID: accountID,
-                renderer: markdownRenderer
-            )
-        case .raw:
-            EmptyView()
-        }
+        GitLabRepositoryMarkdownContentView(
+            route: route,
+            document: document,
+            accountID: accountID,
+            renderer:
+                readOnlyMarkdownRenderer
+        )
     }
 
     private func fileView(

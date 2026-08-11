@@ -347,16 +347,13 @@ nonisolated enum GitLabRepositoryFilePresentation:
     Hashable,
     Sendable
 {
-    case markdownKit
     case rendered
     case raw
 
     var title: String {
         switch self {
-        case .markdownKit:
-            "MarkdownKit Prototype"
         case .rendered:
-            "Native Renderer"
+            "Rendered"
         case .raw:
             "Raw"
         }
@@ -364,8 +361,6 @@ nonisolated enum GitLabRepositoryFilePresentation:
 
     var systemImage: String {
         switch self {
-        case .markdownKit:
-            "sparkles.rectangle.stack"
         case .rendered:
             "doc.richtext"
         case .raw:

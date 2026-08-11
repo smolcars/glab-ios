@@ -620,6 +620,8 @@ struct GitLabMarkdownParserTests {
                  .code,
                  .table,
                  .image,
+                 .imageGroup,
+                 .richText,
                  .thematicBreak,
                  .unsupported:
                 break
@@ -662,6 +664,8 @@ struct GitLabMarkdownParserTests {
                  .code,
                  .table,
                  .image,
+                 .imageGroup,
+                 .richText,
                  .thematicBreak,
                  .unsupported:
                 break

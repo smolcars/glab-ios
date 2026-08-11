@@ -848,7 +848,7 @@ private struct DiscussionScrollTestView:
             }
         }
         .environment(
-            \.gitLabMarkdownRenderer,
+            \.gitLabReadOnlyMarkdownRenderer,
             renderer
         )
     }

@@ -4,6 +4,8 @@
     struct GitLabRepositoryFixtureView: View {
         private let loader =
             GitLabRepositoryFixtureLoader()
+        private let imageLoader =
+            GitLabRepositoryFixtureImageLoader()
         private let accountID = GitLabAccountID(
             host:
                 try! GitLabHost(
@@ -37,6 +39,10 @@
                     appSession: appSession
                 )
             }
+            .environment(
+                \.gitLabMarkdownImageLoader,
+                imageLoader
+            )
         }
     }
 
@@ -265,10 +271,13 @@
         ] = [
             "README.md":
                 """
+                ![glab-ios logo](https://gitlab.example.com/fixtures/logo.svg)
+
                 <div align="center">
                 <h1>glab-ios</h1>
                 <p><strong>A compact GitLab client for iPhone.</strong></p>
                 <p><a href="https://gitlab.example.com/example/glab-ios">Project</a> · <a href="https://gitlab.example.com/example/glab-ios/-/issues">Issues</a></p>
+                <p><a href="https://gitlab.example.com/example/glab-ios/-/pipelines"><img alt="build passing" src="https://gitlab.example.com/fixtures/build.svg"></a> <a href="https://gitlab.example.com/example/glab-ios/-/blob/main/LICENSE"><img alt="license MIT" src="https://gitlab.example.com/fixtures/license.svg"></a></p>
                 </div>
 
                 ## Repository browser
@@ -346,5 +355,61 @@
                     : "100644"
             )
         }
+    }
+
+    private actor GitLabRepositoryFixtureImageLoader:
+        GitLabMarkdownImageLoading
+    {
+        func image(
+            _ request:
+                GitLabMarkdownImageLoadRequest
+        ) async throws -> GitLabMarkdownDecodedImage {
+            let source = switch request.url.lastPathComponent {
+            case "logo.svg":
+                Self.logo
+            case "build.svg":
+                Self.buildBadge
+            case "license.svg":
+                Self.licenseBadge
+            default:
+                throw GitLabMarkdownImageError.invalidURL
+            }
+            return try await GitLabMarkdownImageDecoder.decode(
+                Data(source.utf8),
+                targetPixelWidth:
+                    request.targetPixelWidth,
+                maximumPixelCount: 2_000_000
+            )
+        }
+
+        private static let logo =
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" width="640" height="240" viewBox="0 0 640 240">
+              <rect width="640" height="240" rx="22" fill="#f6f7f9"/>
+              <circle cx="210" cy="120" r="54" fill="#e24329"/>
+              <path d="M180 120 L210 70 L240 120 L210 170 Z" fill="#fc6d26"/>
+              <text x="286" y="140" font-family="Helvetica,Arial,sans-serif" font-size="72" font-weight="700" fill="#171321">glab</text>
+            </svg>
+            """
+
+        private static let buildBadge =
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" width="132" height="28" viewBox="0 0 132 28">
+              <rect width="66" height="28" rx="6" fill="#555"/>
+              <rect x="66" width="66" height="28" rx="6" fill="#2da44e"/>
+              <text x="13" y="19" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="white">build</text>
+              <text x="76" y="19" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="white">passing</text>
+            </svg>
+            """
+
+        private static let licenseBadge =
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" width="118" height="28" viewBox="0 0 118 28">
+              <rect width="66" height="28" rx="6" fill="#555"/>
+              <rect x="66" width="52" height="28" rx="6" fill="#1685c8"/>
+              <text x="10" y="19" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="white">license</text>
+              <text x="78" y="19" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="white">MIT</text>
+            </svg>
+            """
     }
 #endif
