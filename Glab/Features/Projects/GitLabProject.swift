@@ -237,6 +237,7 @@ nonisolated struct GitLabProject:
     let nameWithNamespace: String
     let pathWithNamespace: String
     let webURL: URL?
+    let readmeURL: URL?
     let avatarURL: URL?
     let starCount: Int
     let lastActivityAt: Date
@@ -254,6 +255,10 @@ nonisolated struct GitLabProject:
 
     var safeAvatarURL: URL? {
         GitLabWebURL.validated(avatarURL)
+    }
+
+    var safeReadmeURL: URL? {
+        GitLabWebURL.validated(readmeURL)
     }
 
     var namespaceTitle: String {
@@ -294,6 +299,7 @@ nonisolated struct GitLabProject:
         case nameWithNamespace = "name_with_namespace"
         case pathWithNamespace = "path_with_namespace"
         case webURL = "web_url"
+        case readmeURL = "readme_url"
         case avatarURL = "avatar_url"
         case starCount = "star_count"
         case lastActivityAt = "last_activity_at"

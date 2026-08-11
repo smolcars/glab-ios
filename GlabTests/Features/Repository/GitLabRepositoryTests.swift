@@ -203,6 +203,90 @@ struct GitLabRepositoryTests {
         #expect(model.items.count == 101)
     }
 
+    @Test("Builds a repository route from the project README URL")
+    func buildsReadmeRoute() throws {
+        let route = try #require(
+            GitLabRepositoryFileRoute(
+                readmeIn: makeTestProject(
+                    readmeURL: URL(
+                        string:
+                            "https://gitlab.example.com/mobile/glab-ios/-/blob/feature/docs/Documentation/README.markdown"
+                    ),
+                    defaultBranch: "feature/docs"
+                )
+            )
+        )
+
+        #expect(route.projectID == 42)
+        #expect(route.ref == "feature/docs")
+        #expect(
+            route.path
+                == "Documentation/README.markdown"
+        )
+        #expect(route.fileName == "README.markdown")
+        #expect(
+            route.safeWebURL?.absoluteString
+                == "https://gitlab.example.com/mobile/glab-ios/-/blob/feature/docs/Documentation/README.markdown"
+        )
+    }
+
+    @Test(
+        "Rejects untrusted or ambiguous project README URLs",
+        arguments: [
+            "https://attacker.example/mobile/glab-ios/-/blob/main/README.md",
+            "https://gitlab.example.com/mobile/other/-/blob/main/README.md",
+            "https://gitlab.example.com/mobile/glab-ios/-/blob/develop/README.md",
+        ]
+    )
+    func rejectsUnsafeReadmeURL(
+        readmeURL: String
+    ) {
+        let route = GitLabRepositoryFileRoute(
+            readmeIn: makeTestProject(
+                readmeURL: URL(
+                    string: readmeURL
+                )
+            )
+        )
+
+        #expect(route == nil)
+    }
+
+    @Test("Only renders bounded Markdown files")
+    func boundsRenderedMarkdown() {
+        let markdown = GitLabSourceDocument(
+            source: "# README",
+            fileName: "README.MD"
+        )
+        let source = GitLabSourceDocument(
+            source: "# README",
+            fileName: "README.txt"
+        )
+        let oversized = GitLabSourceDocument(
+            source: String(
+                repeating: "a",
+                count:
+                    GitLabRepositoryFilePresentation
+                    .maximumRenderedMarkdownByteCount
+                    + 1
+            ),
+            fileName: "README.md"
+        )
+
+        #expect(
+            GitLabRepositoryFilePresentation
+                .supportsRenderedMarkdown(markdown)
+        )
+        #expect(
+            !GitLabRepositoryFilePresentation
+                .supportsRenderedMarkdown(source)
+        )
+        #expect(
+            !GitLabRepositoryFilePresentation
+                .supportsRenderedMarkdown(oversized)
+        )
+    }
+
     private nonisolated func entry(
         id: String,
         name: String,

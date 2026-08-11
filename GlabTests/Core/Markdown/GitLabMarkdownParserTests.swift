@@ -393,6 +393,47 @@ struct GitLabMarkdownParserTests {
         )
     }
 
+    @Test("Resolves repository links and images from the file directory")
+    func repositoryRelativeResources() async throws {
+        let source = """
+        [guide](../Guide.md)
+        ![diagram](images/diagram%20one.png)
+        [escape](../../../../outside.md)
+        [encoded escape](%2E%2E/%2E%2E/private.md)
+        ![encoded escape](%2E%2E/private.png)
+        """
+        let request = try makeRepositoryRequest(
+            source: source
+        )
+        let document = try await GitLabMarkdownParser
+            .parse(request)
+        let links = document.allLinks
+            .map(\.absoluteString)
+        let image = try #require(
+            document.blocks.compactMap(\.image).first
+        )
+
+        #expect(
+            links.contains(
+                "https://gitlab.example.com/group/project/-/blob/main/Guide.md"
+            )
+        )
+        #expect(
+            links.contains(where: {
+                $0.contains("outside.md")
+                    || $0.contains("private.md")
+            }) == false
+        )
+        #expect(
+            document.blocks.compactMap(\.image)
+                .count == 1
+        )
+        #expect(
+            image.url.absoluteString
+                == "https://gitlab.example.com/api/v4/projects/10/repository/files/docs%2Fimages%2Fdiagram%20one.png/raw?ref=main"
+        )
+    }
+
     @Test("Leaves unsafe links readable and noninteractive")
     func unsafeLinks() async throws {
         let source = """
@@ -509,6 +550,31 @@ struct GitLabMarkdownParserTests {
             ),
             source: source,
             webURL: URL(string: webURL)
+        )
+    }
+
+    private func makeRepositoryRequest(
+        source: String
+    ) throws -> GitLabMarkdownRequest {
+        let host = try GitLabHost(
+            "https://gitlab.example.com"
+        )
+        return GitLabMarkdownRequest(
+            accountID: GitLabAccountID(
+                host: host,
+                userID: 7
+            ),
+            resource: .repositoryFile(
+                projectID: 10,
+                ref: "main",
+                path: "docs/README.md",
+                blobID: "readme-blob"
+            ),
+            source: source,
+            webURL: URL(
+                string:
+                    "https://gitlab.example.com/group/project/-/blob/main/docs/README.md"
+            )
         )
     }
 

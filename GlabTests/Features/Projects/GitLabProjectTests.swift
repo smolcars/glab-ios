@@ -30,6 +30,10 @@ struct GitLabProjectTests {
         )
         #expect(project.safeAvatarURL?.scheme == "https")
         #expect(project.safeWebURL?.scheme == "https")
+        #expect(
+            project.safeReadmeURL?.lastPathComponent
+                == "README.md"
+        )
         #expect(project.avatarMark == "GI")
     }
 
@@ -251,6 +255,7 @@ private extension GitLabProjectTests {
               "name_with_namespace": "Mobile / Glab iOS",
               "path_with_namespace": "mobile/glab-ios",
               "web_url": "https://gitlab.example.com/mobile/glab-ios",
+              "readme_url": "https://gitlab.example.com/mobile/glab-ios/-/blob/main/README.md",
               "avatar_url": \(avatarURL),
               "star_count": 17,
               "last_activity_at": "2026-07-25T12:00:00Z",

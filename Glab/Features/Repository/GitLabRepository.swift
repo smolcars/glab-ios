@@ -186,6 +186,72 @@ nonisolated struct GitLabRepositoryFileRoute:
     let path: String
     let blobID: String?
 
+    init(
+        projectID: Int,
+        projectWebURL: URL?,
+        ref: String,
+        path: String,
+        blobID: String?
+    ) {
+        self.projectID = projectID
+        self.projectWebURL = projectWebURL
+        self.ref = ref
+        self.path = path
+        self.blobID = blobID
+    }
+
+    init?(readmeIn project: GitLabProject) {
+        guard
+            let projectURL = project.safeWebURL,
+            let readmeURL = project.safeReadmeURL,
+            let ref = project.defaultBranch?
+                .trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                ),
+            !ref.isEmpty,
+            Self.matchesOrigin(
+                readmeURL,
+                projectURL
+            ),
+            let projectPath = Self.decodedPath(
+                of: projectURL
+            ),
+            let readmePath = Self.decodedPath(
+                of: readmeURL
+            )
+        else {
+            return nil
+        }
+
+        let currentMarker =
+            projectPath + "/-/blob/" + ref + "/"
+        let legacyMarker =
+            projectPath + "/blob/" + ref + "/"
+        let marker: String
+        if readmePath.hasPrefix(currentMarker) {
+            marker = currentMarker
+        } else if readmePath.hasPrefix(legacyMarker) {
+            marker = legacyMarker
+        } else {
+            return nil
+        }
+
+        let path = String(
+            readmePath.dropFirst(marker.count)
+        )
+        guard Self.isSafeRepositoryPath(path) else {
+            return nil
+        }
+
+        self.init(
+            projectID: project.id,
+            projectWebURL: projectURL,
+            ref: ref,
+            path: path,
+            blobID: nil
+        )
+    }
+
     var fileName: String {
         URL(filePath: path).lastPathComponent
     }
@@ -210,6 +276,87 @@ nonisolated struct GitLabRepositoryFileRoute:
             .appending(path: "blob")
             .appending(path: ref)
             .appending(path: path)
+    }
+
+    var markdownResourceID:
+        GitLabMarkdownResourceID
+    {
+        .repositoryFile(
+            projectID: projectID,
+            ref: ref,
+            path: path,
+            blobID: blobID
+        )
+    }
+
+    private static func matchesOrigin(
+        _ lhs: URL,
+        _ rhs: URL
+    ) -> Bool {
+        guard
+            let lhs = URLComponents(
+                url: lhs,
+                resolvingAgainstBaseURL: false
+            ),
+            let rhs = URLComponents(
+                url: rhs,
+                resolvingAgainstBaseURL: false
+            )
+        else {
+            return false
+        }
+        return
+            lhs.scheme?.lowercased()
+                == rhs.scheme?.lowercased()
+            && lhs.host?.lowercased()
+                == rhs.host?.lowercased()
+            && (lhs.port ?? 443)
+                == (rhs.port ?? 443)
+    }
+
+    private static func decodedPath(
+        of url: URL
+    ) -> String? {
+        URLComponents(
+            url: url,
+            resolvingAgainstBaseURL: false
+        )?
+        .percentEncodedPath
+        .removingPercentEncoding
+    }
+
+    private static func isSafeRepositoryPath(
+        _ path: String
+    ) -> Bool {
+        !path.isEmpty
+            && !path.hasPrefix("/")
+            && !path.split(
+                separator: "/",
+                omittingEmptySubsequences: false
+            ).contains {
+                $0.isEmpty
+                    || $0 == "."
+                    || $0 == ".."
+            }
+    }
+}
+
+nonisolated enum GitLabRepositoryFilePresentation:
+    Equatable,
+    Sendable
+{
+    case rendered
+    case raw
+
+    static let maximumRenderedMarkdownByteCount =
+        1_024 * 1_024
+
+    static func supportsRenderedMarkdown(
+        _ document: GitLabSourceDocument
+    ) -> Bool {
+        document.language == .markdown
+            && document.source.utf8.count
+                <= maximumRenderedMarkdownByteCount
     }
 }
 

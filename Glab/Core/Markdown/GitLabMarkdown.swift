@@ -20,6 +20,12 @@ nonisolated enum GitLabMarkdownResourceID:
         mergeRequestIID: Int,
         noteID: Int
     )
+    case repositoryFile(
+        projectID: Int,
+        ref: String,
+        path: String,
+        blobID: String?
+    )
 
     fileprivate var webPathSuffix: String {
         switch self {
@@ -33,7 +39,33 @@ nonisolated enum GitLabMarkdownResourceID:
                 _
              ):
             "/-/merge_requests/\(mergeRequestIID)"
+        case let .repositoryFile(
+            _,
+            ref,
+            path,
+            _
+        ):
+            "/-/blob/\(ref)/\(path)"
         }
+    }
+
+    fileprivate var repositoryFileContext:
+        (
+            projectID: Int,
+            ref: String
+        )?
+    {
+        guard
+            case let .repositoryFile(
+                projectID,
+                ref,
+                _,
+                _
+            ) = self
+        else {
+            return nil
+        }
+        return (projectID, ref)
     }
 }
 
@@ -779,7 +811,7 @@ nonisolated private enum GitLabMarkdownTreeConverter {
                 text.append(value)
             case let .image(rawURL, altText):
                 flushText()
-                if let url = context.resolve(rawURL) {
+                if let url = context.resolveImage(rawURL) {
                     result.append(
                         .image(
                             GitLabMarkdownImage(
@@ -1026,11 +1058,13 @@ nonisolated private enum GitLabMarkdownTreeConverter {
 
 nonisolated private struct GitLabMarkdownLinkContext {
     let accountID: GitLabAccountID
+    let resource: GitLabMarkdownResourceID
     let resourceURL: URL?
     let projectURL: URL?
 
     init(request: GitLabMarkdownRequest) {
         accountID = request.accountID
+        resource = request.resource
         resourceURL = Self.validatedResourceURL(
             request.webURL,
             accountID: request.accountID,
@@ -1084,21 +1118,40 @@ nonisolated private struct GitLabMarkdownLinkContext {
         }
 
         guard
-            let projectURL,
+            let baseURL = relativeBaseURL,
             let resolved = URL(
                 string: rawValue,
-                relativeTo:
-                    projectURL.appendingPathComponent("")
+                relativeTo: baseURL
             )?.absoluteURL,
             Self.matchesAccountOrigin(
                 resolved,
                 accountID: accountID
+            ),
+            isAllowedRepositoryRelativeURL(
+                resolved
             )
         else {
             return nil
         }
 
         return GitLabWebURL.validated(resolved)
+    }
+
+    func resolveImage(_ url: URL) -> URL? {
+        let rawValue = url.relativeString
+        guard
+            resource.repositoryFileContext != nil,
+            url.scheme == nil,
+            !rawValue.hasPrefix("/"),
+            !rawValue.hasPrefix("#"),
+            let resolved = resolve(url)
+        else {
+            return resolve(url)
+        }
+
+        return repositoryRawFileURL(
+            from: resolved
+        )
     }
 
     func referenceURL(
@@ -1150,6 +1203,110 @@ nonisolated private struct GitLabMarkdownLinkContext {
             relativeComponents.fragment
         return GitLabWebURL.validated(
             baseComponents.url
+        )
+    }
+
+    private var relativeBaseURL: URL? {
+        guard let resourceURL else {
+            return nil
+        }
+        if resource.repositoryFileContext != nil {
+            return resourceURL
+                .deletingLastPathComponent()
+                .appendingPathComponent("")
+        }
+        return projectURL?
+            .appendingPathComponent("")
+    }
+
+    private func isAllowedRepositoryRelativeURL(
+        _ url: URL
+    ) -> Bool {
+        guard
+            let context =
+                resource.repositoryFileContext,
+            let projectURL,
+            let resolvedPath = Self.decodedPath(
+                of: url
+            ),
+            let projectPath = Self.decodedPath(
+                of: projectURL
+            )
+        else {
+            return resource.repositoryFileContext
+                == nil
+        }
+
+        let blobPrefix = projectPath
+            + "/-/blob/"
+            + context.ref
+            + "/"
+        guard resolvedPath.hasPrefix(blobPrefix) else {
+            return false
+        }
+        return Self.hasSafePathSegments(
+            String(
+                resolvedPath.dropFirst(
+                    blobPrefix.count
+                )
+            )
+        )
+    }
+
+    private func repositoryRawFileURL(
+        from blobURL: URL
+    ) -> URL? {
+        guard
+            let context =
+                resource.repositoryFileContext,
+            let projectURL,
+            let blobPath = Self.decodedPath(
+                of: blobURL
+            ),
+            let projectPath = Self.decodedPath(
+                of: projectURL
+            )
+        else {
+            return nil
+        }
+
+        let blobPrefix = projectPath
+            + "/-/blob/"
+            + context.ref
+            + "/"
+        guard blobPath.hasPrefix(blobPrefix) else {
+            return nil
+        }
+
+        let path = String(
+            blobPath.dropFirst(blobPrefix.count)
+        )
+        guard
+            !path.isEmpty,
+            Self.hasSafePathSegments(path),
+            let encodedPath = path.addingPercentEncoding(
+                withAllowedCharacters:
+                    Self.pathComponentAllowedCharacters
+            ),
+            var components = URLComponents(
+                url: accountID.host.apiBaseURL,
+                resolvingAgainstBaseURL: false
+            )
+        else {
+            return nil
+        }
+
+        components.percentEncodedPath +=
+            "/projects/\(context.projectID)"
+            + "/repository/files/\(encodedPath)/raw"
+        components.queryItems = [
+            URLQueryItem(
+                name: "ref",
+                value: context.ref
+            ),
+        ]
+        return GitLabWebURL.validated(
+            components.url
         )
     }
 
@@ -1241,11 +1398,38 @@ nonisolated private struct GitLabMarkdownLinkContext {
                 == effectivePort(hostComponents)
     }
 
+    private static func decodedPath(
+        of url: URL
+    ) -> String? {
+        URLComponents(
+            url: url,
+            resolvingAgainstBaseURL: false
+        )?
+        .percentEncodedPath
+        .removingPercentEncoding
+    }
+
+    private static func hasSafePathSegments(
+        _ path: String
+    ) -> Bool {
+        !path.split(
+            separator: "/",
+            omittingEmptySubsequences: false
+        ).contains {
+            $0 == "." || $0 == ".."
+        }
+    }
+
     private static func effectivePort(
         _ components: URLComponents
     ) -> Int {
         components.port ?? 443
     }
+
+    private static let pathComponentAllowedCharacters =
+        CharacterSet.urlPathAllowed.subtracting(
+            CharacterSet(charactersIn: "/?#%")
+        )
 }
 
 nonisolated private enum GitLabMarkdownInlineProcessor {
