@@ -222,6 +222,54 @@ struct GitLabMarkdownImageLoaderTests {
         #expect(image.decodedCost > 0)
     }
 
+    @Test("Rasterizes SVG badges with embedded SVG logos")
+    func svgBadgeWithEmbeddedLogo() async throws {
+        let nestedLogo = Data(
+            """
+            <svg fill="#F03C2E" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <title>Git</title>
+              <path d="M0 0h24v24H0z"/>
+            </svg>
+            """.utf8
+        )
+        .base64EncodedString()
+        let svg = Data(
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" width="107" height="20">
+              <rect width="107" height="20" fill="#555"/>
+              <image x="5" y="3" width="14" height="14" href="data:image/svg+xml;base64,\(nestedLogo)"/>
+              <text x="60" y="14" fill="white">PRs welcome</text>
+            </svg>
+            """.utf8
+        )
+
+        let normalized = String(
+            data: GitLabMarkdownImageDecoder
+                .normalizeSVGForSwiftDraw(svg),
+            encoding: .utf8
+        )
+        #expect(
+            normalized?.contains(
+                "data:image/svg+xml"
+            ) == false
+        )
+        #expect(
+            normalized?.contains(
+                "xlink:href=\"data:image/png;base64,"
+            ) == true
+        )
+
+        let image = try await GitLabMarkdownImageDecoder
+            .decode(
+                svg,
+                targetPixelWidth: 321,
+                maximumPixelCount: 16_000_000
+            )
+
+        #expect(image.pixelWidth == 321)
+        #expect(image.pixelHeight == 60)
+    }
+
     @Test("Rejects malformed SVG data")
     func malformedSVG() async {
         let svg = Data(
@@ -288,6 +336,38 @@ struct GitLabMarkdownImageLoaderTests {
                 request()
             )
         }
+    }
+
+    @Test("Falls back to authenticated GitLab badge data")
+    func gitLabBadgeFallback() async throws {
+        let transport =
+            ControlledMarkdownImageTransport(
+                result: .success(
+                    response(
+                        data: Data("Not Found".utf8),
+                        contentType: "text/html",
+                        statusCode: 404
+                    )
+                )
+            )
+        let badgeLoader =
+            StubMarkdownBadgeLoader(
+                data: pngData
+            )
+        let loader = try makeLoader(
+            transport: transport,
+            badgeLoader: badgeLoader
+        )
+
+        let image = try await loader.image(
+            request(
+                url:
+                    "https://gitlab.example.com/group/project/badges/main/pipeline.svg"
+            )
+        )
+
+        #expect(image.pixelWidth == 1)
+        #expect(await badgeLoader.callCount == 1)
     }
 
     @Test("Enforces the byte limit even without a truthful length header")
@@ -562,6 +642,9 @@ struct GitLabMarkdownImageLoaderTests {
     private func makeLoader(
         transport:
             any GitLabMarkdownImageTransport,
+        badgeLoader:
+            any GitLabMarkdownBadgeLoading =
+                UnavailableGitLabMarkdownBadgeLoader(),
         maximumImageCount: Int = 24,
         maximumDecodedCost: Int =
             24 * 1_024 * 1_024,
@@ -591,6 +674,7 @@ struct GitLabMarkdownImageLoaderTests {
                         )
                 ),
             transport: transport,
+            badgeLoader: badgeLoader,
             persistentResponseCache:
                 persistentResponseCache,
             persistentCachePolicy:
@@ -627,7 +711,8 @@ struct GitLabMarkdownImageLoaderTests {
     private func response(
         data: Data,
         contentType: String,
-        contentLength: String? = nil
+        contentLength: String? = nil,
+        statusCode: Int = 200
     ) -> GitLabMarkdownImageHTTPResponse {
         var headers = [
             "Content-Type": contentType,
@@ -643,7 +728,7 @@ struct GitLabMarkdownImageLoaderTests {
                     string:
                         "https://gitlab.example.com/uploads/image.png"
                 )!,
-                statusCode: 200,
+                statusCode: statusCode,
                 httpVersion: nil,
                 headerFields: headers
             )!
@@ -677,6 +762,31 @@ private actor ControlledMarkdownImageTransport:
     ) async throws -> GitLabMarkdownImageHTTPResponse {
         callCount += 1
         return try result.get()
+    }
+}
+
+private actor StubMarkdownBadgeLoader:
+    GitLabMarkdownBadgeLoading
+{
+    private(set) var callCount = 0
+    private let data: Data
+
+    init(data: Data) {
+        self.data = data
+    }
+
+    func image(
+        for url: URL,
+        targetPixelWidth: Int
+    ) async throws -> GitLabMarkdownDecodedImage? {
+        callCount += 1
+        return try await GitLabMarkdownImageDecoder
+            .decode(
+                data,
+                targetPixelWidth:
+                    targetPixelWidth,
+                maximumPixelCount: 16_000_000
+            )
     }
 }
 

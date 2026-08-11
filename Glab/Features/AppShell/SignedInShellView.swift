@@ -272,12 +272,19 @@ struct SignedInShellView: View {
             URLSessionGitLabMarkdownImageTransport(
                 requestPolicy: imageRequestPolicy
             )
+        let markdownBadgeLoader =
+            LiveGitLabMarkdownBadgeLoader(
+                host: session.host,
+                client: client
+            )
         markdownImageLoader =
             GitLabMarkdownImageLoader(
                 accountID: accountID,
                 requestPolicy:
                     imageRequestPolicy,
-                transport: imageTransport
+                transport: imageTransport,
+                badgeLoader:
+                    markdownBadgeLoader
             )
         let avatarBackingLoader =
             GitLabMarkdownImageLoader(

@@ -396,8 +396,10 @@ nonisolated enum GitLabMarkdownImageDecoder {
         targetPixelWidth: Int,
         maximumPixelCount: Int
     ) throws -> GitLabMarkdownDecodedImage {
+        let normalizedData =
+            normalizeSVGForSwiftDraw(data)
         guard
-            let svg = SVG(data: data),
+            let svg = SVG(data: normalizedData),
             svg.size.width.isFinite,
             svg.size.height.isFinite,
             svg.size.width > 0,
@@ -465,6 +467,226 @@ nonisolated enum GitLabMarkdownImageDecoder {
         try Task.checkCancellation()
         return GitLabMarkdownDecodedImage(
             cgImage: cgImage
+        )
+    }
+
+    static func normalizeSVGForSwiftDraw(
+        _ data: Data
+    ) -> Data {
+        guard
+            var source = String(
+                data: data,
+                encoding: .utf8
+            ),
+            let imageExpression = try? NSRegularExpression(
+                pattern: #"<image\b[^>]*>"#,
+                options: [.caseInsensitive]
+            )
+        else {
+            return data
+        }
+
+        let matches = imageExpression.matches(
+            in: source,
+            range: NSRange(
+                source.startIndex...,
+                in: source
+            )
+        )
+        for match in matches.reversed() {
+            guard
+                let range = Range(
+                    match.range,
+                    in: source
+                )
+            else {
+                continue
+            }
+            let tag = String(source[range])
+            let replacement =
+                normalizedSVGImageElement(tag)
+            source.replaceSubrange(
+                range,
+                with: replacement
+            )
+        }
+        return Data(source.utf8)
+    }
+
+    private static func normalizedSVGImageElement(
+        _ tag: String
+    ) -> String {
+        guard let href = svgAttribute("href", in: tag) else {
+            return "<g/>"
+        }
+        let lowercased = href.lowercased()
+        if
+            lowercased.hasPrefix(
+                "data:image/png;base64,"
+            )
+                || lowercased.hasPrefix(
+                    "data:image/jpeg;base64,"
+                )
+                || lowercased.hasPrefix(
+                    "data:image/jpg;base64,"
+                )
+        {
+            return replacingSVGHref(
+                in: tag,
+                with: href
+            )
+        }
+        guard
+            lowercased.hasPrefix(
+                "data:image/svg+xml;base64,"
+            ),
+            let pngURL = embeddedSVGPngURL(
+                href,
+                imageTag: tag
+            )
+        else {
+            return "<g/>"
+        }
+        return replacingSVGHref(
+            in: tag,
+            with: pngURL
+        )
+    }
+
+    private static func svgAttribute(
+        _ name: String,
+        in source: String
+    ) -> String? {
+        let escaped = NSRegularExpression
+            .escapedPattern(for: name)
+        guard
+            let expression = try? NSRegularExpression(
+                pattern:
+                    #"(?i)(?:^|\s)(?:xlink:)?"#
+                    + escaped
+                    + #"\s*=\s*(["'])(.*?)\1"#
+            ),
+            let match = expression.firstMatch(
+                in: source,
+                range: NSRange(
+                    source.startIndex...,
+                    in: source
+                )
+            ),
+            let valueRange = Range(
+                match.range(at: 2),
+                in: source
+            )
+        else {
+            return nil
+        }
+        return String(source[valueRange])
+    }
+
+    private static func embeddedSVGPngURL(
+        _ href: String,
+        imageTag: String
+    ) -> String? {
+        let prefix = "data:image/svg+xml;base64,"
+        let encoded = String(
+            href.dropFirst(prefix.count)
+        )
+        guard
+            let data = Data(
+                base64Encoded: encoded
+            ),
+            let svg = SVG(data: data),
+            svg.size.width.isFinite,
+            svg.size.height.isFinite,
+            svg.size.width > 0,
+            svg.size.height > 0
+        else {
+            return nil
+        }
+        let requestedWidth = svgAttribute(
+            "width",
+            in: imageTag
+        )
+        .flatMap(Double.init)
+        let requestedHeight = svgAttribute(
+            "height",
+            in: imageTag
+        )
+        .flatMap(Double.init)
+        let width = min(
+            1_024,
+            max(1, requestedWidth ?? svg.size.width)
+        )
+        let height = min(
+            1_024,
+            max(1, requestedHeight ?? svg.size.height)
+        )
+        guard width * height <= 1_048_576 else {
+            return nil
+        }
+        let rasterized = svg.rasterize(
+            size: CGSize(
+                width: width,
+                height: height
+            ),
+            scale: 1
+        )
+        guard
+            let image = rasterized.cgImage,
+            let png = pngData(for: image)
+        else {
+            return nil
+        }
+        return "data:image/png;base64,"
+            + png.base64EncodedString()
+    }
+
+    private static func pngData(
+        for image: CGImage
+    ) -> Data? {
+        let output = NSMutableData()
+        guard
+            let destination =
+                CGImageDestinationCreateWithData(
+                    output,
+                    "public.png" as CFString,
+                    1,
+                    nil
+                )
+        else {
+            return nil
+        }
+        CGImageDestinationAddImage(
+            destination,
+            image,
+            nil
+        )
+        guard CGImageDestinationFinalize(destination) else {
+            return nil
+        }
+        return output as Data
+    }
+
+    private static func replacingSVGHref(
+        in tag: String,
+        with href: String
+    ) -> String {
+        guard
+            let expression = try? NSRegularExpression(
+                pattern:
+                    #"(?i)(?:xlink:)?href\s*=\s*(["']).*?\1"#
+            )
+        else {
+            return "<g/>"
+        }
+        return expression.stringByReplacingMatches(
+            in: tag,
+            range: NSRange(
+                tag.startIndex...,
+                in: tag
+            ),
+            withTemplate:
+                "xlink:href=\"\(href)\""
         )
     }
 
@@ -618,6 +840,8 @@ actor GitLabMarkdownImageLoader:
         GitLabMarkdownImageRequestPolicy
     private let transport:
         any GitLabMarkdownImageTransport
+    private let badgeLoader:
+        any GitLabMarkdownBadgeLoading
     private let persistentResponseCache:
         (any GitLabResponseCaching)?
     private let persistentCachePolicy:
@@ -643,6 +867,9 @@ actor GitLabMarkdownImageLoader:
             GitLabMarkdownImageRequestPolicy,
         transport:
             any GitLabMarkdownImageTransport,
+        badgeLoader:
+            any GitLabMarkdownBadgeLoading =
+                UnavailableGitLabMarkdownBadgeLoader(),
         persistentResponseCache:
             (any GitLabResponseCaching)? = nil,
         persistentCachePolicy:
@@ -666,6 +893,7 @@ actor GitLabMarkdownImageLoader:
         self.accountID = accountID
         self.requestPolicy = requestPolicy
         self.transport = transport
+        self.badgeLoader = badgeLoader
         self.persistentResponseCache =
             persistentResponseCache
         self.persistentCachePolicy =
@@ -787,26 +1015,44 @@ actor GitLabMarkdownImageLoader:
         let load = InFlightLoad(
             identifier: loadCounter,
             task: Task {
-                try await Self.load(
-                    request: request,
-                    targetPixelWidth:
-                        key.targetPixelWidth,
-                    maximumDownloadByteCount:
-                        maximumDownloadByteCount,
-                    maximumPixelCount:
-                        maximumPixelCount,
-                    transport: transport,
-                    persistentResponseCache:
-                        persistentResponseCache,
-                    persistentCacheKey:
-                        persistentCacheKey(
-                            for: key.url
-                        ),
-                    persistentCachePolicy:
-                        persistentCachePolicy,
-                    currentDate: currentDate,
-                    decoder: decoder
-                )
+                do {
+                    return try await Self.load(
+                        request: request,
+                        targetPixelWidth:
+                            key.targetPixelWidth,
+                        maximumDownloadByteCount:
+                            maximumDownloadByteCount,
+                        maximumPixelCount:
+                            maximumPixelCount,
+                        transport: transport,
+                        persistentResponseCache:
+                            persistentResponseCache,
+                        persistentCacheKey:
+                            persistentCacheKey(
+                                for: key.url
+                            ),
+                        persistentCachePolicy:
+                            persistentCachePolicy,
+                        currentDate: currentDate,
+                        decoder: decoder
+                    )
+                } catch let error
+                    as GitLabMarkdownImageError
+                    where error == .unsuccessfulResponse
+                        || error == .invalidContentType
+                {
+                    if
+                        let fallback = try? await badgeLoader
+                            .image(
+                                for: key.url,
+                                targetPixelWidth:
+                                    key.targetPixelWidth
+                            )
+                    {
+                        return fallback
+                    }
+                    throw error
+                }
             },
             waiters: [waiterID]
         )

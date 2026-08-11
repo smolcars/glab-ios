@@ -1401,40 +1401,86 @@ private struct GitLabMarkdownImageView: View {
         }
     }
 
+    @ViewBuilder
     private func failureView(
         message: String
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(
-                image.accessibilityLabel,
-                systemImage:
-                    "photo.badge.exclamationmark"
-            )
-            .font(.glabCallout.weight(.semibold))
-
-            Text(message)
-                .font(.glabCaption)
+        if presentation == .compact {
+            HStack(spacing: 6) {
+                Image(
+                    systemName:
+                        "photo.badge.exclamationmark"
+                )
                 .foregroundStyle(.secondary)
 
-            Button("Try Again") {
-                retry &+= 1
+                Text(image.accessibilityLabel)
+                    .font(.glabCaption2)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                Button {
+                    retry &+= 1
+                } label: {
+                    Image(
+                        systemName: "arrow.clockwise"
+                    )
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tint)
+                .accessibilityLabel("Try Again")
             }
-            .font(.glabCallout.weight(.semibold))
+            .padding(.horizontal, 8)
+            .frame(
+                maxWidth: 180,
+                minHeight: 32
+            )
+            .background(
+                Color.secondary.opacity(0.08),
+                in: .rect(cornerRadius: 6)
+            )
+            .accessibilityElement(
+                children: .contain
+            )
+            .accessibilityLabel(
+                "Image failed to load, "
+                    + image.accessibilityLabel
+                    + ". "
+                    + message
+            )
+        } else {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(
+                    image.accessibilityLabel,
+                    systemImage:
+                        "photo.badge.exclamationmark"
+                )
+                .font(.glabCallout.weight(.semibold))
+
+                Text(message)
+                    .font(.glabCaption)
+                    .foregroundStyle(.secondary)
+
+                Button("Try Again") {
+                    retry &+= 1
+                }
+                .font(.glabCallout.weight(.semibold))
+            }
+            .padding(12)
+            .frame(
+                maxWidth: .infinity,
+                alignment: .leading
+            )
+            .background(
+                Color.secondary.opacity(0.08),
+                in: .rect(cornerRadius: 12)
+            )
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(
+                "Image failed to load, "
+                    + image.accessibilityLabel
+            )
         }
-        .padding(12)
-        .frame(
-            maxWidth: .infinity,
-            alignment: .leading
-        )
-        .background(
-            Color.secondary.opacity(0.08),
-            in: .rect(cornerRadius: 12)
-        )
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(
-            "Image failed to load, "
-                + image.accessibilityLabel
-        )
     }
 
     private var loadIdentity: LoadIdentity {

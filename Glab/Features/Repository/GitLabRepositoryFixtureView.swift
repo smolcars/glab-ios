@@ -277,7 +277,7 @@
                 <h1>glab-ios</h1>
                 <p><strong>A compact GitLab client for iPhone.</strong></p>
                 <p><a href="https://gitlab.example.com/example/glab-ios">Project</a> · <a href="https://gitlab.example.com/example/glab-ios/-/issues">Issues</a></p>
-                <p><a href="https://gitlab.example.com/example/glab-ios/-/pipelines"><img alt="build passing" src="https://gitlab.example.com/fixtures/build.svg"></a> <a href="https://gitlab.example.com/example/glab-ios/-/blob/main/LICENSE"><img alt="license MIT" src="https://gitlab.example.com/fixtures/license.svg"></a></p>
+                <p><a href="https://gitlab.example.com/example/glab-ios/-/pipelines"><img alt="pipeline failed" src="https://gitlab.example.com/fixtures/pipeline.svg"></a> <a href="https://gitlab.example.com/example/glab-ios/-/blob/main/LICENSE"><img alt="license MIT" src="https://gitlab.example.com/fixtures/license.svg"></a> <a href="https://gitlab.example.com/example/glab-ios/-/merge_requests"><img alt="PRs welcome" src="https://gitlab.example.com/fixtures/community.svg"></a></p>
                 </div>
 
                 ## Repository browser
@@ -364,13 +364,27 @@
             _ request:
                 GitLabMarkdownImageLoadRequest
         ) async throws -> GitLabMarkdownDecodedImage {
+            if request.url.lastPathComponent
+                == "pipeline.svg"
+            {
+                return try GitLabMarkdownBadgeRenderer
+                    .render(
+                        .pipeline(
+                            status: GitLabCIStatus(
+                                rawValue: "failed"
+                            )
+                        ),
+                        targetPixelWidth:
+                            request.targetPixelWidth
+                    )
+            }
             let source = switch request.url.lastPathComponent {
             case "logo.svg":
                 Self.logo
-            case "build.svg":
-                Self.buildBadge
             case "license.svg":
                 Self.licenseBadge
+            case "community.svg":
+                Self.communityBadge
             default:
                 throw GitLabMarkdownImageError.invalidURL
             }
@@ -392,16 +406,6 @@
             </svg>
             """
 
-        private static let buildBadge =
-            """
-            <svg xmlns="http://www.w3.org/2000/svg" width="132" height="28" viewBox="0 0 132 28">
-              <rect width="66" height="28" rx="6" fill="#555"/>
-              <rect x="66" width="66" height="28" rx="6" fill="#2da44e"/>
-              <text x="13" y="19" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="white">build</text>
-              <text x="76" y="19" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="white">passing</text>
-            </svg>
-            """
-
         private static let licenseBadge =
             """
             <svg xmlns="http://www.w3.org/2000/svg" width="118" height="28" viewBox="0 0 118 28">
@@ -411,5 +415,25 @@
               <text x="78" y="19" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="white">MIT</text>
             </svg>
             """
+
+        private static let communityBadge: String = {
+            let logo = Data(
+                """
+                <svg fill="#F03C2E" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <title>Git</title>
+                  <path d="M12 0 0 12l12 12 12-12L12 0Zm0 5 7 7-7 7-7-7 7-7Z"/>
+                </svg>
+                """.utf8
+            )
+            .base64EncodedString()
+            return
+                """
+                <svg xmlns="http://www.w3.org/2000/svg" width="118" height="28" viewBox="0 0 118 28">
+                  <rect width="118" height="28" rx="6" fill="#2da44e"/>
+                  <image x="7" y="7" width="14" height="14" href="data:image/svg+xml;base64,\(logo)"/>
+                  <text x="28" y="19" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="white">PRs welcome</text>
+                </svg>
+                """
+        }()
     }
 #endif
