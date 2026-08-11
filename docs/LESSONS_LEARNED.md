@@ -10,5 +10,6 @@
 - Markdown parsers may leave README HTML visible. Test HTML-heavy files and keep a raw fallback.
 - HTML attributed strings often hard-code black text. Apply dynamic label colors in the view and verify dark mode.
 - Keep Markdown images in the authenticated app pipeline. Decode SVGs before passing them to SwiftUI.
-- Private GitLab web badges may ignore API tokens. Rebuild standard badges from authenticated API data.
 - Modern SVG badges can embed SVG logos with `href`. Normalize them before SwiftDraw decoding.
+- Observe incoming navigation on the stack, not an off-screen root destination.
+- Route same-instance GitLab blob links to the native file viewer.

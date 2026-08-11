@@ -364,23 +364,11 @@
             _ request:
                 GitLabMarkdownImageLoadRequest
         ) async throws -> GitLabMarkdownDecodedImage {
-            if request.url.lastPathComponent
-                == "pipeline.svg"
-            {
-                return try GitLabMarkdownBadgeRenderer
-                    .render(
-                        .pipeline(
-                            status: GitLabCIStatus(
-                                rawValue: "failed"
-                            )
-                        ),
-                        targetPixelWidth:
-                            request.targetPixelWidth
-                    )
-            }
             let source = switch request.url.lastPathComponent {
             case "logo.svg":
                 Self.logo
+            case "pipeline.svg":
+                Self.pipelineBadge
             case "license.svg":
                 Self.licenseBadge
             case "community.svg":
@@ -403,6 +391,16 @@
               <circle cx="210" cy="120" r="54" fill="#e24329"/>
               <path d="M180 120 L210 70 L240 120 L210 170 Z" fill="#fc6d26"/>
               <text x="286" y="140" font-family="Helvetica,Arial,sans-serif" font-size="72" font-weight="700" fill="#171321">glab</text>
+            </svg>
+            """
+
+        private static let pipelineBadge =
+            """
+            <svg xmlns="http://www.w3.org/2000/svg" width="132" height="28" viewBox="0 0 132 28">
+              <rect width="66" height="28" rx="6" fill="#555"/>
+              <rect x="66" width="66" height="28" rx="6" fill="#e05d44"/>
+              <text x="8" y="19" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="white">pipeline</text>
+              <text x="78" y="19" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="white">failed</text>
             </svg>
             """
 

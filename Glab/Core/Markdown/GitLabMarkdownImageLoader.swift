@@ -840,8 +840,6 @@ actor GitLabMarkdownImageLoader:
         GitLabMarkdownImageRequestPolicy
     private let transport:
         any GitLabMarkdownImageTransport
-    private let badgeLoader:
-        any GitLabMarkdownBadgeLoading
     private let persistentResponseCache:
         (any GitLabResponseCaching)?
     private let persistentCachePolicy:
@@ -867,9 +865,6 @@ actor GitLabMarkdownImageLoader:
             GitLabMarkdownImageRequestPolicy,
         transport:
             any GitLabMarkdownImageTransport,
-        badgeLoader:
-            any GitLabMarkdownBadgeLoading =
-                UnavailableGitLabMarkdownBadgeLoader(),
         persistentResponseCache:
             (any GitLabResponseCaching)? = nil,
         persistentCachePolicy:
@@ -893,7 +888,6 @@ actor GitLabMarkdownImageLoader:
         self.accountID = accountID
         self.requestPolicy = requestPolicy
         self.transport = transport
-        self.badgeLoader = badgeLoader
         self.persistentResponseCache =
             persistentResponseCache
         self.persistentCachePolicy =
@@ -1015,44 +1009,26 @@ actor GitLabMarkdownImageLoader:
         let load = InFlightLoad(
             identifier: loadCounter,
             task: Task {
-                do {
-                    return try await Self.load(
-                        request: request,
-                        targetPixelWidth:
-                            key.targetPixelWidth,
-                        maximumDownloadByteCount:
-                            maximumDownloadByteCount,
-                        maximumPixelCount:
-                            maximumPixelCount,
-                        transport: transport,
-                        persistentResponseCache:
-                            persistentResponseCache,
-                        persistentCacheKey:
-                            persistentCacheKey(
-                                for: key.url
-                            ),
-                        persistentCachePolicy:
-                            persistentCachePolicy,
-                        currentDate: currentDate,
-                        decoder: decoder
-                    )
-                } catch let error
-                    as GitLabMarkdownImageError
-                    where error == .unsuccessfulResponse
-                        || error == .invalidContentType
-                {
-                    if
-                        let fallback = try? await badgeLoader
-                            .image(
-                                for: key.url,
-                                targetPixelWidth:
-                                    key.targetPixelWidth
-                            )
-                    {
-                        return fallback
-                    }
-                    throw error
-                }
+                try await Self.load(
+                    request: request,
+                    targetPixelWidth:
+                        key.targetPixelWidth,
+                    maximumDownloadByteCount:
+                        maximumDownloadByteCount,
+                    maximumPixelCount:
+                        maximumPixelCount,
+                    transport: transport,
+                    persistentResponseCache:
+                        persistentResponseCache,
+                    persistentCacheKey:
+                        persistentCacheKey(
+                            for: key.url
+                        ),
+                    persistentCachePolicy:
+                        persistentCachePolicy,
+                    currentDate: currentDate,
+                    decoder: decoder
+                )
             },
             waiters: [waiterID]
         )

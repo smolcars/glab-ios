@@ -12,6 +12,9 @@ nonisolated enum GitLabNativeRoute:
     case mergeRequest(
         GitLabMergeRequestRoute
     )
+    case repositoryFile(
+        GitLabRepositoryFileRoute
+    )
     case user(GitLabUserRoute)
 }
 
@@ -108,6 +111,27 @@ nonisolated struct
                 GitLabMergeRequestRoute(
                     projectID: project.id,
                     mergeRequestIID: iid
+                )
+            )
+        case let .repositoryFile(
+            path,
+            ref,
+            filePath
+        ):
+            let project =
+                try await projectLoader
+                    .loadProject(
+                        pathWithNamespace:
+                            path
+                    )
+            return .repositoryFile(
+                GitLabRepositoryFileRoute(
+                    projectID: project.id,
+                    projectWebURL:
+                        project.safeWebURL,
+                    ref: ref,
+                    path: filePath,
+                    blobID: nil
                 )
             )
         }

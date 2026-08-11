@@ -15,6 +15,11 @@ nonisolated enum GitLabDeepLinkTarget:
         pathWithNamespace: String,
         iid: Int
     )
+    case repositoryFile(
+        pathWithNamespace: String,
+        ref: String,
+        path: String
+    )
 }
 
 nonisolated enum GitLabDeepLinkParseResult:
@@ -169,12 +174,7 @@ nonisolated enum GitLabDeepLinkParser {
                 )...
             ]
         )
-        guard
-            resourceSegments.count == 2,
-            let iid = positiveIID(
-                resourceSegments[1]
-            )
-        else {
+        guard let resource = resourceSegments.first else {
             return .unsupported(sourceURL)
         }
 
@@ -182,8 +182,16 @@ nonisolated enum GitLabDeepLinkParser {
             ..<markerIndex
         ].joined(separator: "/")
 
-        switch resourceSegments[0] {
+        switch resource {
         case "issues":
+            guard
+                resourceSegments.count == 2,
+                let iid = positiveIID(
+                    resourceSegments[1]
+                )
+            else {
+                return .unsupported(sourceURL)
+            }
             return .supported(
                 .issue(
                     pathWithNamespace:
@@ -192,11 +200,33 @@ nonisolated enum GitLabDeepLinkParser {
                 )
             )
         case "merge_requests":
+            guard
+                resourceSegments.count == 2,
+                let iid = positiveIID(
+                    resourceSegments[1]
+                )
+            else {
+                return .unsupported(sourceURL)
+            }
             return .supported(
                 .mergeRequest(
                     pathWithNamespace:
                         projectPath,
                     iid: iid
+                )
+            )
+        case "blob":
+            guard resourceSegments.count >= 3 else {
+                return .unsupported(sourceURL)
+            }
+            return .supported(
+                .repositoryFile(
+                    pathWithNamespace:
+                        projectPath,
+                    ref: resourceSegments[1],
+                    path: resourceSegments
+                        .dropFirst(2)
+                        .joined(separator: "/")
                 )
             )
         default:

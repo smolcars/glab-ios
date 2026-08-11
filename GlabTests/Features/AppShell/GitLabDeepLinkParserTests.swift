@@ -4,7 +4,7 @@ import Testing
 
 @Suite("GitLab deep-link parser")
 struct GitLabDeepLinkParserTests {
-    @Test("Parses supported project, issue, and merge-request routes")
+    @Test("Parses supported project, work-item, and repository-file routes")
     func parsesSupportedRoutes() throws {
         let gitLabCom = try GitLabHost(
             "https://gitlab.com"
@@ -56,6 +56,17 @@ struct GitLabDeepLinkParserTests {
                     pathWithNamespace:
                         "group/subgroup/project",
                     iid: 23
+                )
+            ),
+            (
+                gitLabCom,
+                "https://gitlab.com/ark-bitcoin/bark/"
+                    + "-/blob/master/docs/CONTRIBUTING.md#setup",
+                .repositoryFile(
+                    pathWithNamespace:
+                        "ark-bitcoin/bark",
+                    ref: "master",
+                    path: "docs/CONTRIBUTING.md"
                 )
             ),
         ]
@@ -115,6 +126,7 @@ struct GitLabDeepLinkParserTests {
             "https://gitlab.example.com/gitlab/group/project/-/wiki/home",
             "https://gitlab.example.com/gitlab/group/project/-/issues/1/extra",
             "https://gitlab.example.com/gitlab/group/project/-/issues",
+            "https://gitlab.example.com/gitlab/group/project/-/blob/main",
             "https://gitlab.example.com/gitlab/one-component",
             "https://gitlab.example.com/gitlab/group/project/-/issues/01",
         ].map {

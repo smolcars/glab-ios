@@ -80,6 +80,51 @@ struct GitLabDeepLinkRouteResolverTests {
                 ]
         )
     }
+
+    @Test("Resolves a repository file with project metadata")
+    func resolvesRepositoryFile() async throws {
+        let project = makeTestProject(
+            id: 42,
+            webURL: try #require(
+                URL(
+                    string:
+                        "https://gitlab.example.com/group/project"
+                )
+            )
+        )
+        let projects = RecordingProjectResolver(
+            project: project
+        )
+        let resolver = GitLabDeepLinkRouteResolver(
+            projectLoader: projects
+        )
+
+        let route = try await resolver.resolve(
+            .repositoryFile(
+                pathWithNamespace:
+                    "group/project",
+                ref: "main",
+                path: "docs/CONTRIBUTING.md"
+            )
+        )
+
+        #expect(
+            route == .repositoryFile(
+                GitLabRepositoryFileRoute(
+                    projectID: 42,
+                    projectWebURL:
+                        project.safeWebURL,
+                    ref: "main",
+                    path: "docs/CONTRIBUTING.md",
+                    blobID: nil
+                )
+            )
+        )
+        #expect(
+            await projects.paths
+                == ["group/project"]
+        )
+    }
 }
 
 private actor RecordingProjectResolver:
