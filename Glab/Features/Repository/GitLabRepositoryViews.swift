@@ -870,23 +870,33 @@ private struct GitLabRepositoryBranchPickerView:
     }
 }
 
-private struct GitLabRepositoryFileView: View {
+struct GitLabRepositoryFileView: View {
     let route: GitLabRepositoryFileRoute
     let accountID: GitLabAccountID
     let appSession: AppSession
 
+    @Environment(\.gitLabMarkdownRenderer)
+    private var markdownRenderer
     @State private var model:
         GitLabRepositoryFileModel
+    @State private var presentation:
+        GitLabRepositoryFilePresentation
 
     init(
         route: GitLabRepositoryFileRoute,
         loader: any GitLabRepositorySourceLoading,
         accountID: GitLabAccountID,
-        appSession: AppSession
+        appSession: AppSession,
+        initialPresentation:
+            GitLabRepositoryFilePresentation =
+                .rendered
     ) {
         self.route = route
         self.accountID = accountID
         self.appSession = appSession
+        _presentation = State(
+            initialValue: initialPresentation
+        )
         _model = State(
             initialValue:
                 GitLabRepositoryFileModel(
@@ -904,12 +914,15 @@ private struct GitLabRepositoryFileView: View {
                     VStack(spacing: 0) {
                         Text(route.fileName)
                             .font(.glabHeadline)
+                            .foregroundStyle(.white)
                             .lineLimit(1)
                             .truncationMode(.middle)
 
                         Text(fileSubtitle)
                             .font(.glabCaption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(
+                                .white.opacity(0.72)
+                            )
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
@@ -945,6 +958,10 @@ private struct GitLabRepositoryFileView: View {
                             case let .loaded(document) =
                                 model.state
                         {
+                            presentationAction(
+                                for: document
+                            )
+
                             Button {
                                 UIPasteboard.general.string =
                                     document.source
@@ -1009,27 +1026,16 @@ private struct GitLabRepositoryFileView: View {
                 )
                 .background(Color.glabCanvas)
         case let .loaded(document):
-            GitLabSourceCollectionView(
-                document: document
-            )
-            .background(Color.glabSurface)
-            .safeAreaInset(
-                edge: .bottom,
-                spacing: 0
-            ) {
-                if document.truncatedLineCount > 0 {
-                    Text(
-                        "\(document.truncatedLineCount.formatted()) long lines truncated for display"
+            if
+                presentation == .rendered,
+                GitLabRepositoryFilePresentation
+                    .supportsRenderedMarkdown(
+                        document
                     )
-                    .font(.glabCaption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .frame(maxWidth: .infinity)
-                    .background(
-                        Color.glabRaisedSurface
-                    )
-                }
+            {
+                renderedMarkdown(document)
+            } else {
+                rawSource(document)
             }
         case let .failed(error):
             ContentUnavailableView {
@@ -1057,6 +1063,86 @@ private struct GitLabRepositoryFileView: View {
         }
     }
 
+    private func renderedMarkdown(
+        _ document: GitLabSourceDocument
+    ) -> some View {
+        ScrollView {
+            GitLabRepositoryMarkdownContentView(
+                route: route,
+                document: document,
+                accountID: accountID,
+                renderer: markdownRenderer
+            )
+            .padding(16)
+        }
+        .background(Color.glabCanvas)
+        .accessibilityIdentifier(
+            "repository.markdown"
+        )
+    }
+
+    private func rawSource(
+        _ document: GitLabSourceDocument
+    ) -> some View {
+        GitLabSourceCollectionView(
+            document: document
+        )
+        .background(Color.glabSurface)
+        .safeAreaInset(
+            edge: .bottom,
+            spacing: 0
+        ) {
+            if document.truncatedLineCount > 0 {
+                Text(
+                    "\(document.truncatedLineCount.formatted()) long lines truncated for display"
+                )
+                .font(.glabCaption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .frame(maxWidth: .infinity)
+                .background(
+                    Color.glabRaisedSurface
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func presentationAction(
+        for document: GitLabSourceDocument
+    ) -> some View {
+        if
+            GitLabRepositoryFilePresentation
+                .supportsRenderedMarkdown(document)
+        {
+            Button {
+                presentation =
+                    presentation == .rendered
+                    ? .raw
+                    : .rendered
+            } label: {
+                Label(
+                    presentation == .rendered
+                        ? "View Raw"
+                        : "View Rendered",
+                    systemImage:
+                        presentation == .rendered
+                        ? "text.page"
+                        : "doc.richtext"
+                )
+            }
+            .accessibilityIdentifier(
+                "repository.file.presentationToggle"
+            )
+        } else if document.language == .markdown {
+            Label(
+                "Rendered view unavailable for files over 1 MB",
+                systemImage: "info.circle"
+            )
+        }
+    }
+
     private var fileSubtitle: String {
         route.parentPath.isEmpty
             ? route.ref
@@ -1076,5 +1162,26 @@ private struct GitLabRepositoryFileView: View {
                 error,
                 for: accountID
             )
+    }
+}
+
+struct GitLabRepositoryMarkdownContentView: View {
+    let route: GitLabRepositoryFileRoute
+    let document: GitLabSourceDocument
+    let accountID: GitLabAccountID
+    let renderer: any GitLabMarkdownRendering
+
+    var body: some View {
+        GitLabMarkdownContentView(
+            request: GitLabMarkdownRequest(
+                accountID: accountID,
+                resource: route.markdownResourceID,
+                source: document.source,
+                webURL: route.safeWebURL
+            ),
+            revision: .distantPast,
+            kind: .repositoryFile,
+            renderer: renderer
+        )
     }
 }

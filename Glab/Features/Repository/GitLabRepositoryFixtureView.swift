@@ -56,6 +56,10 @@
                 string:
                     "https://gitlab.example.com/example/glab-ios"
             ),
+            readmeURL: URL(
+                string:
+                    "https://gitlab.example.com/example/glab-ios/-/blob/main/README.md"
+            ),
             avatarURL: nil,
             starCount: 12,
             lastActivityAt: Date(

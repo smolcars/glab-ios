@@ -107,6 +107,7 @@ nonisolated enum GitLabMarkdownContentKind:
 {
     case description
     case comment
+    case repositoryFile
 
     var formattingMessage: String {
         switch self {
@@ -114,6 +115,8 @@ nonisolated enum GitLabMarkdownContentKind:
             "Formatting description…"
         case .comment:
             "Formatting comment…"
+        case .repositoryFile:
+            "Formatting Markdown…"
         }
     }
 
@@ -123,6 +126,8 @@ nonisolated enum GitLabMarkdownContentKind:
             "Couldn’t format this description"
         case .comment:
             "Couldn’t format this comment"
+        case .repositoryFile:
+            "Couldn’t format this file"
         }
     }
 
@@ -132,6 +137,8 @@ nonisolated enum GitLabMarkdownContentKind:
             "Unformatted description"
         case .comment:
             "Unformatted comment"
+        case .repositoryFile:
+            "Unformatted Markdown file"
         }
     }
 }

@@ -9,6 +9,10 @@ nonisolated func makeTestProject(
     webURL: URL? = URL(
         string: "https://gitlab.example.com/mobile/glab-ios"
     ),
+    readmeURL: URL? = URL(
+        string:
+            "https://gitlab.example.com/mobile/glab-ios/-/blob/main/README.md"
+    ),
     avatarURL: URL? = nil,
     starCount: Int = 17,
     lastActivityAt: Date = Date(
@@ -36,6 +40,7 @@ nonisolated func makeTestProject(
         nameWithNamespace: nameWithNamespace,
         pathWithNamespace: pathWithNamespace,
         webURL: webURL,
+        readmeURL: readmeURL,
         avatarURL: avatarURL,
         starCount: starCount,
         lastActivityAt: lastActivityAt,

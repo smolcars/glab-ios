@@ -286,6 +286,21 @@ struct GitLabProjectDetailView: View {
                 }
 
                 if
+                    let readmeRoute =
+                        GitLabRepositoryFileRoute(
+                            readmeIn: project
+                        )
+                {
+                    GitLabProjectReadmeView(
+                        route: readmeRoute,
+                        loader: repositoryLoader,
+                        accountID: accountID,
+                        appSession: appSession
+                    )
+                    .id(readmeRoute)
+                }
+
+                if
                     let destination =
                         project.safeWebURL
                 {
@@ -952,6 +967,232 @@ struct GitLabProjectDetailView: View {
                 model.authenticationFailure
                 ?? starModel
                     .authenticationFailure
+        else {
+            return
+        }
+        await appSession
+            .handleAuthenticationFailure(
+                error,
+                for: accountID
+            )
+    }
+}
+
+private struct GitLabProjectReadmeView: View {
+    let route: GitLabRepositoryFileRoute
+    let loader: any GitLabRepositorySourceLoading
+    let accountID: GitLabAccountID
+    let appSession: AppSession
+
+    @Environment(\.gitLabMarkdownRenderer)
+    private var markdownRenderer
+    @State private var model:
+        GitLabRepositoryFileModel
+
+    init(
+        route: GitLabRepositoryFileRoute,
+        loader: any GitLabRepositorySourceLoading,
+        accountID: GitLabAccountID,
+        appSession: AppSession
+    ) {
+        self.route = route
+        self.loader = loader
+        self.accountID = accountID
+        self.appSession = appSession
+        _model = State(
+            initialValue:
+                GitLabRepositoryFileModel(
+                    route: route,
+                    loader: loader
+                )
+        )
+    }
+
+    var body: some View {
+        VStack(
+            alignment: .leading,
+            spacing: 16
+        ) {
+            header
+
+            Divider()
+
+            content
+        }
+        .padding(16)
+        .background(
+            Color.secondary.opacity(0.06),
+            in: .rect(cornerRadius: 16)
+        )
+        .task {
+            await model.loadIfNeeded()
+            await handleAuthenticationFailure()
+        }
+        .onChange(
+            of: model.authenticationFailure
+        ) { _, error in
+            guard let error else {
+                return
+            }
+            Task {
+                await appSession
+                    .handleAuthenticationFailure(
+                        error,
+                        for: accountID
+                    )
+            }
+        }
+        .accessibilityIdentifier(
+            "project.readme"
+        )
+    }
+
+    private var header: some View {
+        HStack(spacing: 12) {
+            Label(
+                route.fileName,
+                systemImage: "info.circle"
+            )
+            .font(.glabHeadline)
+            .lineLimit(1)
+            .truncationMode(.middle)
+
+            Spacer(minLength: 8)
+
+            Menu {
+                NavigationLink {
+                    fileView(
+                        presentation: .rendered
+                    )
+                } label: {
+                    Label(
+                        "Open README",
+                        systemImage: "doc.richtext"
+                    )
+                }
+
+                NavigationLink {
+                    fileView(
+                        presentation: .raw
+                    )
+                } label: {
+                    Label(
+                        "View Raw",
+                        systemImage: "text.page"
+                    )
+                }
+
+                if let destination = route.safeWebURL {
+                    Link(destination: destination) {
+                        Label(
+                            "Open in GitLab",
+                            systemImage:
+                                "arrow.up.right.square"
+                        )
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .frame(width: 30, height: 30)
+            }
+            .buttonStyle(.glass(.clear))
+            .buttonBorderShape(.circle)
+            .accessibilityLabel("README actions")
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch model.state {
+        case .idle, .loading:
+            HStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Loading README…")
+                    .foregroundStyle(.secondary)
+            }
+            .font(.glabCallout)
+            .frame(
+                maxWidth: .infinity,
+                alignment: .leading
+            )
+        case let .loaded(document):
+            if
+                GitLabRepositoryFilePresentation
+                    .supportsRenderedMarkdown(
+                        document
+                    )
+            {
+                GitLabRepositoryMarkdownContentView(
+                    route: route,
+                    document: document,
+                    accountID: accountID,
+                    renderer: markdownRenderer
+                )
+            } else {
+                Text(
+                    document.language == .markdown
+                        ? "This README is too large to render. Open the raw file to read it."
+                        : "This README format is available as a raw file."
+                )
+                .font(.glabCallout)
+                .foregroundStyle(.secondary)
+            }
+        case let .failed(error):
+            VStack(
+                alignment: .leading,
+                spacing: 8
+            ) {
+                Label(
+                    "Couldn’t load README",
+                    systemImage:
+                        "exclamationmark.triangle"
+                )
+                .font(
+                    .glabCallout.weight(
+                        .semibold
+                    )
+                )
+
+                Text(error.description)
+                    .font(.glabCaption)
+                    .foregroundStyle(.secondary)
+
+                if error.canRetry {
+                    Button("Try Again") {
+                        Task {
+                            await model.retry()
+                            await handleAuthenticationFailure()
+                        }
+                    }
+                    .font(
+                        .glabCallout.weight(
+                            .semibold
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    private func fileView(
+        presentation:
+            GitLabRepositoryFilePresentation
+    ) -> some View {
+        GitLabRepositoryFileView(
+            route: route,
+            loader: loader,
+            accountID: accountID,
+            appSession: appSession,
+            initialPresentation: presentation
+        )
+    }
+
+    private func handleAuthenticationFailure()
+        async
+    {
+        guard
+            let error = model.authenticationFailure
         else {
             return
         }
