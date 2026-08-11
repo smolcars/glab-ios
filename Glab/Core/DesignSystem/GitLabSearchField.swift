@@ -37,7 +37,7 @@ struct GitLabSearchField: View {
                     accessibilityIdentifier
                 )
 
-            if !text.isEmpty {
+            if isFocused || !text.isEmpty {
                 Button {
                     text = ""
                     isFocused = false
@@ -54,7 +54,11 @@ struct GitLabSearchField: View {
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Clear search")
+                .accessibilityLabel(
+                    text.isEmpty
+                        ? "Close search"
+                        : "Clear and close search"
+                )
             }
         }
         .padding(.leading, 14)
@@ -69,6 +73,9 @@ struct GitLabSearchField: View {
         .background(
             Color.glabCanvas
         )
+        .onSubmit {
+            isFocused = false
+        }
         .task {
             if focusesOnAppear {
                 isFocused = true

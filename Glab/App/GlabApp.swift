@@ -125,6 +125,10 @@ struct GlabApp: App {
     private var rootContent: some View {
         #if DEBUG
             if
+                usesRepositoryFixture
+            {
+                GitLabRepositoryFixtureView()
+            } else if
                 usesTodoNotificationFixture
             {
                 GitLabTodoNotificationFixtureView()
@@ -155,6 +159,17 @@ struct GlabApp: App {
     }
 
     #if DEBUG
+        private var usesRepositoryFixture: Bool {
+            let arguments =
+                ProcessInfo.processInfo.arguments
+            return arguments.contains(
+                "repository_fixture"
+            )
+                || arguments.contains(
+                    "-repository_fixture"
+                )
+        }
+
         private var
             usesTodoNotificationFixture:
             Bool
