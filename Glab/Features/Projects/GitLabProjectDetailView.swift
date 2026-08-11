@@ -988,6 +988,9 @@ private struct GitLabProjectReadmeView: View {
     private var markdownRenderer
     @State private var model:
         GitLabRepositoryFileModel
+    @State private var presentation:
+        GitLabRepositoryFilePresentation =
+            .markdownKit
 
     init(
         route: GitLabRepositoryFileRoute,
@@ -1060,14 +1063,38 @@ private struct GitLabProjectReadmeView: View {
             Spacer(minLength: 8)
 
             Menu {
+                Picker(
+                    "Preview",
+                    selection: $presentation
+                ) {
+                    ForEach(
+                        [
+                            GitLabRepositoryFilePresentation
+                                .markdownKit,
+                            .rendered,
+                        ],
+                        id: \.self
+                    ) { option in
+                        Label(
+                            option.title,
+                            systemImage:
+                                option.systemImage
+                        )
+                        .tag(option)
+                    }
+                }
+
+                Divider()
+
                 NavigationLink {
                     fileView(
-                        presentation: .rendered
+                        presentation: presentation
                     )
                 } label: {
                     Label(
-                        "Open README",
-                        systemImage: "doc.richtext"
+                        "Open Full Screen",
+                        systemImage:
+                            "arrow.up.left.and.arrow.down.right"
                     )
                 }
 
@@ -1123,12 +1150,7 @@ private struct GitLabProjectReadmeView: View {
                         document
                     )
             {
-                GitLabRepositoryMarkdownContentView(
-                    route: route,
-                    document: document,
-                    accountID: accountID,
-                    renderer: markdownRenderer
-                )
+                readmePreview(document)
             } else {
                 Text(
                     document.language == .markdown
@@ -1172,6 +1194,27 @@ private struct GitLabProjectReadmeView: View {
                     )
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func readmePreview(
+        _ document: GitLabSourceDocument
+    ) -> some View {
+        switch presentation {
+        case .markdownKit:
+            GitLabMarkdownKitPrototypeView(
+                source: document.source
+            )
+        case .rendered:
+            GitLabRepositoryMarkdownContentView(
+                route: route,
+                document: document,
+                accountID: accountID,
+                renderer: markdownRenderer
+            )
+        case .raw:
+            EmptyView()
         }
     }
 

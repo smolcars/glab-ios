@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		B20000000000000000000001 /* MarkdownKit in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000003 /* MarkdownKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A10000000000000000000010 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -39,6 +43,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B20000000000000000000001 /* MarkdownKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -90,6 +95,7 @@
 			);
 			name = Glab;
 			packageProductDependencies = (
+				B20000000000000000000003 /* MarkdownKit */,
 			);
 			productName = Glab;
 			productReference = A10000000000000000000008 /* Glab.app */;
@@ -148,6 +154,9 @@
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A10000000000000000000005 /* Products */;
+			packageReferences = (
+				B20000000000000000000002 /* XCRemoteSwiftPackageReference "swift-markdownkit" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -471,6 +480,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		B20000000000000000000002 /* XCRemoteSwiftPackageReference "swift-markdownkit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/objecthub/swift-markdownkit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.4.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B20000000000000000000003 /* MarkdownKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B20000000000000000000002 /* XCRemoteSwiftPackageReference "swift-markdownkit" */;
+			productName = MarkdownKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A10000000000000000000002 /* Project object */;
 }

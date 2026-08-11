@@ -342,11 +342,36 @@ nonisolated struct GitLabRepositoryFileRoute:
 }
 
 nonisolated enum GitLabRepositoryFilePresentation:
+    CaseIterable,
     Equatable,
+    Hashable,
     Sendable
 {
+    case markdownKit
     case rendered
     case raw
+
+    var title: String {
+        switch self {
+        case .markdownKit:
+            "MarkdownKit Prototype"
+        case .rendered:
+            "Native Renderer"
+        case .raw:
+            "Raw"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .markdownKit:
+            "sparkles.rectangle.stack"
+        case .rendered:
+            "doc.richtext"
+        case .raw:
+            "text.page"
+        }
+    }
 
     static let maximumRenderedMarkdownByteCount =
         1_024 * 1_024

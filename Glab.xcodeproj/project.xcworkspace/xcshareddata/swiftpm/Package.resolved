@@ -1,0 +1,24 @@
+{
+  "originHash" : "cc59911c3300eee8d20a78997f83e2e5766ae5487816ca1f59a5386c52baf65b",
+  "pins" : [
+    {
+      "identity" : "swift-commandlinekit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/objecthub/swift-commandlinekit.git",
+      "state" : {
+        "revision" : "58aa1a2285c5b8ad54e874a2bd66f790eb7e1766",
+        "version" : "1.1.1"
+      }
+    },
+    {
+      "identity" : "swift-markdownkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/objecthub/swift-markdownkit.git",
+      "state" : {
+        "revision" : "e18a9a4ef03bad01d784352b6f7cd8da2e0dbf54",
+        "version" : "1.4.1"
+      }
+    }
+  ],
+  "version" : 3
+}

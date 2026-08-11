@@ -265,9 +265,13 @@
         ] = [
             "README.md":
                 """
-                # glab-ios
+                <div align="center">
+                <h1>glab-ios</h1>
+                <p><strong>A compact GitLab client for iPhone.</strong></p>
+                <p><a href="https://gitlab.example.com/example/glab-ios">Project</a> · <a href="https://gitlab.example.com/example/glab-ios/-/issues">Issues</a></p>
+                </div>
 
-                A compact GitLab client for iPhone.
+                ## Repository browser
 
                 - Browse branches and folders
                 - Search repository files
