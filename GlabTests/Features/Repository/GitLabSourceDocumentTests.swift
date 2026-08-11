@@ -74,6 +74,27 @@ struct GitLabSourceDocumentTests {
         #expect(document.language == .json)
     }
 
+    @Test("Expands tabs to stable rendered columns")
+    func expandsTabs() {
+        let source = "\t\tvalue\na\tb"
+        let document = GitLabSourceDocument(
+            source: source,
+            fileName: "Makefile"
+        )
+
+        #expect(document.source == source)
+        #expect(
+            document.lines == [
+                "        value",
+                "a   b",
+            ]
+        )
+        #expect(
+            document.maximumRenderedColumnCount
+                == 8 + "value".count
+        )
+    }
+
     @Test("Rejects pathological line counts")
     func rejectsExcessiveLineCounts() {
         let source = String(

@@ -116,6 +116,23 @@
             )
         }
 
+        func loadBranch(
+            projectID: Int,
+            name: String
+        ) async throws(GitLabSessionClientError)
+            -> GitLabRepositoryBranch
+        {
+            guard
+                projectID == Self.project.id,
+                let branch = Self.branches.first(
+                    where: { $0.name == name }
+                )
+            else {
+                throw .api(.notFound)
+            }
+            return branch
+        }
+
         func loadSearchPage(
             projectID: Int,
             ref: String,

@@ -84,6 +84,22 @@ nonisolated enum GitLabRepositoryEndpoints {
         )
     }
 
+    static func branch(
+        projectID: Int,
+        name: String
+    ) -> GitLabAPIRequest<GitLabRepositoryBranch> {
+        .get(
+            requires: .read,
+            path: [
+                "projects",
+                String(projectID),
+                "repository",
+                "branches",
+                name,
+            ]
+        )
+    }
+
     static func search(
         projectID: Int,
         ref: String,

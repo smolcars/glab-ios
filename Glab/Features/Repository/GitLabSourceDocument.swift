@@ -71,6 +71,7 @@ nonisolated struct GitLabSourceDocument:
     static let maximumRenderedLineLength =
         32 * 1_024
     static let maximumLineCount = 100_000
+    static let renderedTabWidth = 4
 
     let source: String
     let lines: [String]
@@ -104,29 +105,30 @@ nonisolated struct GitLabSourceDocument:
             )
             .map { substring in
                 let line = String(substring)
+                let displayLine: String
                 if
                     line.count
                         > Self
                             .maximumRenderedLineLength
                 {
                     truncatedLineCount += 1
-                    let rendered = String(
+                    displayLine = String(
                         line.prefix(
                             Self.maximumRenderedLineLength
                         )
                     ) + " …"
-                    maximumColumnCount = max(
-                        maximumColumnCount,
-                        rendered.utf16.count
-                    )
-                    return rendered
+                } else {
+                    displayLine = line
                 }
 
+                let rendered = Self.expandingTabs(
+                    in: displayLine
+                )
                 maximumColumnCount = max(
                     maximumColumnCount,
-                    line.utf16.count
+                    rendered.utf16.count
                 )
-                return line
+                return rendered
             }
 
         self.source = source
@@ -134,12 +136,44 @@ nonisolated struct GitLabSourceDocument:
         maximumRenderedColumnCount = min(
             maximumColumnCount,
             Self.maximumRenderedLineLength
+                * Self.renderedTabWidth
+                + 2
         )
         self.truncatedLineCount =
             truncatedLineCount
         language = GitLabSourceLanguage(
             fileName: fileName
         )
+    }
+
+    private static func expandingTabs(
+        in line: String
+    ) -> String {
+        guard line.contains("\t") else {
+            return line
+        }
+
+        var result = ""
+        result.reserveCapacity(line.count)
+        var column = 0
+        for character in line {
+            if character == "\t" {
+                let spaces = renderedTabWidth
+                    - column % renderedTabWidth
+                result.append(
+                    String(
+                        repeating: " ",
+                        count: spaces
+                    )
+                )
+                column += spaces
+            } else {
+                result.append(character)
+                column += String(character)
+                    .utf16.count
+            }
+        }
+        return result
     }
 
     static func decode(

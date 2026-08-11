@@ -45,6 +45,12 @@ struct GitLabRepositoryEndpointTests {
                 search: "release"
             )
         )
+        let branch = try requestURL(
+            GitLabRepositoryEndpoints.branch(
+                projectID: 42,
+                name: "release/1.0"
+            )
+        )
         let search = try requestURL(
             GitLabRepositoryEndpoints.search(
                 projectID: 42,
@@ -58,6 +64,12 @@ struct GitLabRepositoryEndpointTests {
                 == "https://gitlab.example.com/api/v4/"
                 + "projects/42/repository/branches"
                 + "?search=release&per_page=100"
+        )
+        #expect(
+            branch.absoluteString
+                == "https://gitlab.example.com/api/v4/"
+                + "projects/42/repository/branches/"
+                + "release%2F1.0"
         )
         #expect(
             search.absoluteString

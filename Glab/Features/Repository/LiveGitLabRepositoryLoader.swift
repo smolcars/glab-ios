@@ -32,6 +32,12 @@ nonisolated protocol GitLabRepositoryBrowsing:
     ) async throws(GitLabSessionClientError)
         -> GitLabRepositoryBranchPage
 
+    func loadBranch(
+        projectID: Int,
+        name: String
+    ) async throws(GitLabSessionClientError)
+        -> GitLabRepositoryBranch
+
     func loadSearchPage(
         projectID: Int,
         ref: String,
@@ -206,6 +212,21 @@ nonisolated struct LiveGitLabRepositoryLoader:
             branches: response.value,
             nextPageURL:
                 response.metadata.nextPageURL
+        )
+    }
+
+    @concurrent
+    func loadBranch(
+        projectID: Int,
+        name: String
+    ) async throws(GitLabSessionClientError)
+        -> GitLabRepositoryBranch
+    {
+        try await client.send(
+            GitLabRepositoryEndpoints.branch(
+                projectID: projectID,
+                name: name
+            )
         )
     }
 

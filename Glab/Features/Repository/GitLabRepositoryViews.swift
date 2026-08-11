@@ -47,6 +47,8 @@ struct GitLabRepositoryView: View {
             NavigationStack {
                 GitLabRepositoryBranchPickerView(
                     projectID: project.id,
+                    defaultBranchName:
+                        project.defaultBranch,
                     selectedRef: selectedRef,
                     loader: loader,
                     accountID: accountID,
@@ -590,6 +592,7 @@ private struct GitLabRepositoryBranchPickerView:
     View
 {
     let projectID: Int
+    let defaultBranchName: String?
     let selectedRef: String
     let loader: any GitLabRepositoryBrowsing
     let accountID: GitLabAccountID
@@ -605,6 +608,7 @@ private struct GitLabRepositoryBranchPickerView:
 
     init(
         projectID: Int,
+        defaultBranchName: String?,
         selectedRef: String,
         loader: any GitLabRepositoryBrowsing,
         accountID: GitLabAccountID,
@@ -613,6 +617,7 @@ private struct GitLabRepositoryBranchPickerView:
             @escaping (GitLabRepositoryBranch) -> Void
     ) {
         self.projectID = projectID
+        self.defaultBranchName = defaultBranchName
         self.selectedRef = selectedRef
         self.loader = loader
         self.accountID = accountID
@@ -622,6 +627,8 @@ private struct GitLabRepositoryBranchPickerView:
             initialValue:
                 GitLabRepositoryBranchesModel(
                     projectID: projectID,
+                    defaultBranchName:
+                        defaultBranchName,
                     loader: loader
                 )
         )
@@ -846,6 +853,8 @@ private struct GitLabRepositoryBranchPickerView:
 
         let model = GitLabRepositoryBranchesModel(
             projectID: projectID,
+            defaultBranchName:
+                defaultBranchName,
             search: query,
             loader: loader
         )

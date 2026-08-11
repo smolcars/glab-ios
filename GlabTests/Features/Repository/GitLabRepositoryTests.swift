@@ -169,6 +169,40 @@ struct GitLabRepositoryTests {
         )
     }
 
+    @Test("Loads a paginated default branch into the first page")
+    @MainActor
+    func loadsPaginatedDefaultBranchFirst() async {
+        let firstPage = (0..<100).map {
+            branch(
+                name: String(
+                    format: "branch-%03d",
+                    $0
+                )
+            )
+        }
+        let loader = RepositoryBranchLoaderStub(
+            firstPage: firstPage,
+            defaultBranch: branch(
+                name: "z-main",
+                isDefault: true
+            )
+        )
+        let model = GitLabRepositoryBranchesModel(
+            projectID: 42,
+            defaultBranchName: "z-main",
+            loader: loader
+        )
+
+        await model.loadIfNeeded()
+
+        #expect(model.items.first?.name == "z-main")
+        #expect(
+            model.sortedRepositoryBranches.first?.name
+                == "z-main"
+        )
+        #expect(model.items.count == 101)
+    }
+
     private nonisolated func entry(
         id: String,
         name: String,
@@ -193,5 +227,66 @@ struct GitLabRepositoryTests {
             isProtected: false,
             webURL: nil
         )
+    }
+}
+
+private nonisolated struct RepositoryBranchLoaderStub:
+    GitLabRepositoryBrowsing
+{
+    let firstPage: [GitLabRepositoryBranch]
+    let defaultBranch: GitLabRepositoryBranch
+
+    func loadTreePage(
+        projectID: Int,
+        ref: String,
+        path: String,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabRepositoryEntryPage
+    {
+        throw .api(.notFound)
+    }
+
+    func loadBranchesPage(
+        projectID: Int,
+        search: String?,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabRepositoryBranchPage
+    {
+        GitLabRepositoryBranchPage(
+            branches: firstPage,
+            nextPageURL: URL(
+                string:
+                    "https://gitlab.example.com/api/v4/"
+                    + "projects/42/repository/branches?page=2"
+            )
+        )
+    }
+
+    func loadBranch(
+        projectID: Int,
+        name: String
+    ) async throws(GitLabSessionClientError)
+        -> GitLabRepositoryBranch
+    {
+        guard
+            projectID == 42,
+            name == defaultBranch.name
+        else {
+            throw .api(.notFound)
+        }
+        return defaultBranch
+    }
+
+    func loadSearchPage(
+        projectID: Int,
+        ref: String,
+        query: String,
+        after nextPageURL: URL?
+    ) async throws(GitLabSessionClientError)
+        -> GitLabRepositorySearchPage
+    {
+        throw .api(.notFound)
     }
 }

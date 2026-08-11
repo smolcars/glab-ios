@@ -99,6 +99,7 @@ where
 {
     convenience init(
         projectID: Int,
+        defaultBranchName: String? = nil,
         search: String? = nil,
         loader: any GitLabRepositoryBrowsing
     ) {
@@ -121,6 +122,52 @@ where
                         page.nextPageURL
                 )
             },
+            loadFirstPage: {
+                (
+                    _:
+                        GitLabCacheRefreshBehavior,
+                    onPage:
+                        @escaping @Sendable (
+                            GitLabResourcePageEvent<
+                                GitLabRepositoryBranch
+                            >
+                        ) async -> Void
+                ) async throws(
+                    GitLabSessionClientError
+                ) -> Void in
+                let loadedPage = try await loader
+                    .loadBranchesPage(
+                        projectID: projectID,
+                        search: search,
+                        after: nil
+                    )
+                var branches = loadedPage.branches
+                if
+                    !branches.contains(
+                        where: \.isDefault
+                    ),
+                    let defaultBranch = await loader
+                        .loadDefaultBranchIfAvailable(
+                            projectID: projectID,
+                            name: defaultBranchName
+                        )
+                {
+                    branches.removeAll {
+                        $0.name == defaultBranch.name
+                    }
+                    branches.insert(defaultBranch, at: 0)
+                }
+                await onPage(
+                    GitLabResourcePageEvent(
+                        page: GitLabResourcePage(
+                            items: branches,
+                            nextPageURL:
+                                loadedPage.nextPageURL
+                        ),
+                        source: .network
+                    )
+                )
+            },
             identity: \GitLabRepositoryBranch.name,
             searchValues: { [$0.name] }
         )
@@ -137,6 +184,21 @@ where
                 $1.name
             ) == .orderedAscending
         }
+    }
+}
+
+private extension GitLabRepositoryBrowsing {
+    func loadDefaultBranchIfAvailable(
+        projectID: Int,
+        name: String?
+    ) async -> GitLabRepositoryBranch? {
+        guard let name, !name.isEmpty else {
+            return nil
+        }
+        return try? await loadBranch(
+            projectID: projectID,
+            name: name
+        )
     }
 }
 
