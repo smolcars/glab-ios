@@ -250,7 +250,7 @@ struct GitLabProjectDetailView: View {
         _ project: GitLabProject
     ) -> some View {
         ScrollView {
-            LazyVStack(
+            VStack(
                 alignment: .leading,
                 spacing: 24
             ) {

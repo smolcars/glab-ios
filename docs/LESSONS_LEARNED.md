@@ -13,3 +13,4 @@
 - Modern SVG badges can embed SVG logos with `href`. Normalize them before SwiftDraw decoding.
 - Observe incoming navigation on the stack, not an off-screen root destination.
 - Route same-instance GitLab blob links to the native file viewer.
+- Avoid wrapping one tall Markdown document in a `LazyVStack`; estimated heights make the scroll indicator jump.
