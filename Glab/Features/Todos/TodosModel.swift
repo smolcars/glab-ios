@@ -243,13 +243,9 @@ final class TodosModel {
     }
 
     var pendingBadgeCount: Int? {
-        let query = GitLabTodoQuery(
-            state: .pending,
-            targetFilter: .all
-        )
         guard
             let count =
-                cachedModels[query]?.reliableItemCount
+                pendingAllModel.reliableItemCount
         else {
             return hidesAllPendingTodos ? 0 : nil
         }
@@ -260,6 +256,28 @@ final class TodosModel {
             0,
             count - pendingBadgeAdjustmentIDs.count
         )
+    }
+
+    var pendingTodos: [GitLabTodo] {
+        guard !hidesAllPendingTodos else {
+            return []
+        }
+        return pendingAllModel.items.filter {
+            !hiddenPendingTodoIDs.contains($0.id)
+        }
+    }
+
+    var pendingTodosLoadError:
+        GitLabSessionClientError?
+    {
+        pendingAllModel.loadError
+    }
+
+    var hasPendingTodos: Bool {
+        if let pendingBadgeCount {
+            return pendingBadgeCount > 0
+        }
+        return !pendingTodos.isEmpty
     }
 
     var canComplete: Bool {
@@ -312,6 +330,74 @@ final class TodosModel {
         await refresh(
             query: query,
             model: activeModel
+        )
+    }
+
+    func loadAllPendingTodos() async {
+        let pendingModel = pendingAllModel
+        if
+            pendingModel.hasLoaded,
+            pendingModel.loadError != nil,
+            !pendingModel.didFailNextPage
+        {
+            await refresh(
+                query: pendingAllQuery,
+                model: pendingModel
+            )
+        } else {
+            let previousRevision =
+                pendingModel.contentRevision
+            await pendingModel.loadIfNeeded()
+            if
+                pendingModel.contentRevision
+                    != previousRevision
+            {
+                reconcileSuccessfulReplace(
+                    query: pendingAllQuery,
+                    model: pendingModel
+                )
+            }
+        }
+        guard !Task.isCancelled else {
+            return
+        }
+
+        if
+            pendingModel.didFailNextPage
+        {
+            let revisionBeforeRetry =
+                pendingModel.contentRevision
+            await pendingModel.retryNextPage()
+            if
+                pendingModel.contentRevision
+                    != revisionBeforeRetry
+            {
+                observeLoadedPendingTodos(
+                    query: pendingAllQuery,
+                    model: pendingModel
+                )
+            }
+        }
+        guard
+            !Task.isCancelled,
+            pendingModel.loadError == nil
+        else {
+            return
+        }
+
+        let revisionBeforeRemainingPages =
+            pendingModel.contentRevision
+        await pendingModel.loadAllRemainingPages()
+        guard
+            !Task.isCancelled,
+            pendingModel.contentRevision
+                != revisionBeforeRemainingPages
+        else {
+            return
+        }
+        observeLoadedPendingTodos(
+            query: pendingAllQuery,
+            model: pendingModel
         )
     }
 
@@ -543,6 +629,21 @@ final class TodosModel {
         activeModel = model
     }
 
+    private var pendingAllQuery:
+        GitLabTodoQuery
+    {
+        GitLabTodoQuery(
+            state: .pending,
+            targetFilter: .all
+        )
+    }
+
+    private var pendingAllModel:
+        GitLabTodosPageModel
+    {
+        cachedModels[pendingAllQuery]!
+    }
+
     private func matchesSelectedTarget(
         _ todo: GitLabTodo
     ) -> Bool {
@@ -656,7 +757,7 @@ final class TodosModel {
         return todoIDs
     }
 
-    private func pendingTodo(
+    func pendingTodo(
         id: Int
     ) -> GitLabTodo? {
         for (query, model) in cachedModels

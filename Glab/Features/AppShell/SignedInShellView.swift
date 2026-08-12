@@ -53,6 +53,8 @@ struct SignedInShellView: View {
     @State private var reviewRequestsModel:
         MergeRequestsModel
     @State private var todosModel: TodosModel
+    @State private var todoCatchUpModel:
+        TodoCatchUpModel
     @State private var globalSearchModel:
         GitLabGlobalSearchModel
     @State private var deepLinkResolutionModel:
@@ -330,19 +332,25 @@ struct SignedInShellView: View {
                 loader: mergeRequestLoader
             )
         )
+        let todosModel = TodosModel(
+            loader: todoService,
+            mutator: todoService,
+            apiAccess: session.apiAccess,
+            todosDidLoad: {
+                todos in
+                todoNotificationManager
+                    .observe(
+                        todos: todos,
+                        for: accountID
+                    )
+            }
+        )
         _todosModel = State(
-            initialValue: TodosModel(
-                loader: todoService,
-                mutator: todoService,
-                apiAccess: session.apiAccess,
-                todosDidLoad: {
-                    todos in
-                    todoNotificationManager
-                        .observe(
-                            todos: todos,
-                            for: accountID
-                        )
-                }
+            initialValue: todosModel
+        )
+        _todoCatchUpModel = State(
+            initialValue: TodoCatchUpModel(
+                todosModel: todosModel
             )
         )
         _globalSearchModel = State(
@@ -376,6 +384,8 @@ struct SignedInShellView: View {
                     accountID: accountID,
                     appSession: appSession,
                     model: homeDashboardModel,
+                    todoCatchUpModel:
+                        todoCatchUpModel,
                     assignedIssuesModel: assignedIssuesModel,
                     createdIssuesModel:
                         createdIssuesModel,
