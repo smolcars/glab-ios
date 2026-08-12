@@ -145,9 +145,13 @@ nonisolated struct GitLabSourceDocument:
         language = GitLabSourceLanguage(
             fileName: fileName
         )
-        syntaxLanguage = GitLabSyntaxLanguage(
-            fileName: fileName
-        )
+        syntaxLanguage = if truncatedLineCount == 0 {
+            GitLabSyntaxLanguage(
+                fileName: fileName
+            )
+        } else {
+            nil
+        }
     }
 
     private static func expandingTabs(

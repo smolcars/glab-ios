@@ -99,6 +99,7 @@ struct GitLabSourceDocumentTests {
         #expect(document.truncatedLineCount == 1)
         #expect(document.lines[0].hasSuffix(" …"))
         #expect(document.language == .json)
+        #expect(document.syntaxLanguage == nil)
     }
 
     @Test("Expands tabs to stable rendered columns")

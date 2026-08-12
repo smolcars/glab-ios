@@ -161,10 +161,12 @@ nonisolated struct GitLabSyntaxLanguage:
         "objective-c": "objectivec",
         "py": "python",
         "rb": "ruby",
+        "sass": "scss",
         "shell": "bash",
         "sh": "bash",
         "ts": "typescript",
         "tsx": "typescript",
+        "vue": "xml",
         "yml": "yaml",
     ]
 

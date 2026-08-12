@@ -55,6 +55,41 @@ struct GitLabSyntaxHighlighterTests {
                 fileName: "notes.txt"
             ) == nil
         )
+        #expect(
+            GitLabSyntaxLanguage(
+                fileName: "Component.vue"
+            )?.identifier == "xml"
+        )
+        #expect(
+            GitLabSyntaxLanguage(
+                fileName: "theme.sass"
+            )?.identifier == "scss"
+        )
+    }
+
+    @Test("Uses bundled grammars for Vue and Sass source")
+    func bundledGrammarAliases() async throws {
+        let highlighter = GitLabSyntaxHighlighter()
+        let samples = [
+            ("Component.vue", "<template><p>Hello</p></template>"),
+            ("theme.sass", "$accent: #f00\n.button\n  color: $accent"),
+        ]
+
+        for (fileName, source) in samples {
+            let language = try #require(
+                GitLabSyntaxLanguage(
+                    fileName: fileName
+                )
+            )
+            let result = await highlighter.highlight(
+                GitLabSyntaxHighlightRequest(
+                    source: source,
+                    language: language,
+                    theme: .light
+                )
+            )
+            #expect(result?.attributedString.string == source)
+        }
     }
 
     @Test("Preserves source exactly and removes layout attributes")
