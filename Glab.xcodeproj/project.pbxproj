@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		B20000000000000000000001 /* MarkdownKit in Frameworks */ = {isa = PBXBuildFile; productRef = B20000000000000000000003 /* MarkdownKit */; };
 		B30000000000000000000001 /* SwiftDraw in Frameworks */ = {isa = PBXBuildFile; productRef = B30000000000000000000003 /* SwiftDraw */; };
+		B40000000000000000000001 /* Highlighter in Frameworks */ = {isa = PBXBuildFile; productRef = B40000000000000000000003 /* Highlighter */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -46,6 +47,7 @@
 			files = (
 				B20000000000000000000001 /* MarkdownKit in Frameworks */,
 				B30000000000000000000001 /* SwiftDraw in Frameworks */,
+				B40000000000000000000001 /* Highlighter in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -99,6 +101,7 @@
 			packageProductDependencies = (
 				B20000000000000000000003 /* MarkdownKit */,
 				B30000000000000000000003 /* SwiftDraw */,
+				B40000000000000000000003 /* Highlighter */,
 			);
 			productName = Glab;
 			productReference = A10000000000000000000008 /* Glab.app */;
@@ -160,6 +163,7 @@
 			packageReferences = (
 				B20000000000000000000002 /* XCRemoteSwiftPackageReference "swift-markdownkit" */,
 				B30000000000000000000002 /* XCRemoteSwiftPackageReference "SwiftDraw" */,
+				B40000000000000000000002 /* XCRemoteSwiftPackageReference "HighlighterSwift" */,
 			);
 			projectDirPath = "";
 			projectRoot = "";
@@ -502,6 +506,14 @@
 				minimumVersion = 0.29.0;
 			};
 		};
+		B40000000000000000000002 /* XCRemoteSwiftPackageReference "HighlighterSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/smittytone/HighlighterSwift.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.1.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -514,6 +526,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = B30000000000000000000002 /* XCRemoteSwiftPackageReference "SwiftDraw" */;
 			productName = SwiftDraw;
+		};
+		B40000000000000000000003 /* Highlighter */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B40000000000000000000002 /* XCRemoteSwiftPackageReference "HighlighterSwift" */;
+			productName = Highlighter;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

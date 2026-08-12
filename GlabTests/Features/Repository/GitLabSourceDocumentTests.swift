@@ -18,6 +18,33 @@ struct GitLabSourceDocumentTests {
         )
         #expect(document.lineCount == 4)
         #expect(document.language == .swift)
+        #expect(
+            document.syntaxLanguage?.identifier
+                == "swift"
+        )
+    }
+
+    @Test("Keeps exact highlighter languages separate from the fallback renderer")
+    func exactSyntaxLanguages() {
+        #expect(
+            GitLabSourceDocument(
+                source: "int main() {}",
+                fileName: "main.cpp"
+            ).syntaxLanguage?.identifier == "cpp"
+        )
+        #expect(
+            GitLabSourceDocument(
+                source: "@interface AppDelegate",
+                fileName: "AppDelegate.m"
+            ).syntaxLanguage?.identifier
+                == "objectivec"
+        )
+        #expect(
+            GitLabSourceDocument(
+                source: "plain notes",
+                fileName: "notes.txt"
+            ).syntaxLanguage == nil
+        )
     }
 
     @Test("Decodes UTF-16 content with a byte-order mark")
@@ -72,6 +99,7 @@ struct GitLabSourceDocumentTests {
         #expect(document.truncatedLineCount == 1)
         #expect(document.lines[0].hasSuffix(" …"))
         #expect(document.language == .json)
+        #expect(document.syntaxLanguage == nil)
     }
 
     @Test("Expands tabs to stable rendered columns")

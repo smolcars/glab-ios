@@ -78,6 +78,7 @@ nonisolated struct GitLabSourceDocument:
     let maximumRenderedColumnCount: Int
     let truncatedLineCount: Int
     let language: GitLabSourceLanguage
+    let syntaxLanguage: GitLabSyntaxLanguage?
 
     var lineCount: Int {
         lines.count
@@ -144,6 +145,13 @@ nonisolated struct GitLabSourceDocument:
         language = GitLabSourceLanguage(
             fileName: fileName
         )
+        syntaxLanguage = if truncatedLineCount == 0 {
+            GitLabSyntaxLanguage(
+                fileName: fileName
+            )
+        } else {
+            nil
+        }
     }
 
     private static func expandingTabs(
