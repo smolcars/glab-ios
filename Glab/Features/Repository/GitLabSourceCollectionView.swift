@@ -6,8 +6,18 @@ struct GitLabSourceCollectionView:
 {
     let document: GitLabSourceDocument
 
+    @Environment(\.colorScheme)
+    private var colorScheme
+    @Environment(\.gitLabSyntaxHighlighter)
+    private var syntaxHighlighter
+
     func makeCoordinator() -> Coordinator {
-        Coordinator(document: document)
+        Coordinator(
+            document: document,
+            syntaxHighlighter:
+                syntaxHighlighter,
+            syntaxTheme: syntaxTheme
+        )
     }
 
     func makeUIView(
@@ -47,15 +57,25 @@ struct GitLabSourceCollectionView:
         _ collectionView: UICollectionView,
         context: Context
     ) {
-        context.coordinator.update(document)
+        context.coordinator.update(
+            document,
+            syntaxHighlighter:
+                syntaxHighlighter,
+            syntaxTheme: syntaxTheme
+        )
     }
 
     static func dismantleUIView(
         _ collectionView: UICollectionView,
         coordinator: Coordinator
     ) {
+        coordinator.cancelHighlighting()
         collectionView.dataSource = nil
         collectionView.delegate = nil
+    }
+
+    private var syntaxTheme: GitLabSyntaxTheme {
+        colorScheme == .dark ? .dark : .light
     }
 
     @MainActor
@@ -70,6 +90,17 @@ struct GitLabSourceCollectionView:
             UICollectionView?
         private var highlighter:
             GitLabSourceLineHighlighter
+        private var syntaxHighlighter:
+            any GitLabSyntaxHighlighting
+        private var syntaxTheme: GitLabSyntaxTheme
+        private var highlightedSource:
+            GitLabHighlightedText?
+        private var highlightedLineRanges:
+            [NSRange] = []
+        private var highlightingTask:
+            Task<Void, Never>?
+        private var highlightingGeneration:
+            UInt64 = 0
         private var font = UIFont
             .monospacedSystemFont(
                 ofSize: 14,
@@ -79,8 +110,16 @@ struct GitLabSourceCollectionView:
         private var glyphWidth: CGFloat = 8
         private var gutterWidth: CGFloat = 48
 
-        init(document: GitLabSourceDocument) {
+        init(
+            document: GitLabSourceDocument,
+            syntaxHighlighter:
+                any GitLabSyntaxHighlighting,
+            syntaxTheme: GitLabSyntaxTheme
+        ) {
             self.document = document
+            self.syntaxHighlighter =
+                syntaxHighlighter
+            self.syntaxTheme = syntaxTheme
             highlighter = GitLabSourceLineHighlighter(
                 language: document.language
             )
@@ -114,12 +153,10 @@ struct GitLabSourceCollectionView:
             ]
             cell.configure(
                 lineNumber: indexPath.item + 1,
-                source:
-                    highlighter.attributedLine(
-                        line,
-                        index: indexPath.item,
-                        font: font
-                    ),
+                source: attributedLine(
+                    line,
+                    index: indexPath.item
+                ),
                 plainSource: line,
                 font: font,
                 gutterWidth: gutterWidth,
@@ -152,27 +189,53 @@ struct GitLabSourceCollectionView:
             self.collectionView = collectionView
             updateMetrics()
             configureLayout()
+            startHighlighting()
         }
 
         fileprivate func update(
-            _ document: GitLabSourceDocument
+            _ document: GitLabSourceDocument,
+            syntaxHighlighter:
+                any GitLabSyntaxHighlighting,
+            syntaxTheme: GitLabSyntaxTheme
         ) {
+            let didChangeDocument =
+                self.document != document
+            let didChangeTheme =
+                self.syntaxTheme != syntaxTheme
+            self.syntaxHighlighter =
+                syntaxHighlighter
+            self.syntaxTheme = syntaxTheme
+            if didChangeDocument {
+                self.document = document
+                highlighter = GitLabSourceLineHighlighter(
+                    language: document.language
+                )
+            }
             updateMetrics()
-            guard self.document != document else {
+            guard
+                didChangeDocument
+                    || didChangeTheme
+            else {
                 configureLayout()
                 return
             }
-
-            self.document = document
-            highlighter = GitLabSourceLineHighlighter(
-                language: document.language
-            )
+            highlightedSource = nil
+            highlightedLineRanges = []
             collectionView?.reloadData()
             configureLayout()
-            collectionView?.setContentOffset(
-                .zero,
-                animated: false
-            )
+            if didChangeDocument {
+                collectionView?.setContentOffset(
+                    .zero,
+                    animated: false
+                )
+            }
+            startHighlighting()
+        }
+
+        fileprivate func cancelHighlighting() {
+            highlightingGeneration &+= 1
+            highlightingTask?.cancel()
+            highlightingTask = nil
         }
 
         private func updateMetrics() {
@@ -247,6 +310,125 @@ struct GitLabSourceCollectionView:
                 rowHeight: rowHeight,
                 contentWidth: contentWidth
             )
+        }
+
+        private func startHighlighting() {
+            cancelHighlighting()
+            guard
+                let language =
+                    document.syntaxLanguage,
+                !document.lines.isEmpty
+            else {
+                return
+            }
+
+            let generation = highlightingGeneration
+            let lines = document.lines
+            let syntaxHighlighter =
+                syntaxHighlighter
+            let syntaxTheme = syntaxTheme
+            highlightingTask = Task {
+                let result = await syntaxHighlighter
+                    .highlight(
+                        GitLabSyntaxHighlightRequest(
+                            lines: lines,
+                            language: language,
+                            theme: syntaxTheme
+                        )
+                    )
+                guard
+                    !Task.isCancelled,
+                    highlightingGeneration
+                        == generation,
+                    let result,
+                    let lineRanges = Self.lineRanges(
+                        for: lines,
+                        in: result.attributedString
+                    )
+                else {
+                    return
+                }
+                highlightedSource = result
+                highlightedLineRanges = lineRanges
+                guard
+                    let collectionView
+                else {
+                    return
+                }
+                let visible = collectionView
+                    .indexPathsForVisibleItems
+                if visible.isEmpty {
+                    collectionView.reloadData()
+                } else {
+                    collectionView.reloadItems(
+                        at: visible
+                    )
+                }
+            }
+        }
+
+        private func attributedLine(
+            _ line: String,
+            index: Int
+        ) -> NSAttributedString {
+            guard
+                let highlightedSource,
+                highlightedLineRanges.indices
+                    .contains(index)
+            else {
+                return highlighter.attributedLine(
+                    line,
+                    index: index,
+                    font: font
+                )
+            }
+
+            let value = NSMutableAttributedString(
+                attributedString:
+                    highlightedSource
+                    .attributedString
+                    .attributedSubstring(
+                        from:
+                            highlightedLineRanges[
+                                index
+                            ]
+                    )
+            )
+            value.addAttribute(
+                .font,
+                value: font,
+                range: NSRange(
+                    location: 0,
+                    length: value.length
+                )
+            )
+            return value
+        }
+
+        private static func lineRanges(
+            for lines: [String],
+            in highlighted: NSAttributedString
+        ) -> [NSRange]? {
+            var ranges: [NSRange] = []
+            ranges.reserveCapacity(lines.count)
+            var location = 0
+            for line in lines {
+                let length = line.utf16.count
+                ranges.append(
+                    NSRange(
+                        location: location,
+                        length: length
+                    )
+                )
+                location += length + 1
+            }
+            let expectedLength = max(0, location - 1)
+            guard
+                expectedLength == highlighted.length
+            else {
+                return nil
+            }
+            return ranges
         }
     }
 }
@@ -389,6 +571,7 @@ private final class GitLabSourceLineCell:
         lineNumberLabel.textAlignment = .right
         lineNumberLabel.textColor =
             .tertiaryLabel
+        sourceLabel.textColor = .label
         lineNumberLabel.numberOfLines = 1
         sourceLabel.numberOfLines = 1
         sourceLabel.lineBreakMode = .byClipping

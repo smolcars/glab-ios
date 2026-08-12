@@ -14,3 +14,4 @@
 - Observe incoming navigation on the stack, not an off-screen root destination.
 - Route same-instance GitLab blob links to the native file viewer.
 - Avoid wrapping one tall Markdown document in a `LazyVStack`; estimated heights make the scroll indicator jump.
+- Highlight a complete source document before splitting it into display lines so multiline strings and comments keep their context.

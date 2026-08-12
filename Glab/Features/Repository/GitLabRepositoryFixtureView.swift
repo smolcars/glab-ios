@@ -285,6 +285,13 @@
                 - Browse branches and folders
                 - Search repository files
                 - Read syntax-highlighted source
+
+                ```swift
+                struct RepositoryRoute {
+                    let projectID: Int
+                    let branch = "main"
+                }
+                ```
                 """,
             "build.sh":
                 """

@@ -78,6 +78,7 @@ nonisolated struct GitLabSourceDocument:
     let maximumRenderedColumnCount: Int
     let truncatedLineCount: Int
     let language: GitLabSourceLanguage
+    let syntaxLanguage: GitLabSyntaxLanguage?
 
     var lineCount: Int {
         lines.count
@@ -142,6 +143,9 @@ nonisolated struct GitLabSourceDocument:
         self.truncatedLineCount =
             truncatedLineCount
         language = GitLabSourceLanguage(
+            fileName: fileName
+        )
+        syntaxLanguage = GitLabSyntaxLanguage(
             fileName: fileName
         )
     }

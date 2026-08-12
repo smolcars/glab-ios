@@ -966,6 +966,13 @@ private struct GitLabMarkdownQuoteView: View {
 private struct GitLabMarkdownCodeView: View {
     let code: GitLabMarkdownCodeBlock
 
+    @Environment(\.colorScheme)
+    private var colorScheme
+    @Environment(\.gitLabSyntaxHighlighter)
+    private var syntaxHighlighter
+    @State private var highlightedCode:
+        AttributedString?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if
@@ -981,8 +988,12 @@ private struct GitLabMarkdownCodeView: View {
                 .horizontal,
                 showsIndicators: true
             ) {
-                Text(code.text)
+                Text(
+                    highlightedCode
+                        ?? AttributedString(code.text)
+                )
                     .font(.system(.callout, design: .monospaced))
+                    .foregroundStyle(.primary)
                     .textSelection(.enabled)
                     .fixedSize(
                         horizontal: true,
@@ -999,7 +1010,57 @@ private struct GitLabMarkdownCodeView: View {
         .accessibilityLabel(
             "\(code.accessibilityLabel), \(code.text)"
         )
+        .task(id: highlightID) {
+            highlightedCode = nil
+            guard
+                let language = GitLabSyntaxLanguage(
+                    markdownFence: code.language
+                )
+            else {
+                return
+            }
+            let result = await syntaxHighlighter
+                .highlight(
+                    GitLabSyntaxHighlightRequest(
+                        source: code.text,
+                        language: language,
+                        theme: syntaxTheme
+                    )
+                )
+            guard
+                !Task.isCancelled,
+                let result
+            else {
+                return
+            }
+            highlightedCode = AttributedString(
+                result.attributedString
+            )
+        }
     }
+
+    private var syntaxTheme: GitLabSyntaxTheme {
+        colorScheme == .dark ? .dark : .light
+    }
+
+    private var highlightID:
+        GitLabMarkdownCodeHighlightID
+    {
+        GitLabMarkdownCodeHighlightID(
+            source: code.text,
+            language: code.language,
+            theme: syntaxTheme
+        )
+    }
+}
+
+private struct GitLabMarkdownCodeHighlightID:
+    Equatable,
+    Hashable
+{
+    let source: String
+    let language: String?
+    let theme: GitLabSyntaxTheme
 }
 
 private struct GitLabMarkdownTableView: View {
