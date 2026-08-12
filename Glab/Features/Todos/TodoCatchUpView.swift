@@ -7,6 +7,7 @@ typealias TodoCatchUpAuthenticationFailureHandler =
 
 struct TodoCatchUpView: View {
     let model: TodoCatchUpModel
+    let accountID: GitLabAccountID
     let authenticationFailureHandler:
         TodoCatchUpAuthenticationFailureHandler
 
@@ -29,11 +30,13 @@ struct TodoCatchUpView: View {
 
     init(
         model: TodoCatchUpModel,
+        accountID: GitLabAccountID,
         authenticationFailureHandler:
             @escaping TodoCatchUpAuthenticationFailureHandler =
                 { _ in }
     ) {
         self.model = model
+        self.accountID = accountID
         self.authenticationFailureHandler =
             authenticationFailureHandler
     }
@@ -204,6 +207,7 @@ struct TodoCatchUpView: View {
                 } else {
                     TodoCatchUpCard(
                         todo: entry.element,
+                        accountID: accountID,
                         decision: nil,
                         decisionProgress: 0
                     )
@@ -240,6 +244,7 @@ struct TodoCatchUpView: View {
     ) -> some View {
         TodoCatchUpCard(
             todo: todo,
+            accountID: accountID,
             decision: dragDecision,
             decisionProgress: dragProgress
         )
@@ -715,11 +720,14 @@ private enum TodoCatchUpDecision:
 
 private struct TodoCatchUpCard: View {
     let todo: GitLabTodo
+    let accountID: GitLabAccountID
     let decision: TodoCatchUpDecision?
     let decisionProgress: Double
 
     @Environment(\.dynamicTypeSize)
     private var dynamicTypeSize
+    @Environment(\.gitLabReadOnlyMarkdownRenderer)
+    private var markdownRenderer
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -742,10 +750,7 @@ private struct TodoCatchUpCard: View {
                         )
 
                     if let body = todo.catchUpBody {
-                        Text(body)
-                            .font(.glabBody)
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
+                        markdownBody(body)
                     }
                 }
                 .frame(
@@ -783,6 +788,34 @@ private struct TodoCatchUpCard: View {
             radius: 18,
             y: 10
         )
+    }
+
+    @ViewBuilder
+    private func markdownBody(
+        _ source: String
+    ) -> some View {
+        if
+            let request =
+                GitLabDescriptionMarkdownRequest
+                .todo(
+                    accountID: accountID,
+                    todo: todo,
+                    source: source
+                )
+        {
+            GitLabMarkdownContentView(
+                request: request,
+                revision: todo.updatedAt,
+                kind: .description,
+                renderer: markdownRenderer
+            )
+            .foregroundStyle(Color.primary)
+        } else {
+            Text(source)
+                .font(.glabBody)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+        }
     }
 
     private var header: some View {

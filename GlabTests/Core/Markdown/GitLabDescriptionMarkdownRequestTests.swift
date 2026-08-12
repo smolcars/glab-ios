@@ -89,6 +89,63 @@ struct GitLabDescriptionMarkdownRequestTests {
         )
     }
 
+    @Test(
+        "Todo descriptions use their native GitLab resource context",
+        arguments: [
+            (
+                GitLabTodoTargetType.issue,
+                GitLabMarkdownResourceID.issue(
+                    projectID: 2,
+                    issueIID: 7
+                )
+            ),
+            (
+                GitLabTodoTargetType.mergeRequest,
+                GitLabMarkdownResourceID.mergeRequest(
+                    projectID: 2,
+                    mergeRequestIID: 7
+                )
+            ),
+        ]
+    )
+    func todoResource(
+        targetType: GitLabTodoTargetType,
+        expected: GitLabMarkdownResourceID
+    ) throws {
+        let source = "### Notes\n\n- [ ] Verify"
+        let todo = makeTestTodo(
+            targetType: targetType
+        )
+
+        let request = try #require(
+            GitLabDescriptionMarkdownRequest
+                .todo(
+                    accountID: try makeAccountID(),
+                    todo: todo,
+                    source: source
+                )
+        )
+
+        #expect(request.resource == expected)
+        #expect(request.source == source)
+        #expect(request.webURL == todo.safeTargetURL)
+    }
+
+    @Test("Non-native Todo targets retain their plain-text fallback")
+    func unsupportedTodoTarget() throws {
+        #expect(
+            GitLabDescriptionMarkdownRequest
+                .todo(
+                    accountID: try makeAccountID(),
+                    todo:
+                        makeTestTodo(
+                            targetType: .commit
+                        ),
+                    source: "**Commit details**"
+                ) == nil
+        )
+    }
+
     private func makeAccountID()
         throws -> GitLabAccountID
     {
