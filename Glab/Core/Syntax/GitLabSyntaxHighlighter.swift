@@ -216,6 +216,15 @@ nonisolated struct GitLabSyntaxHighlightRequest:
     let language: GitLabSyntaxLanguage
     let theme: GitLabSyntaxTheme
 
+    var renderedSource: String {
+        switch source {
+        case let .text(source):
+            source
+        case let .lines(lines):
+            lines.joined(separator: "\n")
+        }
+    }
+
     init(
         source: String,
         language: GitLabSyntaxLanguage,

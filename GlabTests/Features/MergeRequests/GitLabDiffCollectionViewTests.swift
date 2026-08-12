@@ -174,6 +174,127 @@ struct GitLabDiffCollectionViewTests {
         #expect(!cell.accessibilityActivate())
     }
 
+    @Test("Applies syntax attributes after the diff prefix")
+    func appliesHighlightedText() throws {
+        let cell = GitLabDiffCollectionViewCell(
+            frame: CGRect(
+                x: 0,
+                y: 0,
+                width: 600,
+                height:
+                    GitLabDiffLayoutMetrics
+                    .baseRowHeight
+            )
+        )
+        let line = GitLabDiffLine(
+            ordinal: 0,
+            kind: .addition,
+            oldLineNumber: nil,
+            newLineNumber: 1,
+            text: "let value = 1"
+        )
+        let highlighted = GitLabDiffHighlightedLine(
+            NSAttributedString(
+                string: line.text,
+                attributes: [
+                    .foregroundColor:
+                        UIColor.systemPurple,
+                ]
+            )
+        )
+
+        cell.configure(
+            with: .addition(line),
+            highlightedText: highlighted,
+            marker: nil
+        ) { _ in }
+
+        let textView = try #require(
+            cell.contentView.subviews
+                .compactMap { $0 as? UITextView }
+                .first
+        )
+        let attributed = try #require(
+            textView.attributedText
+        )
+        #expect(attributed.string == "+let value = 1")
+        #expect(
+            attributed.attribute(
+                .foregroundColor,
+                at: 0,
+                effectiveRange: nil
+            ) as? UIColor == .label
+        )
+        #expect(
+            attributed.attribute(
+                .foregroundColor,
+                at: 1,
+                effectiveRange: nil
+            ) as? UIColor == .systemPurple
+        )
+        #expect(
+            attributed.attribute(
+                .font,
+                at: 1,
+                effectiveRange: nil
+            ) as? UIFont != nil
+        )
+    }
+
+    @Test("Plain reconfiguration clears stale syntax attributes")
+    func clearsHighlightDuringReconfiguration() throws {
+        let cell = GitLabDiffCollectionViewCell(
+            frame: CGRect(
+                x: 0,
+                y: 0,
+                width: 600,
+                height:
+                    GitLabDiffLayoutMetrics
+                    .baseRowHeight
+            )
+        )
+        let line = GitLabDiffLine(
+            ordinal: 0,
+            kind: .deletion,
+            oldLineNumber: 1,
+            newLineNumber: nil,
+            text: "let value = 1"
+        )
+        cell.configure(
+            with: .deletion(line),
+            highlightedText:
+                GitLabDiffHighlightedLine(
+                    NSAttributedString(
+                        string: line.text,
+                        attributes: [
+                            .foregroundColor:
+                                UIColor.systemPurple,
+                        ]
+                    )
+                ),
+            marker: nil
+        ) { _ in }
+
+        cell.configure(
+            with: .deletion(line),
+            marker: nil
+        ) { _ in }
+
+        let textView = try #require(
+            cell.contentView.subviews
+                .compactMap { $0 as? UITextView }
+                .first
+        )
+        #expect(textView.text == "-let value = 1")
+        #expect(
+            textView.attributedText.attribute(
+                .foregroundColor,
+                at: 1,
+                effectiveRange: nil
+            ) as? UIColor != .systemPurple
+        )
+    }
+
     private func makePosition()
         throws -> GitLabDiffLinePosition
     {

@@ -56,6 +56,11 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
             GitLabDiffLinePosition
         ) -> Void
 
+    @Environment(\.colorScheme)
+    private var colorScheme
+    @Environment(\.gitLabSyntaxHighlighter)
+    private var syntaxHighlighter
+
     init(
         document: GitLabParsedDiffDocument,
         documentID: GitLabDiffDocumentID,
@@ -89,6 +94,9 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
         Coordinator(
             document: document,
             documentID: documentID,
+            syntaxHighlighter:
+                syntaxHighlighter,
+            syntaxTheme: syntaxTheme,
             discussionContext:
                 discussionContext,
             onSelectDiscussion:
@@ -134,6 +142,7 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
             accessibilityIdentifier
         context.coordinator.collectionView =
             collectionView
+        context.coordinator.startHighlighting()
         return collectionView
     }
 
@@ -150,10 +159,13 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
             return
         }
 
-        let didReplaceDocument =
+        let update =
             context.coordinator.update(
                 document: document,
-                documentID: documentID
+                documentID: documentID,
+                syntaxHighlighter:
+                    syntaxHighlighter,
+                syntaxTheme: syntaxTheme
             )
         let didChangeDiscussions =
             context.coordinator
@@ -168,11 +180,17 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
             contentWidth: contentWidth
         )
 
-        if didReplaceDocument || didChangeLayout {
+        if
+            update.didReplaceDocument
+                || didChangeLayout
+        {
             collectionView.reloadData()
             collectionView.layoutIfNeeded()
             context.coordinator.resetScrollPosition()
-        } else if didChangeDiscussions {
+        } else if
+            didChangeDiscussions
+                || update.didChangeSyntaxTheme
+        {
             collectionView.reconfigureItems(
                 at:
                     collectionView
@@ -183,6 +201,19 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
         context.coordinator.apply(
             selectedHunkJump
         )
+    }
+
+    static func dismantleUIView(
+        _ uiView: UICollectionView,
+        coordinator: Coordinator
+    ) {
+        coordinator.cancelHighlighting()
+        uiView.dataSource = nil
+        uiView.delegate = nil
+    }
+
+    private var syntaxTheme: GitLabSyntaxTheme {
+        colorScheme == .dark ? .dark : .light
     }
 
     @MainActor
@@ -198,6 +229,15 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
             GitLabParsedDiffDocument
         private var documentID:
             GitLabDiffDocumentID
+        private var syntaxHighlighter:
+            any GitLabSyntaxHighlighting
+        private var syntaxTheme:
+            GitLabSyntaxTheme
+        private var highlightedLines:
+            [Int: GitLabDiffHighlightedLine] = [:]
+        private var highlightingTask:
+            Task<Void, Never>?
+        private var highlightingGeneration = 0
         private var discussionContext:
             GitLabDiffDiscussionContext?
         private var onSelectDiscussion:
@@ -210,6 +250,9 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
             document: GitLabParsedDiffDocument,
             documentID:
                 GitLabDiffDocumentID,
+            syntaxHighlighter:
+                any GitLabSyntaxHighlighting,
+            syntaxTheme: GitLabSyntaxTheme,
             discussionContext:
                 GitLabDiffDiscussionContext?,
             onSelectDiscussion:
@@ -219,6 +262,9 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
         ) {
             self.document = document
             self.documentID = documentID
+            self.syntaxHighlighter =
+                syntaxHighlighter
+            self.syntaxTheme = syntaxTheme
             self.discussionContext =
                 discussionContext
             self.onSelectDiscussion =
@@ -262,6 +308,10 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
             }
             cell.configure(
                 with: item,
+                highlightedText:
+                    item.line.flatMap {
+                        highlightedLines[$0.ordinal]
+                    },
                 marker: marker,
                 onSelectDiscussion:
                     onSelectDiscussion
@@ -293,16 +343,93 @@ struct GitLabDiffCollectionView: UIViewRepresentable {
             document:
                 GitLabParsedDiffDocument,
             documentID:
-                GitLabDiffDocumentID
-        ) -> Bool {
+                GitLabDiffDocumentID,
+            syntaxHighlighter:
+                any GitLabSyntaxHighlighting,
+            syntaxTheme: GitLabSyntaxTheme
+        ) -> (
+            didReplaceDocument: Bool,
+            didChangeSyntaxTheme: Bool
+        ) {
             let didReplace =
                 self.documentID != documentID
+            let didChangeSyntaxTheme =
+                self.syntaxTheme != syntaxTheme
             self.document = document
             self.documentID = documentID
+            self.syntaxHighlighter =
+                syntaxHighlighter
+            self.syntaxTheme = syntaxTheme
             if didReplace {
                 lastHunkJumpID = nil
             }
-            return didReplace
+            if didReplace || didChangeSyntaxTheme {
+                startHighlighting()
+            }
+            return (
+                didReplaceDocument: didReplace,
+                didChangeSyntaxTheme:
+                    didChangeSyntaxTheme
+            )
+        }
+
+        fileprivate func startHighlighting() {
+            cancelHighlighting()
+            let oldLanguage = GitLabSyntaxLanguage(
+                fileName: documentID.fileID.oldPath
+            )
+            let newLanguage = GitLabSyntaxLanguage(
+                fileName: documentID.fileID.newPath
+            )
+            guard
+                oldLanguage != nil
+                    || newLanguage != nil
+            else {
+                return
+            }
+
+            let generation = highlightingGeneration
+            let request =
+                GitLabDiffSyntaxHighlightRequest(
+                    document: document,
+                    oldLanguage: oldLanguage,
+                    newLanguage: newLanguage,
+                    theme: syntaxTheme
+                )
+            let highlighter = GitLabDiffSyntaxHighlighter(
+                syntaxHighlighter: syntaxHighlighter
+            )
+            highlightingTask = Task { [weak self] in
+                let result = try? await highlighter
+                    .highlight(request)
+                guard
+                    !Task.isCancelled,
+                    let self,
+                    self.highlightingGeneration
+                        == generation,
+                    let result
+                else {
+                    return
+                }
+                self.highlightedLines = result
+                guard let collectionView else {
+                    return
+                }
+                let visible = collectionView
+                    .indexPathsForVisibleItems
+                if !visible.isEmpty {
+                    collectionView.reconfigureItems(
+                        at: visible
+                    )
+                }
+            }
+        }
+
+        fileprivate func cancelHighlighting() {
+            highlightingTask?.cancel()
+            highlightingTask = nil
+            highlightingGeneration &+= 1
+            highlightedLines = [:]
         }
 
         fileprivate func updateDiscussionContext(
@@ -702,6 +829,8 @@ final class GitLabDiffCollectionViewCell:
 
     func configure(
         with item: GitLabDiffRenderItem,
+        highlightedText:
+            GitLabDiffHighlightedLine? = nil,
         marker:
             GitLabDiffDiscussionMarker?,
         onSelectDiscussion:
@@ -738,12 +867,16 @@ final class GitLabDiffCollectionViewCell:
             configure(
                 line,
                 prefix: " ",
+                highlightedText:
+                    highlightedText,
                 backgroundColor: .clear
             )
         case let .addition(line):
             configure(
                 line,
                 prefix: "+",
+                highlightedText:
+                    highlightedText,
                 backgroundColor:
                     UIColor.systemGreen
                         .withAlphaComponent(0.12)
@@ -752,6 +885,8 @@ final class GitLabDiffCollectionViewCell:
             configure(
                 line,
                 prefix: "-",
+                highlightedText:
+                    highlightedText,
                 backgroundColor:
                     UIColor.systemRed
                         .withAlphaComponent(0.12)
@@ -798,13 +933,50 @@ final class GitLabDiffCollectionViewCell:
     private func configure(
         _ line: GitLabDiffLine,
         prefix: String,
+        highlightedText:
+            GitLabDiffHighlightedLine?,
         backgroundColor: UIColor
     ) {
         oldLineLabel.text =
             line.oldLineNumber.map(String.init)
         newLineLabel.text =
             line.newLineNumber.map(String.init)
-        textView.text = prefix + line.text
+        if
+            let highlightedSource =
+                highlightedText?.attributedString,
+            highlightedSource.string == line.text
+        {
+            let font = textView.font
+                ?? UIFont.monospacedSystemFont(
+                    ofSize: 12,
+                    weight: .regular
+                )
+            let value = NSMutableAttributedString(
+                string: prefix,
+                attributes: [
+                    .font: font,
+                    .foregroundColor: UIColor.label,
+                ]
+            )
+            let source = NSMutableAttributedString(
+                attributedString:
+                    highlightedSource
+            )
+            if source.length > 0 {
+                source.addAttribute(
+                    .font,
+                    value: font,
+                    range: NSRange(
+                        location: 0,
+                        length: source.length
+                    )
+                )
+            }
+            value.append(source)
+            textView.attributedText = value
+        } else {
+            textView.text = prefix + line.text
+        }
         contentView.backgroundColor =
             backgroundColor
         accessibilityLabel =
