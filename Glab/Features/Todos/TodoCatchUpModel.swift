@@ -84,7 +84,6 @@ final class TodoCatchUpModel {
             return unhandledPendingTodos.count
         case .idle, .loading, .failed:
             return todosModel.pendingBadgeCount
-                ?? todosModel.pendingTodos.count
         }
     }
 

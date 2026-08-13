@@ -15,7 +15,14 @@
             let todosModel = TodosModel(
                 loader: service,
                 mutator: service,
-                apiAccess: .readWrite
+                apiAccess:
+                    ProcessInfo.processInfo
+                    .arguments
+                    .contains(
+                        "-todo_catch_up_fixture_read_only"
+                    )
+                    ? .readOnly
+                    : .readWrite
             )
             _catchUpModel = State(
                 initialValue: TodoCatchUpModel(

@@ -271,18 +271,16 @@ struct TodoCatchUpView: View {
         .accessibilityAction {
             open(todo)
         }
-        .accessibilityAction(
-            named: "Keep for later"
-        ) {
-            commit(.keep)
-        }
-        .accessibilityAction(
-            named: "Mark done"
-        ) {
-            guard model.canMarkDone else {
-                return
+        .accessibilityActions {
+            Button("Keep for later") {
+                commit(.keep)
             }
-            commit(.done)
+
+            if model.canMarkDone {
+                Button("Mark done") {
+                    commit(.done)
+                }
+            }
         }
         .accessibilityIdentifier(
             "catchUp.card.\(todo.id)"
@@ -542,10 +540,16 @@ struct TodoCatchUpView: View {
     ) {
         guard
             !isThrowingCard,
-            model.currentTodo != nil,
+            model.currentTodo != nil
+        else {
+            return
+        }
+
+        guard
             decision != .done
                 || model.canMarkDone
         else {
+            resetDrag()
             return
         }
 

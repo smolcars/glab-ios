@@ -18,3 +18,5 @@
 - Skip whole-document highlighting when displayed lines are truncated because removed delimiters can corrupt later token state.
 - Diff highlighting should retain shared attributed hunk text plus line ranges instead of copying one attributed string per row.
 - Snapshot every Todo page before completing items; mutating an offset-paginated queue mid-load can skip entries.
+- Never present a loaded page size as a total when pagination metadata says the count is unknown.
+- Unavailable swipe actions must restore visual state and be omitted from accessibility actions.

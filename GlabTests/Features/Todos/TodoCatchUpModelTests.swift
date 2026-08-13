@@ -5,6 +5,38 @@ import Testing
 @Suite("Todo Catch Up model")
 @MainActor
 struct TodoCatchUpModelTests {
+    @Test("Keeps a partial pending count unknown")
+    func keepsPartialCountUnknown() async throws {
+        let secondPageURL = try #require(
+            URL(
+                string:
+                    "https://gitlab.example.com/api/v4/todos?page=2"
+            )
+        )
+        let service = CatchUpTodoService(
+            pages: [
+                page(
+                    [makeTestTodo(id: 1)],
+                    nextPageURL: secondPageURL,
+                    totalCount: nil
+                ),
+            ]
+        )
+        let todosModel = TodosModel(
+            loader: service,
+            mutator: service,
+            apiAccess: .readWrite
+        )
+        let model = TodoCatchUpModel(
+            todosModel: todosModel
+        )
+
+        await todosModel.loadIfNeeded()
+
+        #expect(model.shouldShowHomeShortcut)
+        #expect(model.homeShortcutCount == nil)
+    }
+
     @Test("Loads every pending page before starting the deck")
     func loadsAllPendingPages() async throws {
         let secondPageURL = try #require(
