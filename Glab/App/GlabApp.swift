@@ -125,6 +125,10 @@ struct GlabApp: App {
     private var rootContent: some View {
         #if DEBUG
             if
+                usesTodoCatchUpFixture
+            {
+                TodoCatchUpFixtureView()
+            } else if
                 usesRepositoryFixture
             {
                 GitLabRepositoryFixtureView()
@@ -159,6 +163,17 @@ struct GlabApp: App {
     }
 
     #if DEBUG
+        private var usesTodoCatchUpFixture: Bool {
+            let arguments =
+                ProcessInfo.processInfo.arguments
+            return arguments.contains(
+                "todo_catch_up_fixture"
+            )
+                || arguments.contains(
+                    "-todo_catch_up_fixture"
+                )
+        }
+
         private var usesRepositoryFixture: Bool {
             let arguments =
                 ProcessInfo.processInfo.arguments

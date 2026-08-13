@@ -1,6 +1,7 @@
 import SwiftUI
 
 private enum HomeNavigationRoute: Hashable {
+    case catchUp
     case search
 }
 
@@ -41,6 +42,7 @@ struct HomeView: View {
     let accountID: GitLabAccountID
     let appSession: AppSession
     let model: HomeDashboardModel
+    let todoCatchUpModel: TodoCatchUpModel
     let assignedIssuesModel: AssignedIssuesModel
     let createdIssuesModel: IssuesModel
     let assignedMergeRequestsModel:
@@ -110,6 +112,28 @@ struct HomeView: View {
                     }
                 }
 
+                if
+                    todoCatchUpModel
+                        .shouldShowHomeShortcut
+                {
+                    Section {
+                        NavigationLink(
+                            value:
+                                HomeNavigationRoute
+                                .catchUp
+                        ) {
+                            HomeCatchUpShortcutRow(
+                                count:
+                                    todoCatchUpModel
+                                    .homeShortcutCount
+                            )
+                        }
+                        .accessibilityIdentifier(
+                            "home.catchUp"
+                        )
+                    }
+                }
+
                 Section {
                     if model.hasTotalWorkFailure {
                         GitLabRetryStateView(
@@ -165,6 +189,16 @@ struct HomeView: View {
                 for: HomeNavigationRoute.self
             ) { route in
                 switch route {
+                case .catchUp:
+                    TodoCatchUpView(
+                        model: todoCatchUpModel
+                    ) { error in
+                        await appSession
+                            .handleAuthenticationFailure(
+                                error,
+                                for: accountID
+                            )
+                    }
                 case .search:
                     GitLabGlobalSearchView(
                         model: searchModel,

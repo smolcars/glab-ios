@@ -1,5 +1,57 @@
 import SwiftUI
 
+struct HomeCatchUpShortcutRow: View {
+    let count: Int?
+
+    var body: some View {
+        HStack(spacing: 14) {
+            GitLabIconView(.todoDone)
+                .foregroundStyle(Color.glabAccent)
+                .frame(width: 38, height: 38)
+                .background(
+                    Color.glabAccent.opacity(0.12),
+                    in: .rect(cornerRadius: 10)
+                )
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Catch Up")
+                    .font(.glabBody.weight(.semibold))
+
+                Text("Swipe through pending Todos")
+                    .font(.glabSubheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 8)
+
+            if let count, count > 0 {
+                Text("\(count)")
+                    .font(.glabSubheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.glabAccent)
+                    .accessibilityLabel(
+                        "\(count) Todos"
+                    )
+            }
+        }
+        .padding(.vertical, 5)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Catch Up")
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint(
+            "Opens a swipeable Todo queue."
+        )
+    }
+
+    private var accessibilityValue: String {
+        guard let count, count > 0 else {
+            return "Pending Todos available"
+        }
+        return "\(count) pending Todos"
+    }
+}
+
 struct HomeWorkShortcutRow: View {
     let section: HomeDashboardSection
     let presentation: HomeDashboardRowPresentation
