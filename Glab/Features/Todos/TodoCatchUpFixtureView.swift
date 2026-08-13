@@ -74,7 +74,9 @@
                         .self
                 ) { _ in
                     TodoCatchUpView(
-                        model: catchUpModel
+                        model: catchUpModel,
+                        accountID:
+                            Self.accountID
                     )
                 }
                 .navigationDestination(
@@ -87,6 +89,20 @@
                 .task {
                     await catchUpModel
                         .startIfNeeded()
+
+                    if
+                        ProcessInfo.processInfo
+                        .arguments
+                        .contains(
+                            "-todo_catch_up_fixture_direct"
+                        ),
+                        path.isEmpty
+                    {
+                        path.append(
+                            TodoCatchUpFixtureRoute
+                                .catchUp
+                        )
+                    }
                 }
             }
             .environment(
@@ -105,7 +121,21 @@
                 title:
                     "Review the new OAuth token refresh flow",
                 body:
-                    "Please confirm the refresh flow keeps one shared request for concurrent failures and preserves the pending deep link.",
+                    """
+                    ### Verification
+
+                    Please confirm the refresh flow keeps **one shared request** for concurrent failures.
+
+                    - [ ] Refresh an expired access token
+                    - [ ] Preserve the pending deep link
+                    - [x] Return to sign in after a failed refresh
+
+                        let token = refresh()
+
+                    > A failed refresh must not discard navigation state.
+
+                    <!-- This fixture comment should not be visible. -->
+                    """,
                 action: .approvalRequired,
                 targetType: .mergeRequest
             ),
@@ -218,6 +248,14 @@
             )
         }
 
+        private static let accountID =
+            GitLabAccountID(
+                host:
+                    try! GitLabHost(
+                        "gitlab.example.com"
+                    ),
+                userID: 7
+            )
     }
 
     private enum TodoCatchUpFixtureRoute:

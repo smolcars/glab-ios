@@ -345,6 +345,15 @@ nonisolated struct GitLabTodo:
         return value
     }
 
+    var catchUpBody: String? {
+        if let body = distinctCatchUpSource(body) {
+            return body
+        }
+        return distinctCatchUpSource(
+            target?.description
+        )
+    }
+
     var projectTitle: String {
         project?.nameWithNamespace?.todoTrimmedNonempty
             ?? project?.name?.todoTrimmedNonempty
@@ -397,6 +406,20 @@ nonisolated struct GitLabTodo:
             .unknown:
             nil
         }
+    }
+
+    private func distinctCatchUpSource(
+        _ source: String?
+    ) -> String? {
+        guard
+            let source,
+            let normalized =
+                source.todoTrimmedNonempty,
+            normalized != title
+        else {
+            return nil
+        }
+        return source
     }
 
     private enum CodingKeys: String, CodingKey {

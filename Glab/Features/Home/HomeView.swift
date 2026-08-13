@@ -191,7 +191,8 @@ struct HomeView: View {
                 switch route {
                 case .catchUp:
                     TodoCatchUpView(
-                        model: todoCatchUpModel
+                        model: todoCatchUpModel,
+                        accountID: accountID
                     ) { error in
                         await appSession
                             .handleAuthenticationFailure(

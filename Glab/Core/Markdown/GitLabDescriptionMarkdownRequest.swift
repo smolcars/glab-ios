@@ -56,6 +56,54 @@ nonisolated enum
         )
     }
 
+    static func todo(
+        accountID: GitLabAccountID,
+        todo: GitLabTodo,
+        source: String
+    ) -> GitLabMarkdownRequest? {
+        guard
+            let source = nonemptySource(source),
+            let projectID =
+                todo.target?.projectID
+                ?? todo.project?.id,
+            let iid = todo.target?.iid
+        else {
+            return nil
+        }
+
+        let resource: GitLabMarkdownResourceID
+        switch todo.targetType {
+        case .issue:
+            resource = .issue(
+                projectID: projectID,
+                issueIID: iid
+            )
+        case .mergeRequest:
+            resource = .mergeRequest(
+                projectID: projectID,
+                mergeRequestIID: iid
+            )
+        case
+            .commit,
+            .epic,
+            .design,
+            .alert,
+            .project,
+            .namespace,
+            .vulnerability,
+            .wikiPage,
+            .unknown:
+            return nil
+        }
+
+        return GitLabMarkdownRequest(
+            accountID: accountID,
+            resource: resource,
+            source: source,
+            webURL: todo.safeTargetURL
+        )
+    }
+
     private static func nonemptySource(
         _ source: String?
     ) -> String? {
