@@ -165,6 +165,48 @@ struct GitLabTodoTests {
         #expect(repeated.displayBody == nil)
     }
 
+    @Test("Preserves exact Catch Up Markdown source")
+    func preservesCatchUpMarkdownSource() throws {
+        let bodySource =
+            "    let token = refresh()\n"
+        let encodedBody = String(
+            decoding:
+                try JSONEncoder().encode(
+                    bodySource
+                ),
+            as: UTF8.self
+        )
+        let bodyTodo = try decodeTodo(
+            body: encodedBody
+        )
+
+        let descriptionSource =
+            "\n    let request = retry()\n"
+        let encodedDescription = String(
+            decoding:
+                try JSONEncoder().encode(
+                    descriptionSource
+                ),
+            as: UTF8.self
+        )
+        let descriptionTodo = try decodeTodo(
+            target: """
+                {
+                  "id": 34,
+                  "title": "Review authentication changes",
+                  "description": \(encodedDescription)
+                }
+                """,
+            body: "null"
+        )
+
+        #expect(bodyTodo.catchUpBody == bodySource)
+        #expect(
+            descriptionTodo.catchUpBody
+                == descriptionSource
+        )
+    }
+
     @Test("Rejects an unsafe target URL")
     func rejectsUnsafeTargetURL() throws {
         let todo = try decodeTodo(

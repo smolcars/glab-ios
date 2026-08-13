@@ -961,22 +961,3 @@ private struct TodoCatchUpSafariView:
         context: Context
     ) {}
 }
-
-private extension GitLabTodo {
-    var catchUpBody: String? {
-        if let displayBody {
-            return displayBody
-        }
-        guard
-            let description = target?.description?
-                .trimmingCharacters(
-                    in: .whitespacesAndNewlines
-                ),
-            !description.isEmpty,
-            description != title
-        else {
-            return nil
-        }
-        return description
-    }
-}

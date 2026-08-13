@@ -130,6 +130,8 @@
                     - [ ] Preserve the pending deep link
                     - [x] Return to sign in after a failed refresh
 
+                        let token = refresh()
+
                     > A failed refresh must not discard navigation state.
 
                     <!-- This fixture comment should not be visible. -->
