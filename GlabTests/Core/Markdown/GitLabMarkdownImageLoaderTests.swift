@@ -314,6 +314,24 @@ struct GitLabMarkdownImageLoaderTests {
             )
         }
 
+        let binaryLoader = try makeLoader(
+            transport:
+                ControlledMarkdownImageTransport(
+                    result: .success(
+                        response(
+                            data: pngData,
+                            contentType:
+                                "application/octet-stream"
+                        )
+                    )
+                )
+        )
+        let binaryImage = try await binaryLoader.image(
+            request()
+        )
+        #expect(binaryImage.pixelWidth == 1)
+        #expect(binaryImage.pixelHeight == 1)
+
         let malformedTransport =
             ControlledMarkdownImageTransport(
                 result: .success(

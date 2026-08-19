@@ -63,6 +63,16 @@ nonisolated struct GitLabMarkdownImageRequestPolicy:
     func request(
         for url: URL
     ) -> URLRequest? {
+        request(
+            for: url,
+            accept: "image/*"
+        )
+    }
+
+    func request(
+        for url: URL,
+        accept: String
+    ) -> URLRequest? {
         guard Self.isSafeImageURL(url) else {
             return nil
         }
@@ -73,7 +83,7 @@ nonisolated struct GitLabMarkdownImageRequestPolicy:
         )
         request.httpMethod = GitLabHTTPMethod.get.rawValue
         request.setValue(
-            "image/*",
+            accept,
             forHTTPHeaderField: "Accept"
         )
         if matchesGitLabOrigin(url) {
@@ -1141,6 +1151,8 @@ actor GitLabMarkdownImageLoader:
                     response.response.mimeType?
                         .lowercased(),
                 mimeType.hasPrefix("image/")
+                    || mimeType
+                        == "application/octet-stream"
             else {
                 throw GitLabMarkdownImageError
                     .invalidContentType

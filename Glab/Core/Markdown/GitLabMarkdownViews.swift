@@ -1,3 +1,4 @@
+import AVKit
 import SwiftUI
 import UIKit
 
@@ -6,7 +7,9 @@ private struct GitLabMarkdownRendererEnvironmentKey:
 {
     static let defaultValue:
         any GitLabMarkdownRendering =
-            GitLabMarkdownRenderer()
+            GitLabMarkdownRenderer(
+                rendererVersion: 3
+            )
 }
 
 extension EnvironmentValues {
@@ -27,13 +30,41 @@ extension EnvironmentValues {
 }
 
 private struct
+    GitLabMarkdownMediaLoaderEnvironmentKey:
+    EnvironmentKey
+{
+    static let defaultValue:
+        any GitLabMarkdownMediaLoading =
+            UnavailableGitLabMarkdownMediaLoader()
+}
+
+extension EnvironmentValues {
+    var gitLabMarkdownMediaLoader:
+        any GitLabMarkdownMediaLoading
+    {
+        get {
+            self[
+                GitLabMarkdownMediaLoaderEnvironmentKey
+                    .self
+            ]
+        }
+        set {
+            self[
+                GitLabMarkdownMediaLoaderEnvironmentKey
+                    .self
+            ] = newValue
+        }
+    }
+}
+
+private struct
     GitLabReadOnlyMarkdownRendererEnvironmentKey:
     EnvironmentKey
 {
     static let defaultValue:
         any GitLabMarkdownRendering =
             GitLabMarkdownRenderer(
-                rendererVersion: 2,
+                rendererVersion: 3,
                 parser:
                     GitLabReadOnlyMarkdownParser.parse
             )
@@ -402,7 +433,7 @@ private struct GitLabMarkdownBlockView: View {
         case let .table(table):
             GitLabMarkdownTableView(table: table)
         case let .image(image):
-            GitLabMarkdownImageView(
+            GitLabMarkdownMediaView(
                 image: image
             )
         case let .imageGroup(group):
@@ -1224,7 +1255,7 @@ private struct GitLabMarkdownImageGroupView: View {
         if group.images.count == 1,
            let image = group.images.first
         {
-            GitLabMarkdownImageView(
+            GitLabMarkdownMediaView(
                 image: image,
                 presentation: .document
             )
@@ -1256,7 +1287,7 @@ private struct GitLabMarkdownImageGroupView: View {
                     Array(group.images.enumerated()),
                     id: \.offset
                 ) { _, image in
-                    GitLabMarkdownImageView(
+                    GitLabMarkdownMediaView(
                         image: image,
                         presentation: .compact
                     )
@@ -1273,8 +1304,39 @@ private struct GitLabMarkdownImageGroupView: View {
     }
 }
 
+private struct GitLabMarkdownMediaView: View {
+    let image: GitLabMarkdownImage
+    let presentation:
+        GitLabMarkdownImageView.Presentation
+
+    init(
+        image: GitLabMarkdownImage,
+        presentation:
+            GitLabMarkdownImageView.Presentation = .document
+    ) {
+        self.image = image
+        self.presentation = presentation
+    }
+
+    @ViewBuilder
+    var body: some View {
+        switch image.kind {
+        case .image:
+            GitLabMarkdownImageView(
+                image: image,
+                presentation: presentation
+            )
+        case .video, .audio:
+            GitLabMarkdownPlayableMediaView(
+                media: image,
+                presentation: presentation
+            )
+        }
+    }
+}
+
 private struct GitLabMarkdownImageView: View {
-    enum Presentation {
+    fileprivate enum Presentation {
         case document
         case compact
     }
@@ -1291,7 +1353,7 @@ private struct GitLabMarkdownImageView: View {
 
     private struct LoadIdentity: Hashable {
         let accountID: GitLabAccountID
-        let url: URL
+        let urls: [URL]
         let targetPixelWidth: Int
         let retry: UInt64
     }
@@ -1305,7 +1367,9 @@ private struct GitLabMarkdownImageView: View {
     private var imageLoader
     @State private var phase = Phase.idle
     @State private var targetPixelWidth = 0
+    @State private var containerWidth: CGFloat = 0
     @State private var retry: UInt64 = 0
+    @State private var isViewerPresented = false
 
     init(
         image: GitLabMarkdownImage,
@@ -1320,6 +1384,10 @@ private struct GitLabMarkdownImageView: View {
 
         content
             .frame(
+                width: displayWidth,
+                alignment: .leading
+            )
+            .frame(
                 maxWidth:
                     presentation == .compact
                         ? 180
@@ -1327,22 +1395,36 @@ private struct GitLabMarkdownImageView: View {
                 alignment: .leading
             )
             .onGeometryChange(
-                for: Int.self
+                for: CGSize.self
             ) { proxy in
-                max(
+                proxy.size
+            } action: { newValue in
+                containerWidth = newValue.width
+                targetPixelWidth = max(
                     1,
                     Int(
                         (
-                            proxy.size.width
+                            resolvedWidth(
+                                availableWidth:
+                                    newValue.width
+                            )
                                 * currentDisplayScale
                         ).rounded(.up)
                     )
                 )
-            } action: { newValue in
-                targetPixelWidth = newValue
             }
             .task(id: loadIdentity) {
                 await load()
+            }
+            .fullScreenCover(
+                isPresented: $isViewerPresented
+            ) {
+                if case let .loaded(_, decodedImage) = phase {
+                    GitLabMarkdownImageViewer(
+                        image: image,
+                        previewImage: decodedImage
+                    )
+                }
             }
     }
 
@@ -1377,9 +1459,7 @@ private struct GitLabMarkdownImageView: View {
                     ? 180
                     : .infinity,
             maxHeight:
-                presentation == .compact
-                    ? 48
-                    : 420
+                resolvedHeight
         )
         .clipShape(
             .rect(
@@ -1390,23 +1470,14 @@ private struct GitLabMarkdownImageView: View {
             )
         )
 
-        if let linkURL = image.linkURL {
-            Button {
-                openURL(linkURL)
-            } label: {
-                content
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint(
-                "Opens the linked page"
-            )
-        } else {
+        Button {
+            isViewerPresented = true
+        } label: {
             content
         }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens image viewer")
     }
-
-    @Environment(\.openURL)
-    private var openURL
 
     @ViewBuilder
     private var placeholder: some View {
@@ -1547,7 +1618,7 @@ private struct GitLabMarkdownImageView: View {
     private var loadIdentity: LoadIdentity {
         LoadIdentity(
             accountID: image.accountID,
-            url: image.url,
+            urls: image.candidateURLs,
             targetPixelWidth:
                 GitLabMarkdownImageLoadRequest
                     .normalizedTargetPixelWidth(
@@ -1561,11 +1632,6 @@ private struct GitLabMarkdownImageView: View {
         guard targetPixelWidth > 0 else {
             return
         }
-        let request = GitLabMarkdownImageLoadRequest(
-            accountID: image.accountID,
-            url: image.url,
-            targetPixelWidth: targetPixelWidth
-        )
         let previousPhase = phase
         let canPreserveVisibleImage: Bool
         if
@@ -1574,8 +1640,10 @@ private struct GitLabMarkdownImageView: View {
                 _
             ) = previousPhase,
             previousRequest.accountID
-                == request.accountID,
-            previousRequest.url == request.url
+                == image.accountID,
+            image.candidateURLs.contains(
+                previousRequest.url
+            )
         {
             canPreserveVisibleImage = true
             // Preserve a visible image while a size change is
@@ -1585,32 +1653,532 @@ private struct GitLabMarkdownImageView: View {
             phase = .loading
         }
 
-        do {
-            let decodedImage =
-                try await imageLoader.image(request)
-            guard !Task.isCancelled else {
-                return
-            }
-            phase = .loaded(
-                request,
-                decodedImage
+        var lastError: (any Error)?
+        for url in image.candidateURLs {
+            let request = GitLabMarkdownImageLoadRequest(
+                accountID: image.accountID,
+                url: url,
+                targetPixelWidth: targetPixelWidth
             )
-        } catch is CancellationError {
-            guard !Task.isCancelled else {
+            do {
+                let decodedImage =
+                    try await imageLoader.image(request)
+                guard !Task.isCancelled else {
+                    return
+                }
+                phase = .loaded(
+                    request,
+                    decodedImage
+                )
                 return
-            }
-            phase = previousPhase
-        } catch {
-            guard !Task.isCancelled else {
-                return
-            }
-            if canPreserveVisibleImage {
+            } catch is CancellationError {
+                guard !Task.isCancelled else {
+                    return
+                }
                 phase = previousPhase
+                return
+            } catch {
+                guard !Task.isCancelled else {
+                    return
+                }
+                lastError = error
+            }
+        }
+        if canPreserveVisibleImage {
+            phase = previousPhase
+        } else {
+            phase = .failed(
+                lastError?.localizedDescription
+                    ?? "The image could not be loaded."
+            )
+        }
+    }
+
+    private var displayWidth: CGFloat? {
+        guard
+            presentation == .document,
+            containerWidth > 0,
+            let width = image.dimensions?.width
+        else {
+            return nil
+        }
+        return resolved(
+            width,
+            relativeTo: containerWidth
+        )
+    }
+
+    private var resolvedHeight: CGFloat {
+        guard
+            presentation == .document,
+            let height = image.dimensions?.height
+        else {
+            return presentation == .compact ? 48 : 420
+        }
+        return min(
+            420,
+            resolved(height, relativeTo: 420)
+        )
+    }
+
+    private func resolvedWidth(
+        availableWidth: CGFloat
+    ) -> CGFloat {
+        guard
+            presentation == .document,
+            let width = image.dimensions?.width
+        else {
+            return min(
+                availableWidth,
+                presentation == .compact ? 180 : availableWidth
+            )
+        }
+        return resolved(
+            width,
+            relativeTo: availableWidth
+        )
+    }
+
+    private func resolved(
+        _ dimension: GitLabMarkdownMediaDimension,
+        relativeTo available: CGFloat
+    ) -> CGFloat {
+        switch dimension.unit {
+        case .pixels:
+            min(available, CGFloat(dimension.value))
+        case .percent:
+            available * CGFloat(dimension.value / 100)
+        }
+    }
+}
+
+private struct GitLabMarkdownImageViewer: View {
+    let image: GitLabMarkdownImage
+    let previewImage: GitLabMarkdownDecodedImage
+
+    @Environment(\.dismiss)
+    private var dismiss
+    @Environment(\.openURL)
+    private var openURL
+    @Environment(\.gitLabMarkdownImageLoader)
+    private var imageLoader
+    @State private var fullResolutionImage:
+        GitLabMarkdownDecodedImage?
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            GitLabMarkdownZoomableImageView(
+                decodedImage:
+                    fullResolutionImage ?? previewImage
+            )
+            .accessibilityLabel(
+                image.accessibilityLabel
+            )
+
+            VStack {
+                GlassEffectContainer(spacing: 8) {
+                    HStack(spacing: 8) {
+                        if let linkURL = image.linkURL {
+                            Button {
+                                openURL(linkURL)
+                            } label: {
+                                Image(
+                                    systemName:
+                                        "arrow.up.right"
+                                )
+                                .frame(width: 24, height: 24)
+                            }
+                            .buttonStyle(.glass)
+                            .accessibilityLabel(
+                                "Open linked page"
+                            )
+                        }
+
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .frame(width: 24, height: 24)
+                        }
+                        .buttonStyle(.glass)
+                        .accessibilityLabel("Close")
+                    }
+                }
+                .frame(
+                    maxWidth: .infinity,
+                    alignment: .trailing
+                )
+
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .safeAreaPadding(.top, 8)
+        }
+        .preferredColorScheme(.dark)
+        .task {
+            await loadFullResolutionImage()
+        }
+    }
+
+    private func loadFullResolutionImage() async {
+        for url in image.candidateURLs {
+            do {
+                let decodedImage = try await imageLoader.image(
+                    GitLabMarkdownImageLoadRequest(
+                        accountID: image.accountID,
+                        url: url,
+                        targetPixelWidth: 2_048
+                    )
+                )
+                try Task.checkCancellation()
+                fullResolutionImage = decodedImage
+                return
+            } catch is CancellationError {
+                return
+            } catch {
+                continue
+            }
+        }
+    }
+}
+
+private struct GitLabMarkdownZoomableImageView:
+    UIViewRepresentable
+{
+    let decodedImage: GitLabMarkdownDecodedImage
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> UIScrollView {
+        let scrollView = UIScrollView()
+        scrollView.backgroundColor = .black
+        scrollView.delegate = context.coordinator
+        scrollView.minimumZoomScale = 1
+        scrollView.maximumZoomScale = 5
+        scrollView.bouncesZoom = true
+        scrollView.showsHorizontalScrollIndicator = false
+        scrollView.showsVerticalScrollIndicator = false
+
+        let imageView = context.coordinator.imageView
+        imageView.contentMode = .scaleAspectFit
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.addSubview(imageView)
+        NSLayoutConstraint.activate([
+            imageView.leadingAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.leadingAnchor
+            ),
+            imageView.trailingAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.trailingAnchor
+            ),
+            imageView.topAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.topAnchor
+            ),
+            imageView.bottomAnchor.constraint(
+                equalTo: scrollView.contentLayoutGuide.bottomAnchor
+            ),
+            imageView.widthAnchor.constraint(
+                equalTo: scrollView.frameLayoutGuide.widthAnchor
+            ),
+            imageView.heightAnchor.constraint(
+                equalTo: scrollView.frameLayoutGuide.heightAnchor
+            ),
+        ])
+
+        let doubleTap = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.doubleTapped(_:))
+        )
+        doubleTap.numberOfTapsRequired = 2
+        scrollView.addGestureRecognizer(doubleTap)
+        context.coordinator.scrollView = scrollView
+        return scrollView
+    }
+
+    func updateUIView(
+        _ scrollView: UIScrollView,
+        context: Context
+    ) {
+        context.coordinator.imageView.image = UIImage(
+            cgImage: decodedImage.cgImage
+        )
+    }
+
+    final class Coordinator:
+        NSObject,
+        UIScrollViewDelegate
+    {
+        let imageView = UIImageView()
+        weak var scrollView: UIScrollView?
+
+        func viewForZooming(
+            in scrollView: UIScrollView
+        ) -> UIView? {
+            imageView
+        }
+
+        @objc
+        func doubleTapped(
+            _ recognizer: UITapGestureRecognizer
+        ) {
+            guard let scrollView else {
+                return
+            }
+            if scrollView.zoomScale > 1 {
+                scrollView.setZoomScale(1, animated: true)
             } else {
-                phase = .failed(
-                    error.localizedDescription
+                let point = recognizer.location(
+                    in: imageView
+                )
+                let size = CGSize(
+                    width: scrollView.bounds.width / 2.5,
+                    height: scrollView.bounds.height / 2.5
+                )
+                scrollView.zoom(
+                    to: CGRect(
+                        x: point.x - size.width / 2,
+                        y: point.y - size.height / 2,
+                        width: size.width,
+                        height: size.height
+                    ),
+                    animated: true
                 )
             }
+        }
+    }
+}
+
+private struct GitLabMarkdownPlayableMediaView: View {
+    let media: GitLabMarkdownImage
+    let presentation:
+        GitLabMarkdownImageView.Presentation
+
+    @State private var isPresented = false
+
+    var body: some View {
+        Button {
+            isPresented = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: media.kind == .video
+                    ? "play.rectangle.fill"
+                    : "waveform.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(.tint)
+
+                Text(media.accessibilityLabel)
+                    .font(.glabCallout.weight(.semibold))
+                    .lineLimit(
+                        presentation == .compact ? 1 : 2
+                    )
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "play.fill")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12)
+            .frame(
+                maxWidth:
+                    presentation == .compact
+                        ? 180
+                        : .infinity,
+                minHeight: 44,
+                alignment: .leading
+            )
+            .background(
+                Color.secondary.opacity(0.08),
+                in: .rect(cornerRadius: 10)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(
+            media.kind == .video
+                ? "Opens video player"
+                : "Opens audio player"
+        )
+        .fullScreenCover(isPresented: $isPresented) {
+            GitLabMarkdownMediaPlayerView(media: media)
+        }
+    }
+}
+
+private struct GitLabMarkdownMediaPlayerView: View {
+    private enum Phase {
+        case loading
+        case loaded(URL, AVPlayer)
+        case failed(String)
+    }
+
+    let media: GitLabMarkdownImage
+
+    @Environment(\.dismiss)
+    private var dismiss
+    @Environment(\.gitLabMarkdownMediaLoader)
+    private var mediaLoader
+    @State private var phase = Phase.loading
+    @State private var retry: UInt64 = 0
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            content
+
+            VStack {
+                GlassEffectContainer(spacing: 8) {
+                    HStack(spacing: 8) {
+                        Button {
+                            UIApplication.shared.open(
+                                media.linkURL
+                                    ?? media.browserURL
+                                    ?? media.url
+                            )
+                        } label: {
+                            Image(
+                                systemName: "safari"
+                            )
+                            .frame(width: 24, height: 24)
+                        }
+                        .buttonStyle(.glass)
+                        .accessibilityLabel(
+                            "Open in browser"
+                        )
+
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .frame(width: 24, height: 24)
+                        }
+                        .buttonStyle(.glass)
+                        .accessibilityLabel("Close")
+                    }
+                }
+                .frame(
+                    maxWidth: .infinity,
+                    alignment: .trailing
+                )
+
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .safeAreaPadding(.top, 8)
+        }
+        .preferredColorScheme(.dark)
+        .task(id: retry) {
+            await load()
+        }
+        .onDisappear {
+            cleanUp()
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch phase {
+        case .loading:
+            VStack(spacing: 12) {
+                ProgressView()
+                    .tint(.white)
+                Text("Loading media…")
+                    .font(.glabCallout)
+                    .foregroundStyle(.secondary)
+            }
+        case let .loaded(_, player):
+            VStack(spacing: 20) {
+                if media.kind == .audio {
+                    Image(systemName: "waveform.circle.fill")
+                        .font(.system(size: 72))
+                        .foregroundStyle(.tint)
+                    Text(media.accessibilityLabel)
+                        .font(.glabHeadline)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
+
+                VideoPlayer(player: player)
+                    .frame(
+                        maxHeight:
+                            media.kind == .audio
+                                ? 120
+                                : .infinity
+                    )
+                    .onAppear {
+                        player.play()
+                    }
+            }
+            .padding(.vertical, 80)
+        case let .failed(message):
+            ContentUnavailableView {
+                Label(
+                    "Couldn’t Load Media",
+                    systemImage:
+                        "play.slash.fill"
+                )
+            } description: {
+                Text(message)
+            } actions: {
+                Button("Try Again") {
+                    retry &+= 1
+                }
+                .buttonStyle(.glassProminent)
+            }
+            .foregroundStyle(.white)
+        }
+    }
+
+    private func load() async {
+        phase = .loading
+        do {
+            let url = try await mediaLoader.file(
+                for: GitLabMarkdownMediaLoadRequest(
+                    accountID: media.accountID,
+                    urls: media.candidateURLs,
+                    kind: media.kind,
+                    preferredFileExtension:
+                        media.browserURL?.pathExtension
+                )
+            )
+            do {
+                let asset = AVURLAsset(url: url)
+                guard try await asset.load(.isPlayable) else {
+                    throw GitLabMarkdownMediaError
+                        .invalidContentType
+                }
+                try Task.checkCancellation()
+                phase = .loaded(
+                    url,
+                    AVPlayer(
+                        playerItem: AVPlayerItem(
+                            asset: asset
+                        )
+                    )
+                )
+            } catch {
+                await mediaLoader.removeFile(at: url)
+                throw error
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            phase = .failed(
+                error.localizedDescription
+            )
+        }
+    }
+
+    private func cleanUp() {
+        guard case let .loaded(url, player) = phase else {
+            return
+        }
+        player.pause()
+        Task {
+            await mediaLoader.removeFile(at: url)
         }
     }
 }

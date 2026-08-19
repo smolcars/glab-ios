@@ -352,7 +352,13 @@ struct GitLabMarkdownParserTests {
         #expect(image.altText == "GitLab mark")
         #expect(
             image.url.absoluteString
-                == "https://gitlab.example.com/uploads/gitlab-mark.png"
+                == "https://gitlab.example.com/-/project/10/uploads/gitlab-mark.png"
+        )
+        #expect(
+            image.fallbackURLs.map(\.absoluteString)
+                == [
+                    "https://gitlab.example.com/group/project/uploads/gitlab-mark.png",
+                ]
         )
         #expect(image.accessibilityLabel == "GitLab mark")
         #expect(
@@ -363,6 +369,116 @@ struct GitLabMarkdownParserTests {
                     false
                 }
             })
+        )
+    }
+
+    @Test("Expands project uploads, consumes sizing attributes, and classifies media")
+    func uploadedMedia() async throws {
+        let document = try await GitLabMarkdownParser.parse(
+            makeRequest(
+                source:
+                    """
+                    ![query result](/uploads/secret/query.png){width=75% height=303}
+
+                    ![screen recording](/uploads/secret/demo.mp4)
+
+                    ![voice note](/uploads/secret/note.ogg)
+                    """
+            )
+        )
+        let media = document.blocks.compactMap(\.image)
+
+        #expect(media.count == 3)
+        let image = try #require(media.first)
+        #expect(image.kind == .image)
+        #expect(
+            image.url.absoluteString
+                == "https://gitlab.example.com/api/v4/projects/10/uploads/secret/query.png"
+        )
+        #expect(
+            image.fallbackURLs.map(\.absoluteString)
+                == [
+                    "https://gitlab.example.com/-/project/10/uploads/secret/query.png",
+                    "https://gitlab.example.com/group/project/uploads/secret/query.png",
+                ]
+        )
+        #expect(
+            image.browserURL?.absoluteString
+                == "https://gitlab.example.com/-/project/10/uploads/secret/query.png"
+        )
+        #expect(
+            image.dimensions?.width
+                == GitLabMarkdownMediaDimension(
+                    value: 75,
+                    unit: .percent
+                )
+        )
+        #expect(
+            image.dimensions?.height
+                == GitLabMarkdownMediaDimension(
+                    value: 303,
+                    unit: .pixels
+                )
+        )
+        #expect(!document.plainText.contains("width="))
+        #expect(media[1].kind == .video)
+        #expect(media[2].kind == .audio)
+
+        let withoutWebURL = try await GitLabMarkdownParser
+            .parse(
+                makeRequest(
+                    source:
+                        "![upload](/uploads/secret/query.png)",
+                    webURL: nil
+                )
+            )
+        let projectScoped = try #require(
+            withoutWebURL.blocks.compactMap(\.image).first
+        )
+        #expect(
+            projectScoped.url.absoluteString
+                == "https://gitlab.example.com/api/v4/projects/10/uploads/secret/query.png"
+        )
+        #expect(
+            projectScoped.fallbackURLs.map(\.absoluteString)
+                == [
+                    "https://gitlab.example.com/-/project/10/uploads/secret/query.png",
+                ]
+        )
+
+        let unsafeUpload = try await GitLabMarkdownParser
+            .parse(
+                makeRequest(
+                    source:
+                        "![escape](/uploads/%2E%2E/private.png)",
+                    webURL: nil
+                )
+            )
+        #expect(
+            unsafeUpload.blocks.compactMap(\.image)
+                .isEmpty
+        )
+
+        let repositoryMedia = try await GitLabMarkdownParser
+            .parse(
+                makeRepositoryRequest(
+                    source:
+                        "![demo](media/demo.mp4)"
+                )
+            )
+        let repositoryVideo = try #require(
+            repositoryMedia.blocks
+                .compactMap(\.image)
+                .first
+        )
+        #expect(repositoryVideo.kind == .video)
+        #expect(
+            repositoryVideo.url.absoluteString
+                == "https://gitlab.example.com/api/v4/projects/10/repository/files/docs%2Fmedia%2Fdemo.mp4/raw?ref=main"
+        )
+        #expect(
+            repositoryVideo.browserURL?.absoluteString
+                == "https://gitlab.example.com/group/project/-/blob/main/docs/media/demo.mp4"
         )
     }
 
@@ -535,7 +651,7 @@ struct GitLabMarkdownParserTests {
 
     private func makeRequest(
         source: String,
-        webURL: String =
+        webURL: String? =
             "https://gitlab.example.com/group/project/-/issues/42"
     ) throws -> GitLabMarkdownRequest {
         let host = try GitLabHost("https://gitlab.example.com")
@@ -549,7 +665,7 @@ struct GitLabMarkdownParserTests {
                 issueIID: 42
             ),
             source: source,
-            webURL: URL(string: webURL)
+            webURL: webURL.flatMap(URL.init(string:))
         )
     }
 

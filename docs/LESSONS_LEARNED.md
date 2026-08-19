@@ -21,3 +21,7 @@
 - Never present a loaded page size as a total when pagination metadata says the count is unknown.
 - Unavailable swipe actions must restore visual state and be omitted from accessibility actions.
 - Treat Markdown as source data: trim only for validation, then render the original string.
+- GitLab `/uploads/...` links are project-scoped. Load them through the authenticated uploads API and keep web routes for browser presentation.
+- GitLab upload APIs can return `application/octet-stream`. Enforce limits, then validate image bytes by decoding.
+- Preserve original media extensions when playback URLs are extensionless API routes.
+- Fullscreen image viewers should reload at viewer resolution instead of scaling inline thumbnails.

@@ -67,6 +67,17 @@ nonisolated enum GitLabMarkdownResourceID:
         }
         return (projectID, ref)
     }
+
+    fileprivate var projectID: Int {
+        switch self {
+        case let .issue(projectID, _),
+             let .issueNote(projectID, _, _),
+             let .mergeRequest(projectID, _),
+             let .mergeRequestNote(projectID, _, _),
+             let .repositoryFile(projectID, _, _, _):
+            projectID
+        }
+    }
 }
 
 nonisolated struct GitLabMarkdownRequest:
@@ -286,29 +297,235 @@ nonisolated struct GitLabMarkdownTable:
     let columnCharacterCounts: [Int]
 }
 
+nonisolated enum GitLabMarkdownMediaKind:
+    Equatable,
+    Sendable
+{
+    case image
+    case video
+    case audio
+
+    init(url: URL) {
+        let fileExtension = url.pathExtension.lowercased()
+        if Self.videoFileExtensions.contains(fileExtension) {
+            self = .video
+        } else if Self.audioFileExtensions.contains(fileExtension) {
+            self = .audio
+        } else {
+            self = .image
+        }
+    }
+
+    func normalizedFileExtension(
+        _ value: String?
+    ) -> String? {
+        guard let value else {
+            return nil
+        }
+        let normalized = value.lowercased()
+        let isAllowed = switch self {
+        case .image:
+            false
+        case .video:
+            Self.videoFileExtensions.contains(normalized)
+        case .audio:
+            Self.audioFileExtensions.contains(normalized)
+        }
+        return isAllowed ? normalized : nil
+    }
+
+    private static let videoFileExtensions = [
+        "mp4", "m4v", "mov", "webm", "ogv",
+    ]
+    private static let audioFileExtensions = [
+        "mp3", "oga", "ogg", "spx", "wav",
+    ]
+}
+
+nonisolated struct GitLabMarkdownMediaDimension:
+    Equatable,
+    Sendable
+{
+    enum Unit: Equatable, Sendable {
+        case pixels
+        case percent
+    }
+
+    let value: Double
+    let unit: Unit
+}
+
+nonisolated struct GitLabMarkdownMediaDimensions:
+    Equatable,
+    Sendable
+{
+    let width: GitLabMarkdownMediaDimension?
+    let height: GitLabMarkdownMediaDimension?
+}
+
 nonisolated struct GitLabMarkdownImage:
     Equatable,
     Sendable
 {
     let accountID: GitLabAccountID
     let url: URL
+    let fallbackURLs: [URL]
     let altText: String
     let linkURL: URL?
+    let browserURL: URL?
+    let kind: GitLabMarkdownMediaKind
+    let dimensions: GitLabMarkdownMediaDimensions?
 
     init(
         accountID: GitLabAccountID,
         url: URL,
+        fallbackURLs: [URL] = [],
         altText: String,
-        linkURL: URL? = nil
+        linkURL: URL? = nil,
+        browserURL: URL? = nil,
+        kind: GitLabMarkdownMediaKind? = nil,
+        dimensions:
+            GitLabMarkdownMediaDimensions? = nil
     ) {
         self.accountID = accountID
         self.url = url
+        self.fallbackURLs = fallbackURLs
         self.altText = altText
         self.linkURL = linkURL
+        self.browserURL = browserURL
+        self.kind = kind ?? GitLabMarkdownMediaKind(
+            url: url
+        )
+        self.dimensions = dimensions
+    }
+
+    var candidateURLs: [URL] {
+        [url] + fallbackURLs.filter { $0 != url }
+    }
+
+    func applying(
+        dimensions: GitLabMarkdownMediaDimensions
+    ) -> Self {
+        Self(
+            accountID: accountID,
+            url: url,
+            fallbackURLs: fallbackURLs,
+            altText: altText,
+            linkURL: linkURL,
+            browserURL: browserURL,
+            kind: kind,
+            dimensions: dimensions
+        )
     }
 
     var accessibilityLabel: String {
-        altText.isEmpty ? "Markdown image" : altText
+        guard altText.isEmpty else {
+            return altText
+        }
+        switch kind {
+        case .image:
+            return "Markdown image"
+        case .video:
+            return "Markdown video"
+        case .audio:
+            return "Markdown audio"
+        }
+    }
+}
+
+nonisolated enum GitLabMarkdownMediaAttributeParser {
+    struct Result: Equatable, Sendable {
+        let dimensions: GitLabMarkdownMediaDimensions
+        let remainder: String
+    }
+
+    static func parsePrefix(
+        in source: String
+    ) -> Result? {
+        guard
+            source.first == "{",
+            let closingIndex = source.firstIndex(of: "}")
+        else {
+            return nil
+        }
+
+        let attributes = source[
+            source.index(after: source.startIndex)
+                ..< closingIndex
+        ]
+        var width: GitLabMarkdownMediaDimension?
+        var height: GitLabMarkdownMediaDimension?
+
+        for token in attributes.split(
+            whereSeparator: { $0.isWhitespace }
+        ) {
+            let components = token.split(
+                separator: "=",
+                maxSplits: 1,
+                omittingEmptySubsequences: false
+            )
+            guard components.count == 2 else {
+                return nil
+            }
+            let name = components[0].lowercased()
+            guard name == "width" || name == "height" else {
+                return nil
+            }
+            guard
+                let dimension = dimension(
+                    from: String(components[1])
+                )
+            else {
+                return nil
+            }
+            if name == "width" {
+                width = dimension
+            } else {
+                height = dimension
+            }
+        }
+
+        guard width != nil || height != nil else {
+            return nil
+        }
+        return Result(
+            dimensions: GitLabMarkdownMediaDimensions(
+                width: width,
+                height: height
+            ),
+            remainder: String(
+                source[source.index(after: closingIndex)...]
+            )
+        )
+    }
+
+    private static func dimension(
+        from source: String
+    ) -> GitLabMarkdownMediaDimension? {
+        let unit: GitLabMarkdownMediaDimension.Unit
+        let number: Substring
+        if source.hasSuffix("%") {
+            unit = .percent
+            number = source.dropLast()
+        } else if source.lowercased().hasSuffix("px") {
+            unit = .pixels
+            number = source.dropLast(2)
+        } else {
+            unit = .pixels
+            number = Substring(source)
+        }
+        guard
+            let value = Double(number),
+            value.isFinite,
+            value > 0,
+            unit != .percent || value <= 100
+        else {
+            return nil
+        }
+        return GitLabMarkdownMediaDimension(
+            value: value,
+            unit: unit
+        )
     }
 }
 
@@ -889,6 +1106,33 @@ nonisolated private enum GitLabMarkdownTreeConverter {
         var result: [GitLabMarkdownBlock] = []
         var text = AttributedString()
 
+        func appendText(
+            _ value: AttributedString
+        ) {
+            let source = String(value.characters)
+            if
+                case let .image(image)? = result.last,
+                let attributes =
+                    GitLabMarkdownMediaAttributeParser
+                    .parsePrefix(in: source)
+            {
+                result[result.count - 1] = .image(
+                    image.applying(
+                        dimensions: attributes.dimensions
+                    )
+                )
+                if !attributes.remainder.isEmpty {
+                    text.append(
+                        AttributedString(
+                            attributes.remainder
+                        )
+                    )
+                }
+                return
+            }
+            text.append(value)
+        }
+
         func flushText() {
             guard !text.characters.isEmpty else {
                 return
@@ -907,19 +1151,32 @@ nonisolated private enum GitLabMarkdownTreeConverter {
         for fragment in fragments {
             switch fragment {
             case let .substring(value):
-                text.append(value)
+                appendText(AttributedString(value))
             case let .text(value):
-                text.append(value)
+                appendText(value)
             case let .image(rawURL, altText):
                 flushText()
-                if let url = context.resolveImage(rawURL) {
+                let urls = context.resolveImageCandidates(
+                    rawURL
+                )
+                if let url = urls.first {
                     result.append(
                         .image(
                             GitLabMarkdownImage(
                                 accountID:
                                     context.accountID,
                                 url: url,
-                                altText: altText
+                                fallbackURLs:
+                                    Array(urls.dropFirst()),
+                                altText: altText,
+                                browserURL:
+                                    context.resolveImageBrowserURL(
+                                        rawURL
+                                    ),
+                                kind:
+                                    GitLabMarkdownMediaKind(
+                                        url: rawURL
+                                    )
                             )
                         )
                     )
@@ -1239,7 +1496,23 @@ nonisolated struct GitLabMarkdownLinkContext {
     }
 
     func resolveImage(_ url: URL) -> URL? {
+        resolveImageCandidates(url).first
+    }
+
+    func resolveImageCandidates(
+        _ url: URL
+    ) -> [URL] {
         let rawValue = url.relativeString
+        if
+            url.scheme == nil,
+            rawValue.hasPrefix("/uploads/"),
+            let uploadURLs = projectUploadURLs(
+                rawValue
+            ),
+            !uploadURLs.isEmpty
+        {
+            return uploadURLs
+        }
         guard
             resource.repositoryFileContext != nil,
             url.scheme == nil,
@@ -1247,12 +1520,25 @@ nonisolated struct GitLabMarkdownLinkContext {
             !rawValue.hasPrefix("#"),
             let resolved = resolve(url)
         else {
-            return resolve(url)
+            return resolve(url).map { [$0] } ?? []
         }
 
         return repositoryRawFileURL(
             from: resolved
-        )
+        ).map { [$0] } ?? []
+    }
+
+    func resolveImageBrowserURL(
+        _ url: URL
+    ) -> URL? {
+        let rawValue = url.relativeString
+        if
+            url.scheme == nil,
+            rawValue.hasPrefix("/uploads/")
+        {
+            return projectUploadWebURLs(rawValue)?.first
+        }
+        return resolve(url)
     }
 
     func referenceURL(
@@ -1305,6 +1591,103 @@ nonisolated struct GitLabMarkdownLinkContext {
         return GitLabWebURL.validated(
             baseComponents.url
         )
+    }
+
+    private func projectUploadURLs(
+        _ rawValue: String
+    ) -> [URL]? {
+        guard
+            let webURLs = projectUploadWebURLs(rawValue),
+            let relativeComponents = URLComponents(
+                string: rawValue
+            ),
+            let decodedPath = relativeComponents
+                .percentEncodedPath
+                .removingPercentEncoding
+        else {
+            return nil
+        }
+
+        let pathSegments = decodedPath.split(
+            separator: "/",
+            omittingEmptySubsequences: true
+        )
+        guard
+            pathSegments.count == 3,
+            pathSegments.first == "uploads",
+            var apiComponents = URLComponents(
+                url: accountID.host.apiBaseURL,
+                resolvingAgainstBaseURL: false
+            )
+        else {
+            return webURLs
+        }
+
+        apiComponents.percentEncodedPath +=
+            "/projects/\(resource.projectID)"
+            + relativeComponents.percentEncodedPath
+        apiComponents.query = relativeComponents.query
+        apiComponents.fragment = relativeComponents.fragment
+
+        guard
+            let apiURL = GitLabWebURL.validated(
+                apiComponents.url
+            )
+        else {
+            return webURLs
+        }
+        return [apiURL] + webURLs
+    }
+
+    private func projectUploadWebURLs(
+        _ rawValue: String
+    ) -> [URL]? {
+        guard
+            let relativeComponents = URLComponents(
+                string: rawValue
+            ),
+            let decodedPath = relativeComponents
+                .percentEncodedPath
+                .removingPercentEncoding,
+            Self.hasSafePathSegments(decodedPath)
+        else {
+            return nil
+        }
+
+        let modernBase = accountID.host.siteURL
+            .appendingPathComponent("-")
+            .appendingPathComponent("project")
+            .appendingPathComponent(
+                String(resource.projectID)
+            )
+        let bases = [modernBase]
+            + (projectURL.map { [$0] } ?? [])
+        let candidates = bases
+            .compactMap { base -> URL? in
+                guard
+                    var components = URLComponents(
+                        url: base,
+                        resolvingAgainstBaseURL: false
+                    )
+                else {
+                    return nil
+                }
+                components.percentEncodedPath +=
+                    relativeComponents.percentEncodedPath
+                components.query =
+                    relativeComponents.query
+                components.fragment =
+                    relativeComponents.fragment
+                return GitLabWebURL.validated(
+                    components.url
+                )
+            }
+        return candidates.reduce(into: []) {
+            result, candidate in
+            if !result.contains(candidate) {
+                result.append(candidate)
+            }
+        }
     }
 
     private var relativeBaseURL: URL? {

@@ -107,6 +107,8 @@ struct SignedInShellView: View {
         any GitLabMarkdownRendering
     private let markdownImageLoader:
         any GitLabMarkdownImageLoading
+    private let markdownMediaLoader:
+        any GitLabMarkdownMediaLoading
     private let avatarImageLoader:
         any GitLabAvatarImageLoading
     private let diffRenderer:
@@ -261,7 +263,9 @@ struct SignedInShellView: View {
         self.commitLoader = commitLoader
         self.repositoryLoader =
             repositoryLoader
-        markdownRenderer = GitLabMarkdownRenderer()
+        markdownRenderer = GitLabMarkdownRenderer(
+            rendererVersion: 3
+        )
         diffRenderer = GitLabDiffRenderer()
         let imageRequestPolicy =
             GitLabMarkdownImageRequestPolicy(
@@ -280,6 +284,11 @@ struct SignedInShellView: View {
                 requestPolicy:
                     imageRequestPolicy,
                 transport: imageTransport
+            )
+        markdownMediaLoader =
+            GitLabMarkdownMediaLoader(
+                accountID: accountID,
+                requestPolicy: imageRequestPolicy
             )
         let avatarBackingLoader =
             GitLabMarkdownImageLoader(
@@ -484,6 +493,10 @@ struct SignedInShellView: View {
         .environment(
             \.gitLabMarkdownImageLoader,
             markdownImageLoader
+        )
+        .environment(
+            \.gitLabMarkdownMediaLoader,
+            markdownMediaLoader
         )
         .environment(
             \.gitLabAvatarImageLoader,

@@ -479,9 +479,27 @@ nonisolated private enum GitLabReadOnlyMarkdownConverter {
         for fragment in source {
             switch fragment {
             case let .text(value):
+                var source = String(value)
+                if
+                    case let .image(image)? = result.last,
+                    let attributes =
+                        GitLabMarkdownMediaAttributeParser
+                        .parsePrefix(in: source)
+                {
+                    result[result.count - 1] = .image(
+                        image.applying(
+                            dimensions:
+                                attributes.dimensions
+                        )
+                    )
+                    source = attributes.remainder
+                }
+                guard !source.isEmpty else {
+                    continue
+                }
                 var text = linkReferences(
                     in: AttributedString(
-                        String(value)
+                        source
                     ),
                     context: context
                 )
@@ -546,7 +564,9 @@ nonisolated private enum GitLabReadOnlyMarkdownConverter {
                 guard
                     let rawURL,
                     let url = URL(string: rawURL),
-                    let resolved = context.resolveImage(url)
+                    let resolved = context
+                        .resolveImageCandidates(url)
+                        .first
                 else {
                     if !altText.isEmpty {
                         result.append(
@@ -559,13 +579,26 @@ nonisolated private enum GitLabReadOnlyMarkdownConverter {
                     }
                     continue
                 }
+                let urls = context.resolveImageCandidates(
+                    url
+                )
                 result.append(
                     .image(
                         GitLabMarkdownImage(
                             accountID: context.accountID,
                             url: resolved,
+                            fallbackURLs:
+                                Array(urls.dropFirst()),
                             altText: altText,
-                            linkURL: linkURL
+                            linkURL: linkURL,
+                            browserURL:
+                                context.resolveImageBrowserURL(
+                                    url
+                                ),
+                            kind:
+                                GitLabMarkdownMediaKind(
+                                    url: url
+                                )
                         )
                     )
                 )
@@ -854,10 +887,15 @@ nonisolated private enum GitLabMarkdownHTMLSanitizer {
                 let url = URL(
                     string: decodeEntities(rawURL)
                 ),
-                let resolved = context.resolveImage(url)
+                let resolved = context
+                    .resolveImageCandidates(url)
+                    .first
             else {
                 return nil
             }
+            let urls = context.resolveImageCandidates(
+                url
+            )
             let linkURL = anchors.first {
                 NSLocationInRange(
                     match.range.location,
@@ -875,13 +913,20 @@ nonisolated private enum GitLabMarkdownHTMLSanitizer {
             return GitLabMarkdownImage(
                 accountID: context.accountID,
                 url: resolved,
+                fallbackURLs: Array(urls.dropFirst()),
                 altText: attribute(
                     "alt",
                     in: match.source
                 )
                     .map(decodeEntities)
                     ?? "",
-                linkURL: linkURL
+                linkURL: linkURL,
+                browserURL:
+                    context.resolveImageBrowserURL(url),
+                kind:
+                    GitLabMarkdownMediaKind(url: url),
+                dimensions:
+                    htmlDimensions(in: match.source)
             )
         }
         sanitized = replacing(
@@ -908,6 +953,26 @@ nonisolated private enum GitLabMarkdownHTMLSanitizer {
             images: images,
             isCentered: isCentered
         )
+    }
+
+    private static func htmlDimensions(
+        in tag: String
+    ) -> GitLabMarkdownMediaDimensions? {
+        var values: [String] = []
+        if let width = attribute("width", in: tag) {
+            values.append("width=\(width)")
+        }
+        if let height = attribute("height", in: tag) {
+            values.append("height=\(height)")
+        }
+        guard !values.isEmpty else {
+            return nil
+        }
+        return GitLabMarkdownMediaAttributeParser
+            .parsePrefix(
+                in: "{" + values.joined(separator: " ") + "}"
+            )?
+            .dimensions
     }
 
     private static func richText(

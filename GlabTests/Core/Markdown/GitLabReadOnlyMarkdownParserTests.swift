@@ -149,6 +149,56 @@ struct GitLabReadOnlyMarkdownParserTests {
         #expect(!document.hasMappedMutableTask)
     }
 
+    @Test("Renders uploaded media in comments without leaking GitLab attributes")
+    func uploadedCommentMedia() async throws {
+        let document = try await GitLabReadOnlyMarkdownParser
+            .parse(
+                makeIssueNoteRequest(
+                    source:
+                        """
+                        ![ledger](/uploads/abc/ledger.png){width=900 height=335}
+
+                        ![demo](/uploads/abc/demo.mov)
+                        """
+                )
+            )
+        let media = document.blocks.compactMap(\.image)
+
+        #expect(media.count == 2)
+        let image = try #require(media.first)
+        #expect(
+            image.url.absoluteString
+                == "https://gitlab.example.com/api/v4/projects/10/uploads/abc/ledger.png"
+        )
+        #expect(
+            image.fallbackURLs.map(\.absoluteString)
+                == [
+                    "https://gitlab.example.com/-/project/10/uploads/abc/ledger.png",
+                    "https://gitlab.example.com/group/project/uploads/abc/ledger.png",
+                ]
+        )
+        #expect(
+            image.dimensions?.width
+                == GitLabMarkdownMediaDimension(
+                    value: 900,
+                    unit: .pixels
+                )
+        )
+        #expect(
+            image.dimensions?.height
+                == GitLabMarkdownMediaDimension(
+                    value: 335,
+                    unit: .pixels
+                )
+        )
+        #expect(!document.plainText.contains("width="))
+        #expect(media[1].kind == .video)
+        #expect(
+            media[1].browserURL?.absoluteString
+                == "https://gitlab.example.com/-/project/10/uploads/abc/demo.mov"
+        )
+    }
+
     private func makeRepositoryRequest(
         source: String
     ) throws -> GitLabMarkdownRequest {
